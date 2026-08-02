@@ -28,8 +28,9 @@ These `feature-*.md` files are a **reverse-spec** of the imported Mission Trips 
 | 8 | [feature-8-donors-and-donations.md](./feature-8-donors-and-donations.md) | `feature/8-donors-and-donations` | 7 |
 | 9 | [feature-9-public-fundraising-pages.md](./feature-9-public-fundraising-pages.md) | `feature/9-public-fundraising-pages` | 5, 7, 8 |
 | 10 | [feature-10-email-templates.md](./feature-10-email-templates.md) | `feature/10-email-templates` | 3, 5 |
+| 11 | [feature-11-people-list-all-orgs-includes-admin.md](./feature-11-people-list-all-orgs-includes-admin.md) | `feature/11-people-list-all-orgs-includes-admin` | 2 |
 
-Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10).
+Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11).
 
 New features: follow [framework.md](./framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, Gherkin, **Agent implementation request**, **Definition of Done**.
 

@@ -222,3 +222,4 @@ Do not implement behavior not in this spec.
 - Person documents — Feature 4
 - Trip participant assignments — Feature 7
 - Organization CRUD — Feature 3
+- System admin all-orgs people list including persons without org membership — [Feature 11](feature-11-people-list-all-orgs-includes-admin.md)
