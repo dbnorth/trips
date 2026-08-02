@@ -16,7 +16,7 @@ API mount path: `/trips` (see `backend/server.js`).
 |--------|---------|-------|
 | `/trips/login`, `/register`, `/logout`, `/me`, `/change-password`, `/reset-password` | 1 | Auth & sessions |
 | `/trips/users`, `/trips/roles` | 2 | System users + role catalog |
-| `/trips/people`, `/trips/org-people-roles` | 2 | People & org membership |
+| `/trips/people`, `/trips/org-people-roles` | 2, 11 | People & org membership; Feature 11: system admin with no acting-org header lists **all** persons |
 | `/trips/organizations` (+ logo, agreement) | 3 | Organizations |
 | `/trips/document-types`, `/trips/people/:id/documents` | 4 | Documents |
 | `/trips/trips` (CRUD + image), `/trips/dashboard/*` | 5 | Trip catalog |

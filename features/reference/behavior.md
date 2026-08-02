@@ -19,6 +19,7 @@ They do **not** authorize new scope — implement only from `features/feature-*.
 | Passwords bcrypt-hashed; never returned | User `defaultScope` | Feature 1 |
 | System admin = `user.isAdmin` | `accessControl.js` | Features 1–10 |
 | Org roles via `orgPeopleRole` + role names | `accessControl.js`, seed roles | Feature 2 |
+| System admin People list with no acting org (“All organizations”) returns **all** persons, including those with no org membership | `person.controller` `findAll` | Feature 11 |
 | Trip role privileges use **approved** `tripPeopleRole` only | `authenticate` loads `tripRoles` | Feature 7 |
 | Acting org header `X-Acting-Organization-Id` scopes lists for system admins | Axios + accessControl | Features 2–5 |
 | Person profile completeness gates applications | `isProfileComplete` | Features 2, 7 |

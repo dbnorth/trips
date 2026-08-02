@@ -69,9 +69,12 @@ exports.findAll = async (req, res) => {
     const orgIds = peopleListOrgIds(req);
     if (orgIds == null) return res.send([]);
 
-    const linkWhere = orgIds === "all" ? {} : { orgId: orgIds };
-    const links = await OrgPeopleRole.findAll({ where: linkWhere });
-    let peopleIds = [...new Set(links.map((l) => l.peopleId))];
+    // System admin with no acting-org scope: all persons (not only org members).
+    let peopleIds = null;
+    if (orgIds !== "all") {
+      const links = await OrgPeopleRole.findAll({ where: { orgId: orgIds } });
+      peopleIds = [...new Set(links.map((l) => l.peopleId))];
+    }
 
     const tripIdRaw = req.query.tripId;
     if (tripIdRaw != null && tripIdRaw !== "") {
@@ -86,13 +89,17 @@ exports.findAll = async (req, res) => {
       }
       const tripLinks = await TripPeopleRole.findAll({ where: { tripId }, attributes: ["peopleId"] });
       const tripPeopleIds = new Set(tripLinks.map((l) => l.peopleId));
-      peopleIds = peopleIds.filter((id) => tripPeopleIds.has(id));
+      if (peopleIds == null) {
+        peopleIds = [...tripPeopleIds];
+      } else {
+        peopleIds = peopleIds.filter((id) => tripPeopleIds.has(id));
+      }
     }
 
-    if (!peopleIds.length) return res.send([]);
+    if (peopleIds != null && !peopleIds.length) return res.send([]);
 
     const data = await Person.findAll({
-      where: { id: peopleIds },
+      where: peopleIds == null ? {} : { id: peopleIds },
       order: [["lastName", "ASC"], ["firstName", "ASC"]],
     });
     res.send(data);
