@@ -153,7 +153,7 @@ No new tables — uses existing entities; public controllers filter by status/ap
 | US-9.1 | Visitor opens organization trips page by slug | `backend/tests/public.test.js` | `Visitor opens organization trips page by slug` |
 | US-9.1 | Visitor opens public trip overview | `backend/tests/public.test.js` | `Visitor opens public trip overview` |
 | US-9.2 | Visitor submits a public donation | `backend/tests/public.test.js` | `Visitor submits a public donation` |
-| US-9.3 | Visitor clicks Apply on public trip page | `backend/tests/public.test.js` | `Visitor clicks Apply on public trip page` |
+| US-9.3 | Visitor clicks Apply on public trip page | `frontend/tests/PublicTripPage.test.js` | `Visitor clicks Apply on public trip page` |
 
 ---
 
@@ -175,8 +175,8 @@ Do not implement behavior not in this spec.
 ## Definition of Done
 
 *   [x] Implemented in imported codebase (**FR-00N**)
-*   [ ] Automated tests for every Gherkin scenario
-*   [ ] `npm test` green
+*   [x] Automated tests for every Gherkin scenario
+*   [x] `npm test` green
 *   [ ] Living reference updated when evolving this feature
 
 ## Out of Scope

@@ -295,20 +295,20 @@ Each scenario above must map to at least one automated test (backfill).
 
 | Story | Scenario | Test file | Test name |
 |-------|----------|-----------|-----------|
-| US-1.1 | User registers with valid information | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `User registers with valid information` |
-| US-1.1 | User registers with optional organizations | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `User registers with optional organizations` |
-| US-1.1 | User registers with duplicate email | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `User registers with duplicate email` |
-| US-1.1 | User registers with password too short | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `User registers with password too short` |
-| US-1.2 | User signs in with valid credentials | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `User signs in with valid credentials` |
-| US-1.2 | User signs in with invalid password | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `User signs in with invalid password` |
-| US-1.3 | Authenticated API request includes Bearer token | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `Authenticated API request includes Bearer token` |
-| US-1.3 | Expired token clears session | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `Expired token clears session` |
-| US-1.4 | User signs out | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `User signs out` |
-| US-1.4 | User changes password | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `User changes password` |
-| US-1.5 | Unauthenticated user opens home | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `Unauthenticated user opens home` |
-| US-1.5 | API without token is rejected | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `API without token is rejected` |
-| US-1.6 | Applicant creates account from apply flow | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `Applicant creates account from apply flow` |
-| US-1.6 | Already signed-in user hits apply sign-in | `backend/tests/auth.test.js / frontend/tests/Login.test.js` | `Already signed-in user hits apply sign-in` |
+| US-1.1 | User registers with valid information | `backend/tests/auth.test.js`, `frontend/tests/Login.test.js` | `User registers with valid information` |
+| US-1.1 | User registers with optional organizations | `backend/tests/auth.test.js` | `User registers with optional organizations` |
+| US-1.1 | User registers with duplicate email | `backend/tests/auth.test.js` | `User registers with duplicate email` |
+| US-1.1 | User registers with password too short | `backend/tests/auth.test.js`, `frontend/tests/ApplyCreateAccount.test.js` | `User registers with password too short` |
+| US-1.2 | User signs in with valid credentials | `backend/tests/auth.test.js`, `frontend/tests/Login.test.js` | `User signs in with valid credentials` |
+| US-1.2 | User signs in with invalid password | `backend/tests/auth.test.js`, `frontend/tests/Login.test.js` | `User signs in with invalid password` |
+| US-1.3 | Authenticated API request includes Bearer token | `backend/tests/auth.test.js`, `frontend/tests/services.auth.test.js` | `Authenticated API request includes Bearer token` |
+| US-1.3 | Expired token clears session | `backend/tests/auth.test.js`, `frontend/tests/services.auth.test.js` | `Expired token clears session` |
+| US-1.4 | User signs out | `backend/tests/auth.test.js`, `frontend/tests/Login.test.js` | `User signs out` |
+| US-1.4 | User changes password | `backend/tests/auth.test.js` | `User changes password` |
+| US-1.5 | Unauthenticated user opens home | `frontend/tests/router.test.js` | `Unauthenticated user opens home` |
+| US-1.5 | API without token is rejected | `backend/tests/auth.test.js` | `API without token is rejected` |
+| US-1.6 | Applicant creates account from apply flow | `backend/tests/auth.test.js`, `frontend/tests/ApplyCreateAccount.test.js` | `Applicant creates account from apply flow` |
+| US-1.6 | Already signed-in user hits apply sign-in | `frontend/tests/router.test.js` | `Already signed-in user hits apply sign-in` |
 
 ---
 
@@ -333,9 +333,9 @@ Do not implement behavior not in this spec.
 ## Definition of Done
 
 *   [x] Backend and frontend implemented per this spec (**FR-00N** satisfied) — reverse-spec of imported code
-*   [ ] **Success Criteria (SC-00N)** met with automated tests mapped below
-*   [ ] All mapped tests pass (`npm test`)
-*   [ ] Test Coverage Map complete with passing `it` blocks
+*   [x] **Success Criteria (SC-00N)** met with automated tests mapped below
+*   [x] All mapped tests pass (`npm test`)
+*   [x] Test Coverage Map complete with passing `it` blocks
 *   [x] Schema/API/behavior reflected in living reference when baselines are filled
 
 ## Out of Scope
