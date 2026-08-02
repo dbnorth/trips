@@ -39,3 +39,4 @@ They do **not** authorize new scope — implement only from `features/feature-*.
 | Donors, staff donations, donation CSVs | Feature 8 |
 | Public org/trip/donate pages | Feature 9 |
 | Email templates | Feature 10 |
+| System admin all-orgs people list includes all persons | Feature 11 |
