@@ -188,7 +188,7 @@
 | Story | Scenario | Test file | Test name |
 |-------|----------|-----------|-----------|
 | US-7.1 | Participant browses active trips and opens apply dialog | `backend/tests/applications.test.js` | `Participant browses active trips and opens apply dialog` |
-| US-7.1 | System admin cannot browse-apply | `backend/tests/applications.test.js` | `System admin cannot browse-apply` |
+| US-7.1 | System admin cannot browse-apply | `frontend/tests/router.test.js` | `System admin cannot browse-apply` |
 | US-7.2 | Incomplete application saves as incomplete | `backend/tests/applications.test.js` | `Incomplete application saves as incomplete` |
 | US-7.2 | Complete application becomes applied | `backend/tests/applications.test.js` | `Complete application becomes applied` |
 | US-7.3 | Trip Leader approves an applied participant | `backend/tests/applications.test.js` | `Trip Leader approves an applied participant` |
@@ -215,8 +215,8 @@ Do not implement behavior not in this spec.
 ## Definition of Done
 
 *   [x] Implemented in imported codebase (**FR-00N**)
-*   [ ] Automated tests for every Gherkin scenario
-*   [ ] `npm test` green
+*   [x] Automated tests for every Gherkin scenario
+*   [x] `npm test` green
 *   [ ] Living reference updated when evolving this feature
 
 ## Out of Scope
