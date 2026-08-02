@@ -165,8 +165,8 @@ Do not implement behavior not in this spec.
 ## Definition of Done
 
 *   [x] Implemented in imported codebase (**FR-00N**)
-*   [ ] Automated tests for every Gherkin scenario
-*   [ ] `npm test` green
+*   [x] Automated tests for every Gherkin scenario
+*   [x] `npm test` green
 *   [ ] Living reference updated when evolving this feature
 
 ## Out of Scope

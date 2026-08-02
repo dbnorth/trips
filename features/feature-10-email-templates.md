@@ -125,7 +125,7 @@
 | Story | Scenario | Test file | Test name |
 |-------|----------|-----------|-----------|
 | US-10.1 | Org Admin creates an email template | `backend/tests/email-templates.test.js` | `Org Admin creates an email template` |
-| US-10.1 | Unauthorized user cannot open templates page | `backend/tests/email-templates.test.js` | `Unauthorized user cannot open templates page` |
+| US-10.1 | Unauthorized user cannot open templates page | `frontend/tests/router.test.js` | `Unauthorized user cannot open templates page` |
 | US-10.2 | Staff loads copy-sources | `backend/tests/email-templates.test.js` | `Staff loads copy-sources` |
 
 ---
@@ -148,8 +148,8 @@ Do not implement behavior not in this spec.
 ## Definition of Done
 
 *   [x] Implemented in imported codebase (**FR-00N**)
-*   [ ] Automated tests for every Gherkin scenario
-*   [ ] `npm test` green
+*   [x] Automated tests for every Gherkin scenario
+*   [x] `npm test` green
 *   [ ] Living reference updated when evolving this feature
 
 ## Out of Scope

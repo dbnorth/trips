@@ -74,65 +74,70 @@ const router = createRouter({
   ],
 });
 
-router.beforeEach((to, _from, next) => {
-  const user = Utils.getStore("user");
-  const publicRoutes = [
-    "login",
-    "donorTrip",
-    "donorParticipant",
-    "orgTrips",
-    "publicTrip",
-    "applyAuth",
-    "applyCreateAccount",
-  ];
-  const applyAuthRoutes = ["applyAuth", "applyCreateAccount"];
-  if (publicRoutes.includes(to.name)) {
-    if (to.name === "login" && user) {
-      const redirect = typeof to.query.redirect === "string" ? to.query.redirect : "";
-      if (redirect.startsWith("/") && !redirect.startsWith("//")) next(redirect);
-      else next({ name: "home" });
-    } else if (applyAuthRoutes.includes(to.name) && user) {
-      const tripId = to.query.tripId ? String(to.query.tripId) : "";
-      if (tripId) next({ name: "tripBrowse", params: { tripId } });
-      else next({ name: "home" });
-    } else next();
-    return;
-  }
-  if (!user) {
-    next({ name: "login" });
-    return;
-  }
-  if (to.name === "organizations" && !user.isAdmin) {
-    next({ name: "home" });
-    return;
-  }
-  if (to.name === "documentTypes" && !user.isAdmin) {
-    next({ name: "home" });
-    return;
-  }
-  if (
-    (to.name === "tripBrowse" || to.name === "editTripApplication") &&
-    !Utils.canBrowseAndApplyToTrips(user)
-  ) {
-    next({ name: "home" });
-    return;
-  }
-  if (to.name === "templates" && !user.isAdmin) {
-    const isOrgAdmin = (user.orgRoles || []).some((r) => r.roleName === "Org Admin");
-    const isTripLeader = (user.tripRoles || []).some((r) => r.roleName === "Trip Leader");
-    if (!isOrgAdmin && !isTripLeader) {
+/** Shared auth/role guards — used by the app router and Feature 1 router tests. */
+export function applyAuthGuards(router) {
+  router.beforeEach((to, _from, next) => {
+    const user = Utils.getStore("user");
+    const publicRoutes = [
+      "login",
+      "donorTrip",
+      "donorParticipant",
+      "orgTrips",
+      "publicTrip",
+      "applyAuth",
+      "applyCreateAccount",
+    ];
+    const applyAuthRoutes = ["applyAuth", "applyCreateAccount"];
+    if (publicRoutes.includes(to.name)) {
+      if (to.name === "login" && user) {
+        const redirect = typeof to.query.redirect === "string" ? to.query.redirect : "";
+        if (redirect.startsWith("/") && !redirect.startsWith("//")) next(redirect);
+        else next({ name: "home" });
+      } else if (applyAuthRoutes.includes(to.name) && user) {
+        const tripId = to.query.tripId ? String(to.query.tripId) : "";
+        if (tripId) next({ name: "tripBrowse", params: { tripId } });
+        else next({ name: "home" });
+      } else next();
+      return;
+    }
+    if (!user) {
+      next({ name: "login" });
+      return;
+    }
+    if (to.name === "organizations" && !user.isAdmin) {
       next({ name: "home" });
       return;
     }
-  }
-  if (to.name === "workerRoles" && !user.isAdmin) {
-    const isOrgAdmin = (user.orgRoles || []).some((r) => r.roleName === "Org Admin");
-    if (!isOrgAdmin) {
+    if (to.name === "documentTypes" && !user.isAdmin) {
       next({ name: "home" });
       return;
     }
-  }
-  next();
-});
+    if (
+      (to.name === "tripBrowse" || to.name === "editTripApplication") &&
+      !Utils.canBrowseAndApplyToTrips(user)
+    ) {
+      next({ name: "home" });
+      return;
+    }
+    if (to.name === "templates" && !user.isAdmin) {
+      const isOrgAdmin = (user.orgRoles || []).some((r) => r.roleName === "Org Admin");
+      const isTripLeader = (user.tripRoles || []).some((r) => r.roleName === "Trip Leader");
+      if (!isOrgAdmin && !isTripLeader) {
+        next({ name: "home" });
+        return;
+      }
+    }
+    if (to.name === "workerRoles" && !user.isAdmin) {
+      const isOrgAdmin = (user.orgRoles || []).some((r) => r.roleName === "Org Admin");
+      if (!isOrgAdmin) {
+        next({ name: "home" });
+        return;
+      }
+    }
+    next();
+  });
+}
+
+applyAuthGuards(router);
 
 export default router;
