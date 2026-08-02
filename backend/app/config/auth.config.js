@@ -1,5 +1,4 @@
-const authConfig = {
-  secret: process.env.AUTH_SECRET || "todo-speckit-dev-secret",
+export default {
+  secret: process.env.AUTH_SECRET || "trips-dev-secret",
+  sessionHours: 4,
 };
-
-export default authConfig;

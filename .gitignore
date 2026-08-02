@@ -6,6 +6,16 @@ dist/
 frontend/dist/
 backend/deploy/
 backend/logs/
+backend/uploads/
+backend/images/**
+!backend/images/**/
+!backend/images/**/.gitkeep
+backend/agreements/**
+!backend/agreements/**/
+!backend/agreements/**/.gitkeep
+backend/documents/**
+!backend/documents/**/
+!backend/documents/**/.gitkeep
 *.log
 .DS_Store
 docs/todo-speckit-specs.md

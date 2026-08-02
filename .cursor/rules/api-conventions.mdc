@@ -6,29 +6,30 @@ globs: "backend/**/*, **/*.routes.js, **/*.controller.js, **/*.model.js"
 
 ## Stack
 *   Node.js `"type": "module"` — import/export only.
-*   Express 4, mounted at `/todo/`.
+*   Express 4, mounted at `/trips/`.
 *   Sequelize 6 + mysql2; config in `app/config/db.config.js` via dotenv.
 *   Separate `sequelizeInstance.js`; models import it and register in `models/index.js`.
 *   bcryptjs + jsonwebtoken + Session model for auth.
 *   winston + morgan (morgan streams to winston).
+*   multer for image/document uploads; static mounts for `/trips/images` and `/trips/uploads`.
 
 ## server.js Responsibilities
-*   `db.sequelize.sync()` on startup; optional `{ alter: true }` when `SEQUELIZE_SYNC_ALTER=true`.
-*   CORS with `credentials: true` and frontend origin.
+*   `db.sequelize.sync()` on startup (skipped when `NODE_ENV=test`); optional `{ alter: true }` when `SEQUELIZE_SYNC_ALTER=true`; then `ensureSchema()` when syncing.
+*   CORS with `credentials: true` and frontend origin (`CORS_ORIGIN` or `http://localhost:8082`).
 *   `express.json()` and `urlencoded({ extended: true })`.
-*   Mount routes: `app.use("/todo", routes)`.
+*   Mount routes: `app.use("/trips", routes)`.
 *   Export `app` as default; call `listen()` only when `NODE_ENV !== "test"`.
 
 ## Route Layout
 *   `app/routes/index.js` — central router registering each `*.routes.js`.
-*   Auth at mount root: `POST /register`, `POST /login`, `POST /logout`, `POST /reset-password` (dev only).
-*   Resource routes: `router.use("/lists", ListRoutes)` etc.
-*   Nested children on parent router: `GET /lists/:listId/todos`.
+*   Auth at mount root: `POST /login`, `POST /register`, `POST /logout`, `GET /me`, `POST /change-password`, `POST /reset-password` (dev only), `GET /register/organizations`.
+*   Resource routers: `/people`, `/organizations`, `/trips`, `/donations`, `/public`, etc.
+*   Public unauthenticated surface: `/public/*` (see ADR-0004).
 
-Todo REST shape:
-*   `GET/POST /todo/lists`
-*   `GET/POST /todo/lists/:listId/todos`
-*   `PUT/DELETE /todo/todos/:id`
+Trips REST examples (full paths under `/trips`):
+*   `POST /trips/login`, `POST /trips/register`
+*   `GET/POST /trips/trips`, `GET /trips/trips/browse/:id`
+*   `GET /trips/public/trips/by-name/:tripSlug`
 
 ## Controller Pattern
 ```javascript
@@ -42,11 +43,11 @@ export default exports;
 *   Parse route IDs: `parseInt(req.params.id, 10)`; reject `NaN`.
 *   Use `logger.debug/warn/error` — never `console.log`.
 *   Sequelize `include` for associations; `order` for stable list sorting.
+*   Prefer `optimisticUpdate` for versioned entities (ADR-0005).
 
 ## JSON Responses
 *   **Success:** `res.send(data)` or `res.status(201).send(created)`.
 *   **Failure:** `res.status(4xx).send({ message: "Human-readable explanation." })`.
-*   **404 format:** ``{ message: `List with id=${id} not found.` }``
 *   Do **not** use `{ success, data }` envelopes.
 
 ## Model Conventions
@@ -55,10 +56,12 @@ export default exports;
 *   Associations and `hasMany`/`belongsTo` defined in `models/index.js`, not scattered in controllers.
 
 ## Schema Changes
-Incremental scripts in `app/scripts/` — one concern per file, runnable via `npm run <script>`.
+Incremental scripts in `app/scripts/` — one concern per file (`ensureSchema.js`, `seedRoles.js`), runnable via npm scripts.
 
 ## Protected Routes
 ```javascript
+import { authenticate } from "../authorization/accessControl.js";
+
 router.get("/", [authenticate], controller.findAll);
 ```
-`authenticate` looks up Bearer token in Session table, checks expiration, sets `req.user`.
+`authenticate` looks up Bearer token in Session table, checks expiration, loads person/org/trip roles onto `req.user`.

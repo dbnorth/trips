@@ -1,12 +1,13 @@
 {
-  "name": "speckit-app-backend",
+  "name": "trips-backend",
   "version": "1.0.0",
   "type": "module",
-  "description": "Speckit App — Node.js REST API",
+  "description": "Trips — Node.js REST API (imported from missiontrips-backend)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+    "seed": "node app/scripts/seedRoles.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "bundle": "node scripts/make-deploy.mjs"
@@ -20,6 +21,7 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "multer": "^2.1.1",
     "mysql2": "^3.12.0",
     "sequelize": "^6.37.5",
     "winston": "^3.17.0",

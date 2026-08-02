@@ -84,4 +84,8 @@ What we chose, in one or two sentences.
 
 | ADR | Title | Status |
 |-----|-------|--------|
-| — | *Add ADR-0001 when you make the first cross-cutting architecture choice* | — |
+| [0001](./0001-client-server-multi-org-architecture.md) | Client–server architecture for multi-organization Trips | Accepted |
+| [0002](./0002-layered-security-and-rbac.md) | Layered security and org/trip RBAC | Accepted |
+| [0003](./0003-mysql-relational-database.md) | MySQL relational database | Accepted |
+| [0004](./0004-public-and-authenticated-surfaces.md) | Public and authenticated application surfaces | Accepted |
+| [0005](./0005-optimistic-concurrency.md) | Optimistic concurrency with version columns | Accepted |

@@ -1,7 +1,7 @@
 {
-  "name": "speckit-app",
+  "name": "trips-spec",
   "private": true,
-  "description": "Spec-driven app — monorepo root (deploy scripts orchestrate frontend/ and backend/)",
+  "description": "Trips — Spec-driven monorepo (deploy scripts orchestrate frontend/ and backend/)",
   "scripts": {
     "build:frontend": "npm run build --prefix frontend",
     "bundle:frontend": "npm run bundle --prefix frontend",
@@ -16,7 +16,7 @@
     "specs:pdf": "node scripts/export-specs-pdf.mjs",
     "specs:pdf:setup": "npx puppeteer browsers install chrome",
     "writing-guides:pdf": "node scripts/export-writing-guides-pdf.mjs",
-    "agility:export": "node scripts/export-agility-import.mjs --project \"Speckit App\"",
+    "agility:export": "node scripts/export-agility-import.mjs --project \"Trips\"",
     "agility:push": "node scripts/push-agility-api.mjs",
     "agility:push:dry-run": "node scripts/push-agility-api.mjs --dry-run",
     "agility:verify": "node scripts/push-agility-api.mjs --verify"

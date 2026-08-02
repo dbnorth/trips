@@ -21,15 +21,16 @@ Harness smoke tests (`backend/tests/app.test.js`, `frontend/tests/App.test.js`) 
 *   Import the Express `app` export (server does not listen in `NODE_ENV=test`).
 *   Integration-test each endpoint with supertest.
 *   Per success case, also test:
-    1.  Missing/invalid input → `400` with `{ message }`.
-    2.  Missing/expired token → `401`.
-    3.  Another user's resource → `404` (scoped access).
-*   Use a dedicated test database (`todospeckit-db-test`); copy `backend/.env.test.example` to `backend/.env.test`.
+    1. Missing/invalid input → `400` (or documented `4xx`) with `{ message }`.
+    2. Missing/expired token → `401` on protected routes.
+    3. Unauthorized org/trip access → denied per feature (often `403`/`404` as coded).
+*   Use a dedicated test database (`trips_db-test`); copy `backend/.env.test.example` to `backend/.env.test`.
 
 ## Frontend (Vitest + @vue/test-utils)
 *   Mount views/components with reactive state.
 *   Assert client-side validation blocks submit before API call.
 *   Assert loading and error UI states on promise resolve/reject.
+*   Stub heavy children (e.g. `MenuBar`) when testing `App.vue` shell.
 
 ## SDD link
 Each Gherkin scenario in `features/feature-*.md` maps to at least one `it` block. Traceability: **US-N.n** → scenario → test; functional rules live in **FR-00N**; measurable bars in **SC-00N**. No `expect(true).toBe(true)`.

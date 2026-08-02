@@ -5,33 +5,37 @@ globs: "frontend/src/**/*, backend/app/controllers/auth.*, backend/app/models/se
 # Auth & Session Patterns
 
 ## Session Model
-*   Fields: `token`, `email`, `expirationDate`, `userId` (FK to users).
+*   Fields: `token`, `email`, `expirationDate`, `userId` (FK to user).
 *   Token stored server-side; client sends it as Bearer header on each request.
-*   Session TTL: 24 hours (`expiresIn: 86400` on JWT; matching `expirationDate` on row).
+*   Session TTL: **4 hours** (`auth.config.js` `sessionHours`).
 *   On login, reuse non-expired session for same email before issuing a new token.
 
-## Login Response Payload
+## Login / Register Response Payload
 Return flat JSON (not wrapped):
 ```json
 {
+  "email": "jane@example.com",
   "userId": 1,
-  "username": "jdoe",
-  "email": "jdoe@example.com",
-  "fName": "Jane",
-  "lName": "Doe",
-  "role": "worker",
-  "token": "<jwt>"
+  "token": "<jwt>",
+  "isAdmin": false,
+  "personId": 2,
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "orgRoles": [{ "orgId": 1, "roleName": "Trip Participant" }],
+  "tripRoles": []
 }
 ```
 
 ## Frontend Auth State
-*   Store full login response in `localStorage` key `user` via `Utils.setStore("user", res.data)`.
-*   `authServices.js`: `loginUser`, `logoutUser` methods calling `apiClient.post` (see `frontend-services.mdc`).
+*   Store full login/register/`me` response in `localStorage` key `user` via `Utils.setStore("user", res.data)`.
+*   `authServices.js`: login, register, logout, change-password, me (see `frontend-services.mdc`).
 *   Logout clears server session, then `Utils.removeItem("user")`, then route to login.
-*   `router.beforeEach`: if no `user` in store and route is not login → redirect to login.
-*   Axios token attachment and 401 redirect: `frontend-services.mdc`.
+*   `router.beforeEach`: public routes (`login`, public/donate/apply entry) vs requires `user`; role gates for admin-only pages.
+*   Axios token + acting-org header and unauthorized redirect: `frontend-services.mdc`.
+*   Dispatch `user-logged-in` / `user-logged-out` / `user-updated` window events when auth/org context changes.
 
-## Registration (when spec requires)
-*   Hash password server-side before `User.create`.
-*   Validate required fields in controller; return `400` with `{ message }`.
-*   Mirror the same field rules in the Vue form with Vuetify validation rules.
+## Registration
+*   Hash password server-side before `User.create`; also create linked **Person**.
+*   Optional `orgIds[]` → Trip Participant org roles.
+*   Validate required fields in controller; return `4xx` with `{ message }`.
+*   Mirror field rules in Vue forms (Login / apply create-account).

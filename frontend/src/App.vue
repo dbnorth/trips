@@ -1,32 +1,74 @@
 <script setup>
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { useRoute } from "vue-router";
+import { useTheme } from "vuetify";
+import MenuBar from "./components/MenuBar.vue";
+import Utils from "./config/utils.js";
+import OrganizationServices from "./services/organizationServices.js";
+import { resolveOrgColor } from "./plugins/vuetify.js";
+
+const theme = useTheme();
+const route = useRoute();
+
+const hideMenuBar = computed(() =>
+  ["donorTrip", "donorParticipant", "orgTrips", "publicTrip", "login"].includes(route.name)
+);
+
+const orgScopeKey = () => {
+  const user = Utils.getStore("user");
+  if (!user) return "none";
+  return String(Utils.effectiveOrgId(user) ?? "all");
+};
+
+const viewKey = ref(orgScopeKey());
+
+const applyOrgColor = (colorFamily) => {
+  const primary = resolveOrgColor(colorFamily);
+  if (theme.themes.value.myCustomLightTheme) {
+    theme.themes.value.myCustomLightTheme.colors.primary = primary;
+  }
+};
+
+const fetchAndApplyOrgColor = () => {
+  const user = Utils.getStore("user");
+  const org = Utils.currentOrg(user);
+  if (org?.colorFamily) {
+    applyOrgColor(org.colorFamily);
+    return;
+  }
+  const orgId = Utils.effectiveOrgId(user);
+  if (orgId) {
+    OrganizationServices.get(orgId)
+      .then((r) => applyOrgColor(r.data?.colorFamily))
+      .catch(() => applyOrgColor());
+  } else {
+    applyOrgColor();
+  }
+};
+
+const handleUserContextChange = () => {
+  viewKey.value = orgScopeKey();
+  fetchAndApplyOrgColor();
+};
+
+onMounted(() => {
+  fetchAndApplyOrgColor();
+  window.addEventListener("user-updated", handleUserContextChange);
+  window.addEventListener("user-logged-in", handleUserContextChange);
+  window.addEventListener("user-logged-out", handleUserContextChange);
+});
+onUnmounted(() => {
+  window.removeEventListener("user-updated", handleUserContextChange);
+  window.removeEventListener("user-logged-in", handleUserContextChange);
+  window.removeEventListener("user-logged-out", handleUserContextChange);
+});
 </script>
 
 <template>
   <v-app>
+    <MenuBar v-if="!hideMenuBar" />
     <v-main>
-      <router-view />
+      <router-view :key="`${route.fullPath}:${viewKey}`" />
     </v-main>
   </v-app>
 </template>
-
-<style>
-/* OC Academic Edition — typography (see ui-style-system.mdc) */
-.v-application {
-  font-family: Inter, sans-serif !important;
-  font-size: 16px;
-  font-weight: 400;
-}
-
-.v-application :is(h1, h2, h3, h4, h5, h6) {
-  font-weight: 700;
-  color: rgb(var(--v-theme-primary));
-}
-
-/* Primary labeled CTAs — shared size for peer buttons */
-.v-btn.oc-cta {
-  font-size: 0.875rem !important;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  text-transform: none;
-}
-</style>
