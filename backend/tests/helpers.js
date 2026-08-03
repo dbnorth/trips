@@ -77,39 +77,6 @@ export const findRole = async (roleName) => {
   return db.role.findOne({ where: { roleName } });
 };
 
-export const assignOrgRole = async (orgId, peopleId, roleName) => {
-  const role = await findRole(roleName);
-  if (!role) throw new Error(`Role not seeded: ${roleName}`);
-  const existing = await db.orgPeopleRole.findOne({ where: { orgId, peopleId } });
-  if (existing) {
-    await existing.update({ roleId: role.id });
-    return existing;
-  }
-  return db.orgPeopleRole.create({ orgId, peopleId, roleId: role.id, version: 0 });
-};
-
-/** Register a user and set `isAdmin` so subsequent authenticated requests are system admin. */
-export const createSystemAdminUser = async ({
-  email = "sysadmin@example.com",
-} = {}) => {
-  const reg = await registerUser({
-    email,
-    firstName: "Sys",
-    lastName: "Admin",
-  });
-  await db.user.update({ isAdmin: true }, { where: { id: reg.user.userId } });
-  return reg;
-};
-};
-
-export const createOrganization = async (name = "Hope Mission") => {
-  return db.organization.create({ name });
-};
-
-export const findRole = async (roleName) => {
-  return db.role.findOne({ where: { roleName } });
-};
-
 /** Assign or replace a person's org role (e.g. promote to Org Admin). */
 export const assignOrgRole = async (orgId, peopleId, roleName) => {
   const role = await findRole(roleName);
