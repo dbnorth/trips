@@ -29,4 +29,14 @@ They do **not** authorize new scope — implement only from `features/feature-*.
 
 | Area | Introduced |
 |------|------------|
-| *(none yet)* | Add rows as features merge to `dev` |
+| Auth / sessions / emailLog | Feature 1 |
+| People, roles, org membership, users admin | Feature 2 |
+| Organizations, agreements, branding | Feature 3 |
+| Document types & person documents | Feature 4 |
+| Trips CRUD, dashboards | Feature 5 |
+| Worker roles, trip staffing, travel options | Feature 6 |
+| Applications, participants, participants CSV | Feature 7 |
+| Donors, staff donations, donation CSVs | Feature 8 |
+| Public org/trip/donate pages | Feature 9 |
+| Email templates | Feature 10 |
+| System admin all-orgs people list includes all persons | Feature 11 |

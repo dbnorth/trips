@@ -2,19 +2,24 @@ import routes from "./app/routes/index.js";
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
+import path from "path";
+import { fileURLToPath } from "url";
+
 import db from "./app/models/index.js";
 import logger from "./app/config/logger.js";
+import { ensureSchema } from "./app/scripts/ensureSchema.js";
 
-const shouldAlterSchema =
-  process.env.SEQUELIZE_SYNC_ALTER === "true" ||
-  process.env.SEQUELIZE_SYNC_ALTER === "1" ||
-  (process.env.NODE_ENV === "development" && process.env.SEQUELIZE_SYNC_ALTER !== "false");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const syncOptions = shouldAlterSchema ? { alter: true } : {};
+const syncOptions =
+  process.env.SEQUELIZE_SYNC_ALTER === "true" || process.env.SEQUELIZE_SYNC_ALTER === "1"
+    ? { alter: true }
+    : {};
 
 if (process.env.NODE_ENV !== "test") {
   db.sequelize
     .sync(syncOptions)
+    .then(() => ensureSchema())
     .then(() => {
       if (syncOptions.alter) {
         logger.info("Database sync completed with alter: true.");
@@ -32,7 +37,7 @@ app.use(morgan("combined", { stream: logger.stream }));
 
 app.use(
   cors({
-    origin: "http://localhost:8082",
+    origin: process.env.CORS_ORIGIN || "http://localhost:8082",
     credentials: true,
   })
 );
@@ -40,13 +45,14 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/api", routes);
+app.use("/trips/images", express.static(path.join(__dirname, "images")));
+app.use("/trips/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/trips", routes);
 
 const PORT = process.env.PORT || 3200;
-
 if (process.env.NODE_ENV !== "test") {
   app.listen(PORT, () => {
-    logger.info(`Speckit App API running on port ${PORT}`);
+    logger.info(`Trips API running on port ${PORT}`);
   });
 }
 

@@ -9,6 +9,7 @@ describe("App.vue", () => {
       global: {
         stubs: {
           "router-view": true,
+          MenuBar: true,
         },
       },
     });

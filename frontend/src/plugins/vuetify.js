@@ -2,37 +2,33 @@ import { createVuetify } from "vuetify";
 import * as components from "vuetify/components";
 import * as directives from "vuetify/directives";
 import { loadFonts } from "./webfontloader.js";
-
 loadFonts();
 
 import "vuetify/styles";
 import "@mdi/font/css/materialdesignicons.css";
 
-/**
- * OC Academic Edition
- * Design tokens: .cursor/rules/ui-style-system.mdc
- * Hex values live here only — components use theme color names.
- */
-const ocAcademic = {
+const COLOR_MAP = {
+  blue: "#196CA2",
+  teal: "#00897B",
+  green: "#2E7D32",
+  purple: "#6A1B9A",
+  red: "#C62828",
+  orange: "#EF6C00",
+};
+
+export const resolveOrgColor = (colorFamily) => {
+  if (colorFamily && /^#[0-9A-Fa-f]{6}$/.test(colorFamily)) return colorFamily;
+  if (colorFamily && COLOR_MAP[colorFamily]) return COLOR_MAP[colorFamily];
+  return "#196CA2";
+};
+
+const myCustomLightTheme = {
   dark: false,
   colors: {
-    primary: "#801328",
-    "primary-container": "#FFDAD9",
-    "on-primary": "#FFFFFF",
-    secondary: "#775656",
-    "secondary-container": "#FFDAD9",
-    "on-secondary": "#FFFFFF",
-    surface: "#F9F9FF",
-    "surface-variant": "#E7E0E1",
-    "on-surface": "#1C1B1F",
-    background: "#FFFFFF",
-    "on-background": "#1C1B1F",
-    outline: "#857373",
-    error: "#B3261E",
-    "on-error": "#FFFFFF",
-    success: "#2E7D32",
-    warning: "#E65100",
-    info: "#775656",
+    primary: "#196CA2",
+    secondary: "#E1E1E1",
+    accent: "#032F45",
+    error: "#EE5044",
   },
 };
 
@@ -40,27 +36,8 @@ const vuetify = createVuetify({
   components,
   directives,
   theme: {
-    defaultTheme: "ocAcademic",
-    themes: { ocAcademic },
-  },
-  defaults: {
-    VBtn: {
-      rounded: "lg",
-    },
-    VCard: {
-      rounded: "lg",
-      color: "surface",
-    },
-    VTextField: {
-      density: "comfortable",
-      rounded: "lg",
-    },
-    VAlert: {
-      density: "compact",
-    },
-    VDialog: {
-      scrim: true,
-    },
+    defaultTheme: "myCustomLightTheme",
+    themes: { myCustomLightTheme },
   },
   icons: { defaultSet: "mdi" },
 });

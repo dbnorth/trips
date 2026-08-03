@@ -8,6 +8,8 @@ This repository was generated from the Speckit starter kit and renamed for Trips
 
 **Docs:** [features/framework.md](features/framework.md) · [features/README.md](features/README.md) · [docs/adr/README.md](docs/adr/README.md) · [docs/nfr/quality-attributes.md](docs/nfr/quality-attributes.md) · [docs/STARTER-KIT.md](docs/STARTER-KIT.md)
 
+Architecture decisions (Accepted): [ADR-0001](docs/adr/0001-client-server-multi-org-architecture.md) (client–server) · [ADR-0002](docs/adr/0002-layered-security-and-rbac.md) (RBAC) · [ADR-0003](docs/adr/0003-mysql-relational-database.md) (MySQL) · [ADR-0004](docs/adr/0004-public-and-authenticated-surfaces.md) (public vs auth) · [ADR-0005](docs/adr/0005-optimistic-concurrency.md) (versioning)
+
 ---
 
 ## Stack
@@ -18,7 +20,7 @@ This repository was generated from the Speckit starter kit and renamed for Trips
 | Backend | Node.js (ES modules), Express, Sequelize, MySQL |
 | Tests | Jest + supertest (backend), Vitest + `@vue/test-utils` (frontend) |
 
-Default ports: frontend `8082`, backend `3200`. API mount: `/api` (change in `backend/server.js` and `frontend/src/services/services.js`).
+Default ports: frontend `8082`, backend `3200`. API mount: `/trips`.
 
 ---
 
@@ -57,8 +59,25 @@ git checkout -b dev
 git checkout -b feature/1-short-name
 ```
 
+## Features (reverse-spec of imported app)
+
+| ID | Capability |
+|----|------------|
+| 1 | User authentication & sessions |
+| 2 | People & org membership |
+| 3 | Organizations & agreements |
+| 4 | Document types & person documents |
+| 5 | Trip catalog management |
+| 6 | Worker roles & travel options |
+| 7 | Trip applications & participants |
+| 8 | Donors & donations |
+| 9 | Public fundraising pages |
+| 10 | Email templates |
+
+Full table and branch names: [features/README.md](features/README.md).
+
 ## Next steps
 
-1. Write `features/feature-1-….md` (see [framework template](features/framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, **Agent implementation request**, **Definition of Done**).
-2. Update `features/README.md` catalog.
-3. Implement with Cursor: `Implement @features/feature-1-….md per its Agent implementation request and Definition of Done`, or one layer at a time (reference updates in the same PR when API/schema changes).
+1. Backfill automated tests mapped in each feature’s **Test Coverage Map**.
+2. Prefer a new feature delta (or revise a Shipped spec carefully) when changing product behavior.
+3. Keep `features/reference/*` updated in the same PR as API/schema/rule changes.

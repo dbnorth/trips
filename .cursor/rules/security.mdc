@@ -1,50 +1,45 @@
 ---
-description: Authentication, session management, data scoping, and role-based access.
+description: Authentication, session management, org/trip RBAC, and data scoping.
 globs: "backend/app/**/*"
 ---
 # Security & Access Control
 
 ## Authentication Flow
-1.  `POST /login` — validate `username` + `password`; normalize username: `trim().toLowerCase()`.
+1.  `POST /trips/login` — validate **email** + **password**; normalize email: `trim().toLowerCase()`.
 2.  Look up user; compare password with `bcrypt.compare()` against hash from `User.unscoped()`.
-3.  Reuse valid Session row if token not expired; otherwise create new JWT + Session row.
-4.  Return user payload including `token`, `userId`, `role` (never return password hash).
-5.  `POST /logout` — clear token on Session row.
+3.  Reuse valid Session row if token not expired; otherwise create new JWT + Session row (TTL **4 hours**).
+4.  Return auth payload: `email`, `userId`, `token`, `isAdmin`, `personId`, `firstName`, `lastName`, `orgRoles[]`, `tripRoles[]` (approved only) — never password hash.
+5.  `POST /trips/logout` — clear token on Session row (token in body).
 6.  `AUTH_SECRET` from environment; no hardcoded secrets in production.
 
 ## Request Authentication
-*   `authenticate` middleware reads `Authorization: Bearer <token>`.
+*   `authenticate` in `app/authorization/accessControl.js` reads `Authorization: Bearer <token>`.
 *   Validates token exists in Session table and `expirationDate >= Date.now()`.
-*   Sets `req.user = { id, role, organizationId }` from joined User row.
-*   Missing/invalid → `401` with `{ message: "Unauthorized! ..." }`.
+*   Loads User + Person + orgRoles + approved tripRoles onto `req.user`.
+*   Missing/invalid → `401` with `{ message: "..." }`.
 
-## User-Scoped Data (Todo App)
-*   Every list/todo query must include `userId: req.user.id` in the `where` clause.
-*   On create, set `userId` from `req.user.id` — never from request body.
-*   Before update/delete, load the row and verify ownership; return `404` if not found or not owned (do not leak existence via `403`).
+## Org / Trip Scoping (Trips App)
+*   **System admin:** `user.isAdmin === true`. May send `X-Acting-Organization-Id` to emulate one org on list endpoints.
+*   **Org roles:** via `orgPeopleRole` + role names (`Org Admin`, `Trip Leader`, `Trip Participant`, `Pending User`).
+*   **Trip privileges:** via `tripPeopleRole` with status **`approved`** only for leader/participant checks.
+*   Use shared helpers: `canAccessOrg`, `isOrgAdminForOrg`, `canAccessTrip`, `orgListFilter`, `tripListFilter`, `peopleListOrgIds`, `requireSystemAdmin`.
+*   Never trust client-supplied `orgId` / `peopleId` alone for authorization — verify via helpers.
+*   Public write surface is limited to `POST /trips/public/donations` (ADR-0004).
 
 ## Row-Level Access Helpers
-Centralize repeated checks in `app/authorization/`:
-```javascript
-export const getAccessibleListOrNull = async (req, listId) => {
-  const row = await List.findOne({ where: { id: listId, userId: req.user.id } });
-  return row ?? null;
-};
-```
-Controllers call helpers; do not duplicate scope logic inline.
+Centralize checks in `app/authorization/accessControl.js`. Controllers call helpers; do not duplicate org/trip scope logic inline.
 
 ## Role Guards
-Export named middleware from `authorization/authorization.js`:
-*   `requireAdmin` — role is `admin` or `superadmin`.
-*   `requireSuperAdmin` — role is `superadmin` only.
+*   `requireSystemAdmin` — `user.isAdmin`.
+*   Org Admin / Trip Leader / Trip Participant — role-name helpers above (not a single `req.user.role` string).
 
 ## Password Rules
-*   Hash with bcryptjs, `SALT_ROUNDS = 10`.
-*   Minimum length enforced at controller (e.g. 8 chars on reset).
+*   Hash with bcryptjs (controller/register path).
+*   Minimum length **8** characters at registration / change-password.
 *   `reset-password` disabled when `NODE_ENV === "production"`.
 
-## Optional Multi-Org Scoping (future)
-If org tenancy is added, centralize filters in `authorization/tenantScope.js`:
-*   `sessionTenantScopeWhere(req)` for standard users.
-*   `X-Acting-Organization-Id` header for superadmin org switching.
-*   Never trust client-supplied `organizationId` on write operations.
+## Acting Organization Header
+*   Header: `X-Acting-Organization-Id`.
+*   System admins: scopes list queries; does not replace trip manage checks unless helper says so.
+*   Non-admins: may narrow multi-org lists when the header matches an org they administer/lead.
+*   Axios attaches this from stored user context (`frontend-services.mdc`).

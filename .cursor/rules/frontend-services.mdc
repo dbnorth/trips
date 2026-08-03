@@ -7,30 +7,31 @@ globs: "frontend/src/**/*.js, frontend/vite.config.js"
 ## File Roles
 *   `views/` — pages registered in `router.js`.
 *   `components/` — shared forms, nav, dialogs.
-*   `services/services.js` — shared axios instance; domain modules in `*Services.js`.
-*   `config/utils.js` — `setStore`, `getStore`, `removeItem` (localStorage JSON).
+*   `services/services.js` — authenticated axios instance; domain modules in `*Services.js`.
+*   `services/publicServices.js` — unauthenticated client for `/public` and public donate.
+*   `config/utils.js` — `setStore`, `getStore`, `removeItem`, org helpers (localStorage JSON).
 *   `utils/` — pure helpers only; no HTTP calls.
 
 ## Domain Service Modules
-*   One file per domain: `authServices.js`, `todoServices.js`, etc.
-*   Default-export an object of methods; each method calls `apiClient` and returns the promise.
+*   One file per domain: `authServices.js`, `tripServices.js`, `donationServices.js`, etc.
+*   Default-export an object of methods; each method calls `apiClient` (or public client) and returns the promise.
 *   No axios calls inside views or components — always go through `*Services.js`.
 
 ## Axios Client (`services/services.js`)
-*   Dev `baseURL`: `http://localhost:3200/todo/`; prod: `/todo/`.
+*   Dev `baseURL`: `http://localhost:3200/trips/`; prod: `/trips/`.
 *   `withCredentials: true`.
-*   `transformRequest`: attach `Authorization: Bearer <token>` from `Utils.getStore("user")`.
-*   `transformResponse`: on unauthorized message, clear user and `Router.push({ name: "login" })`.
+*   Request interceptor: attach `Authorization: Bearer <token>` from `Utils.getStore("user")`; attach `X-Acting-Organization-Id` from effective org when set.
+*   On unauthorized responses: clear `user`, dispatch logout event, `Router.push({ name: "login" })`.
 *   FormData uploads: delete `Content-Type` header so the browser sets the boundary.
 
 ## Router Conventions (`router.js`)
 *   vue-router 4 with `createWebHistory`.
-*   Named routes (`name: "editTodo"`).
-*   `props: true` on routes with `:id` params.
-*   `router.beforeEach` — auth and role guards per `auth-patterns.mdc`.
+*   Named routes (e.g. `home`, `tripView`, `tripBrowse`, `donorTrip`).
+*   `props: true` on routes with params.
+*   `router.beforeEach` — auth and role guards per `auth-patterns.mdc` / Feature specs (system admin cannot browse-apply).
 
 ## Cross-Component Events
-Dispatch `window` `CustomEvent`s (e.g. `user-logged-in`) when auth state changes so layout components can refresh without prop drilling.
+Dispatch `window` `CustomEvent`s (`user-logged-in`, `user-logged-out`, `user-updated`) when auth or org context changes so MenuBar / Home refresh without prop drilling.
 
 ## Production Deploy
 Copy `public/.htaccess` to `dist/` on build — SPA fallback rewrite and cache headers for hashed assets.
