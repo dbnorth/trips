@@ -169,3 +169,4 @@ Do not implement behavior not in this spec.
 
 - Worker role license requirements — Feature 6
 - Application gating on documents — Feature 7
+- Encrypting person documents and pictures at rest — [Feature 12](feature-12-encrypt-person-media.md)

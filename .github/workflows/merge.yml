@@ -1,0 +1,12 @@
+# Runs the full test suite after a branch is merged into `dev`
+# (GitHub emits a `push` to `dev` on merge).
+name: Merge to Dev
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  test:
+    name: Test after merge
+    uses: ./.github/workflows/test.yml
