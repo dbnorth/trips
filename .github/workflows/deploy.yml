@@ -38,6 +38,7 @@ jobs:
           SOURCE: frontend/dist/
           TARGET: ${{ secrets.FRONTEND_DEPLOY_TARGET }}
           ARGS: "-rltgoDzvO --delete"
+          SCRIPT_BEFORE: mkdir -p ${{ secrets.FRONTEND_DEPLOY_TARGET }}
 
   deploy-backend:
     needs: test
@@ -45,7 +46,7 @@ jobs:
 
     env:
       DB_HOST: ${{ secrets.DB_HOST }}
-      DB_PW: ${{ secrets.DB_PASS }}
+      DB_PW: ${{ secrets.DB_PW }}
       DB_USER: ${{ secrets.DB_USER }}
       DB_NAME: ${{ secrets.DB_NAME }}
       AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
@@ -69,18 +70,29 @@ jobs:
 
       - name: Create production .env
         run: |
-          touch .env
-          echo DB_HOST="$DB_HOST" >> .env
-          echo DB_PW="$DB_PW" >> .env
-          echo DB_USER="$DB_USER" >> .env
-          echo DB_NAME="$DB_NAME" >> .env
-          echo AUTH_SECRET="$AUTH_SECRET" >> .env
-          echo PORT="$PORT" >> .env
-          echo NODE_ENV="$NODE_ENV" >> .env
-          echo SEQUELIZE_SYNC_ALTER="$SEQUELIZE_SYNC_ALTER" >> .env
+          if [ -z "$DB_PW" ]; then
+            echo "::error::DB_PW is empty. Add a repository secret named DB_PW."
+            exit 1
+          fi
+          # printf avoids shell expansion issues with special chars in passwords
+          : > .env
+          printf 'DB_HOST=%s\n' "$DB_HOST" >> .env
+          printf 'DB_PW=%s\n' "$DB_PW" >> .env
+          printf 'DB_USER=%s\n' "$DB_USER" >> .env
+          printf 'DB_NAME=%s\n' "$DB_NAME" >> .env
+          printf 'AUTH_SECRET=%s\n' "$AUTH_SECRET" >> .env
+          printf 'PORT=%s\n' "$PORT" >> .env
+          printf 'NODE_ENV=%s\n' "$NODE_ENV" >> .env
+          printf 'SEQUELIZE_SYNC_ALTER=%s\n' "$SEQUELIZE_SYNC_ALTER" >> .env
+          # Confirm key is present without printing the secret value
+          grep -q '^DB_PW=.\+' .env || { echo "::error::DB_PW line missing or empty in .env"; exit 1; }
 
       - name: Bundle deploy folder
-        run: npm run bundle
+        run: |
+          npm run bundle
+          cp -f .env deploy/.env
+          grep -q '^DB_PW=.\+' deploy/.env || { echo "::error::deploy/.env missing DB_PW"; exit 1; }
+          ls -la deploy/
 
       - name: Deploy to server
         uses: easingthemes/ssh-deploy@main
@@ -91,6 +103,7 @@ jobs:
           REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
           REMOTE_USER: ${{ secrets.REMOTE_USER }}
           TARGET: ${{ secrets.BACKEND_DEPLOY_TARGET }}
+          SCRIPT_BEFORE: mkdir -p ${{ secrets.BACKEND_DEPLOY_TARGET }}
 
       - name: Restart API service on server
         uses: JimCronqvist/action-ssh@master
