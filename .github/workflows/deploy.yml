@@ -27,7 +27,7 @@ jobs:
         run: |
           npm install
           npm run build
-          npm run bundle:frontend
+          npm run bundle
 
       - name: Deploy to server
         uses: easingthemes/ssh-deploy@main
@@ -80,7 +80,7 @@ jobs:
           echo SEQUELIZE_SYNC_ALTER="$SEQUELIZE_SYNC_ALTER" >> .env
 
       - name: Bundle deploy folder
-        run: npm run bundle:backend
+        run: npm run bundle
 
       - name: Deploy to server
         uses: easingthemes/ssh-deploy@main
