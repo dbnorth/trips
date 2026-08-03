@@ -27,7 +27,7 @@ jobs:
         run: |
           npm install
           npm run build
-          npm run bundle
+          npm run bundle:frontend
 
       - name: Deploy to server
         uses: easingthemes/ssh-deploy@main
@@ -80,7 +80,7 @@ jobs:
           echo SEQUELIZE_SYNC_ALTER="$SEQUELIZE_SYNC_ALTER" >> .env
 
       - name: Bundle deploy folder
-        run: npm run bundle
+        run: npm run bundle:backend
 
       - name: Deploy to server
         uses: easingthemes/ssh-deploy@main
@@ -102,6 +102,6 @@ jobs:
             cd ${{ secrets.BACKEND_DEPLOY_TARGET }}
             npm install --omit=dev
             sudo systemctl stop trips-backend
-            sudo cp trips-backend.service /lib/systemd/system/todo-speckit-backend.service
+            sudo cp trips-backend.service /lib/systemd/system/trips-backend.service
             sudo systemctl daemon-reload
             sudo systemctl start trips-backend
