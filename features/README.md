@@ -30,8 +30,9 @@ These `feature-*.md` files are a **reverse-spec** of the imported Mission Trips 
 | 10 | [feature-10-email-templates.md](./feature-10-email-templates.md) | `feature/10-email-templates` | 3, 5 |
 | 11 | [feature-11-people-list-all-orgs-includes-admin.md](./feature-11-people-list-all-orgs-includes-admin.md) | `feature/11-people-list-all-orgs-includes-admin` | 2 |
 | 12 | [feature-12-encrypt-person-media.md](./feature-12-encrypt-person-media.md) | `feature/12-encrypt-person-media` | 2, 4 |
+| 13 | [feature-13-public-apply-to-application-page.md](./feature-13-public-apply-to-application-page.md) | `feature/13-public-apply-to-application-page` | 1, 7, 9 |
 
-Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12).
+Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13).
 
 New features: follow [framework.md](./framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, Gherkin, **Agent implementation request**, **Definition of Done**.
 

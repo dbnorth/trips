@@ -223,3 +223,4 @@ Do not implement behavior not in this spec.
 
 - Public donate pages — Feature 9
 - Recording donations — Feature 8
+- Public Apply CTAs navigating to this application page — [Feature 13](feature-13-public-apply-to-application-page.md)
