@@ -20,11 +20,13 @@ export const emptyOrganizationForm = () => ({
   logo: null,
   agreementFileName: null,
   colorFamily: "blue",
+  subdomain: "",
   version: 0,
 });
 
 export const buildOrganizationPayload = (form, { includeVersion = false } = {}) => {
   const address = normalizeAddressFields(form);
+  const subdomainRaw = form.subdomain?.trim() || "";
   const payload = {
     name: form.name.trim(),
     country: address.country || null,
@@ -40,6 +42,7 @@ export const buildOrganizationPayload = (form, { includeVersion = false } = {}) 
     facebookPage: form.facebookPage?.trim() || null,
     instagram: form.instagram?.trim() || null,
     colorFamily: form.colorFamily || "blue",
+    subdomain: subdomainRaw === "" ? null : subdomainRaw.toLowerCase(),
   };
   if (includeVersion) payload.version = form.version;
   return payload;

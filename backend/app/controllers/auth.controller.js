@@ -14,6 +14,10 @@ import {
   ensureOrgPeopleRole,
   updateUserPassword,
 } from "../utils/userPerson.js";
+import {
+  normalizeSubdomainInput,
+  findOrganizationBySubdomain,
+} from "../utils/organizationSubdomain.js";
 
 const User = db.user;
 const Session = db.session;
@@ -144,7 +148,7 @@ exports.login = async (req, res) => {
 };
 
 exports.register = async (req, res) => {
-  const { email, password, firstName, lastName, orgIds } = req.body;
+  const { email, password, firstName, lastName, orgIds, subdomain } = req.body;
   if (!email?.trim() || !password || !firstName?.trim() || !lastName?.trim()) {
     return res.status(400).send({ message: "First name, last name, email, and password are required." });
   }
@@ -168,6 +172,20 @@ exports.register = async (req, res) => {
           .filter((id) => !Number.isNaN(id))
       ),
     ];
+
+    const subdomainNorm = normalizeSubdomainInput(subdomain);
+    if (subdomain != null && String(subdomain).trim() !== "" && !subdomainNorm) {
+      return res.status(400).send({ message: "Invalid subdomain." });
+    }
+    if (subdomainNorm) {
+      const subdomainOrg = await findOrganizationBySubdomain(subdomainNorm);
+      if (!subdomainOrg) {
+        return res.status(400).send({ message: "Unknown organization subdomain." });
+      }
+      if (!requestedOrgIds.includes(subdomainOrg.id)) {
+        requestedOrgIds.push(subdomainOrg.id);
+      }
+    }
 
     const existingUser = await findUserByEmail(emailNorm);
     const existingPerson = existingUser
@@ -207,6 +225,22 @@ exports.listOrganizationsForRegister = async (_req, res) => {
       order: [["name", "ASC"]],
     });
     res.send(orgs);
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.findOrganizationBySubdomainForRegister = async (req, res) => {
+  try {
+    const subdomain = normalizeSubdomainInput(req.params.subdomain);
+    if (!subdomain) {
+      return res.status(404).send({ message: "Organization not found." });
+    }
+    const org = await findOrganizationBySubdomain(subdomain);
+    if (!org) {
+      return res.status(404).send({ message: "Organization not found." });
+    }
+    res.send({ id: org.id, name: org.name, subdomain: org.subdomain });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

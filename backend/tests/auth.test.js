@@ -249,4 +249,43 @@ describe("Feature 1 — User Authentication & Sessions", () => {
       );
     });
   });
+
+  describe("US-15.2 — Register under a matching subdomain", () => {
+    it("Visitor registers on org subdomain and joins that org", async () => {
+      const org = await createOrganization("Hope Mission");
+      await org.update({ subdomain: "hope" });
+
+      const response = await request(app)
+        .post("/trips/register")
+        .send({
+          ...validRegistration,
+          email: "subdomain-user@example.com",
+          subdomain: "hope",
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.token).toBeTruthy();
+      expect(response.body.orgRoles).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ orgId: org.id, roleName: "Trip Participant" }),
+        ])
+      );
+    });
+
+    it("Unknown subdomain on register is rejected", async () => {
+      const response = await request(app)
+        .post("/trips/register")
+        .send({
+          ...validRegistration,
+          email: "unknown-sub@example.com",
+          subdomain: "nope",
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toMatch(/subdomain/i);
+
+      const user = await db.user.findOne({ where: { email: "unknown-sub@example.com" } });
+      expect(user).toBeNull();
+    });
+  });
 });

@@ -27,6 +27,7 @@ They do **not** authorize new scope — implement only from `features/feature-*.
 | Under-18 agreement requires adult signer fields | Application completeness helpers | Feature 7 |
 | System admins cannot use browse/apply UI routes | `router.js` `canBrowseAndApplyToTrips` | Feature 7 |
 | Public pages unauthenticated; slug spaces → `_` | `/public/*`, donate URLs | Feature 9 |
+| Organization optional unique `subdomain`; create-account on `{subdomain}.…` hides org picker and registers into that org | `organizationSubdomain.js`, `auth.controller` register, Login/Apply create-account | Feature 15 |
 | Optimistic concurrency via `version` on key entities | `optimisticUpdate.js` | Features 2–8 |
 
 Expand rows as deltas ship.

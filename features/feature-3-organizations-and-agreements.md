@@ -184,3 +184,4 @@ Do not implement behavior not in this spec.
 
 - Public `/org/:orgSlug` page — Feature 9
 - Trip CRUD under an org — Feature 5
+- Organization `subdomain` and host-based registration binding — [Feature 15](feature-15-organization-subdomain-registration.md)

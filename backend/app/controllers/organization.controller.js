@@ -16,6 +16,11 @@ import {
   removeAllAgreementVersions,
 } from "../utils/organizationAgreement.js";
 
+import {
+  validateSubdomainValue,
+  isSubdomainTaken,
+} from "../utils/organizationSubdomain.js";
+
 const Organization = db.organization;
 const orgFields = [
   "name",
@@ -32,7 +37,30 @@ const orgFields = [
   "facebookPage",
   "instagram",
   "colorFamily",
+  "subdomain",
 ];
+
+const pickOrgPayload = (body, { includeSubdomain }) => {
+  const payload = {};
+  for (const key of orgFields) {
+    if (key === "subdomain" && !includeSubdomain) continue;
+    if (Object.prototype.hasOwnProperty.call(body, key)) payload[key] = body[key];
+  }
+  return payload;
+};
+
+const applySubdomainToPayload = async (payload, { excludeOrgId = null } = {}) => {
+  if (!Object.prototype.hasOwnProperty.call(payload, "subdomain")) {
+    return { ok: true, payload };
+  }
+  const validated = validateSubdomainValue(payload.subdomain);
+  if (!validated.ok) return { ok: false, status: 400, message: validated.message };
+  if (validated.subdomain && (await isSubdomainTaken(validated.subdomain, { excludeOrgId }))) {
+    return { ok: false, status: 409, message: "That subdomain is already in use." };
+  }
+  payload.subdomain = validated.subdomain;
+  return { ok: true, payload };
+};
 
 const canManageOrg = (req, orgId) =>
   isOrgAdminForOrg(req, orgId) || isSystemAdmin(req);
@@ -83,7 +111,14 @@ exports.findOne = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     if (!isSystemAdmin(req)) return res.status(403).send({ message: "Forbidden." });
-    const data = await Organization.create(req.body);
+    const payload = pickOrgPayload(req.body, { includeSubdomain: true });
+    if (!payload.name?.trim()) {
+      return res.status(400).send({ message: "Name is required." });
+    }
+    payload.name = payload.name.trim();
+    const withSub = await applySubdomainToPayload(payload);
+    if (!withSub.ok) return res.status(withSub.status).send({ message: withSub.message });
+    const data = await Organization.create(withSub.payload);
     res.send(data);
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -95,7 +130,18 @@ exports.update = async (req, res) => {
     if (!canManageOrg(req, req.params.id)) {
       return res.status(403).send({ message: "Forbidden." });
     }
-    const result = await optimisticUpdate(Organization, req.params.id, req.body, orgFields);
+    const includeSubdomain = isSystemAdmin(req);
+    const allowed = includeSubdomain ? orgFields : orgFields.filter((f) => f !== "subdomain");
+    const body = { ...req.body };
+    if (includeSubdomain && Object.prototype.hasOwnProperty.call(body, "subdomain")) {
+      const withSub = await applySubdomainToPayload(
+        { subdomain: body.subdomain },
+        { excludeOrgId: Number(req.params.id) }
+      );
+      if (!withSub.ok) return res.status(withSub.status).send({ message: withSub.message });
+      body.subdomain = withSub.payload.subdomain;
+    }
+    const result = await optimisticUpdate(Organization, req.params.id, body, allowed);
     if (!result.ok) return res.status(result.status).send({ message: result.message });
     res.send(result.data);
   } catch (err) {

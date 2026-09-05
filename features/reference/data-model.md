@@ -122,6 +122,7 @@ Notes:
 | logo | STRING(500) | |
 | agreementFileName | STRING(500) | Markdown path under `agreements/` |
 | colorFamily | STRING(50) | UI theme |
+| subdomain | STRING(63) | optional, unique (lowercase); org branded host label — Feature 15 |
 | version | INTEGER | required, default `0` |
 
 **Associations:** `hasMany` orgPeopleRole, trip, emailTemplate, workerRole (CASCADE).
