@@ -1,8 +1,9 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AuthServices from "../services/authServices.js";
 import { storeAuthenticatedUser } from "../utils/authSession.js";
+import { getRegistrationHostSubdomain } from "../utils/hostSubdomain.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -17,6 +18,8 @@ const form = ref({
 const formError = ref("");
 const existingAccountEmail = ref("");
 const saving = ref(false);
+const hostSubdomain = ref(getRegistrationHostSubdomain());
+const subdomainOrg = ref(null);
 
 const applyContext = computed(() => ({
   tripId: route.query.tripId ? String(route.query.tripId) : "",
@@ -24,7 +27,9 @@ const applyContext = computed(() => ({
   org: route.query.org ? String(route.query.org) : "",
 }));
 
-const organizationName = computed(() => applyContext.value.org);
+const organizationName = computed(
+  () => subdomainOrg.value?.name || applyContext.value.org
+);
 
 const signInRoute = computed(() => ({ name: "applyAuth", query: { ...route.query } }));
 
@@ -51,16 +56,24 @@ const submit = () => {
     return;
   }
 
-  const orgId = applyContext.value.orgId ? Number(applyContext.value.orgId) : null;
-  saving.value = true;
-  AuthServices.registerUser({
+  const queryOrgId = applyContext.value.orgId ? Number(applyContext.value.orgId) : null;
+  const payload = {
     firstName: f.firstName,
     lastName: f.lastName,
     email: f.email,
     password: f.password,
-    orgIds: orgId ? [orgId] : [],
-  })
+    orgIds: [],
+  };
+  if (hostSubdomain.value && subdomainOrg.value) {
+    payload.subdomain = hostSubdomain.value;
+  } else if (queryOrgId) {
+    payload.orgIds = [queryOrgId];
+  }
+
+  saving.value = true;
+  AuthServices.registerUser(payload)
     .then((res) => {
+      const orgId = subdomainOrg.value?.id ?? queryOrgId;
       storeAuthenticatedUser(res.data, {
         orgId,
         orgName: organizationName.value || null,
@@ -79,6 +92,17 @@ const submit = () => {
       saving.value = false;
     });
 };
+
+onMounted(async () => {
+  hostSubdomain.value = getRegistrationHostSubdomain();
+  if (!hostSubdomain.value) return;
+  try {
+    const res = await AuthServices.getRegisterOrganizationBySubdomain(hostSubdomain.value);
+    subdomainOrg.value = res.data || null;
+  } catch {
+    subdomainOrg.value = null;
+  }
+});
 </script>
 
 <template>

@@ -1,8 +1,9 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed, onMounted } from "vue";
 import AuthServices from "../services/authServices.js";
 import Utils from "../config/utils.js";
 import { useRouter, useRoute } from "vue-router";
+import { getRegistrationHostSubdomain } from "../utils/hostSubdomain.js";
 
 const router = useRouter();
 const route = useRoute();
@@ -18,6 +19,11 @@ const organizations = ref([]);
 const orgsLoading = ref(false);
 const formError = ref("");
 const loading = ref(false);
+const hostSubdomain = ref(getRegistrationHostSubdomain());
+const subdomainOrg = ref(null);
+const subdomainResolving = ref(false);
+
+const hideOrgPicker = computed(() => !!subdomainOrg.value);
 
 const storeUserAndGoHome = (data, { fromRegistration = false } = {}) => {
   const scopeOrgs = Utils.getScopeOrgs(data);
@@ -59,13 +65,17 @@ const register = () => {
     return;
   }
   loading.value = true;
-  AuthServices.registerUser({
+  const payload = {
     firstName: firstName.value,
     lastName: lastName.value,
     email: email.value,
     password: password.value,
-    orgIds: selectedOrgIds.value,
-  })
+    orgIds: hideOrgPicker.value ? [] : selectedOrgIds.value,
+  };
+  if (hostSubdomain.value && subdomainOrg.value) {
+    payload.subdomain = hostSubdomain.value;
+  }
+  AuthServices.registerUser(payload)
     .then((res) => storeUserAndGoHome(res.data, { fromRegistration: true }))
     .catch((e) => {
       formError.value = e.response?.data?.message || "Registration failed.";
@@ -92,10 +102,25 @@ const loadOrganizations = () => {
     });
 };
 
-const showRegister = () => {
+const resolveHostSubdomain = async () => {
+  subdomainOrg.value = null;
+  if (!hostSubdomain.value) return;
+  subdomainResolving.value = true;
+  try {
+    const res = await AuthServices.getRegisterOrganizationBySubdomain(hostSubdomain.value);
+    subdomainOrg.value = res.data || null;
+  } catch {
+    subdomainOrg.value = null;
+  } finally {
+    subdomainResolving.value = false;
+  }
+};
+
+const showRegister = async () => {
   mode.value = "register";
   formError.value = "";
-  loadOrganizations();
+  await resolveHostSubdomain();
+  if (!hideOrgPicker.value) loadOrganizations();
 };
 
 const showLogin = () => {
@@ -106,6 +131,10 @@ const showLogin = () => {
   lastName.value = "";
   selectedOrgIds.value = [];
 };
+
+onMounted(() => {
+  hostSubdomain.value = getRegistrationHostSubdomain();
+});
 </script>
 
 <template>
@@ -117,8 +146,14 @@ const showLogin = () => {
             {{ mode === "login" ? "Mission Trips" : "Create account" }}
           </v-card-title>
           <v-card-subtitle v-if="mode === 'register'" class="mb-2">
-            Create a new account and optionally join organizations as a trip participant. If you already have
-            an account, go back and sign in.
+            <template v-if="subdomainOrg">
+              Create a new account to join {{ subdomainOrg.name }} as a trip participant. If you already have
+              an account, go back and sign in.
+            </template>
+            <template v-else>
+              Create a new account and optionally join organizations as a trip participant. If you already have
+              an account, go back and sign in.
+            </template>
           </v-card-subtitle>
           <v-card-text>
             <template v-if="mode === 'login'">
@@ -142,7 +177,17 @@ const showLogin = () => {
                 type="password"
                 autocomplete="new-password"
               />
+              <v-alert
+                v-if="subdomainOrg"
+                type="info"
+                density="compact"
+                variant="tonal"
+                class="mt-2"
+              >
+                Joining {{ subdomainOrg.name }}
+              </v-alert>
               <v-select
+                v-else-if="!subdomainResolving"
                 v-model="selectedOrgIds"
                 :items="organizations"
                 item-title="name"

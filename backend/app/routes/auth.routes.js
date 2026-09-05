@@ -7,6 +7,10 @@ const router = Router();
 router.post("/login", auth.login);
 router.post("/register", auth.register);
 router.get("/register/organizations", auth.listOrganizationsForRegister);
+router.get(
+  "/register/organizations/by-subdomain/:subdomain",
+  auth.findOrganizationBySubdomainForRegister
+);
 router.post("/logout", auth.logout);
 router.post("/change-password", [authenticate], auth.changePassword);
 router.post("/reset-password", auth.resetPassword);

@@ -19,6 +19,7 @@ const Organization = SequelizeInstance.define("organization", {
   logo: { type: Sequelize.STRING(500) },
   agreementFileName: { type: Sequelize.STRING(500) },
   colorFamily: { type: Sequelize.STRING(50) },
+  subdomain: { type: Sequelize.STRING(63), allowNull: true, unique: true },
   version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
 });
 

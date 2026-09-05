@@ -53,6 +53,30 @@ const ensureTripPeopleRoleParticipantCost = async () => {
   logger.info("tripPeopleRoles.participantCost column added.");
 };
 
+const ensureOrganizationSubdomain = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'organizations'
+       AND COLUMN_NAME = 'subdomain'`
+  );
+  if (!rows.length) {
+    await db.sequelize.query(
+      "ALTER TABLE organizations ADD COLUMN subdomain VARCHAR(63) NULL AFTER colorFamily"
+    );
+    logger.info("organizations.subdomain column added.");
+  }
+
+  const [indexes] = await db.sequelize.query("SHOW INDEX FROM `organizations`");
+  const names = new Set(indexes.map((i) => i.Key_name));
+  if (!names.has("organizations_subdomain_unique")) {
+    await db.sequelize.query(
+      "ALTER TABLE organizations ADD UNIQUE INDEX organizations_subdomain_unique (subdomain)"
+    );
+    logger.info("organizations.subdomain unique index added.");
+  }
+};
+
 const ensureOrganizationWebsiteUrl = async () => {
   const [rows] = await db.sequelize.query(
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -573,6 +597,7 @@ export const ensureSchema = async () => {
   await ensureEmailTemplateOrgNullable();
   await ensureTripPeopleRoleParticipantCost();
   await ensureOrganizationWebsiteUrl();
+  await ensureOrganizationSubdomain();
   await ensureOrganizationAgreementFileName();
   await ensureTripPeopleRoleTripWorkerRoleId();
   await ensurePersonProfileFields();

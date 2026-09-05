@@ -8,6 +8,7 @@ import { flushPromises } from "@vue/test-utils";
 import Login from "../src/views/Login.vue";
 import authServices from "../src/services/authServices.js";
 import Utils from "../src/config/utils.js";
+import { getRegistrationHostSubdomain } from "../src/utils/hostSubdomain.js";
 import { mountWithPlugins } from "./testUtils.js";
 
 vi.mock("../src/services/authServices.js", () => ({
@@ -15,10 +16,15 @@ vi.mock("../src/services/authServices.js", () => ({
     loginUser: vi.fn(),
     registerUser: vi.fn(),
     getRegisterOrganizations: vi.fn().mockResolvedValue({ data: [] }),
+    getRegisterOrganizationBySubdomain: vi.fn().mockRejectedValue({ response: { status: 404 } }),
     logoutUser: vi.fn(),
     changePassword: vi.fn(),
     me: vi.fn(),
   },
+}));
+
+vi.mock("../src/utils/hostSubdomain.js", () => ({
+  getRegistrationHostSubdomain: vi.fn(() => null),
 }));
 
 const authPayload = {
@@ -44,7 +50,11 @@ describe("Feature 1 — Login", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    getRegistrationHostSubdomain.mockReturnValue(null);
     authServices.getRegisterOrganizations.mockResolvedValue({ data: [] });
+    authServices.getRegisterOrganizationBySubdomain.mockRejectedValue({
+      response: { status: 404 },
+    });
   });
 
   describe("US-1.1 — Register an account", () => {
@@ -144,6 +154,38 @@ describe("Feature 1 — Login", () => {
 
       expect(authServices.logoutUser).toHaveBeenCalledWith(authPayload);
       expect(Utils.getStore("user")).toBeNull();
+    });
+  });
+
+  describe("US-15.2 — Subdomain registration UI", () => {
+    it("Create-account hides organization picker when subdomain resolves", async () => {
+      getRegistrationHostSubdomain.mockReturnValue("hope");
+      authServices.getRegisterOrganizationBySubdomain.mockResolvedValue({
+        data: { id: 9, name: "Hope Mission", subdomain: "hope" },
+      });
+
+      const { wrapper } = await mountWithPlugins(Login);
+      await clickByText(wrapper, "Add person / create account");
+      await flushPromises();
+
+      expect(wrapper.text()).toContain("Joining Hope Mission");
+      expect(wrapper.text()).not.toContain("Organizations (optional)");
+      expect(authServices.getRegisterOrganizations).not.toHaveBeenCalled();
+    });
+
+    it("Apex host still shows optional organizations", async () => {
+      getRegistrationHostSubdomain.mockReturnValue(null);
+      authServices.getRegisterOrganizations.mockResolvedValue({
+        data: [{ id: 1, name: "Alpha Org" }],
+      });
+
+      const { wrapper } = await mountWithPlugins(Login);
+      await clickByText(wrapper, "Add person / create account");
+      await flushPromises();
+
+      expect(wrapper.text()).toContain("Organizations (optional)");
+      expect(wrapper.text()).not.toContain("Joining");
+      expect(authServices.getRegisterOrganizations).toHaveBeenCalled();
     });
   });
 });

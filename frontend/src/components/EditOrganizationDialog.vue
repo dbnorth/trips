@@ -7,6 +7,7 @@ import { emptyOrganizationForm, buildOrganizationPayload } from "../utils/organi
 import { normalizeAddressFields } from "../utils/locationData.js";
 import { formatPhoneForDisplay, formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
+import Utils from "../config/utils.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -27,6 +28,7 @@ const form = ref(emptyOrganizationForm());
 
 const currentLogoUrl = computed(() => OrganizationServices.getLogoUrl(form.value.logo));
 const hasAgreement = computed(() => !!form.value.agreementFileName);
+const isSystemAdmin = computed(() => Utils.isSystemAdmin(Utils.getStore("user")));
 
 const clearLogoSelection = () => {
   if (logoPreview.value) URL.revokeObjectURL(logoPreview.value);
@@ -114,6 +116,9 @@ const save = async () => {
     },
     { includeVersion: true }
   );
+  if (!isSystemAdmin.value) {
+    delete payload.subdomain;
+  }
 
   try {
     await OrganizationServices.update(form.value.id, payload);
@@ -139,7 +144,7 @@ const save = async () => {
         <v-progress-linear v-if="loading" indeterminate class="mb-4" />
 
         <template v-if="!loading">
-          <OrganizationFormFields v-model="form" />
+          <OrganizationFormFields v-model="form" :show-subdomain="isSystemAdmin" />
 
           <div class="mt-2 mb-2">
             <div class="text-subtitle-2 mb-2">Logo</div>
