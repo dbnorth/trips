@@ -276,7 +276,7 @@ const save = () => {
           density="compact"
         >
           <template #item="{ props: itemProps, item }">
-            <v-list-item v-bind="itemProps" :subtitle="item.raw.roleDescription" />
+            <v-list-item v-bind="itemProps" :subtitle="item?.roleDescription" />
           </template>
         </v-select>
 
