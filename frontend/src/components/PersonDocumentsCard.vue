@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import DocumentTypeServices from "../services/documentTypeServices.js";
 import PersonDocumentServices from "../services/personDocumentServices.js";
 import CountrySelect from "./CountrySelect.vue";
-import { countryName, resolveCountryCode } from "../utils/locationData.js";
+import { countryName, resolveCountryCode, US_COUNTRY_CODE } from "../utils/locationData.js";
 
 const props = defineProps({
   personId: { type: [Number, String], default: null },
@@ -17,7 +17,7 @@ const message = ref("");
 const fileInputKey = ref(0);
 const form = ref({
   documentTypeId: null,
-  countryIssued: "",
+  countryIssued: US_COUNTRY_CODE,
   issueDate: "",
   expirationDate: "",
   file: null,
@@ -56,7 +56,7 @@ const onFileSelected = (files) => {
 const resetForm = () => {
   form.value = {
     documentTypeId: null,
-    countryIssued: "",
+    countryIssued: US_COUNTRY_CODE,
     issueDate: "",
     expirationDate: "",
     file: null,
@@ -240,7 +240,11 @@ onMounted(load);
           />
         </v-col>
         <v-col cols="12" sm="6">
-          <CountrySelect v-model="form.countryIssued" label="Country issued" />
+          <CountrySelect
+            v-model="form.countryIssued"
+            label="Country issued"
+            default-empty-to-us
+          />
         </v-col>
         <v-col cols="12" sm="6">
           <v-text-field
