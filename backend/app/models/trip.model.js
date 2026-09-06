@@ -16,6 +16,7 @@ const Trip = SequelizeInstance.define("trip", {
   facebookPage: { type: Sequelize.STRING(500) },
   instagramId: { type: Sequelize.STRING(255) },
   participantCost: { type: Sequelize.DECIMAL(10, 2), allowNull: true },
+  requirePassport: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
   version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
 });
 

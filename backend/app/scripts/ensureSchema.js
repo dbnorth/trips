@@ -780,10 +780,28 @@ const ensurePersonMedicalConditionsTable = async () => {
   logger.info("personMedicalConditions table created.");
 };
 
+const ensureTripRequirePassport = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'trips'
+       AND COLUMN_NAME = 'requirePassport'`
+  );
+  if (rows.length) return;
+
+  await db.sequelize.query(
+    `ALTER TABLE trips
+     ADD COLUMN requirePassport TINYINT(1) NOT NULL DEFAULT 0
+     AFTER participantCost`
+  );
+  logger.info("trips.requirePassport column added.");
+};
+
 export const ensureSchema = async () => {
   await ensureNamedUniqueIndexes();
   await ensureEmailTemplateOrgNullable();
   await ensureTripPeopleRoleParticipantCost();
+  await ensureTripRequirePassport();
   await ensureOrganizationWebsiteUrl();
   await ensureOrganizationSubdomain();
   await ensureOrganizationAgreementFileName();

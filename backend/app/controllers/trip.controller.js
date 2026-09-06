@@ -25,6 +25,7 @@ const tripFields = [
   "facebookPage",
   "instagramId",
   "participantCost",
+  "requirePassport",
 ];
 
 const exports = {};
@@ -78,7 +79,16 @@ exports.findOne = async (req, res) => {
 const pickTripPayload = (body) => {
   const payload = {};
   for (const key of tripFields) {
-    if (Object.prototype.hasOwnProperty.call(body, key)) payload[key] = body[key];
+    if (!Object.prototype.hasOwnProperty.call(body, key)) continue;
+    if (key === "requirePassport") {
+      payload.requirePassport =
+        body.requirePassport === true ||
+        body.requirePassport === 1 ||
+        body.requirePassport === "1" ||
+        body.requirePassport === "true";
+      continue;
+    }
+    payload[key] = body[key];
   }
   return payload;
 };
@@ -142,6 +152,7 @@ exports.copy = async (req, res) => {
           facebookPage: source.facebookPage,
           instagramId: source.instagramId,
           participantCost: source.participantCost,
+          requirePassport: !!source.requirePassport,
           version: 0,
         },
         { transaction }

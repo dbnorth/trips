@@ -97,6 +97,26 @@ export const isRequiredRoleDocumentUploaded = ({
   });
 };
 
+/**
+ * When the trip requires a passport, the person must have a passport-type document
+ * with a file. If compareDate is set, expiration must be after it.
+ */
+export const isRequiredPassportUploaded = ({
+  documents = [],
+  requirePassport = false,
+  compareDate = null,
+}) => {
+  if (!requirePassport) return true;
+  return (documents || []).some((doc) => {
+    const type = doc.documentType?.type ?? doc.type ?? null;
+    if (type !== "passport") return false;
+    if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
+    if (!compareDate) return true;
+    const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+    return expirationDate && expirationDate > compareDate;
+  });
+};
+
 export const isApplicationComplete = ({
   tripWorkerRoleId,
   willSelfFund,
@@ -121,6 +141,7 @@ export const isApplicationComplete = ({
   travelOptionsComplete = true,
   personDocumentsUploaded = true,
   requiredRoleDocumentUploaded = true,
+  requiredPassportUploaded = true,
 }) => {
   if (tripWorkerRoleId == null || tripWorkerRoleId === "") return false;
   if (!willSelfFund && !willRaiseFunds) return false;
@@ -129,6 +150,7 @@ export const isApplicationComplete = ({
   if (!travelOptionsComplete) return false;
   if (!personDocumentsUploaded) return false;
   if (!requiredRoleDocumentUploaded) return false;
+  if (!requiredPassportUploaded) return false;
   if (agreementRequired) {
     if (!agreementAccepted) return false;
     if (isBlank(agreementSignatureName)) return false;
@@ -170,6 +192,7 @@ export const resolveAppliedOrIncompleteStatus = ({
   travelOptionsComplete = true,
   personDocumentsUploaded = true,
   requiredRoleDocumentUploaded = true,
+  requiredPassportUploaded = true,
   orgId = null,
 }) => {
   const participantUnder18 = isUnder18(person?.birthDate);
@@ -197,6 +220,7 @@ export const resolveAppliedOrIncompleteStatus = ({
     travelOptionsComplete,
     personDocumentsUploaded,
     requiredRoleDocumentUploaded,
+    requiredPassportUploaded,
   });
   const profileOk = isProfileComplete(person, { orgId });
   return applicationOk && profileOk ? "applied" : "incomplete";
@@ -225,6 +249,13 @@ export const loadPersonDocumentsForCompleteness = async (peopleId) => {
   return db.personDocument.findAll({
     where: { personId: peopleId },
     attributes: ["id", "documentTypeId", "documentFileName", "expirationDate"],
+    include: [
+      {
+        model: db.documentType,
+        as: "documentType",
+        attributes: ["id", "type"],
+      },
+    ],
   });
 };
 

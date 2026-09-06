@@ -4,6 +4,9 @@
  *
  * Feature 21 — Copy Trip
  * Spec: features/feature-21-copy-trip.md
+ *
+ * Feature 23 — Trip Require Passport
+ * Spec: features/feature-23-trip-require-passport.md
  */
 
 import request from "supertest";
@@ -65,11 +68,59 @@ describe("Feature 5 — Trip Catalog Management", () => {
         endDate: "2026-07-14",
       });
       expect(Number(response.body.participantCost)).toBe(2500);
+      expect(response.body.requirePassport).toBe(false);
 
       const stored = await db.trip.findByPk(response.body.id);
       expect(stored).not.toBeNull();
       expect(stored.orgId).toBe(org.id);
       expect(stored.status).toBe("active");
+      expect(stored.requirePassport).toBe(false);
+    });
+
+    it("Staff saves Require Passport on a trip", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "require-passport-admin@example.com",
+      });
+
+      const created = await request(app)
+        .post("/trips/trips")
+        .set(authHeader)
+        .send(tripPayload(org.id, { name: "Passport Trip", requirePassport: true }));
+
+      expect(created.status).toBe(200);
+      expect(created.body.requirePassport).toBe(true);
+
+      const get = await request(app)
+        .get(`/trips/trips/${created.body.id}`)
+        .set(authHeader);
+
+      expect(get.status).toBe(200);
+      expect(get.body.requirePassport).toBe(true);
+
+      const updated = await request(app)
+        .put(`/trips/trips/${created.body.id}`)
+        .set(authHeader)
+        .send({
+          ...tripPayload(org.id, { name: "Passport Trip", requirePassport: false }),
+          version: get.body.version,
+        });
+
+      expect(updated.status).toBe(200);
+      expect(updated.body.requirePassport).toBe(false);
+    });
+
+    it("Require Passport defaults to unchecked", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "passport-default-admin@example.com",
+      });
+
+      const response = await request(app)
+        .post("/trips/trips")
+        .set(authHeader)
+        .send(tripPayload(org.id, { name: "No Passport Flag" }));
+
+      expect(response.status).toBe(200);
+      expect(response.body.requirePassport).toBe(false);
     });
 
     it("Non-admin participant cannot create a trip", async () => {
@@ -216,6 +267,7 @@ describe("Feature 5 — Trip Catalog Management", () => {
             description: "Source description",
             facebookPage: "https://facebook.com/source",
             instagramId: "source_ig",
+            requirePassport: true,
             leaderPeopleIds: [leader.user.personId],
           })
         );
@@ -301,6 +353,7 @@ describe("Feature 5 — Trip Catalog Management", () => {
         endDate: "2026-07-14",
       });
       expect(Number(copy.body.participantCost)).toBe(2500);
+      expect(copy.body.requirePassport).toBe(true);
       expect(copy.body.id).not.toBe(source.body.id);
       expect(copy.body.leaderPeopleIds).toEqual([leader.user.personId]);
       expect(copy.body.version).toBe(0);
@@ -353,6 +406,29 @@ describe("Feature 5 — Trip Catalog Management", () => {
         where: { tripId: source.body.id },
       });
       expect(sourceDonations).toHaveLength(1);
+    });
+
+    it("Copy trip preserves Require Passport", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "copy-passport-admin@example.com",
+      });
+      const source = await request(app)
+        .post("/trips/trips")
+        .set(authHeader)
+        .send(tripPayload(org.id, { name: "Passport Source", requirePassport: true }));
+      expect(source.status).toBe(200);
+      expect(source.body.requirePassport).toBe(true);
+
+      const copy = await request(app)
+        .post(`/trips/trips/${source.body.id}/copy`)
+        .set(authHeader)
+        .send({ name: "Passport Copy" });
+
+      expect(copy.status).toBe(201);
+      expect(copy.body.requirePassport).toBe(true);
+
+      const stored = await db.trip.findByPk(copy.body.id);
+      expect(stored.requirePassport).toBe(true);
     });
 
     it("Blank name is rejected", async () => {

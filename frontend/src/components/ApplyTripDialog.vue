@@ -18,6 +18,7 @@ import {
 import {
   arePersonDocumentsUploaded,
   isApplicationFormComplete,
+  isRequiredPassportUploaded,
   isRequiredRoleDocumentUploaded,
   validateTravelOptionSelections,
 } from "../utils/tripApplicationForm.js";
@@ -136,17 +137,34 @@ const hasRequiredDocumentForTrip = computed(() => {
   });
 });
 
+const hasRequiredPassportForTrip = computed(() => {
+  const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
+  return isRequiredPassportUploaded({
+    documents: personDocuments.value,
+    requirePassport: !!trip.value?.requirePassport,
+    compareDate,
+  });
+});
+
 const personDocumentsUploaded = computed(() =>
   arePersonDocumentsUploaded(personDocuments.value)
 );
 
 const documentsCompleteForSubmit = computed(
-  () => personDocumentsUploaded.value && hasRequiredDocumentForTrip.value
+  () =>
+    personDocumentsUploaded.value &&
+    hasRequiredDocumentForTrip.value &&
+    hasRequiredPassportForTrip.value
 );
 
 const documentRequirementWarning = computed(() => {
   if (!personDocumentsUploaded.value) {
     return "Upload a file for every document on your profile before submitting your application.";
+  }
+  if (trip.value?.requirePassport && !hasRequiredPassportForTrip.value) {
+    const endDate = dateOnly(trip.value?.endDate);
+    const endPart = endDate ? ` (${endDate})` : "";
+    return `Upload a passport with an expiration date past the end of the trip${endPart} before submitting your application.`;
   }
   if (!requiredDocumentType.value || hasRequiredDocumentForTrip.value) return "";
 

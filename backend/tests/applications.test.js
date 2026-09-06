@@ -318,6 +318,131 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       expect(withDoc.body.application.status).toBe("applied");
     });
 
+    it("Application stays incomplete until passport is uploaded when required", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "passport-req-admin@example.com",
+      });
+      const trip = await request(app)
+        .post("/trips/trips")
+        .set(authHeader)
+        .send({
+          orgId: org.id,
+          name: "Passport Required Trip",
+          status: "active",
+          startDate: "2026-09-01",
+          endDate: "2026-09-14",
+          participantCost: 1800,
+          requirePassport: true,
+        });
+      expect(trip.status).toBe(200);
+
+      const workerRole = await request(app)
+        .post("/trips/worker-roles")
+        .set(authHeader)
+        .send({
+          orgId: org.id,
+          name: "General Team",
+          licenseRequired: false,
+        });
+      expect(workerRole.status).toBe(200);
+
+      const tripWorkerRole = await request(app)
+        .post("/trips/trip-worker-roles")
+        .set(authHeader)
+        .send({
+          tripId: trip.body.id,
+          workerRoleId: workerRole.body.id,
+          quantity: 5,
+        });
+      expect(tripWorkerRole.status).toBe(200);
+
+      const applicant = await registerUser({
+        email: "passport-req-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId);
+
+      const withoutPassport = await request(app)
+        .post(`/trips/trips/browse/${trip.body.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.body.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Passport Required Applicant",
+        });
+
+      expect(withoutPassport.status).toBe(200);
+      expect(withoutPassport.body.applicationStatus).toBe("incomplete");
+
+      const passportType = await db.documentType.create({
+        type: "passport",
+        description: "US Passport",
+      });
+      await db.personDocument.create({
+        personId: applicant.user.personId,
+        documentTypeId: passportType.id,
+        countryIssued: "US",
+        issueDate: "2020-01-01",
+        expirationDate: "2030-01-01",
+        documentFileName: "people/passport-required.png",
+      });
+
+      const withPassport = await request(app)
+        .put(`/trips/trips/browse/${trip.body.id}/application`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.body.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Passport Required Applicant",
+          version: withoutPassport.body.assignment.version,
+        });
+
+      expect(withPassport.status).toBe(200);
+      expect(withPassport.body.applicationStatus).toBe("applied");
+      expect(withPassport.body.application.status).toBe("applied");
+    });
+
+    it("Passport is not required when Require Passport is unchecked", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "passport-optional-admin@example.com",
+      });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "No Passport Required Trip",
+      });
+      const applicant = await registerUser({
+        email: "passport-optional-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId);
+
+      const storedTrip = await db.trip.findByPk(trip.id);
+      expect(storedTrip.requirePassport).toBe(false);
+
+      const response = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Optional Passport Applicant",
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.applicationStatus).toBe("applied");
+    });
+
     it("Pregnancy answers are saved on the application", async () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "preg-save-admin@example.com",

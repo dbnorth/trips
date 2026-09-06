@@ -6,6 +6,7 @@ import {
 } from "../authorization/accessControl.js";
 import {
   arePersonDocumentsUploaded,
+  isRequiredPassportUploaded,
   isRequiredRoleDocumentUploaded,
   loadPersonDocumentsForCompleteness,
   loadPersonForCompleteness,
@@ -654,6 +655,11 @@ exports.applyToTrip = async (req, res) => {
         documentTypeId: selectedRole.workerRole?.documentTypeId ?? null,
         compareDate: documentCompareDate,
       }),
+      requiredPassportUploaded: isRequiredPassportUploaded({
+        documents: personDocuments,
+        requirePassport: !!trip.requirePassport,
+        compareDate: documentCompareDate,
+      }),
       orgId: trip.orgId,
     });
 
@@ -873,6 +879,11 @@ exports.updateApplication = async (req, res) => {
       requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
         documents: personDocuments,
         documentTypeId: selectedRole.workerRole?.documentTypeId ?? null,
+        compareDate: documentCompareDate,
+      }),
+      requiredPassportUploaded: isRequiredPassportUploaded({
+        documents: personDocuments,
+        requirePassport: !!trip.requirePassport,
         compareDate: documentCompareDate,
       }),
       orgId: trip.orgId,
