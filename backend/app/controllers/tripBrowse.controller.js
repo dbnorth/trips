@@ -252,6 +252,12 @@ const workerRoleInclude = {
   attributes: ["id", "name", "description", "licenseRequired", "documentTypeId", "status"],
   include: [
     { model: db.documentType, as: "documentType", attributes: ["id", "description", "type"] },
+    {
+      model: db.documentType,
+      as: "requiredDocumentTypes",
+      attributes: ["id", "description", "type"],
+      through: { attributes: [] },
+    },
   ],
 };
 
@@ -652,7 +658,11 @@ exports.applyToTrip = async (req, res) => {
       personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
       requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
         documents: personDocuments,
-        documentTypeId: selectedRole.workerRole?.documentTypeId ?? null,
+        documentTypeIds:
+          selectedRole.workerRole?.requiredDocumentTypes?.map((d) => d.id) ||
+          (selectedRole.workerRole?.documentTypeId != null
+            ? [selectedRole.workerRole.documentTypeId]
+            : []),
         compareDate: documentCompareDate,
       }),
       requiredPassportUploaded: isRequiredPassportUploaded({
@@ -878,7 +888,11 @@ exports.updateApplication = async (req, res) => {
       personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
       requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
         documents: personDocuments,
-        documentTypeId: selectedRole.workerRole?.documentTypeId ?? null,
+        documentTypeIds:
+          selectedRole.workerRole?.requiredDocumentTypes?.map((d) => d.id) ||
+          (selectedRole.workerRole?.documentTypeId != null
+            ? [selectedRole.workerRole.documentTypeId]
+            : []),
         compareDate: documentCompareDate,
       }),
       requiredPassportUploaded: isRequiredPassportUploaded({

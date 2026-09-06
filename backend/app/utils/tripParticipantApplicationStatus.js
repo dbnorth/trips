@@ -79,21 +79,55 @@ export const arePersonDocumentsUploaded = (documents = []) =>
   );
 
 /**
- * When the worker role requires a document type, the person must have that type
+ * When the worker role requires document type(s), the person must have each type
  * with a file. If compareDate is set (trip end/start), expiration must be after it.
+ * Prefer `documentTypeIds`; `documentTypeId` is legacy single-id support.
  */
 export const isRequiredRoleDocumentUploaded = ({
   documents = [],
   documentTypeId = null,
+  documentTypeIds = null,
   compareDate = null,
 }) => {
-  if (documentTypeId == null || documentTypeId === "") return true;
-  return (documents || []).some((doc) => {
-    if (Number(doc.documentTypeId) !== Number(documentTypeId)) return false;
-    if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
-    if (!compareDate) return true;
-    const expirationDate = String(doc.expirationDate || "").slice(0, 10);
-    return expirationDate && expirationDate > compareDate;
+  const ids =
+    documentTypeIds != null
+      ? [
+          ...new Set(
+            (documentTypeIds || [])
+              .map((v) => Number(v))
+              .filter((n) => Number.isFinite(n) && n > 0)
+          ),
+        ]
+      : documentTypeId == null || documentTypeId === ""
+        ? []
+        : [Number(documentTypeId)];
+  if (!ids.length) return true;
+  return ids.every((id) =>
+    (documents || []).some((doc) => {
+      if (Number(doc.documentTypeId) !== id) return false;
+      if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
+      if (!compareDate) return true;
+      const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+      return expirationDate && expirationDate > compareDate;
+    })
+  );
+};
+
+/** Required document types that are missing or invalid for the trip compare date. */
+export const missingRequiredRoleDocuments = ({
+  documents = [],
+  requiredDocumentTypes = [],
+  compareDate = null,
+}) => {
+  const required = requiredDocumentTypes || [];
+  if (!required.length) return [];
+  return required.filter((docType) => {
+    const id = Number(docType.id ?? docType);
+    return !isRequiredRoleDocumentUploaded({
+      documents,
+      documentTypeIds: [id],
+      compareDate,
+    });
   });
 };
 
@@ -261,7 +295,7 @@ export const loadPersonDocumentsForCompleteness = async (peopleId) => {
 
 export const loadWorkerRoleDocumentRequirements = async (tripWorkerRoleId) => {
   if (tripWorkerRoleId == null || tripWorkerRoleId === "") {
-    return { licenseRequired: false, documentTypeId: null };
+    return { licenseRequired: false, documentTypeId: null, requiredDocumentTypeIds: [] };
   }
   const row = await TripWorkerRole.findByPk(tripWorkerRoleId, {
     include: [
@@ -269,12 +303,29 @@ export const loadWorkerRoleDocumentRequirements = async (tripWorkerRoleId) => {
         model: WorkerRole,
         as: "workerRole",
         attributes: ["id", "licenseRequired", "documentTypeId"],
+        include: [
+          {
+            model: db.documentType,
+            as: "requiredDocumentTypes",
+            attributes: ["id", "description", "type"],
+            through: { attributes: [] },
+          },
+        ],
       },
     ],
   });
+  const required = row?.workerRole?.requiredDocumentTypes || [];
+  let requiredDocumentTypeIds = required.map((d) => d.id);
+  if (!requiredDocumentTypeIds.length && row?.workerRole?.documentTypeId) {
+    requiredDocumentTypeIds = [row.workerRole.documentTypeId];
+  }
   return {
     licenseRequired: !!row?.workerRole?.licenseRequired,
-    documentTypeId: row?.workerRole?.documentTypeId ?? null,
+    documentTypeId: requiredDocumentTypeIds[0] ?? null,
+    requiredDocumentTypeIds,
+    requiredDocumentTypes: required.length
+      ? required.map((d) => (typeof d.toJSON === "function" ? d.toJSON() : d))
+      : requiredDocumentTypeIds.map((id) => ({ id })),
   };
 };
 

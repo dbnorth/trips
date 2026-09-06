@@ -69,6 +69,12 @@ const listIncludes = [
         attributes: ["id", "name", "description", "licenseRequired", "documentTypeId", "status"],
         include: [
           { model: db.documentType, as: "documentType", attributes: ["id", "description", "type"] },
+          {
+            model: db.documentType,
+            as: "requiredDocumentTypes",
+            attributes: ["id", "description", "type"],
+            through: { attributes: [] },
+          },
         ],
       },
     ],
@@ -111,7 +117,7 @@ const normalizeManualStatus = (value) => {
 const computeStatusForPayload = async (payload, orgId) => {
   const person = await loadPersonForCompleteness(payload.peopleId);
   const personDocuments = await loadPersonDocumentsForCompleteness(payload.peopleId);
-  const { licenseRequired, documentTypeId } = await loadWorkerRoleDocumentRequirements(
+  const { licenseRequired, requiredDocumentTypeIds } = await loadWorkerRoleDocumentRequirements(
     payload.tripWorkerRoleId
   );
   const trip =
@@ -152,7 +158,7 @@ const computeStatusForPayload = async (payload, orgId) => {
     personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
     requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
       documents: personDocuments,
-      documentTypeId,
+      documentTypeIds: requiredDocumentTypeIds,
       compareDate: documentCompareDate,
     }),
     requiredPassportUploaded: isRequiredPassportUploaded({

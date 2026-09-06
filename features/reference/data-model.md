@@ -19,11 +19,12 @@ Notes:
 | `role` | 2 | Role catalog |
 | `orgPeopleRole` | 2 | Person ↔ org ↔ role |
 | `organization` | 3 | Sponsors / branding / agreement file |
-| `documentType` | 4, 22, 24 | Passport / medical licence / certification / diploma catalog |
+| `documentType` | 4, 22, 24, 25 | Passport / medical licence / certification / diploma catalog |
 | `personDocument` | 4, 22 | Uploaded person documents |
 | `trip` | 5 | Trip catalog |
 | `tripPeopleRole` | 5, 7 | Leaders, applications, participants |
-| `workerRole` | 6 | Org worker-role catalog |
+| `workerRole` | 6, 25 | Org worker-role catalog (+ required documents) |
+| `workerRoleDocumentType` | 25 | Worker role ↔ required document types |
 | `medicalCondition` | 17 | Org medical-condition catalog (name ≤ 50) |
 | `personMedicalCondition` | 17 | Person selected medical conditions |
 | `tripWorkerRole` | 6 | Per-trip role quantities |
@@ -246,10 +247,23 @@ Notes:
 | name | STRING(100) | required |
 | description | STRING(500) | |
 | licenseRequired | BOOLEAN | required, default `false` |
-| documentTypeId | INTEGER | optional FK → documentType |
+| documentTypeId | INTEGER | optional FK → documentType; **deprecated for writes** (Feature 25 — migrate into join) |
 | status | ENUM(`active`,`inactive`) | required, default `active` |
 
-**Associations:** `belongsTo` organization, documentType; `hasMany` tripWorkerRole.
+**Associations:** `belongsTo` organization, documentType (legacy); `belongsToMany` documentType as `requiredDocumentTypes` through `workerRoleDocumentType`; `hasMany` tripWorkerRole.
+
+---
+
+## `workerRoleDocumentType` — Feature 25
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| workerRoleId | INTEGER | required FK → workerRole |
+| documentTypeId | INTEGER | required FK → documentType |
+| unique | `(workerRoleId, documentTypeId)` | |
+
+**Associations:** `belongsTo` workerRole, documentType.
 
 ---
 

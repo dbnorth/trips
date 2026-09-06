@@ -20,6 +20,7 @@ import {
   isApplicationFormComplete,
   isRequiredPassportUploaded,
   isRequiredRoleDocumentUploaded,
+  missingRequiredRoleDocuments,
   validateTravelOptionSelections,
 } from "../utils/tripApplicationForm.js";
 
@@ -105,10 +106,14 @@ const selectedRole = computed(
 );
 
 const licenseRequired = computed(() => !!selectedRole.value?.workerRole?.licenseRequired);
-const requiredDocumentType = computed(
-  () => selectedRole.value?.workerRole?.documentType || null
-);
-const licenseType = computed(() => requiredDocumentType.value?.description || "");
+const requiredDocumentTypes = computed(() => {
+  const role = selectedRole.value?.workerRole;
+  if (!role) return [];
+  if (role.requiredDocumentTypes?.length) return role.requiredDocumentTypes;
+  if (role.documentType) return [role.documentType];
+  return [];
+});
+const licenseType = computed(() => requiredDocumentTypes.value[0]?.description || "");
 
 const licenseItems = [
   { title: "Yes", value: "yes" },
@@ -128,11 +133,10 @@ const dateOnly = (value) => {
 };
 
 const hasRequiredDocumentForTrip = computed(() => {
-  const docTypeId = selectedRole.value?.workerRole?.documentTypeId;
   const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
   return isRequiredRoleDocumentUploaded({
     documents: personDocuments.value,
-    documentTypeId: docTypeId,
+    documentTypeIds: requiredDocumentTypes.value.map((d) => d.id),
     compareDate,
   });
 });
@@ -166,11 +170,18 @@ const documentRequirementWarning = computed(() => {
     const endPart = endDate ? ` (${endDate})` : "";
     return `Upload a passport with an expiration date past the end of the trip${endPart} before submitting your application.`;
   }
-  if (!requiredDocumentType.value || hasRequiredDocumentForTrip.value) return "";
-  const docName = requiredDocumentType.value.description || "required document";
+  const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
+  const missing = missingRequiredRoleDocuments({
+    documents: personDocuments.value,
+    requiredDocumentTypes: requiredDocumentTypes.value,
+    compareDate,
+  });
+  if (!missing.length) return "";
+
+  const names = missing.map((d) => d.description || "required document").join(", ");
   const endDate = dateOnly(trip.value?.endDate);
   const endPart = endDate ? ` (${endDate})` : "";
-  return `Upload a ${docName} with an expiration date past the end of the trip${endPart} before submitting your application.`;
+  return `Upload the following required documents with an expiration date past the end of the trip${endPart} before submitting your application: ${names}.`;
 });
 
 const profileComplete = computed(() =>
