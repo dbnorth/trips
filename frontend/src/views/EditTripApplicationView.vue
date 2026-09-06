@@ -10,6 +10,7 @@ import ParticipantAgreementSection from "../components/ParticipantAgreementSecti
 import TripApplicationTravelOptions from "../components/TripApplicationTravelOptions.vue";
 import EditPersonDialog from "../components/EditPersonDialog.vue";
 import PersonProfileFields from "../components/PersonProfileFields.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 import {
   tripParticipantStatusLabel,
   tripParticipantStatusColor,
@@ -57,6 +58,8 @@ const travelOptions = ref([]);
 const selectedTravelOptionIds = ref([]);
 const travelOptionsRef = ref(null);
 const showProfileDialog = ref(false);
+const showConfirmCancel = ref(false);
+const showConfirmUncancel = ref(false);
 
 const personId = computed(() => person.value?.id ?? Utils.getStore("user")?.personId ?? null);
 
@@ -377,7 +380,16 @@ const load = async () => {
     applyFormFromApplication(application.value);
     await loadPerson();
     if (!canEdit.value) {
-      formError.value = `This application cannot be edited while its status is ${statusLabel.value}.`;
+      const status = application.value?.status;
+      if (status === "cancelled") {
+        formError.value =
+          "This application is cancelled. You can Uncancel it if a role slot is available.";
+      } else if (status === "approved") {
+        formError.value =
+          "You are approved for this trip. You can Cancel the application if needed.";
+      } else {
+        formError.value = `This application cannot be edited while its status is ${statusLabel.value}.`;
+      }
     }
   } catch (e) {
     formError.value = e.response?.data?.message || "Unable to load application.";
@@ -518,6 +530,64 @@ const save = async () => {
     router.push({ name: "home" });
   } catch (e) {
     formError.value = e.response?.data?.message || "Unable to update application.";
+  } finally {
+    saving.value = false;
+  }
+};
+
+const canCancelApplication = computed(() =>
+  ["incomplete", "applied", "approved"].includes(
+    String(application.value?.status || "").toLowerCase()
+  )
+);
+const canUncancelApplication = computed(
+  () => String(application.value?.status || "").toLowerCase() === "cancelled"
+);
+
+const cancelApplication = () => {
+  if (!canCancelApplication.value) return;
+  showConfirmCancel.value = true;
+};
+
+const confirmCancelApplication = async () => {
+  saving.value = true;
+  formError.value = "";
+  try {
+    const res = await TripServices.cancelApplication(props.tripId);
+    application.value = res.data?.application || application.value;
+    canEdit.value = false;
+    showConfirmCancel.value = false;
+    messageType.value = "success";
+    message.value = res.data?.message || "Application cancelled.";
+    router.push({ name: "home" });
+  } catch (e) {
+    formError.value = e.response?.data?.message || "Unable to cancel application.";
+    showConfirmCancel.value = false;
+  } finally {
+    saving.value = false;
+  }
+};
+
+const uncancelApplication = () => {
+  if (!canUncancelApplication.value) return;
+  showConfirmUncancel.value = true;
+};
+
+const confirmUncancelApplication = async () => {
+  saving.value = true;
+  formError.value = "";
+  try {
+    const res = await TripServices.uncancelApplication(props.tripId);
+    application.value = res.data?.application || application.value;
+    canEdit.value = !!res.data?.canEdit;
+    applyFormFromApplication(application.value);
+    formError.value = "";
+    showConfirmUncancel.value = false;
+    messageType.value = "success";
+    message.value = res.data?.message || "Application uncancelled.";
+  } catch (e) {
+    formError.value = e.response?.data?.message || "Unable to uncancel application.";
+    showConfirmUncancel.value = false;
   } finally {
     saving.value = false;
   }
@@ -690,9 +760,28 @@ onMounted(load);
           :disabled="!canEdit"
         />
 
-        <div class="d-flex justify-end ga-2 mt-4">
-          <v-btn variant="text" :disabled="saving" @click="router.push({ name: 'home' })">
+        <div class="d-flex justify-end ga-2 mt-4 flex-wrap">
+          <v-btn
+            v-if="canCancelApplication"
+            color="error"
+            variant="tonal"
+            :disabled="saving"
+            @click="cancelApplication"
+          >
             Cancel
+          </v-btn>
+          <v-btn
+            v-if="canUncancelApplication"
+            color="primary"
+            variant="tonal"
+            :disabled="saving"
+            @click="uncancelApplication"
+          >
+            Uncancel
+          </v-btn>
+          <v-spacer />
+          <v-btn variant="text" :disabled="saving" @click="router.push({ name: 'home' })">
+            Close
           </v-btn>
           <v-btn
             color="primary"
@@ -712,6 +801,23 @@ onMounted(load);
       :person-id="personId"
       :medical-condition-org-id="trip?.orgId"
       @saved="onProfileSaved"
+    />
+    <ConfirmDialog
+      v-model="showConfirmCancel"
+      title="Are you sure?"
+      message="Cancel this application? Your role slot will be freed."
+      confirm-text="Cancel App"
+      confirm-color="error"
+      :loading="saving"
+      @confirm="confirmCancelApplication"
+    />
+    <ConfirmDialog
+      v-model="showConfirmUncancel"
+      title="Are you sure?"
+      message="Uncancel this application? It will return to incomplete or applied based on completeness."
+      confirm-text="Uncancel"
+      :loading="saving"
+      @confirm="confirmUncancelApplication"
     />
   </v-container>
 </template>

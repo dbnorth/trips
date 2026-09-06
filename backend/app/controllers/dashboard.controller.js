@@ -8,6 +8,7 @@ import {
   ROLE_TRIP_LEADER,
   ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
+import { withCapacityFields } from "../utils/tripRoleCapacity.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
@@ -283,8 +284,6 @@ exports.getOrgTripsBySlug = async (req, res) => {
   }
 };
 
-const Op = db.Sequelize.Op;
-
 const loadPublicTripRolesNeeded = async (tripId) => {
   const rows = await db.tripWorkerRole.findAll({
     where: { tripId },
@@ -298,40 +297,20 @@ const loadPublicTripRolesNeeded = async (tripId) => {
     order: [[{ model: db.workerRole, as: "workerRole" }, "name", "ASC"]],
   });
 
-  // Count applicants already signed up for a role, including pending applications.
-  const countRows = await TripPeopleRole.findAll({
-    attributes: [
-      "tripWorkerRoleId",
-      [db.sequelize.fn("COUNT", db.sequelize.col("id")), "signedUpCount"],
-    ],
-    where: {
-      tripId,
-      status: { [Op.in]: ["incomplete", "applied", "approved"] },
-      tripWorkerRoleId: { [Op.ne]: null },
-    },
-    group: ["tripWorkerRoleId"],
-    raw: true,
-  });
-  const counts = new Map(countRows.map((r) => [Number(r.tripWorkerRoleId), Number(r.signedUpCount) || 0]));
-
-  return rows.map((row) => {
-    const json = row.toJSON();
-    const signedUpCount = counts.get(Number(json.id)) || 0;
-    const quantity = Number(json.quantity) || 0;
-    return {
-      id: json.id,
-      quantity,
-      signedUpCount,
-      availableCount: Math.max(0, quantity - signedUpCount),
-      workerRole: json.workerRole
-        ? {
-            id: json.workerRole.id,
-            name: json.workerRole.name,
-            description: json.workerRole.description,
-          }
-        : null,
-    };
-  });
+  const enriched = await withCapacityFields(tripId, rows);
+  return enriched.map((json) => ({
+    id: json.id,
+    quantity: Number(json.quantity) || 0,
+    signedUpCount: json.signedUpCount || 0,
+    availableCount: json.availableCount || 0,
+    workerRole: json.workerRole
+      ? {
+          id: json.workerRole.id,
+          name: json.workerRole.name,
+          description: json.workerRole.description,
+        }
+      : null,
+  }));
 };
 
 exports.getTripOverviewBySlug = async (req, res) => {

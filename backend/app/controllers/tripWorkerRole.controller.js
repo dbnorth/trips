@@ -5,6 +5,7 @@ import {
   isSystemAdmin,
   isTripLeaderForTrip,
 } from "../authorization/accessControl.js";
+import { withCapacityFields } from "../utils/tripRoleCapacity.js";
 
 const TripWorkerRole = db.tripWorkerRole;
 const WorkerRole = db.workerRole;
@@ -41,38 +42,10 @@ const parseQuantity = (value) => {
   return qty;
 };
 
-const signedUpCountsByTripWorkerRoleId = async (tripId) => {
-  const rows = await TripPeopleRole.findAll({
-    attributes: [
-      "tripWorkerRoleId",
-      [db.sequelize.fn("COUNT", db.sequelize.col("id")), "signedUpCount"],
-    ],
-    where: {
-      tripId,
-      status: { [db.Sequelize.Op.in]: ["incomplete", "applied", "approved"] },
-      tripWorkerRoleId: { [db.Sequelize.Op.ne]: null },
-    },
-    group: ["tripWorkerRoleId"],
-    raw: true,
-  });
-  return new Map(rows.map((r) => [Number(r.tripWorkerRoleId), Number(r.signedUpCount) || 0]));
-};
-
-const withSignedUpCount = async (tripId, rows) => {
-  const counts = await signedUpCountsByTripWorkerRoleId(tripId);
-  return rows.map((row) => {
-    const json = typeof row.toJSON === "function" ? row.toJSON() : row;
-    return {
-      ...json,
-      signedUpCount: counts.get(Number(json.id)) || 0,
-    };
-  });
-};
-
 const loadOne = async (id) => {
   const row = await TripWorkerRole.findByPk(id, { include: [workerRoleInclude] });
   if (!row) return null;
-  const [enriched] = await withSignedUpCount(row.tripId, [row]);
+  const [enriched] = await withCapacityFields(row.tripId, [row]);
   return enriched;
 };
 
@@ -90,7 +63,7 @@ exports.findAll = async (req, res) => {
       include: [workerRoleInclude],
       order: [[{ model: WorkerRole, as: "workerRole" }, "name", "ASC"]],
     });
-    res.send(await withSignedUpCount(tripId, data));
+    res.send(await withCapacityFields(tripId, data));
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

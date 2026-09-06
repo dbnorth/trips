@@ -16,7 +16,11 @@ import {
   completePersonProfile,
 } from "./helpers.js";
 
-const createActiveTripWithRole = async (adminAuth, orgId, { tripName = "Apply Trip" } = {}) => {
+const createActiveTripWithRole = async (
+  adminAuth,
+  orgId,
+  { tripName = "Apply Trip", quantity = 5 } = {}
+) => {
   const trip = await request(app)
     .post("/trips/trips")
     .set(adminAuth)
@@ -46,7 +50,7 @@ const createActiveTripWithRole = async (adminAuth, orgId, { tripName = "Apply Tr
     .send({
       tripId: trip.body.id,
       workerRoleId: workerRole.body.id,
-      quantity: 5,
+      quantity,
     });
   expect(tripWorkerRole.status).toBe(200);
 
@@ -948,5 +952,393 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       expect(csv.text).toMatch(/Csv/);
       expect(csv.text).toMatch(/Person/);
     });
+  });
+
+  /**
+   * Feature 26 — Role Capacity & Application Cancel / Uncancel
+   * Spec: features/feature-26-role-capacity-and-cancel.md
+   */
+  describe("Feature 26 — Role Capacity & Application Cancel / Uncancel", () => {
+  describe("US-26.1 — Role slots consumed by pending and submitted applications", () => {
+    it("Incomplete application occupies a role slot", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "cap-incomplete-admin@example.com",
+      });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Capacity Incomplete",
+        quantity: 1,
+      });
+      const personA = await registerUser({
+        email: "cap-incomplete-a@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(personA.user.personId);
+      const personB = await registerUser({
+        email: "cap-incomplete-b@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(personB.user.personId);
+
+      const applyA = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(personA.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: false,
+          willRaiseFunds: false,
+        });
+      expect(applyA.status).toBe(200);
+      expect(applyA.body.applicationStatus).toBe("incomplete");
+
+      const browse = await request(app)
+        .get(`/trips/trips/browse/${trip.id}`)
+        .set(personB.authHeader);
+      expect(browse.status).toBe(200);
+      const role = (browse.body.rolesNeeded || []).find((r) => Number(r.id) === Number(tripWorkerRole.id));
+      expect(role?.availableCount).toBe(0);
+
+      const applyB = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(personB.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Person B",
+        });
+      expect(applyB.status).toBe(400);
+      expect(applyB.body.message).toMatch(/no available|full|available/i);
+    });
+
+    it("Applied application occupies a role slot", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "cap-applied-admin@example.com",
+      });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Capacity Applied",
+        quantity: 1,
+      });
+      const personA = await registerUser({
+        email: "cap-applied-a@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(personA.user.personId);
+      const personB = await registerUser({
+        email: "cap-applied-b@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(personB.user.personId);
+
+      const applyA = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(personA.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Person A",
+        });
+      expect(applyA.status).toBe(200);
+      expect(applyA.body.applicationStatus).toBe("applied");
+
+      const applyB = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(personB.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Person B",
+        });
+      expect(applyB.status).toBe(400);
+    });
+
+    it("Cancelled application does not occupy a role slot", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "cap-cancel-admin@example.com",
+      });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Capacity Cancelled",
+        quantity: 1,
+      });
+      const personA = await registerUser({
+        email: "cap-cancel-a@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(personA.user.personId);
+      const personB = await registerUser({
+        email: "cap-cancel-b@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(personB.user.personId);
+
+      const applyA = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(personA.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Person A",
+        });
+      expect(applyA.status).toBe(200);
+
+      const cancelA = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/application/cancel`)
+        .set(personA.authHeader);
+      expect(cancelA.status).toBe(200);
+      expect(cancelA.body.applicationStatus).toBe("cancelled");
+
+      const applyB = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(personB.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Person B",
+        });
+      expect(applyB.status).toBe(200);
+      expect(applyB.body.applicationStatus).toBe("applied");
+    });
+  });
+
+  describe("US-26.2 — Cancel and Uncancel an application", () => {
+    it("Applicant cancels an application", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "cancel-self-admin@example.com",
+      });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Cancel Self",
+        quantity: 1,
+      });
+      const applicant = await registerUser({
+        email: "cancel-self@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId);
+
+      const apply = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: false,
+          willRaiseFunds: false,
+        });
+      expect(apply.status).toBe(200);
+      expect(apply.body.applicationStatus).toBe("incomplete");
+
+      const cancel = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/application/cancel`)
+        .set(applicant.authHeader);
+      expect(cancel.status).toBe(200);
+      expect(cancel.body.applicationStatus).toBe("cancelled");
+
+      const mine = await request(app)
+        .get("/trips/trips/browse/mine")
+        .query({ orgId: org.id })
+        .set(applicant.authHeader);
+      expect(mine.status).toBe(200);
+      const cancelledTrip = (mine.body || []).find((t) => Number(t.id) === Number(trip.id));
+      expect(cancelledTrip).toBeTruthy();
+      expect(cancelledTrip.applicationStatus).toBe("cancelled");
+
+      const browse = await request(app)
+        .get(`/trips/trips/browse/${trip.id}`)
+        .set(applicant.authHeader);
+      const role = (browse.body.rolesNeeded || []).find((r) => Number(r.id) === Number(tripWorkerRole.id));
+      expect(role?.availableCount).toBe(1);
+    });
+
+    it("Applicant uncancels when a slot is free", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "uncancel-self-admin@example.com",
+      });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Uncancel Self",
+        quantity: 1,
+      });
+      const applicant = await registerUser({
+        email: "uncancel-self@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId);
+
+      const apply = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Uncancel Self",
+        });
+      expect(apply.status).toBe(200);
+      expect(apply.body.applicationStatus).toBe("applied");
+
+      await request(app)
+        .put(`/trips/trip-people-roles/${apply.body.assignment.id}`)
+        .set(authHeader)
+        .send({ version: apply.body.assignment.version, status: "approved" });
+
+      const cancel = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/application/cancel`)
+        .set(applicant.authHeader);
+      expect(cancel.status).toBe(200);
+
+      const uncancel = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/application/uncancel`)
+        .set(applicant.authHeader);
+      expect(uncancel.status).toBe(200);
+      expect(["incomplete", "applied"]).toContain(uncancel.body.applicationStatus);
+      expect(uncancel.body.applicationStatus).not.toBe("approved");
+    });
+
+    it("Uncancel is blocked when the role is full", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "uncancel-full-admin@example.com",
+      });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Uncancel Full",
+        quantity: 1,
+      });
+      const personA = await registerUser({
+        email: "uncancel-full-a@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(personA.user.personId);
+      const personB = await registerUser({
+        email: "uncancel-full-b@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(personB.user.personId);
+
+      const applyA = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(personA.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Person A",
+        });
+      expect(applyA.status).toBe(200);
+
+      const cancelA = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/application/cancel`)
+        .set(personA.authHeader);
+      expect(cancelA.status).toBe(200);
+
+      const applyB = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(personB.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Person B",
+        });
+      expect(applyB.status).toBe(200);
+
+      const uncancelA = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/application/uncancel`)
+        .set(personA.authHeader);
+      expect(uncancelA.status).toBe(400);
+
+      const stored = await db.tripPeopleRole.findOne({
+        where: { tripId: trip.id, peopleId: personA.user.personId },
+      });
+      expect(stored.status).toBe("cancelled");
+    });
+
+    it("Trip Leader or Admin can cancel and uncancel", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "staff-cancel-admin@example.com",
+      });
+      const leader = await registerUser({
+        email: "staff-cancel-leader@example.com",
+        orgIds: [org.id],
+      });
+      await assignOrgRole(org.id, leader.user.personId, "Trip Leader");
+
+      const trip = await request(app)
+        .post("/trips/trips")
+        .set(authHeader)
+        .send({
+          orgId: org.id,
+          name: "Staff Cancel Trip",
+          status: "active",
+          startDate: "2026-10-01",
+          endDate: "2026-10-10",
+          participantCost: 1500,
+          leaderPeopleIds: [leader.user.personId],
+        });
+      expect(trip.status).toBe(200);
+
+      const workerRole = await request(app)
+        .post("/trips/worker-roles")
+        .set(authHeader)
+        .send({ orgId: org.id, name: "Staff Role", licenseRequired: false });
+      expect(workerRole.status).toBe(200);
+
+      const tripWorkerRole = await request(app)
+        .post("/trips/trip-worker-roles")
+        .set(authHeader)
+        .send({
+          tripId: trip.body.id,
+          workerRoleId: workerRole.body.id,
+          quantity: 1,
+        });
+      expect(tripWorkerRole.status).toBe(200);
+
+      const applicant = await registerUser({
+        email: "staff-cancel-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId);
+
+      const apply = await request(app)
+        .post(`/trips/trips/browse/${trip.body.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.body.id,
+          willSelfFund: true,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Staff Cancel App",
+        });
+      expect(apply.status).toBe(200);
+
+      const cancel = await request(app)
+        .post(`/trips/trip-people-roles/${apply.body.assignment.id}/cancel`)
+        .set(leader.authHeader);
+      expect(cancel.status).toBe(200);
+      expect(cancel.body.status).toBe("cancelled");
+
+      const uncancel = await request(app)
+        .post(`/trips/trip-people-roles/${apply.body.assignment.id}/uncancel`)
+        .set(leader.authHeader);
+      expect(uncancel.status).toBe(200);
+      expect(["incomplete", "applied"]).toContain(uncancel.body.status);
+      expect(uncancel.body.status).not.toBe("approved");
+    });
+  });
   });
 });

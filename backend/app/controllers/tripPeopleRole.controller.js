@@ -21,6 +21,10 @@ import {
 } from "../utils/tripParticipantApplicationStatus.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
+import {
+  cancelApplicationAssignment,
+  uncancelApplicationAssignment,
+} from "../utils/applicationCancel.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -455,6 +459,39 @@ exports.delete = async (req, res) => {
     }
     await TripPeopleRole.destroy({ where: { id: req.params.id } });
     res.send({ message: "Deleted." });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.cancel = async (req, res) => {
+  try {
+    const row = await TripPeopleRole.findByPk(req.params.id);
+    if (!row) return res.status(404).send({ message: "Record not found." });
+    if (!(await canManageTripPeople(req, row.tripId))) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+    const result = await cancelApplicationAssignment(row);
+    if (!result.ok) return res.status(result.status).send({ message: result.message });
+    const full = await TripPeopleRole.findByPk(req.params.id, { include: listIncludes });
+    res.send(full);
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.uncancel = async (req, res) => {
+  try {
+    const row = await TripPeopleRole.findByPk(req.params.id);
+    if (!row) return res.status(404).send({ message: "Record not found." });
+    if (!(await canManageTripPeople(req, row.tripId))) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+    const trip = await Trip.findByPk(row.tripId, { attributes: ["id", "orgId"] });
+    const result = await uncancelApplicationAssignment(row, { orgId: trip?.orgId });
+    if (!result.ok) return res.status(result.status).send({ message: result.message });
+    const full = await TripPeopleRole.findByPk(req.params.id, { include: listIncludes });
+    res.send(full);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

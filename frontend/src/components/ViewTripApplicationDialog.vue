@@ -7,6 +7,7 @@ import {
 } from "../utils/tripParticipantStatus.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { isUnder18, personDisplayName } from "../utils/personProfile.js";
+import ConfirmDialog from "./ConfirmDialog.vue";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -22,12 +23,24 @@ const saving = ref(false);
 const loadError = ref("");
 const actionError = ref("");
 const application = ref(null);
+const showConfirmCancel = ref(false);
+const showConfirmUncancel = ref(false);
 
 const canApprove = computed(
   () => props.mode === "approve" && application.value?.status === "applied"
 );
 const canManageApproved = computed(
   () => props.mode === "view" && application.value?.status === "approved"
+);
+const canCancelApplication = computed(
+  () =>
+    props.mode !== "preview" &&
+    ["incomplete", "applied", "approved"].includes(
+      String(application.value?.status || "").toLowerCase()
+    )
+);
+const canUncancelApplication = computed(
+  () => String(application.value?.status || "").toLowerCase() === "cancelled"
 );
 
 const dialogTitle = computed(() => {
@@ -142,8 +155,48 @@ const unapprove = () => {
 };
 
 const cancelApplication = () => {
-  if (!canManageApproved.value) return;
-  return updateStatus("cancelled", "Application cancelled.", "Unable to cancel application.");
+  if (!canCancelApplication.value || !application.value?.id) return;
+  showConfirmCancel.value = true;
+};
+
+const confirmCancelApplication = async () => {
+  if (!application.value?.id) return;
+  saving.value = true;
+  actionError.value = "";
+  try {
+    await TripPeopleRoleServices.cancel(application.value.id);
+    showConfirmCancel.value = false;
+    emit("saved", { status: "cancelled", message: "Application cancelled." });
+    close();
+  } catch (e) {
+    actionError.value = e.response?.data?.message || "Unable to cancel application.";
+    showConfirmCancel.value = false;
+  } finally {
+    saving.value = false;
+  }
+};
+
+const uncancelApplication = () => {
+  if (!canUncancelApplication.value || !application.value?.id) return;
+  showConfirmUncancel.value = true;
+};
+
+const confirmUncancelApplication = async () => {
+  if (!application.value?.id) return;
+  saving.value = true;
+  actionError.value = "";
+  try {
+    const res = await TripPeopleRoleServices.uncancel(application.value.id);
+    const status = res.data?.status || "incomplete";
+    showConfirmUncancel.value = false;
+    emit("saved", { status, message: "Application uncancelled." });
+    close();
+  } catch (e) {
+    actionError.value = e.response?.data?.message || "Unable to uncancel application.";
+    showConfirmUncancel.value = false;
+  } finally {
+    saving.value = false;
+  }
 };
 </script>
 
@@ -323,13 +376,22 @@ const cancelApplication = () => {
           Unapprove
         </v-btn>
         <v-btn
-          v-if="canManageApproved"
+          v-if="canCancelApplication"
           color="error"
           variant="tonal"
           :disabled="saving"
           @click="cancelApplication"
         >
           Cancel
+        </v-btn>
+        <v-btn
+          v-if="canUncancelApplication"
+          color="primary"
+          variant="tonal"
+          :disabled="saving"
+          @click="uncancelApplication"
+        >
+          Uncancel
         </v-btn>
         <v-btn
           v-if="canApprove"
@@ -342,4 +404,22 @@ const cancelApplication = () => {
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <ConfirmDialog
+    v-model="showConfirmCancel"
+    title="Are you sure?"
+    message="Cancel this application? The role slot will be freed."
+    confirm-text="Cancel App"
+    confirm-color="error"
+    :loading="saving"
+    @confirm="confirmCancelApplication"
+  />
+  <ConfirmDialog
+    v-model="showConfirmUncancel"
+    title="Are you sure?"
+    message="Uncancel this application? It will return to incomplete or applied based on completeness."
+    confirm-text="Uncancel"
+    :loading="saving"
+    @confirm="confirmUncancelApplication"
+  />
 </template>

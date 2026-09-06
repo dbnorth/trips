@@ -25,6 +25,12 @@ export default {
   updateApplication(id, data = {}) {
     return apiClient.put(`/trips/browse/${id}/application`, data);
   },
+  cancelApplication(id) {
+    return apiClient.post(`/trips/browse/${id}/application/cancel`);
+  },
+  uncancelApplication(id) {
+    return apiClient.post(`/trips/browse/${id}/application/uncancel`);
+  },
   get(id) {
     return apiClient.get(`/trips/${id}`);
   },
