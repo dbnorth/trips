@@ -100,17 +100,17 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 
 ---
 
-## Document types & person documents — Feature 4
+## Document types & person documents — Features 4, 22
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/document-types` | auth | Catalog (any auth user) |
+| `GET` | `/trips/document-types` | auth | Catalog (any auth user); includes `documentNumberRequired`, `instructions` |
 | `GET` | `/trips/document-types/:id` | auth | Get (sysadmin gate in controller) |
-| `POST` | `/trips/document-types` | auth | Create (sysadmin) |
+| `POST` | `/trips/document-types` | auth | Create (sysadmin); optional `documentNumberRequired`, `instructions` |
 | `PUT` | `/trips/document-types/:id` | auth | Update (sysadmin) |
 | `DELETE` | `/trips/document-types/:id` | auth | Delete (sysadmin) |
 | `GET` | `/trips/people/:id/documents` | auth | List |
-| `POST` | `/trips/people/:id/documents` | auth | Upload (`multipart` field `document`) |
+| `POST` | `/trips/people/:id/documents` | auth | Upload (`multipart` field `document`); optional `documentNumber` (required when type says so) |
 | `PUT` | `/trips/people/:id/documents/:documentId` | auth | Update/replace |
 | `DELETE` | `/trips/people/:id/documents/:documentId` | auth | Delete |
 | `GET` | `/trips/people/:id/documents/:documentId/view` | auth | Inline view |

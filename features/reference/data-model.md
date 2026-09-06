@@ -19,8 +19,8 @@ Notes:
 | `role` | 2 | Role catalog |
 | `orgPeopleRole` | 2 | Person ↔ org ↔ role |
 | `organization` | 3 | Sponsors / branding / agreement file |
-| `documentType` | 4 | Passport / medical licence catalog |
-| `personDocument` | 4 | Uploaded person documents |
+| `documentType` | 4, 22 | Passport / medical licence catalog |
+| `personDocument` | 4, 22 | Uploaded person documents |
 | `trip` | 5 | Trip catalog |
 | `tripPeopleRole` | 5, 7 | Leaders, applications, participants |
 | `workerRole` | 6 | Org worker-role catalog |
@@ -147,19 +147,21 @@ Notes:
 
 ---
 
-## `documentType` — Feature 4
+## `documentType` — Features 4, 22
 
 | Field | Type | Rules |
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
 | description | STRING(255) | required |
-| type | ENUM(`medical_licence`,`passport`) | required |
+| type | ENUM(`medical_licence`,`passport`,`certification`) | required (`certification` — Feature 22) |
+| documentNumberRequired | BOOLEAN | required, default `false` (Feature 22) |
+| instructions | TEXT | nullable (Feature 22) |
 
 **Associations:** `hasMany` workerRole (SET NULL); `hasMany` personDocument (RESTRICT).
 
 ---
 
-## `personDocument` — Feature 4
+## `personDocument` — Features 4, 22
 
 | Field | Type | Rules |
 |-------|------|--------|
@@ -167,9 +169,10 @@ Notes:
 | personId | INTEGER | required FK → person |
 | documentTypeId | INTEGER | required FK → documentType |
 | countryIssued | STRING(2) | |
+| documentNumber | STRING(100) | nullable; required by API when type.`documentNumberRequired` (Feature 22) |
 | issueDate | DATEONLY | |
 | expirationDate | DATEONLY | required |
-| documentFileName | STRING(500) | required |
+| documentFileName | STRING(500) | nullable; optional upload (Feature 22) |
 
 **Associations:** `belongsTo` person, documentType.
 

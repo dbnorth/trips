@@ -400,7 +400,9 @@ const ensureDocumentTypesTable = async () => {
       CREATE TABLE documentTypes (
         id INT NOT NULL AUTO_INCREMENT,
         description VARCHAR(255) NOT NULL,
-        type ENUM('medical_licence', 'passport') NOT NULL,
+        type ENUM('medical_licence', 'passport', 'certification') NOT NULL,
+        documentNumberRequired TINYINT(1) NOT NULL DEFAULT 0,
+        instructions TEXT NULL,
         createdAt DATETIME NOT NULL,
         updatedAt DATETIME NOT NULL,
         PRIMARY KEY (id)
@@ -418,7 +420,7 @@ const ensureDocumentTypesTable = async () => {
     if (!columnType.includes("medical_licence") || columnType.includes("'medical'")) {
       await db.sequelize.query(`
         ALTER TABLE documentTypes
-        MODIFY COLUMN type ENUM('medical', 'licences', 'passport', 'medical_licence') NOT NULL
+        MODIFY COLUMN type ENUM('medical', 'licences', 'passport', 'medical_licence', 'certification') NOT NULL
       `);
       await db.sequelize.query(`
         UPDATE documentTypes
@@ -427,9 +429,15 @@ const ensureDocumentTypesTable = async () => {
       `);
       await db.sequelize.query(`
         ALTER TABLE documentTypes
-        MODIFY COLUMN type ENUM('medical_licence', 'passport') NOT NULL
+        MODIFY COLUMN type ENUM('medical_licence', 'passport', 'certification') NOT NULL
       `);
-      logger.info("documentTypes.type enum updated to medical_licence and passport.");
+      logger.info("documentTypes.type enum updated to medical_licence, passport, and certification.");
+    } else if (!columnType.includes("certification")) {
+      await db.sequelize.query(`
+        ALTER TABLE documentTypes
+        MODIFY COLUMN type ENUM('medical_licence', 'passport', 'certification') NOT NULL
+      `);
+      logger.info("documentTypes.type enum added certification.");
     }
   }
 
@@ -456,9 +464,40 @@ const ensureDocumentTypesTable = async () => {
     logger.info("documentTypes.orgId column removed (now system-wide).");
   }
 
+  const [numberRequiredCols] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'documentTypes'
+       AND COLUMN_NAME = 'documentNumberRequired'`
+  );
+  if (!numberRequiredCols.length) {
+    await db.sequelize.query(
+      `ALTER TABLE documentTypes
+       ADD COLUMN documentNumberRequired TINYINT(1) NOT NULL DEFAULT 0
+       AFTER type`
+    );
+    logger.info("documentTypes.documentNumberRequired column added.");
+  }
+
+  const [instructionsCols] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'documentTypes'
+       AND COLUMN_NAME = 'instructions'`
+  );
+  if (!instructionsCols.length) {
+    await db.sequelize.query(
+      `ALTER TABLE documentTypes
+       ADD COLUMN instructions TEXT NULL
+       AFTER documentNumberRequired`
+    );
+    logger.info("documentTypes.instructions column added.");
+  }
+
   const seeds = [
     ["Medical Licence", "medical_licence"],
     ["Passport", "passport"],
+    ["Certification", "certification"],
   ];
   for (const [description, type] of seeds) {
     const [rows] = await db.sequelize.query(
@@ -490,9 +529,10 @@ const ensurePersonDocumentsTable = async () => {
         personId INT NOT NULL,
         documentTypeId INT NOT NULL,
         countryIssued VARCHAR(2) NULL,
+        documentNumber VARCHAR(100) NULL,
         issueDate DATE NULL,
         expirationDate DATE NOT NULL,
-        documentFileName VARCHAR(500) NOT NULL,
+        documentFileName VARCHAR(500) NULL,
         createdAt DATETIME NOT NULL,
         updatedAt DATETIME NOT NULL,
         PRIMARY KEY (id),
@@ -507,21 +547,49 @@ const ensurePersonDocumentsTable = async () => {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
     logger.info("personDocuments table created.");
-    return;
+  } else {
+    const [cols] = await db.sequelize.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'personDocuments'
+         AND COLUMN_NAME = 'countryIssued'`
+    );
+    if (!cols.length) {
+      await db.sequelize.query(
+        `ALTER TABLE personDocuments ADD COLUMN countryIssued VARCHAR(2) NULL AFTER documentTypeId`
+      );
+      logger.info("personDocuments.countryIssued column added.");
+    }
+
+    const [numberCols] = await db.sequelize.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'personDocuments'
+         AND COLUMN_NAME = 'documentNumber'`
+    );
+    if (!numberCols.length) {
+      await db.sequelize.query(
+        `ALTER TABLE personDocuments
+         ADD COLUMN documentNumber VARCHAR(100) NULL
+         AFTER countryIssued`
+      );
+      logger.info("personDocuments.documentNumber column added.");
+    }
+
+    const [fileCols] = await db.sequelize.query(
+      `SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'personDocuments'
+         AND COLUMN_NAME = 'documentFileName'`
+    );
+    if (fileCols.length && fileCols[0].IS_NULLABLE === "NO") {
+      await db.sequelize.query(
+        `ALTER TABLE personDocuments
+         MODIFY COLUMN documentFileName VARCHAR(500) NULL`
+      );
+      logger.info("personDocuments.documentFileName made nullable.");
+    }
   }
-
-  const [cols] = await db.sequelize.query(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = 'personDocuments'
-       AND COLUMN_NAME = 'countryIssued'`
-  );
-  if (cols.length) return;
-
-  await db.sequelize.query(
-    `ALTER TABLE personDocuments ADD COLUMN countryIssued VARCHAR(2) NULL AFTER documentTypeId`
-  );
-  logger.info("personDocuments.countryIssued column added.");
 };
 
 const ensureWorkerRoleDocumentType = async () => {

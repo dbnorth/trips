@@ -72,6 +72,31 @@ export const isProfileComplete = (person, options = {}) => {
   return true;
 };
 
+/** Every person-document row must have an uploaded file. */
+export const arePersonDocumentsUploaded = (documents = []) =>
+  (documents || []).every(
+    (doc) => doc.documentFileName && String(doc.documentFileName).trim() !== ""
+  );
+
+/**
+ * When the worker role requires a document type, the person must have that type
+ * with a file. If compareDate is set (trip end/start), expiration must be after it.
+ */
+export const isRequiredRoleDocumentUploaded = ({
+  documents = [],
+  documentTypeId = null,
+  compareDate = null,
+}) => {
+  if (documentTypeId == null || documentTypeId === "") return true;
+  return (documents || []).some((doc) => {
+    if (Number(doc.documentTypeId) !== Number(documentTypeId)) return false;
+    if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
+    if (!compareDate) return true;
+    const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+    return expirationDate && expirationDate > compareDate;
+  });
+};
+
 export const isApplicationComplete = ({
   tripWorkerRoleId,
   willSelfFund,
@@ -94,12 +119,16 @@ export const isApplicationComplete = ({
   isPregnant = null,
   pregnancyDueDate = null,
   travelOptionsComplete = true,
+  personDocumentsUploaded = true,
+  requiredRoleDocumentUploaded = true,
 }) => {
   if (tripWorkerRoleId == null || tripWorkerRoleId === "") return false;
   if (!willSelfFund && !willRaiseFunds) return false;
   if (licenseRequired && !LICENSE_STATUSES.includes(licenseStatus)) return false;
   if (hasPreferredRoommate && isBlank(preferredRoommateNames)) return false;
   if (!travelOptionsComplete) return false;
+  if (!personDocumentsUploaded) return false;
+  if (!requiredRoleDocumentUploaded) return false;
   if (agreementRequired) {
     if (!agreementAccepted) return false;
     if (isBlank(agreementSignatureName)) return false;
@@ -139,6 +168,8 @@ export const resolveAppliedOrIncompleteStatus = ({
   isPregnant = null,
   pregnancyDueDate = null,
   travelOptionsComplete = true,
+  personDocumentsUploaded = true,
+  requiredRoleDocumentUploaded = true,
   orgId = null,
 }) => {
   const participantUnder18 = isUnder18(person?.birthDate);
@@ -164,6 +195,8 @@ export const resolveAppliedOrIncompleteStatus = ({
     isPregnant,
     pregnancyDueDate,
     travelOptionsComplete,
+    personDocumentsUploaded,
+    requiredRoleDocumentUploaded,
   });
   const profileOk = isProfileComplete(person, { orgId });
   return applicationOk && profileOk ? "applied" : "incomplete";
@@ -187,18 +220,45 @@ export const loadPersonForCompleteness = async (peopleId) => {
   return payload;
 };
 
-export const loadLicenseRequired = async (tripWorkerRoleId) => {
-  if (tripWorkerRoleId == null || tripWorkerRoleId === "") return false;
+export const loadPersonDocumentsForCompleteness = async (peopleId) => {
+  if (!peopleId) return [];
+  return db.personDocument.findAll({
+    where: { personId: peopleId },
+    attributes: ["id", "documentTypeId", "documentFileName", "expirationDate"],
+  });
+};
+
+export const loadWorkerRoleDocumentRequirements = async (tripWorkerRoleId) => {
+  if (tripWorkerRoleId == null || tripWorkerRoleId === "") {
+    return { licenseRequired: false, documentTypeId: null };
+  }
   const row = await TripWorkerRole.findByPk(tripWorkerRoleId, {
     include: [
       {
         model: WorkerRole,
         as: "workerRole",
-        attributes: ["id", "licenseRequired"],
+        attributes: ["id", "licenseRequired", "documentTypeId"],
       },
     ],
   });
-  return !!row?.workerRole?.licenseRequired;
+  return {
+    licenseRequired: !!row?.workerRole?.licenseRequired,
+    documentTypeId: row?.workerRole?.documentTypeId ?? null,
+  };
+};
+
+export const loadLicenseRequired = async (tripWorkerRoleId) => {
+  const { licenseRequired } = await loadWorkerRoleDocumentRequirements(tripWorkerRoleId);
+  return licenseRequired;
+};
+
+/** Trip end date preferred; fall back to start (date-only YYYY-MM-DD). */
+export const tripDocumentCompareDate = (trip) => {
+  if (!trip) return null;
+  const end = trip.endDate != null ? String(trip.endDate).slice(0, 10) : "";
+  if (end) return end;
+  const start = trip.startDate != null ? String(trip.startDate).slice(0, 10) : "";
+  return start || null;
 };
 
 /** Statuses that admins set manually; do not auto-overwrite. */

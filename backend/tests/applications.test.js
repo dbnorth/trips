@@ -159,6 +159,165 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       expect(response.body.assignment.status).toBe("applied");
     });
 
+    it("Application stays incomplete until all documents are uploaded", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "docs-gate-admin@example.com",
+      });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id);
+      const applicant = await registerUser({
+        email: "docs-gate-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId);
+
+      const docType = await db.documentType.create({
+        type: "passport",
+        description: "Passport for gate test",
+      });
+      await db.personDocument.create({
+        personId: applicant.user.personId,
+        documentTypeId: docType.id,
+        countryIssued: "US",
+        issueDate: "2020-01-01",
+        expirationDate: "2030-01-01",
+        documentFileName: null,
+      });
+
+      const incomplete = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Docs Gate Applicant",
+        });
+
+      expect(incomplete.status).toBe(200);
+      expect(incomplete.body.applicationStatus).toBe("incomplete");
+      expect(incomplete.body.assignment.status).toBe("incomplete");
+
+      await db.personDocument.update(
+        { documentFileName: "people/docs-gate-passport.png" },
+        { where: { personId: applicant.user.personId } }
+      );
+
+      const applied = await request(app)
+        .put(`/trips/trips/browse/${trip.id}/application`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Docs Gate Applicant",
+          version: incomplete.body.assignment.version,
+        });
+
+      expect(applied.status).toBe(200);
+      expect(applied.body.applicationStatus).toBe("applied");
+      expect(applied.body.application.status).toBe("applied");
+    });
+
+    it("Application stays incomplete until role-required document is uploaded", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "role-doc-admin@example.com",
+      });
+      const docType = await db.documentType.create({
+        type: "medical_licence",
+        description: "RN License",
+      });
+      const trip = await request(app)
+        .post("/trips/trips")
+        .set(authHeader)
+        .send({
+          orgId: org.id,
+          name: "Role Doc Trip",
+          status: "active",
+          startDate: "2026-09-01",
+          endDate: "2026-09-14",
+          participantCost: 1800,
+        });
+      expect(trip.status).toBe(200);
+
+      const workerRole = await request(app)
+        .post("/trips/worker-roles")
+        .set(authHeader)
+        .send({
+          orgId: org.id,
+          name: "Nurse",
+          licenseRequired: true,
+          documentTypeId: docType.id,
+        });
+      expect(workerRole.status).toBe(200);
+
+      const tripWorkerRole = await request(app)
+        .post("/trips/trip-worker-roles")
+        .set(authHeader)
+        .send({
+          tripId: trip.body.id,
+          workerRoleId: workerRole.body.id,
+          quantity: 2,
+        });
+      expect(tripWorkerRole.status).toBe(200);
+
+      const applicant = await registerUser({
+        email: "role-doc-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId);
+
+      const withoutDoc = await request(app)
+        .post(`/trips/trips/browse/${trip.body.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.body.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          licenseStatus: "yes",
+          hasPreferredRoommate: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Role Doc Applicant",
+        });
+
+      expect(withoutDoc.status).toBe(200);
+      expect(withoutDoc.body.applicationStatus).toBe("incomplete");
+
+      await db.personDocument.create({
+        personId: applicant.user.personId,
+        documentTypeId: docType.id,
+        countryIssued: "US",
+        issueDate: "2020-01-01",
+        expirationDate: "2030-01-01",
+        documentFileName: "people/rn-license.png",
+      });
+
+      const withDoc = await request(app)
+        .put(`/trips/trips/browse/${trip.body.id}/application`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.body.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          licenseStatus: "yes",
+          hasPreferredRoommate: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Role Doc Applicant",
+          version: withoutDoc.body.assignment.version,
+        });
+
+      expect(withDoc.status).toBe(200);
+      expect(withDoc.body.applicationStatus).toBe("applied");
+      expect(withDoc.body.application.status).toBe("applied");
+    });
+
     it("Pregnancy answers are saved on the application", async () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "preg-save-admin@example.com",

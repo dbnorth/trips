@@ -8,11 +8,15 @@ import {
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import { TRIP_PARTICIPANT_STATUSES } from "../models/tripPeopleRole.model.js";
 import {
-  loadLicenseRequired,
+  arePersonDocumentsUploaded,
+  isRequiredRoleDocumentUploaded,
+  loadPersonDocumentsForCompleteness,
+  loadWorkerRoleDocumentRequirements,
   loadPersonForCompleteness,
   MANUAL_TRIP_PARTICIPANT_STATUSES,
   resolveAppliedOrIncompleteStatus,
   shouldAutoSetApplicationStatus,
+  tripDocumentCompareDate,
 } from "../utils/tripParticipantApplicationStatus.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
@@ -105,7 +109,16 @@ const normalizeManualStatus = (value) => {
 
 const computeStatusForPayload = async (payload, orgId) => {
   const person = await loadPersonForCompleteness(payload.peopleId);
-  const licenseRequired = await loadLicenseRequired(payload.tripWorkerRoleId);
+  const personDocuments = await loadPersonDocumentsForCompleteness(payload.peopleId);
+  const { licenseRequired, documentTypeId } = await loadWorkerRoleDocumentRequirements(
+    payload.tripWorkerRoleId
+  );
+  const trip =
+    payload.tripId != null
+      ? await Trip.findByPk(payload.tripId, {
+          attributes: ["id", "startDate", "endDate"],
+        })
+      : null;
   const agreement = orgId != null ? await loadOrganizationAgreement(orgId) : null;
   const agreementRequired = !!agreement?.exists && !!agreement?.content?.trim();
   const medicalAgreement = orgId != null ? await loadOrganizationMedicalAgreement(orgId) : null;
@@ -134,6 +147,12 @@ const computeStatusForPayload = async (payload, orgId) => {
     medicalAgreementAccepted: !!payload.medicalAgreementAccepted,
     isPregnant: pregnancy.ok ? pregnancy.isPregnant : null,
     pregnancyDueDate: pregnancy.ok ? pregnancy.pregnancyDueDate : null,
+    personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
+    requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
+      documents: personDocuments,
+      documentTypeId,
+      compareDate: tripDocumentCompareDate(trip),
+    }),
     orgId,
   });
 };

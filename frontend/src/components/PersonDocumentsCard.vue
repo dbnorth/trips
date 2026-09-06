@@ -15,13 +15,27 @@ const loading = ref(false);
 const saving = ref(false);
 const message = ref("");
 const fileInputKey = ref(0);
+const showFieldErrors = ref(false);
+const editingDocumentId = ref(null);
 const form = ref({
   documentTypeId: null,
   countryIssued: US_COUNTRY_CODE,
+  documentNumber: "",
   issueDate: "",
   expirationDate: "",
   file: null,
 });
+
+const emptyFieldErrors = () => ({
+  documentTypeId: "",
+  documentNumber: "",
+  countryIssued: "",
+  issueDate: "",
+  expirationDate: "",
+  file: "",
+});
+
+const fieldErrors = ref(emptyFieldErrors());
 
 const viewDialog = ref(false);
 const viewLoading = ref(false);
@@ -29,6 +43,10 @@ const viewUrl = ref(null);
 const viewType = ref("");
 const viewName = ref("");
 const viewRow = ref(null);
+
+const isEditing = computed(() => editingDocumentId.value != null);
+const formTitle = computed(() => (isEditing.value ? "Edit Document" : "Add Document"));
+const saveButtonLabel = computed(() => (isEditing.value ? "Save document" : "Add document"));
 
 const viewKind = computed(() => {
   const type = (viewType.value || "").toLowerCase();
@@ -45,24 +63,86 @@ const documentTypeItems = computed(() =>
   }))
 );
 
+const selectedDocumentType = computed(
+  () =>
+    documentTypes.value.find((row) => Number(row.id) === Number(form.value.documentTypeId)) || null
+);
+
+const selectedInstructions = computed(() => {
+  const text = selectedDocumentType.value?.instructions;
+  return text && String(text).trim() ? String(text) : "";
+});
+
+const documentNumberRequired = computed(
+  () => !!selectedDocumentType.value?.documentNumberRequired
+);
+
 const fileName = (row) => String(row.documentFileName || "").split("/").pop() || "Document";
 
 const countryLabel = (code) => countryName(code) || code || "—";
 
 const onFileSelected = (files) => {
   form.value.file = Array.isArray(files) ? files[0] : files || null;
+  if (showFieldErrors.value) validateForm();
 };
 
 const resetForm = () => {
+  editingDocumentId.value = null;
   form.value = {
     documentTypeId: null,
     countryIssued: US_COUNTRY_CODE,
+    documentNumber: "",
     issueDate: "",
     expirationDate: "",
     file: null,
   };
+  showFieldErrors.value = false;
+  fieldErrors.value = emptyFieldErrors();
   fileInputKey.value += 1;
 };
+
+const validateForm = () => {
+  const errors = emptyFieldErrors();
+  if (!form.value.documentTypeId) {
+    errors.documentTypeId = "Document type is required.";
+  }
+  if (documentNumberRequired.value && !String(form.value.documentNumber || "").trim()) {
+    errors.documentNumber = "Document number is required.";
+  }
+  if (!resolveCountryCode(form.value.countryIssued)) {
+    errors.countryIssued = "Country issued is required.";
+  }
+  if (!form.value.issueDate) {
+    errors.issueDate = "Issue date is required.";
+  }
+  if (!form.value.expirationDate) {
+    errors.expirationDate = "Expiration date is required.";
+  }
+  fieldErrors.value = errors;
+  return !Object.values(errors).some(Boolean);
+};
+
+watch(
+  () => form.value.documentTypeId,
+  () => {
+    if (!documentNumberRequired.value) {
+      form.value.documentNumber = "";
+    }
+    if (showFieldErrors.value) validateForm();
+  }
+);
+
+watch(
+  () => [
+    form.value.documentNumber,
+    form.value.countryIssued,
+    form.value.issueDate,
+    form.value.expirationDate,
+  ],
+  () => {
+    if (showFieldErrors.value) validateForm();
+  }
+);
 
 const load = async () => {
   if (!props.personId) {
@@ -86,31 +166,58 @@ const load = async () => {
   }
 };
 
-const addDocument = async () => {
+const startEdit = (row) => {
   message.value = "";
-  if (!form.value.documentTypeId) {
-    message.value = "Document type is required.";
-    return;
-  }
-  if (!form.value.expirationDate) {
-    message.value = "Expiration date is required.";
-    return;
-  }
-  if (!form.value.file) {
-    message.value = "Document file is required.";
-    return;
-  }
+  editingDocumentId.value = row.id;
+  form.value = {
+    documentTypeId: row.documentTypeId,
+    countryIssued: row.countryIssued || US_COUNTRY_CODE,
+    documentNumber: row.documentNumber || "",
+    issueDate: row.issueDate || "",
+    expirationDate: row.expirationDate || "",
+    file: null,
+  };
+  showFieldErrors.value = false;
+  fieldErrors.value = emptyFieldErrors();
+  fileInputKey.value += 1;
+};
+
+const cancelEdit = () => {
+  resetForm();
+};
+
+const saveDocument = async () => {
+  message.value = "";
+  showFieldErrors.value = true;
+  if (!validateForm()) return;
+
+  const payload = {
+    documentTypeId: form.value.documentTypeId,
+    documentNumber: documentNumberRequired.value
+      ? String(form.value.documentNumber || "").trim()
+      : null,
+    countryIssued: resolveCountryCode(form.value.countryIssued) || null,
+    issueDate: form.value.issueDate,
+    expirationDate: form.value.expirationDate,
+    file: form.value.file || undefined,
+  };
 
   saving.value = true;
   try {
-    await PersonDocumentServices.create(props.personId, {
-      ...form.value,
-      countryIssued: resolveCountryCode(form.value.countryIssued) || null,
-    });
+    if (isEditing.value) {
+      await PersonDocumentServices.update(props.personId, editingDocumentId.value, payload);
+    } else {
+      await PersonDocumentServices.create(props.personId, {
+        ...payload,
+        file: form.value.file,
+      });
+    }
     resetForm();
     await load();
   } catch (e) {
-    message.value = e.response?.data?.message || "Unable to upload document.";
+    message.value =
+      e.response?.data?.message ||
+      (isEditing.value ? "Unable to update document." : "Unable to upload document.");
   } finally {
     saving.value = false;
   }
@@ -170,6 +277,7 @@ const removeDocument = async (row) => {
   message.value = "";
   try {
     await PersonDocumentServices.delete(props.personId, row.id);
+    if (Number(editingDocumentId.value) === Number(row.id)) resetForm();
     await load();
   } catch (e) {
     message.value = e.response?.data?.message || "Unable to delete document.";
@@ -200,22 +308,34 @@ onMounted(load);
       <thead>
         <tr>
           <th>Type</th>
+          <th>Document number</th>
           <th>Country issued</th>
           <th>Issue date</th>
           <th>Expiration date</th>
-          <th>File name</th>
+          <th>Document</th>
           <th class="text-right" style="width: 220px">Actions</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="row in documents" :key="row.id">
           <td>{{ row.documentType?.description || row.documentTypeId }}</td>
+          <td>{{ row.documentNumber || "—" }}</td>
           <td>{{ countryLabel(row.countryIssued) }}</td>
           <td>{{ row.issueDate || "—" }}</td>
           <td>{{ row.expirationDate }}</td>
-          <td>{{ fileName(row) }}</td>
+          <td>
+            <v-btn
+              v-if="row.documentFileName"
+              size="small"
+              variant="text"
+              @click="viewDocument(row)"
+            >
+              View
+            </v-btn>
+            <span v-else class="text-medium-emphasis">Need Document</span>
+          </td>
           <td class="text-right">
-            <v-btn size="small" variant="text" @click="viewDocument(row)">View</v-btn>
+            <v-btn size="small" variant="text" @click="startEdit(row)">Edit</v-btn>
             <v-btn size="small" variant="text" @click="downloadDocument(row)">Download</v-btn>
             <v-btn size="small" variant="text" color="error" @click="removeDocument(row)">
               Delete
@@ -228,7 +348,17 @@ onMounted(load);
     <p v-else class="text-body-2 text-medium-emphasis mb-3">No documents uploaded yet.</p>
 
     <div class="add-document-form pa-4 rounded mb-2">
-      <div class="text-subtitle-2 mb-3">Add Document</div>
+      <div class="text-subtitle-2 mb-3">{{ formTitle }}</div>
+      <v-alert
+        v-if="selectedInstructions"
+        type="info"
+        variant="tonal"
+        density="compact"
+        class="mb-3 document-instructions"
+        style="white-space: pre-wrap"
+      >
+        {{ selectedInstructions }}
+      </v-alert>
       <v-row dense>
         <v-col cols="12" sm="6">
           <v-select
@@ -237,6 +367,16 @@ onMounted(load);
             label="Document type"
             density="compact"
             :disabled="!documentTypeItems.length"
+            :error-messages="fieldErrors.documentTypeId"
+          />
+        </v-col>
+        <v-col v-if="documentNumberRequired" cols="12" sm="6">
+          <v-text-field
+            v-model="form.documentNumber"
+            label="Document number"
+            density="compact"
+            autocomplete="off"
+            :error-messages="fieldErrors.documentNumber"
           />
         </v-col>
         <v-col cols="12" sm="6">
@@ -244,6 +384,7 @@ onMounted(load);
             v-model="form.countryIssued"
             label="Country issued"
             default-empty-to-us
+            :error-messages="fieldErrors.countryIssued"
           />
         </v-col>
         <v-col cols="12" sm="6">
@@ -252,6 +393,7 @@ onMounted(load);
             label="Issue date"
             type="date"
             density="compact"
+            :error-messages="fieldErrors.issueDate"
           />
         </v-col>
         <v-col cols="12" sm="6">
@@ -260,33 +402,44 @@ onMounted(load);
             label="Expiration date"
             type="date"
             density="compact"
+            :error-messages="fieldErrors.expirationDate"
           />
         </v-col>
       </v-row>
 
       <v-file-input
         :key="fileInputKey"
-        label="Upload document"
+        label="Upload document (optional)"
         accept="application/pdf,image/jpeg,image/jpg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic,.heif"
         density="compact"
         prepend-icon="mdi-file-document"
         show-size
         clearable
-        hint="PDF, JPG, PNG, or HEIC"
+        :hint="
+          isEditing
+            ? 'Leave empty to keep the current file (or none). PDF, JPG, PNG, or HEIC'
+            : 'Optional. PDF, JPG, PNG, or HEIC'
+        "
         persistent-hint
         class="mb-2"
+        :error-messages="fieldErrors.file"
         @update:model-value="onFileSelected"
       />
 
-      <v-btn
-        color="primary"
-        size="small"
-        :loading="saving"
-        :disabled="!props.personId || !documentTypeItems.length"
-        @click="addDocument"
-      >
-        Add document
-      </v-btn>
+      <div class="d-flex ga-2">
+        <v-btn
+          color="primary"
+          size="small"
+          :loading="saving"
+          :disabled="!props.personId || !documentTypeItems.length"
+          @click="saveDocument"
+        >
+          {{ saveButtonLabel }}
+        </v-btn>
+        <v-btn v-if="isEditing" variant="text" size="small" :disabled="saving" @click="cancelEdit">
+          Cancel
+        </v-btn>
+      </div>
     </div>
 
     <v-dialog :model-value="viewDialog" max-width="900" @update:model-value="(v) => !v && closeView()">

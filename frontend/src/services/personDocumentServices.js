@@ -13,15 +13,17 @@ export default {
     const form = new FormData();
     form.append("documentTypeId", data.documentTypeId);
     if (data.countryIssued) form.append("countryIssued", data.countryIssued);
+    if (data.documentNumber) form.append("documentNumber", data.documentNumber);
     if (data.issueDate) form.append("issueDate", data.issueDate);
     form.append("expirationDate", data.expirationDate);
-    form.append("document", data.file);
+    if (data.file) form.append("document", data.file);
     return apiClient.post(`/people/${personId}/documents`, form);
   },
   update(personId, documentId, data) {
     const form = new FormData();
     form.append("documentTypeId", data.documentTypeId);
     if (data.countryIssued) form.append("countryIssued", data.countryIssued);
+    if (data.documentNumber) form.append("documentNumber", data.documentNumber);
     if (data.issueDate) form.append("issueDate", data.issueDate);
     form.append("expirationDate", data.expirationDate);
     if (data.file) form.append("document", data.file);
