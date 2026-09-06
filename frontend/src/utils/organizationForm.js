@@ -1,4 +1,4 @@
-import { normalizeAddressFields } from "./locationData.js";
+import { normalizeAddressFields, US_COUNTRY_CODE } from "./locationData.js";
 
 export const COLOR_OPTIONS = ["blue", "teal", "green", "purple", "red", "orange"];
 
@@ -8,7 +8,7 @@ export const emptyOrganizationForm = () => ({
   addLine1: "",
   addLine2: "",
   city: "",
-  country: "",
+  country: US_COUNTRY_CODE,
   state_prov: "",
   postalCode: "",
   phoneContryCode: "",

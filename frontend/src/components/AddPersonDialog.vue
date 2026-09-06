@@ -9,7 +9,7 @@ import AddressFields from "./AddressFields.vue";
 import PersonProfileFields from "./PersonProfileFields.vue";
 import Utils from "../config/utils.js";
 import { formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
-import { normalizeAddressFields } from "../utils/locationData.js";
+import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { normalizeYesNo } from "../utils/personProfile.js";
 
 const props = defineProps({
@@ -33,7 +33,7 @@ const emptyForm = () => ({
   addLine1: "",
   addLine2: "",
   city: "",
-  country: "",
+  country: US_COUNTRY_CODE,
   state_prov: "",
   postalCode: "",
   phoneContryCode: "",

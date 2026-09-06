@@ -6,7 +6,7 @@ import TripPeopleRoleServices from "../services/tripPeopleRoleServices.js";
 import MoneyInput from "./MoneyInput.vue";
 import AddressFields from "./AddressFields.vue";
 import { parseMoneyAmount } from "../utils/moneyUtils.js";
-import { normalizeAddressFields } from "../utils/locationData.js";
+import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
 
 const props = defineProps({
@@ -42,7 +42,7 @@ const emptyDonor = () => ({
   addLine1: "",
   addLine2: "",
   city: "",
-  country: "",
+  country: US_COUNTRY_CODE,
   state_prov: "",
   postalCode: "",
   phoneContryCode: "",
