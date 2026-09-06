@@ -2,7 +2,9 @@ import db from "../models/index.js";
 import { isSystemAdmin } from "../authorization/accessControl.js";
 
 const DocumentType = db.documentType;
-const DOCUMENT_TYPES = ["medical_licence", "passport", "certification"];
+const DOCUMENT_TYPES = ["medical_licence", "passport", "certification", "diploma"];
+const DOCUMENT_TYPE_MESSAGE =
+  "Type must be medical_licence, passport, certification, or diploma.";
 
 const requireSystemAdmin = (req, res) => {
   if (!isSystemAdmin(req)) {
@@ -84,7 +86,7 @@ exports.create = async (req, res) => {
     }
     if (!payload.type || !DOCUMENT_TYPES.includes(payload.type)) {
       return res.status(400).send({
-        message: "Type must be medical_licence, passport, or certification.",
+        message: DOCUMENT_TYPE_MESSAGE,
       });
     }
 
@@ -118,7 +120,7 @@ exports.update = async (req, res) => {
       !DOCUMENT_TYPES.includes(payload.type)
     ) {
       return res.status(400).send({
-        message: "Type must be medical_licence, passport, or certification.",
+        message: DOCUMENT_TYPE_MESSAGE,
       });
     }
 

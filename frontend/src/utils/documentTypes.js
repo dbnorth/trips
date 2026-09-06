@@ -2,6 +2,7 @@ export const DOCUMENT_TYPE_OPTIONS = [
   { title: "Medical Licence", value: "medical_licence" },
   { title: "Passport", value: "passport" },
   { title: "Certification", value: "certification" },
+  { title: "Diploma", value: "diploma" },
 ];
 
 export const documentTypeLabel = (value) =>

@@ -4,6 +4,9 @@
  *
  * Feature 22 — Document Type Number Required & Instructions
  * Spec: features/feature-22-document-number-and-instructions.md
+ *
+ * Feature 24 — Document Type Diploma
+ * Spec: features/feature-24-document-type-diploma.md
  */
 
 import request from "supertest";
@@ -226,6 +229,48 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       const list = await request(app).get("/trips/document-types").set(authHeader);
       expect(list.body.map((d) => d.id)).toContain(create.body.id);
       expect(list.body.find((d) => d.id === create.body.id).type).toBe("certification");
+    });
+
+    it("System Admin can create a Diploma document type", async () => {
+      const { authHeader } = await createSystemAdminUser({
+        email: "doc-diploma-admin@example.com",
+      });
+
+      const create = await request(app)
+        .post("/trips/document-types")
+        .set(authHeader)
+        .send({
+          type: "diploma",
+          description: "Nursing Diploma",
+        });
+
+      expect(create.status).toBe(200);
+      expect(create.body).toMatchObject({
+        type: "diploma",
+        description: "Nursing Diploma",
+      });
+
+      const list = await request(app).get("/trips/document-types").set(authHeader);
+      expect(list.body.map((d) => d.id)).toContain(create.body.id);
+      expect(list.body.find((d) => d.id === create.body.id).type).toBe("diploma");
+    });
+
+    it("API rejects unknown document type values", async () => {
+      const { authHeader } = await createSystemAdminUser({
+        email: "doc-unknown-type@example.com",
+      });
+
+      const create = await request(app)
+        .post("/trips/document-types")
+        .set(authHeader)
+        .send({
+          type: "not_a_real_type",
+          description: "Invalid",
+        });
+
+      expect(create.status).toBe(400);
+      expect(create.body.message).toMatch(/diploma/i);
+      expect(create.body.message).toMatch(/medical_licence/i);
     });
 
     it("API rejects missing document number when required", async () => {

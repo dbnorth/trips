@@ -100,13 +100,13 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 
 ---
 
-## Document types & person documents — Features 4, 22
+## Document types & person documents — Features 4, 22, 24
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/document-types` | auth | Catalog (any auth user); includes `documentNumberRequired`, `instructions` |
+| `GET` | `/trips/document-types` | auth | Catalog (any auth user); includes `documentNumberRequired`, `instructions`; `type` may be `medical_licence`, `passport`, `certification`, or `diploma` |
 | `GET` | `/trips/document-types/:id` | auth | Get (sysadmin gate in controller) |
-| `POST` | `/trips/document-types` | auth | Create (sysadmin); optional `documentNumberRequired`, `instructions` |
+| `POST` | `/trips/document-types` | auth | Create (sysadmin); optional `documentNumberRequired`, `instructions`; `type` includes `diploma` (Feature 24) |
 | `PUT` | `/trips/document-types/:id` | auth | Update (sysadmin) |
 | `DELETE` | `/trips/document-types/:id` | auth | Delete (sysadmin) |
 | `GET` | `/trips/people/:id/documents` | auth | List |

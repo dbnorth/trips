@@ -41,8 +41,9 @@ These `feature-*.md` files are a **reverse-spec** of the imported Mission Trips 
 | 21 | [feature-21-copy-trip.md](./feature-21-copy-trip.md) | `feature/21-copy-trip` | 5, 6 |
 | 22 | [feature-22-document-number-and-instructions.md](./feature-22-document-number-and-instructions.md) | `feature/22-document-number-and-instructions` | 4 |
 | 23 | [feature-23-trip-require-passport.md](./feature-23-trip-require-passport.md) | `feature/23-trip-require-passport` | 4, 5, 7, 22 |
+| 24 | [feature-24-document-type-diploma.md](./feature-24-document-type-diploma.md) | `feature/24-document-type-diploma` | 4, 22 |
 
-Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23).
+Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24).
 
 New features: follow [framework.md](./framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, Gherkin, **Agent implementation request**, **Definition of Done**.
 
