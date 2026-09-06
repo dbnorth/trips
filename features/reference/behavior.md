@@ -32,6 +32,7 @@ They do **not** authorize new scope — implement only from `features/feature-*.
 | Public pages unauthenticated; slug spaces → `_` | `/public/*`, donate URLs | Feature 9 |
 | Organization optional unique `subdomain`; create-account on `{subdomain}.…` hides org picker and registers into that org | `organizationSubdomain.js`, `auth.controller` register, Login/Apply create-account | Feature 15 |
 | Empty address / person-document country list fields default to United States (`US`) on form init; existing non-empty values preserved; trip destination country does not default; phone dialing codes unchanged | `AddressFields.vue`, person-document form / `CountrySelect` `defaultEmptyToUs`, `US_COUNTRY_CODE` | Feature 16 |
+| Org Admin / System Admin may **Copy** a trip (Trips list button + dialog: new **Name** + **Trip to copy**); new trip same org copies catalog fields, leaders, trip worker-role quantities, and travel options; does **not** copy participants or donations | `POST /trips/trips/:id/copy`, `CopyTripDialog`, `TripsList` | Feature 21 |
 | Optimistic concurrency via `version` on key entities | `optimisticUpdate.js` | Features 2–8 |
 
 Expand rows as deltas ship.

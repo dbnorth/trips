@@ -101,6 +101,90 @@ exports.create = async (req, res) => {
   }
 };
 
+exports.copy = async (req, res) => {
+  try {
+    const source = await Trip.findByPk(req.params.id);
+    if (!source) {
+      return res.status(404).send({ message: "Trip not found." });
+    }
+    if (!isSystemAdmin(req) && !isOrgAdminForOrg(req, source.orgId)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+
+    const name = String(req.body?.name ?? "").trim();
+    if (!name) {
+      return res.status(400).send({ message: "Name is required." });
+    }
+
+    const leaderPeopleIds = await getTripLeaderPeopleIds(source.id);
+    const sourceWorkerRoles = await db.tripWorkerRole.findAll({
+      where: { tripId: source.id },
+    });
+    const sourceTravelOptions = await db.tripTravelOption.findAll({
+      where: { tripId: source.id },
+    });
+
+    const transaction = await db.sequelize.transaction();
+    let data;
+    try {
+      data = await Trip.create(
+        {
+          orgId: source.orgId,
+          status: source.status,
+          name,
+          location: source.location,
+          city: source.city,
+          country: source.country,
+          description: source.description,
+          startDate: source.startDate,
+          endDate: source.endDate,
+          image: source.image,
+          facebookPage: source.facebookPage,
+          instagramId: source.instagramId,
+          participantCost: source.participantCost,
+          version: 0,
+        },
+        { transaction }
+      );
+
+      await syncTripLeaders(data.id, source.orgId, leaderPeopleIds, { transaction });
+
+      for (const row of sourceWorkerRoles) {
+        await db.tripWorkerRole.create(
+          {
+            tripId: data.id,
+            workerRoleId: row.workerRoleId,
+            quantity: row.quantity,
+          },
+          { transaction }
+        );
+      }
+
+      for (const row of sourceTravelOptions) {
+        await db.tripTravelOption.create(
+          {
+            tripId: data.id,
+            description: row.description,
+            priceAdjustment: row.priceAdjustment,
+            setNumber: row.setNumber,
+          },
+          { transaction }
+        );
+      }
+
+      await transaction.commit();
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+
+    const leaders = await getTripLeaderPeopleIds(data.id);
+    res.status(201).send({ ...data.toJSON(), leaderPeopleIds: leaders });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
 exports.update = async (req, res) => {
   try {
     const access = await canAccessTrip(req, req.params.id);

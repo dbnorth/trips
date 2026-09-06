@@ -31,6 +31,9 @@ export default {
   create(data) {
     return apiClient.post("/trips", data);
   },
+  copy(id, data) {
+    return apiClient.post(`/trips/${id}/copy`, data);
+  },
   update(id, data) {
     return apiClient.put(`/trips/${id}`, data);
   },

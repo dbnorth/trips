@@ -125,6 +125,7 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `GET` | `/trips/trips` | auth | Scoped list + aggregates |
 | `GET` | `/trips/trips/:id` | auth | Detail if `canAccessTrip` |
 | `POST` | `/trips/trips` | auth | Create (+ optional `leaderPeopleIds`) |
+| `POST` | `/trips/trips/:id/copy` | auth | Copy source trip → new trip (name required; leaders, worker roles, travel options; not participants/donations) — Feature 21 |
 | `PUT` | `/trips/trips/:id` | auth | Update |
 | `PUT` | `/trips/trips/:id/image` | auth | Image (`multipart` field `image`) |
 | `DELETE` | `/trips/trips/:id` | auth | Delete (org admin / sysadmin) |
