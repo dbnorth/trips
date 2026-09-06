@@ -42,20 +42,33 @@ const PROFILE_FIELD_CHECKS = [
   { key: "emergencyContactPhoneNumber" },
   {
     key: "allergiesDescription",
-    required: (person) => !!person?.hasAllergies,
+    required: (person) => person?.hasAllergies === true,
   },
   { key: "currentChurchHome" },
   { key: "currentChurchHomeCity" },
   { key: "currentChurchHomeStateProv" },
 ];
 
-export const isProfileComplete = (person) => {
+export const isProfileComplete = (person, options = {}) => {
   if (!person) return false;
-  return PROFILE_FIELD_CHECKS.every((field) => {
+  const fieldsOk = PROFILE_FIELD_CHECKS.every((field) => {
     const required = field.required ? field.required(person) : true;
     if (!required) return true;
     return !isBlank(person[field.key]);
   });
+  if (!fieldsOk) return false;
+  if (person.takesMedication === true) {
+    const conditions = person.medicalConditions || [];
+    const orgId = options.orgId;
+    const selected =
+      orgId != null && orgId !== ""
+        ? conditions.filter((c) => Number(c.orgId) === Number(orgId))
+        : conditions.length
+          ? conditions
+          : person.medicalConditionIds || [];
+    if (!selected.length) return false;
+  }
+  return true;
 };
 
 export const isApplicationComplete = ({
@@ -111,6 +124,7 @@ export const resolveAppliedOrIncompleteStatus = ({
   agreementAdultEmail = null,
   agreementAdultRelationship = null,
   travelOptionsComplete = true,
+  orgId = null,
 }) => {
   const participantUnder18 = isUnder18(person?.birthDate);
   const applicationOk = isApplicationComplete({
@@ -131,13 +145,26 @@ export const resolveAppliedOrIncompleteStatus = ({
     agreementAdultRelationship,
     travelOptionsComplete,
   });
-  const profileOk = isProfileComplete(person);
+  const profileOk = isProfileComplete(person, { orgId });
   return applicationOk && profileOk ? "applied" : "incomplete";
 };
 
 export const loadPersonForCompleteness = async (peopleId) => {
   if (!peopleId) return null;
-  return Person.findByPk(peopleId);
+  const person = await Person.findByPk(peopleId, {
+    include: [
+      {
+        model: db.medicalCondition,
+        as: "medicalConditions",
+        attributes: ["id", "name", "orgId"],
+        through: { attributes: [] },
+      },
+    ],
+  });
+  if (!person) return null;
+  const payload = person.toJSON();
+  payload.medicalConditionIds = (payload.medicalConditions || []).map((c) => c.id);
+  return payload;
 };
 
 export const loadLicenseRequired = async (tripWorkerRoleId) => {

@@ -16,7 +16,11 @@ const assertTripAccess = async (req, tripId) => {
   return { ok: true, trip: access.trip };
 };
 
-const yesNo = (value) => (value ? "Yes" : "No");
+const yesNo = (value) => {
+  if (value === true || value === 1 || value === "1") return "Yes";
+  if (value === false || value === 0 || value === "0") return "No";
+  return "";
+};
 
 const licenseLabel = (value) => {
   if (value === "yes") return "Yes";

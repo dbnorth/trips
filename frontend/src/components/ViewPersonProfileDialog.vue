@@ -28,7 +28,11 @@ const pictureUrl = computed(() => PersonServices.getPictureUrl(person.value?.pic
 
 const displayName = computed(() => personDisplayName(person.value, "Profile"));
 
-const formatYesNo = (value) => (value ? "Yes" : "No");
+const formatYesNo = (value) => {
+  if (value === true || value === 1 || value === "1") return "Yes";
+  if (value === false || value === 0 || value === "0") return "No";
+  return "—";
+};
 
 const formatGender = (value) => {
   if (value === "male") return "Male";
@@ -76,7 +80,7 @@ const fieldRows = computed(() => {
     { label: "Have allergies?", value: formatYesNo(p.hasAllergies) },
   ];
 
-  if (p.hasAllergies) {
+  if (p.hasAllergies === true) {
     rows.push({
       key: "allergiesDescription",
       label: "Allergies description",
@@ -85,7 +89,19 @@ const fieldRows = computed(() => {
   }
 
   rows.push(
-    { label: "Take medication?", value: formatYesNo(p.takesMedication) },
+    { label: "Take medication?", value: formatYesNo(p.takesMedication) }
+  );
+
+  if (p.takesMedication === true) {
+    const names = (p.medicalConditions || []).map((c) => c.name).filter(Boolean);
+    rows.push({
+      key: "medicalConditionIds",
+      label: "Medical conditions",
+      value: names.length ? names.join(", ") : "",
+    });
+  }
+
+  rows.push(
     { key: "currentChurchHome", label: "Current church home", value: p.currentChurchHome },
     { key: "currentChurchHomeCity", label: "Church city", value: p.currentChurchHomeCity },
     {

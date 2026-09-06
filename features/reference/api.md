@@ -29,6 +29,7 @@
 | `/document-types`, `/people/:id/documents` | 4 |
 | `/trips` CRUD + image, `/dashboard/*` | 5 |
 | `/worker-roles`, `/trip-worker-roles`, `/trip-travel-options` | 6 |
+| `/medical-conditions` | 17 |
 | `/trips/browse/*`, `/trip-people-roles`, participants CSV | 7 |
 | `/donations`, `/donors`, donation/donor CSVs | 8 |
 | `/public/*` | 9 |
@@ -148,6 +149,20 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `POST` | `/trips/trip-travel-options` | auth | Create |
 | `PUT` | `/trips/trip-travel-options/:id` | auth | Update |
 | `DELETE` | `/trips/trip-travel-options/:id` | auth | Delete |
+
+---
+
+## Medical conditions — Feature 17
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/trips/medical-conditions` | auth | Org catalog (`?orgId=`) — org members may read |
+| `GET` | `/trips/medical-conditions/:id` | auth | Get one |
+| `POST` | `/trips/medical-conditions` | auth | Create (org admin) — `name` ≤ 50, unique per org (CI) |
+| `PUT` | `/trips/medical-conditions/:id` | auth | Update name |
+| `DELETE` | `/trips/medical-conditions/:id` | auth | Delete (cascades person selections) |
+| `GET` | `/trips/people/:id` | auth | Includes `medicalConditions` / `medicalConditionIds` (`?orgId=` filters) |
+| `PUT` | `/trips/people/:id` | auth | Accepts `medicalConditionIds` + `orgId`; clears org links when `takesMedication` is false |
 
 ---
 

@@ -14,10 +14,13 @@ import Utils from "../config/utils.js";
 import { formatPhoneForDisplay, formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
 import { normalizeAddressFields } from "../utils/locationData.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
+import { normalizeYesNo } from "../utils/personProfile.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   personId: { type: [Number, String], default: null },
+  /** Org context for medical-condition catalog/selections (trip org or acting org). */
+  medicalConditionOrgId: { type: [Number, String], default: null },
 });
 
 const emit = defineEmits(["update:modelValue", "saved", "orgs-changed"]);
@@ -97,9 +100,11 @@ function emptyForm() {
     emergencyContactName: "",
     emergencyContactPhoneCountryCode: "",
     emergencyContactPhoneNumber: "",
-    hasAllergies: false,
+    hasAllergies: null,
     allergiesDescription: "",
-    takesMedication: false,
+    takesMedication: null,
+    medicalConditionIds: [],
+    medicalConditions: [],
     currentChurchHome: "",
     currentChurchHomeCity: "",
     currentChurchHomeStateProv: "",
@@ -111,6 +116,13 @@ function emptyForm() {
 }
 
 const isSystemAdmin = computed(() => Utils.isSystemAdmin(Utils.getStore("user")));
+
+const resolvedMedicalOrgId = computed(() => {
+  if (props.medicalConditionOrgId != null && props.medicalConditionOrgId !== "") {
+    return Number(props.medicalConditionOrgId);
+  }
+  return Utils.effectiveOrgId(Utils.getStore("user"));
+});
 
 const isSelfProfile = computed(() => {
   const currentUser = Utils.getStore("user");
@@ -151,6 +163,14 @@ const applyPersonData = (data) => {
     emergencyContactPhoneCountryCode: data.emergencyContactPhoneCountryCode
       ? formatCountryCode(data.emergencyContactPhoneCountryCode)
       : "",
+    medicalConditionIds: Array.isArray(data.medicalConditionIds)
+      ? data.medicalConditionIds.map((id) => Number(id))
+      : Array.isArray(data.medicalConditions)
+        ? data.medicalConditions.map((c) => Number(c.id))
+        : [],
+    medicalConditions: Array.isArray(data.medicalConditions) ? data.medicalConditions : [],
+    hasAllergies: normalizeYesNo(data.hasAllergies),
+    takesMedication: normalizeYesNo(data.takesMedication),
   };
   clearPictureSelection();
 };
@@ -200,7 +220,9 @@ const loadPerson = async ({ afterConflict = false } = {}) => {
   loading.value = true;
   onLoadStart({ afterConflict });
   try {
-    const r = await PersonServices.get(props.personId);
+    const params = {};
+    if (resolvedMedicalOrgId.value != null) params.orgId = resolvedMedicalOrgId.value;
+    const r = await PersonServices.get(props.personId, params);
     applyPersonData(r.data || {});
     if (isSystemAdmin.value) {
       await Promise.all([loadOrgRoleOptions(), loadOrgRoles()]);
@@ -394,11 +416,15 @@ const save = async () => {
         ? formatCountryCode(form.value.emergencyContactPhoneCountryCode)
         : null,
       emergencyContactPhoneNumber: form.value.emergencyContactPhoneNumber?.trim() || null,
-      hasAllergies: !!form.value.hasAllergies,
-      allergiesDescription: form.value.hasAllergies
+      hasAllergies: normalizeYesNo(form.value.hasAllergies),
+      allergiesDescription: form.value.hasAllergies === true
         ? form.value.allergiesDescription?.trim() || null
         : null,
-      takesMedication: !!form.value.takesMedication,
+      takesMedication: normalizeYesNo(form.value.takesMedication),
+      medicalConditionIds: form.value.takesMedication === true
+        ? form.value.medicalConditionIds || []
+        : [],
+      orgId: resolvedMedicalOrgId.value ?? undefined,
       currentChurchHome: form.value.currentChurchHome?.trim() || null,
       currentChurchHomeCity: form.value.currentChurchHomeCity?.trim() || null,
       currentChurchHomeStateProv: form.value.currentChurchHomeStateProv?.trim() || null,
@@ -497,7 +523,7 @@ const save = async () => {
               <PhoneInput v-model="form.phoneNumber" label="Phone number" />
             </v-col>
           </v-row>
-          <PersonProfileFields v-model="form" />
+          <PersonProfileFields v-model="form" :org-id="resolvedMedicalOrgId" />
           <v-textarea v-model="form.bioText" label="Bio" density="compact" rows="3" autocomplete="off" />
 
           <div class="mt-2 mb-2">

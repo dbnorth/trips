@@ -93,72 +93,84 @@ defineExpose({
 </script>
 
 <template>
-  <div v-if="hasOptions" class="mt-4">
+  <div class="mt-4">
     <div class="text-subtitle-2 mb-2">Travel options</div>
 
-    <div class="text-body-2 mb-3">
-      Trip price:
-      <strong>{{ formatCost(baseCostNumber) }}</strong>
-    </div>
+    <v-alert
+      v-if="!hasOptions"
+      type="info"
+      density="compact"
+      variant="tonal"
+      class="mb-2"
+    >
+      This trip has no travel options configured.
+    </v-alert>
 
-    <div v-for="group in optionGroups" :key="group.setNumber" class="mb-4">
-      <div class="text-subtitle-2 mb-1">
-        Trip Option {{ group.setNumber }}
-        <span v-if="group.required" class="text-caption text-medium-emphasis"> (required)</span>
+    <template v-else>
+      <div class="text-body-2 mb-3">
+        Trip price:
+        <strong>{{ formatCost(baseCostNumber) }}</strong>
       </div>
 
-      <template v-if="group.options.length === 1">
-        <div
-          v-for="option in group.options"
-          :key="option.id"
-          class="d-flex align-center justify-space-between ga-3"
-        >
-          <v-checkbox
-            :model-value="isSingleSelected(option)"
-            :label="option.description"
-            :disabled="disabled"
-            density="compact"
-            hide-details
-            class="mt-0"
-            @update:model-value="onSingleToggle(group, option, $event)"
-          />
-          <span class="text-body-2 text-medium-emphasis text-no-wrap">
-            {{ formatAdjustment(option.priceAdjustment) }}
-          </span>
+      <div v-for="group in optionGroups" :key="group.setNumber" class="mb-4">
+        <div class="text-subtitle-2 mb-1">
+          Trip Option {{ group.setNumber }}
+          <span v-if="group.required" class="text-caption text-medium-emphasis"> (required)</span>
         </div>
-      </template>
 
-      <v-radio-group
-        v-else
-        :model-value="selectedIdForSet(group)"
-        :disabled="disabled"
-        density="compact"
-        hide-details
-        class="mt-0 travel-option-set"
-        @update:model-value="onMultiSelection(group, $event)"
-      >
-        <v-radio
-          v-for="option in group.options"
-          :key="option.id"
-          :value="Number(option.id)"
+        <template v-if="group.options.length === 1">
+          <div
+            v-for="option in group.options"
+            :key="option.id"
+            class="d-flex align-center justify-space-between ga-3"
+          >
+            <v-checkbox
+              :model-value="isSingleSelected(option)"
+              :label="option.description"
+              :disabled="disabled"
+              density="compact"
+              hide-details
+              class="mt-0"
+              @update:model-value="onSingleToggle(group, option, $event)"
+            />
+            <span class="text-body-2 text-medium-emphasis text-no-wrap">
+              {{ formatAdjustment(option.priceAdjustment) }}
+            </span>
+          </div>
+        </template>
+
+        <v-radio-group
+          v-else
+          :model-value="selectedIdForSet(group)"
+          :disabled="disabled"
           density="compact"
+          hide-details
+          class="mt-0 travel-option-set"
+          @update:model-value="onMultiSelection(group, $event)"
         >
-          <template #label>
-            <div class="d-flex align-center justify-space-between ga-3 w-100">
-              <span>{{ option.description }}</span>
-              <span class="text-medium-emphasis text-no-wrap">
-                {{ formatAdjustment(option.priceAdjustment) }}
-              </span>
-            </div>
-          </template>
-        </v-radio>
-      </v-radio-group>
-    </div>
+          <v-radio
+            v-for="option in group.options"
+            :key="option.id"
+            :value="Number(option.id)"
+            density="compact"
+          >
+            <template #label>
+              <div class="d-flex align-center justify-space-between ga-3 w-100">
+                <span>{{ option.description }}</span>
+                <span class="text-medium-emphasis text-no-wrap">
+                  {{ formatAdjustment(option.priceAdjustment) }}
+                </span>
+              </div>
+            </template>
+          </v-radio>
+        </v-radio-group>
+      </div>
 
-    <div class="text-body-2 mt-3">
-      New trip price:
-      <strong>{{ formatCost(adjustedCost) }}</strong>
-    </div>
+      <div class="text-body-2 mt-3">
+        New trip price:
+        <strong>{{ formatCost(adjustedCost) }}</strong>
+      </div>
+    </template>
   </div>
 </template>
 

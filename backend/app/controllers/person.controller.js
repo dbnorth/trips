@@ -22,6 +22,8 @@ const Session = db.session;
 const OrgPeopleRole = db.orgPeopleRole;
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
+const MedicalCondition = db.medicalCondition;
+const PersonMedicalCondition = db.personMedicalCondition;
 const Op = db.Sequelize.Op;
 const exports = {};
 
@@ -160,6 +162,98 @@ const canManagePerson = async (req, personId) => {
   return !!link;
 };
 
+const enrichPersonPayload = async (person, queryOrgId = null) => {
+  const payload = person.toJSON ? person.toJSON() : { ...person };
+  const links = await PersonMedicalCondition.findAll({
+    where: { personId: person.id },
+    include: [
+      {
+        model: MedicalCondition,
+        as: "medicalCondition",
+        attributes: ["id", "name", "orgId"],
+      },
+    ],
+  });
+  let medicalConditions = links
+    .map((link) => link.medicalCondition)
+    .filter(Boolean)
+    .map((c) => ({ id: c.id, name: c.name, orgId: c.orgId }));
+
+  if (queryOrgId != null && queryOrgId !== "") {
+    const orgId = Number(queryOrgId);
+    medicalConditions = medicalConditions.filter((c) => Number(c.orgId) === orgId);
+  }
+
+  payload.medicalConditions = medicalConditions;
+  payload.medicalConditionIds = medicalConditions.map((c) => c.id);
+  return payload;
+};
+
+/**
+ * Sync person↔condition links for one org.
+ * When takesMedication is false, clears that org's links.
+ * When true, replaces that org's links with medicalConditionIds (must belong to orgId).
+ */
+const syncPersonMedicalConditions = async ({
+  personId,
+  orgId,
+  takesMedication,
+  medicalConditionIds,
+}) => {
+  if (orgId == null || orgId === "") {
+    return { ok: false, status: 400, message: "Organization is required to update medical conditions." };
+  }
+  const orgNum = Number(orgId);
+  if (Number.isNaN(orgNum)) {
+    return { ok: false, status: 400, message: "Invalid organization." };
+  }
+
+  const orgConditionRows = await MedicalCondition.findAll({
+    where: { orgId: orgNum },
+    attributes: ["id"],
+  });
+  const orgConditionIds = orgConditionRows.map((r) => Number(r.id));
+
+  if (!takesMedication) {
+    if (orgConditionIds.length) {
+      await PersonMedicalCondition.destroy({
+        where: {
+          personId,
+          medicalConditionId: { [Op.in]: orgConditionIds },
+        },
+      });
+    }
+    return { ok: true };
+  }
+
+  const requested = Array.isArray(medicalConditionIds)
+    ? [...new Set(medicalConditionIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id)))]
+    : [];
+
+  if (requested.some((id) => !orgConditionIds.includes(id))) {
+    return {
+      ok: false,
+      status: 400,
+      message: "One or more medical conditions do not belong to the organization.",
+    };
+  }
+
+  await PersonMedicalCondition.destroy({
+    where: {
+      personId,
+      medicalConditionId: { [Op.in]: orgConditionIds },
+    },
+  });
+
+  if (requested.length) {
+    await PersonMedicalCondition.bulkCreate(
+      requested.map((medicalConditionId) => ({ personId, medicalConditionId }))
+    );
+  }
+
+  return { ok: true };
+};
+
 exports.findOne = async (req, res) => {
   try {
     const person = await Person.findByPk(req.params.id);
@@ -167,7 +261,7 @@ exports.findOne = async (req, res) => {
     if (!(await canManagePerson(req, person.id))) {
       return res.status(404).send({ message: "Person not found." });
     }
-    const payload = person.toJSON();
+    const payload = await enrichPersonPayload(person, req.query.orgId);
     if (isSystemAdmin(req)) {
       const linkedUser = await resolveLinkedUser(person);
       if (linkedUser) {
@@ -353,9 +447,47 @@ exports.update = async (req, res) => {
       delete body.password;
     }
 
+    const hasMedicalConditionIds = Object.prototype.hasOwnProperty.call(body, "medicalConditionIds");
+    const hasTakesMedication = Object.prototype.hasOwnProperty.call(body, "takesMedication");
+    const medicalOrgId =
+      body.orgId ?? body.medicalConditionOrgId ?? req.query.orgId ?? null;
+    const medicalConditionIds = body.medicalConditionIds;
+    delete body.medicalConditionIds;
+    delete body.medicalConditionOrgId;
+    if (Object.prototype.hasOwnProperty.call(body, "orgId")) delete body.orgId;
+
     const result = await optimisticUpdate(Person, req.params.id, body, personFields);
     if (!result.ok) return res.status(result.status).send({ message: result.message });
-    res.send(result.data);
+
+    const takesMedication = hasTakesMedication
+      ? req.body.takesMedication === true || req.body.takesMedication === 1
+      : result.data.takesMedication === true || result.data.takesMedication === 1;
+
+    const shouldSyncConditions =
+      hasMedicalConditionIds || (hasTakesMedication && !takesMedication);
+
+    if (shouldSyncConditions) {
+      if (medicalOrgId == null || medicalOrgId === "") {
+        return res.status(400).send({
+          message: "Organization is required to update medical conditions.",
+        });
+      }
+      const syncResult = await syncPersonMedicalConditions({
+        personId: person.id,
+        orgId: medicalOrgId,
+        takesMedication,
+        medicalConditionIds: hasMedicalConditionIds ? medicalConditionIds : [],
+      });
+      if (!syncResult.ok) {
+        return res.status(syncResult.status).send({ message: syncResult.message });
+      }
+    }
+
+    const payload = await enrichPersonPayload(
+      await Person.findByPk(person.id),
+      medicalOrgId
+    );
+    res.send({ ...result.data.toJSON?.() ?? result.data, ...payload, version: result.data.version });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

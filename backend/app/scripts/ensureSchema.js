@@ -148,9 +148,9 @@ const ensurePersonProfileFields = async () => {
     ["emergencyContactName", "VARCHAR(255) NULL"],
     ["emergencyContactPhoneCountryCode", "VARCHAR(10) NULL"],
     ["emergencyContactPhoneNumber", "VARCHAR(30) NULL"],
-    ["hasAllergies", "TINYINT(1) NOT NULL DEFAULT 0"],
+    ["hasAllergies", "TINYINT(1) NULL"],
     ["allergiesDescription", "TEXT NULL"],
-    ["takesMedication", "TINYINT(1) NOT NULL DEFAULT 0"],
+    ["takesMedication", "TINYINT(1) NULL"],
     ["currentChurchHome", "VARCHAR(255) NULL"],
     ["currentChurchHomeCity", "VARCHAR(100) NULL"],
     ["currentChurchHomeStateProv", "VARCHAR(100) NULL"],
@@ -170,6 +170,48 @@ const ensurePersonProfileFields = async () => {
       `ALTER TABLE people ADD COLUMN \`${columnName}\` ${definition}`
     );
     logger.info(`people.${columnName} column added.`);
+  }
+
+  // Allow unset (null) for Yes/No health questions so UI does not default to No.
+  for (const columnName of ["hasAllergies", "takesMedication"]) {
+    const [rows] = await db.sequelize.query(
+      `SELECT IS_NULLABLE, COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'people'
+         AND COLUMN_NAME = :columnName`,
+      { replacements: { columnName } }
+    );
+    if (!rows.length) continue;
+    if (rows[0].IS_NULLABLE === "YES") continue;
+    await db.sequelize.query(
+      `ALTER TABLE people MODIFY COLUMN \`${columnName}\` TINYINT(1) NULL`
+    );
+    logger.info(`people.${columnName} column made nullable.`);
+
+    // One-time: treat prior DB default No as unanswered (only when first opening nullability).
+    if (columnName === "hasAllergies") {
+      const [result] = await db.sequelize.query(
+        `UPDATE people
+         SET hasAllergies = NULL
+         WHERE hasAllergies = 0
+           AND (allergiesDescription IS NULL OR TRIM(allergiesDescription) = '')`
+      );
+      if (result?.affectedRows) {
+        logger.info(`people.hasAllergies default No→unset for ${result.affectedRows} row(s).`);
+      }
+    } else {
+      const [result] = await db.sequelize.query(
+        `UPDATE people p
+         SET p.takesMedication = NULL
+         WHERE p.takesMedication = 0
+           AND NOT EXISTS (
+             SELECT 1 FROM personMedicalConditions pmc WHERE pmc.personId = p.id
+           )`
+      );
+      if (result?.affectedRows) {
+        logger.info(`people.takesMedication default No→unset for ${result.affectedRows} row(s).`);
+      }
+    }
   }
 
   for (const columnName of ["passportCountry", "passportIssueDate", "passportExpireDate"]) {
@@ -592,6 +634,62 @@ const ensureTripPeopleRoleOptionsTable = async () => {
   logger.info("tripPeopleRoleOptions table created.");
 };
 
+const ensureMedicalConditionsTable = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'medicalConditions'`
+  );
+  if (tables.length) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE medicalConditions (
+      id INT NOT NULL AUTO_INCREMENT,
+      orgId INT NOT NULL,
+      name VARCHAR(50) NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY medicalConditions_org_name_unique (orgId, name),
+      KEY medicalConditions_orgId_idx (orgId),
+      CONSTRAINT medicalConditions_orgId_fk
+        FOREIGN KEY (orgId) REFERENCES organizations (id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("medicalConditions table created.");
+};
+
+const ensurePersonMedicalConditionsTable = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'personMedicalConditions'`
+  );
+  if (tables.length) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE personMedicalConditions (
+      id INT NOT NULL AUTO_INCREMENT,
+      personId INT NOT NULL,
+      medicalConditionId INT NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY personMedicalConditions_person_condition_unique (personId, medicalConditionId),
+      KEY personMedicalConditions_personId_idx (personId),
+      KEY personMedicalConditions_medicalConditionId_idx (medicalConditionId),
+      CONSTRAINT personMedicalConditions_personId_fk
+        FOREIGN KEY (personId) REFERENCES people (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT personMedicalConditions_medicalConditionId_fk
+        FOREIGN KEY (medicalConditionId) REFERENCES medicalConditions (id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("personMedicalConditions table created.");
+};
+
 export const ensureSchema = async () => {
   await ensureNamedUniqueIndexes();
   await ensureEmailTemplateOrgNullable();
@@ -609,6 +707,8 @@ export const ensureSchema = async () => {
   await ensureWorkerRoleDocumentType();
   await ensureTripTravelOptionsTable();
   await ensureTripPeopleRoleOptionsTable();
+  await ensureMedicalConditionsTable();
+  await ensurePersonMedicalConditionsTable();
 };
 
 export default ensureSchema;

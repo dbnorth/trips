@@ -24,6 +24,8 @@ Notes:
 | `trip` | 5 | Trip catalog |
 | `tripPeopleRole` | 5, 7 | Leaders, applications, participants |
 | `workerRole` | 6 | Org worker-role catalog |
+| `medicalCondition` | 17 | Org medical-condition catalog (name ≤ 50) |
+| `personMedicalCondition` | 17 | Person selected medical conditions |
 | `tripWorkerRole` | 6 | Per-trip role quantities |
 | `tripTravelOption` | 6 | Travel/cost option sets |
 | `tripPeopleRoleOption` | 7 | Selected travel options on an application |
@@ -79,9 +81,9 @@ Notes:
 | emergencyContactName | STRING(255) | |
 | emergencyContactPhoneCountryCode | STRING(10) | |
 | emergencyContactPhoneNumber | STRING(30) | |
-| hasAllergies | BOOLEAN | required, default `false` |
+| hasAllergies | BOOLEAN | nullable; `null` = unanswered |
 | allergiesDescription | TEXT | |
-| takesMedication | BOOLEAN | required, default `false` |
+| takesMedication | BOOLEAN | nullable; `null` = unanswered |
 | currentChurchHome | STRING(255) | |
 | currentChurchHomeCity | STRING(100) | |
 | currentChurchHomeStateProv | STRING(100) | |
@@ -236,6 +238,31 @@ Notes:
 | status | ENUM(`active`,`inactive`) | required, default `active` |
 
 **Associations:** `belongsTo` organization, documentType; `hasMany` tripWorkerRole.
+
+---
+
+## `medicalCondition` — Feature 17
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| orgId | INTEGER | required FK → organization |
+| name | STRING(50) | required; unique per org (case-insensitive) |
+
+**Associations:** `belongsTo` organization; `belongsToMany` person through `personMedicalCondition`.
+
+---
+
+## `personMedicalCondition` — Feature 17
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| personId | INTEGER | required FK → person |
+| medicalConditionId | INTEGER | required FK → medicalCondition |
+| unique | `(personId, medicalConditionId)` | |
+
+**Associations:** `belongsTo` person, medicalCondition. Deleting a condition cascades join rows.
 
 ---
 

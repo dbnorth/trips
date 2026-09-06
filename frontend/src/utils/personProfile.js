@@ -1,5 +1,12 @@
 const isBlank = (value) => value == null || String(value).trim() === "";
 
+/** Normalize API/form yes-no to `true` | `false` | `null` (unset). */
+export const normalizeYesNo = (value) => {
+  if (value === true || value === 1 || value === "1") return true;
+  if (value === false || value === 0 || value === "0") return false;
+  return null;
+};
+
 export const PROFILE_FIELD_CHECKS = [
   { key: "firstName", label: "First name" },
   { key: "lastName", label: "Last name" },
@@ -19,19 +26,37 @@ export const PROFILE_FIELD_CHECKS = [
   {
     key: "allergiesDescription",
     label: "Allergies description",
-    required: (person) => !!person?.hasAllergies,
+    required: (person) => person?.hasAllergies === true,
   },
   { key: "currentChurchHome", label: "Current church home" },
   { key: "currentChurchHomeCity", label: "Current church home city" },
   { key: "currentChurchHomeStateProv", label: "Current church home state/province" },
 ];
 
-export const getMissingProfileFields = (person) => {
+/** Conditions selected for the given org (or all if orgId omitted). */
+export const medicalConditionsForOrg = (person, orgId = null) => {
+  const conditions = person?.medicalConditions || [];
+  if (orgId == null || orgId === "") {
+    if (conditions.length) return conditions;
+    const ids = person?.medicalConditionIds;
+    return Array.isArray(ids) ? ids.map((id) => ({ id })) : [];
+  }
+  return conditions.filter((c) => Number(c.orgId) === Number(orgId));
+};
+
+export const getMissingProfileFields = (person, options = {}) => {
   if (!person) return PROFILE_FIELD_CHECKS.map((field) => field.label);
 
-  return PROFILE_FIELD_CHECKS.filter((field) => isProfileFieldMissing(person, field)).map(
-    (field) => field.label
-  );
+  const missing = PROFILE_FIELD_CHECKS.filter((field) =>
+    isProfileFieldMissing(person, field)
+  ).map((field) => field.label);
+
+  if (person.takesMedication === true) {
+    const selected = medicalConditionsForOrg(person, options.orgId);
+    if (!selected.length) missing.push("Medical conditions");
+  }
+
+  return missing;
 };
 
 export const isProfileFieldMissing = (person, field) => {
@@ -42,7 +67,8 @@ export const isProfileFieldMissing = (person, field) => {
   return isBlank(person?.[check.key]);
 };
 
-export const isProfileComplete = (person) => getMissingProfileFields(person).length === 0;
+export const isProfileComplete = (person, options = {}) =>
+  getMissingProfileFields(person, options).length === 0;
 
 /** Age under 18 as of a given date (defaults to today). */
 export const isUnder18 = (birthDate, asOf = new Date()) => {

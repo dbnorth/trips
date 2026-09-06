@@ -606,6 +606,7 @@ exports.applyToTrip = async (req, res) => {
       agreementAdultEmail: agreement.agreementAdultEmail,
       agreementAdultRelationship: agreement.agreementAdultRelationship,
       travelOptionsComplete: !selectionCheck.missingSelection,
+      orgId: trip.orgId,
     });
 
     const link = await TripPeopleRole.create({
@@ -803,6 +804,7 @@ exports.updateApplication = async (req, res) => {
       agreementAdultEmail: agreement.agreementAdultEmail,
       agreementAdultRelationship: agreement.agreementAdultRelationship,
       travelOptionsComplete: !selectionCheck.missingSelection,
+      orgId: trip.orgId,
     });
 
     if (req.body?.version != null && Number(req.body.version) !== Number(assignment.version)) {

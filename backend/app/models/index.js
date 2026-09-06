@@ -19,6 +19,8 @@ import TripTravelOption from "./tripTravelOption.model.js";
 import TripPeopleRoleOption from "./tripPeopleRoleOption.model.js";
 import DocumentType from "./documentType.model.js";
 import PersonDocument from "./personDocument.model.js";
+import MedicalCondition from "./medicalCondition.model.js";
+import PersonMedicalCondition from "./personMedicalCondition.model.js";
 
 const db = {};
 db.Sequelize = Sequelize;
@@ -42,6 +44,8 @@ db.tripTravelOption = TripTravelOption;
 db.tripPeopleRoleOption = TripPeopleRoleOption;
 db.documentType = DocumentType;
 db.personDocument = PersonDocument;
+db.medicalCondition = MedicalCondition;
+db.personMedicalCondition = PersonMedicalCondition;
 
 db.user.hasMany(db.session, { foreignKey: "userId", onDelete: "CASCADE" });
 db.session.belongsTo(db.user, { foreignKey: "userId", onDelete: "CASCADE" });
@@ -152,6 +156,41 @@ db.tripTravelOption.hasMany(db.tripPeopleRoleOption, {
 db.tripPeopleRoleOption.belongsTo(db.tripTravelOption, {
   foreignKey: "tripTravelOptionId",
   as: "tripTravelOption",
+  onDelete: "CASCADE",
+});
+
+db.organization.hasMany(db.medicalCondition, { foreignKey: "orgId", onDelete: "CASCADE" });
+db.medicalCondition.belongsTo(db.organization, {
+  foreignKey: "orgId",
+  as: "organization",
+  onDelete: "CASCADE",
+});
+
+db.person.belongsToMany(db.medicalCondition, {
+  through: db.personMedicalCondition,
+  foreignKey: "personId",
+  otherKey: "medicalConditionId",
+  as: "medicalConditions",
+});
+db.medicalCondition.belongsToMany(db.person, {
+  through: db.personMedicalCondition,
+  foreignKey: "medicalConditionId",
+  otherKey: "personId",
+  as: "people",
+});
+db.person.hasMany(db.personMedicalCondition, { foreignKey: "personId", onDelete: "CASCADE" });
+db.personMedicalCondition.belongsTo(db.person, {
+  foreignKey: "personId",
+  as: "person",
+  onDelete: "CASCADE",
+});
+db.medicalCondition.hasMany(db.personMedicalCondition, {
+  foreignKey: "medicalConditionId",
+  onDelete: "CASCADE",
+});
+db.personMedicalCondition.belongsTo(db.medicalCondition, {
+  foreignKey: "medicalConditionId",
+  as: "medicalCondition",
   onDelete: "CASCADE",
 });
 
