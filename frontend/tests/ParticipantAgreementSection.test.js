@@ -13,7 +13,6 @@ describe("ParticipantAgreementSection — Feature 18", () => {
     const { wrapper } = await mountWithPlugins(ParticipantAgreementSection, {
       props: {
         content: "# Hello\n\nTerms.",
-        canAgree: true,
       },
     });
     await nextTick();
@@ -29,13 +28,12 @@ describe("ParticipantAgreementSection — Feature 18", () => {
     const { wrapper } = await mountWithPlugins(ParticipantAgreementSection, {
       props: {
         content: "# Hello\n\nTerms.",
-        canAgree: true,
       },
     });
     await nextTick();
 
     expect(wrapper.text()).toContain(
-      "each agreement I accept using the I agree checkboxes below"
+      "each agreement I accept using the I agree checkboxes above"
     );
     wrapper.unmount();
   });
@@ -46,7 +44,6 @@ describe("ParticipantAgreementSection — Feature 18", () => {
         content: "# Participant\n\nTerms.",
         showMedicalAgreement: true,
         medicalAgreementContent: "# Medical\n\nDisclose conditions.",
-        canAgree: true,
       },
     });
     await nextTick();
@@ -66,7 +63,6 @@ describe("ParticipantAgreementSection — Feature 18", () => {
         content: "# Participant\n\nTerms.",
         showMedicalAgreement: false,
         medicalAgreementContent: "# Medical\n\nShould not show.",
-        canAgree: true,
       },
     });
     await nextTick();
