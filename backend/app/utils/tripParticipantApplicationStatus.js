@@ -26,6 +26,7 @@ export const isUnder18 = (birthDate, asOf = new Date()) => {
 
 const PROFILE_FIELD_CHECKS = [
   { key: "firstName" },
+  { key: "middleName" },
   { key: "lastName" },
   { key: "email" },
   { key: "addLine1" },

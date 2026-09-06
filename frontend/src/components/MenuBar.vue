@@ -88,7 +88,10 @@ const showUserOrgSelector = computed(() => {
 });
 
 const userDisplayName = computed(() => {
-  const name = `${user.value?.firstName || ""} ${user.value?.lastName || ""}`.trim();
+  const name = [user.value?.firstName, user.value?.middleName, user.value?.lastName]
+    .filter((part) => part != null && String(part).trim() !== "")
+    .map((part) => String(part).trim())
+    .join(" ");
   return name || user.value?.email || "User";
 });
 

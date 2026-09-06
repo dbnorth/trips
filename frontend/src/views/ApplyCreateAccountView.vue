@@ -10,6 +10,7 @@ const router = useRouter();
 
 const form = ref({
   firstName: "",
+  middleName: "",
   lastName: "",
   email: "",
   password: "",
@@ -59,6 +60,7 @@ const submit = () => {
   const queryOrgId = applyContext.value.orgId ? Number(applyContext.value.orgId) : null;
   const payload = {
     firstName: f.firstName,
+    middleName: f.middleName?.trim() || null,
     lastName: f.lastName,
     email: f.email,
     password: f.password,
@@ -139,6 +141,12 @@ onMounted(async () => {
               v-model="form.firstName"
               label="First name"
               autocomplete="given-name"
+              density="comfortable"
+            />
+            <v-text-field
+              v-model="form.middleName"
+              label="Middle name"
+              autocomplete="additional-name"
               density="comfortable"
             />
             <v-text-field

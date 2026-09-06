@@ -9,6 +9,7 @@ export const normalizeYesNo = (value) => {
 
 export const PROFILE_FIELD_CHECKS = [
   { key: "firstName", label: "First name" },
+  { key: "middleName", label: "Middle name" },
   { key: "lastName", label: "Last name" },
   { key: "email", label: "Email" },
   { key: "addLine1", label: "Address line 1" },
@@ -87,6 +88,9 @@ export const isUnder18 = (birthDate, asOf = new Date()) => {
 };
 
 export const personDisplayName = (person, fallback = "Your profile") => {
-  const name = `${person?.firstName || ""} ${person?.lastName || ""}`.trim();
+  const name = [person?.firstName, person?.middleName, person?.lastName]
+    .filter((part) => part != null && String(part).trim() !== "")
+    .map((part) => String(part).trim())
+    .join(" ");
   return name || fallback;
 };

@@ -137,6 +137,55 @@ describe("Feature 14 — Add Person Role select", () => {
       expect(listItems[0].props("title")).toBe("Pending User");
       expect(listItems[0].props("subtitle")).toBe("Awaiting organization approval");
       expect(listItems[1].props("title")).toBe("Trip Participant");
+      expect(listItems[1].props("subtitle")).toBeNull();
+
+      wrapper.unmount();
     });
+  });
+});
+
+describe("Feature 20 — Person Middle Name", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    Utils.setStore("user", {
+      userId: 1,
+      personId: 1,
+      email: "admin@example.com",
+      isAdmin: true,
+      token: "t",
+      orgRoles: [],
+      tripRoles: [],
+      currentOrgId: 3,
+    });
+    RoleServices.getAll.mockResolvedValue({ data: roles });
+    OrganizationServices.getAll.mockResolvedValue({
+      data: [{ id: 3, name: "Hope Mission" }],
+    });
+  });
+
+  it("Add person form shows Middle name after First name", async () => {
+    const { wrapper } = await mountWithPlugins(AddPersonDialog, {
+      props: { modelValue: false },
+      global: {
+        plugins: [vuetify],
+        stubs: {
+          VSelect: VSelectStub,
+          VDialog: { template: "<div><slot /></div>" },
+        },
+      },
+    });
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+
+    const labels = wrapper.findAllComponents({ name: "VTextField" }).map((c) => c.props("label"));
+    const firstIdx = labels.indexOf("First name");
+    const middleIdx = labels.indexOf("Middle name");
+    const lastIdx = labels.indexOf("Last name");
+    expect(firstIdx).toBeGreaterThan(-1);
+    expect(middleIdx).toBe(firstIdx + 1);
+    expect(lastIdx).toBe(middleIdx + 1);
+
+    wrapper.unmount();
   });
 });

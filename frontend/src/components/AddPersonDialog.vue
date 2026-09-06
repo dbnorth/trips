@@ -26,6 +26,7 @@ const saving = ref(false);
 
 const emptyForm = () => ({
   firstName: "",
+  middleName: "",
   lastName: "",
   email: "",
   password: "",
@@ -150,6 +151,7 @@ const save = () => {
 
   const payload = {
     firstName: form.value.firstName.trim(),
+    middleName: form.value.middleName?.trim() || null,
     lastName: form.value.lastName.trim(),
     email: form.value.email.trim(),
     country: address.country || null,
@@ -223,6 +225,7 @@ const save = () => {
 
       <v-card-text style="max-height: 70vh">
         <v-text-field v-model="form.firstName" label="First name" density="compact" autocomplete="off" />
+        <v-text-field v-model="form.middleName" label="Middle name" density="compact" autocomplete="off" />
         <v-text-field v-model="form.lastName" label="Last name" density="compact" autocomplete="off" />
         <v-text-field
           v-model="form.email"

@@ -29,6 +29,7 @@ const exports = {};
 
 const personFields = [
   "firstName",
+  "middleName",
   "lastName",
   "email",
   "addLine1",
@@ -281,6 +282,11 @@ exports.findOne = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const { orgId: bodyOrgId, roleId, password, isAdmin, ...personData } = req.body;
+    if (Object.prototype.hasOwnProperty.call(personData, "middleName")) {
+      const trimmed =
+        personData.middleName == null ? "" : String(personData.middleName).trim();
+      personData.middleName = trimmed === "" ? null : trimmed;
+    }
     const validationError = validatePersonFields(personData);
     if (validationError) return res.status(400).send({ message: validationError });
     let orgId = bodyOrgId != null && bodyOrgId !== "" ? parseInt(bodyOrgId, 10) : null;
@@ -324,6 +330,7 @@ exports.create = async (req, res) => {
         linkedUser,
         {
           firstName: personData.firstName,
+          middleName: personData.middleName,
           lastName: personData.lastName,
           emailNorm,
           addLine1: personData.addLine1,
@@ -390,6 +397,10 @@ exports.update = async (req, res) => {
     }
 
     const body = { ...req.body };
+    if (Object.prototype.hasOwnProperty.call(body, "middleName")) {
+      const trimmed = body.middleName == null ? "" : String(body.middleName).trim();
+      body.middleName = trimmed === "" ? null : trimmed;
+    }
     const validationError = validatePersonFields(body);
     if (validationError) return res.status(400).send({ message: validationError });
 
@@ -459,27 +470,45 @@ exports.update = async (req, res) => {
     const result = await optimisticUpdate(Person, req.params.id, body, personFields);
     if (!result.ok) return res.status(result.status).send({ message: result.message });
 
-    const takesMedication = hasTakesMedication
-      ? req.body.takesMedication === true || req.body.takesMedication === 1
-      : result.data.takesMedication === true || result.data.takesMedication === 1;
+    const takesMedicationExplicitYes =
+      hasTakesMedication &&
+      (req.body.takesMedication === true || req.body.takesMedication === 1);
+    const takesMedicationExplicitNo =
+      hasTakesMedication &&
+      (req.body.takesMedication === false || req.body.takesMedication === 0);
+    const takesMedication = takesMedicationExplicitYes
+      ? true
+      : takesMedicationExplicitNo
+        ? false
+        : result.data.takesMedication === true || result.data.takesMedication === 1;
 
-    const shouldSyncConditions =
-      hasMedicalConditionIds || (hasTakesMedication && !takesMedication);
+    // Sync only when condition IDs are sent, or Take medication? is explicitly No (clear org selections).
+    // Unanswered (null) must not require an org — admin People edit often has no org scope.
+    const shouldSyncConditions = hasMedicalConditionIds || takesMedicationExplicitNo;
 
     if (shouldSyncConditions) {
       if (medicalOrgId == null || medicalOrgId === "") {
-        return res.status(400).send({
-          message: "Organization is required to update medical conditions.",
+        const selectingConditions =
+          takesMedicationExplicitYes ||
+          (hasMedicalConditionIds &&
+            Array.isArray(medicalConditionIds) &&
+            medicalConditionIds.length > 0);
+        if (selectingConditions) {
+          return res.status(400).send({
+            message: "Organization is required to update medical conditions.",
+          });
+        }
+        // Explicit No / empty clear with no org scope: skip org-scoped sync.
+      } else {
+        const syncResult = await syncPersonMedicalConditions({
+          personId: person.id,
+          orgId: medicalOrgId,
+          takesMedication,
+          medicalConditionIds: hasMedicalConditionIds ? medicalConditionIds : [],
         });
-      }
-      const syncResult = await syncPersonMedicalConditions({
-        personId: person.id,
-        orgId: medicalOrgId,
-        takesMedication,
-        medicalConditionIds: hasMedicalConditionIds ? medicalConditionIds : [],
-      });
-      if (!syncResult.ok) {
-        return res.status(syncResult.status).send({ message: syncResult.message });
+        if (!syncResult.ok) {
+          return res.status(syncResult.status).send({ message: syncResult.message });
+        }
       }
     }
 

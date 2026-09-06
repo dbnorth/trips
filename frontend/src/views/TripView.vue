@@ -67,7 +67,7 @@ const formatDate = (value) => value || "—";
 
 const participantName = (row) => {
   const p = row.person;
-  return p ? `${p.firstName || ""} ${p.lastName || ""}`.trim() : "—";
+  return p ? [p.firstName, p.middleName, p.lastName].filter(Boolean).join(" ").trim() || "—" : "—";
 };
 
 const participantItems = computed(() =>

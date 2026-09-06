@@ -7,7 +7,8 @@ export function useTripLeaderPicker() {
   const leadersLoading = ref(false);
   const leadersError = ref("");
 
-  const personLabel = (person) => `${person.firstName || ""} ${person.lastName || ""}`.trim();
+  const personLabel = (person) =>
+    [person.firstName, person.middleName, person.lastName].filter(Boolean).join(" ").trim();
 
   const loadLeaderOptions = async (orgId) => {
     leadersError.value = "";

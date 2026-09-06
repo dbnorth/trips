@@ -54,6 +54,7 @@ const fieldRows = computed(() => {
 
   const rows = [
     { key: "firstName", label: "First name", value: p.firstName },
+    { key: "middleName", label: "Middle name", value: p.middleName || "—" },
     { key: "lastName", label: "Last name", value: p.lastName },
     { key: "email", label: "Email", value: p.email },
     { key: "addLine1", label: "Address line 1", value: p.addLine1 },

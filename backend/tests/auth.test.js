@@ -288,4 +288,28 @@ describe("Feature 1 — User Authentication & Sessions", () => {
       expect(user).toBeNull();
     });
   });
+
+  describe("Feature 20 — Person Middle Name", () => {
+    it("Registration saves middle name on the person", async () => {
+      const response = await request(app).post("/trips/register").send({
+        firstName: "Jane",
+        middleName: "Marie",
+        lastName: "Doe",
+        email: "jane.middle@example.com",
+        password: "password123",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body.middleName).toBe("Marie");
+
+      const person = await db.person.findByPk(response.body.personId);
+      expect(person.middleName).toBe("Marie");
+
+      const get = await request(app)
+        .get(`/trips/people/${response.body.personId}`)
+        .set({ Authorization: `Bearer ${response.body.token}` });
+      expect(get.status).toBe(200);
+      expect(get.body.middleName).toBe("Marie");
+    });
+  });
 });

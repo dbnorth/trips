@@ -40,6 +40,7 @@ const joinValues = (values) =>
 
 const PARTICIPANT_COLUMNS = [
   { key: "firstName", label: "First Name" },
+  { key: "middleName", label: "Middle Name" },
   { key: "lastName", label: "Last Name" },
   { key: "email", label: "Email" },
   { key: "addLine1", label: "Address Line 1" },
@@ -189,6 +190,7 @@ exports.participantsCsv = async (req, res) => {
 
       return {
         firstName: person.firstName || "",
+        middleName: person.middleName || "",
         lastName: person.lastName || "",
         email: person.email || "",
         addLine1: person.addLine1 || "",

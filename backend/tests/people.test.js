@@ -18,6 +18,7 @@ import {
   assignOrgRole,
   findRole,
   TINY_PNG,
+  completePersonProfile,
 } from "./helpers.js";
 
 describe("People — Features 2 & 11", () => {
@@ -284,6 +285,73 @@ describe("People — Features 2 & 11", () => {
 
         expect(response.status).toBe(403);
         expect(response.body.message).toMatch(/Forbidden/i);
+      });
+    });
+
+    describe("Feature 20 — Person Middle Name", () => {
+      it("Edit person saves middle name", async () => {
+        const { authHeader, user } = await registerUser({
+          email: "middle.save@example.com",
+          firstName: "Pat",
+          lastName: "Profile",
+        });
+
+        const response = await request(app)
+          .put(`/trips/people/${user.personId}`)
+          .set(authHeader)
+          .send({
+            version: 0,
+            middleName: "Lee",
+          });
+
+        expect(response.status).toBe(200);
+        expect(response.body.middleName).toBe("Lee");
+
+        const get = await request(app).get(`/trips/people/${user.personId}`).set(authHeader);
+        expect(get.status).toBe(200);
+        expect(get.body.middleName).toBe("Lee");
+      });
+
+      it("Blank middle name clears the value", async () => {
+        const { authHeader, user } = await registerUser({
+          email: "middle.clear@example.com",
+          firstName: "Pat",
+          lastName: "Profile",
+        });
+
+        await request(app)
+          .put(`/trips/people/${user.personId}`)
+          .set(authHeader)
+          .send({ version: 0, middleName: "Ann" });
+
+        const cleared = await request(app)
+          .put(`/trips/people/${user.personId}`)
+          .set(authHeader)
+          .send({ version: 1, middleName: "" });
+
+        expect(cleared.status).toBe(200);
+        expect(cleared.body.middleName).toBeNull();
+
+        const stored = await db.person.findByPk(user.personId);
+        expect(stored.middleName).toBeNull();
+      });
+
+      it("Application completeness requires middle name", async () => {
+        const { isProfileComplete } = await import(
+          "../app/utils/tripParticipantApplicationStatus.js"
+        );
+        const { user } = await registerUser({
+          email: "middle.complete@example.com",
+          firstName: "Pat",
+          lastName: "Profile",
+        });
+        await completePersonProfile(user.personId, { middleName: null });
+
+        const person = await db.person.findByPk(user.personId);
+        expect(isProfileComplete(person)).toBe(false);
+
+        await person.update({ middleName: "Lee" });
+        expect(isProfileComplete(await db.person.findByPk(user.personId))).toBe(true);
       });
     });
   });
