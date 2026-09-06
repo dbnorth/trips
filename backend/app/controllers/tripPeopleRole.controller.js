@@ -14,7 +14,7 @@ import {
   resolveAppliedOrIncompleteStatus,
   shouldAutoSetApplicationStatus,
 } from "../utils/tripParticipantApplicationStatus.js";
-import { loadOrganizationAgreement } from "../utils/organizationAgreement.js";
+import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -43,6 +43,8 @@ const fields = [
   "agreementAdultLastName",
   "agreementAdultEmail",
   "agreementAdultRelationship",
+  "medicalAgreementAccepted",
+  "medicalAgreementDate",
   "assiginmentDateTime",
 ];
 
@@ -103,6 +105,11 @@ const computeStatusForPayload = async (payload, orgId) => {
   const licenseRequired = await loadLicenseRequired(payload.tripWorkerRoleId);
   const agreement = orgId != null ? await loadOrganizationAgreement(orgId) : null;
   const agreementRequired = !!agreement?.exists && !!agreement?.content?.trim();
+  const medicalAgreement = orgId != null ? await loadOrganizationMedicalAgreement(orgId) : null;
+  const medicalAgreementRequired =
+    !!medicalAgreement?.exists &&
+    !!medicalAgreement?.content?.trim() &&
+    (person?.takesMedication === true || person?.takesMedication === 1);
   return resolveAppliedOrIncompleteStatus({
     person,
     tripWorkerRoleId: payload.tripWorkerRoleId,
@@ -119,6 +126,8 @@ const computeStatusForPayload = async (payload, orgId) => {
     agreementAdultLastName: payload.agreementAdultLastName || null,
     agreementAdultEmail: payload.agreementAdultEmail || null,
     agreementAdultRelationship: payload.agreementAdultRelationship || null,
+    medicalAgreementRequired,
+    medicalAgreementAccepted: !!payload.medicalAgreementAccepted,
     orgId,
   });
 };
@@ -249,6 +258,14 @@ exports.create = async (req, res) => {
       payload.agreementAdultRelationship = null;
     }
 
+    payload.medicalAgreementAccepted = !!payload.medicalAgreementAccepted;
+    if (payload.medicalAgreementAccepted) {
+      payload.medicalAgreementDate = payload.medicalAgreementDate || new Date();
+    } else {
+      payload.medicalAgreementAccepted = false;
+      payload.medicalAgreementDate = null;
+    }
+
     const data = await TripPeopleRole.create(payload);
     const full = await TripPeopleRole.findByPk(data.id, { include: listIncludes });
     res.send(full);
@@ -325,6 +342,12 @@ exports.update = async (req, res) => {
         )
           ? body.agreementAdultRelationship
           : row.agreementAdultRelationship,
+        medicalAgreementAccepted: Object.prototype.hasOwnProperty.call(
+          body,
+          "medicalAgreementAccepted"
+        )
+          ? !!body.medicalAgreementAccepted
+          : !!row.medicalAgreementAccepted,
       };
       body.status = await computeStatusForPayload(merged, trip?.orgId);
     }
@@ -356,6 +379,17 @@ exports.update = async (req, res) => {
         body.agreementDate = new Date();
       } else {
         body.agreementDate = row.agreementDate || new Date();
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "medicalAgreementAccepted")) {
+      body.medicalAgreementAccepted = !!body.medicalAgreementAccepted;
+      if (!body.medicalAgreementAccepted) {
+        body.medicalAgreementDate = null;
+      } else if (!row.medicalAgreementAccepted) {
+        body.medicalAgreementDate = new Date();
+      } else {
+        body.medicalAgreementDate = row.medicalAgreementDate || new Date();
       }
     }
 

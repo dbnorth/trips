@@ -40,6 +40,7 @@ const healthForm = ref({
   version: 0,
 });
 const agreementContent = ref("");
+const medicalAgreementContent = ref("");
 const travelOptions = ref([]);
 const selectedTravelOptionIds = ref([]);
 const travelOptionsRef = ref(null);
@@ -60,6 +61,8 @@ const form = ref({
   agreementAdultLastName: "",
   agreementAdultEmail: "",
   agreementAdultRelationship: "",
+  medicalAgreementAccepted: false,
+  medicalAgreementDate: null,
   version: 0,
 });
 
@@ -67,6 +70,12 @@ const editingApplication = ref(false);
 const canEdit = ref(true);
 
 const agreementRequired = computed(() => !!agreementContent.value?.trim());
+const takesMedicationYes = computed(
+  () => healthForm.value.takesMedication === true || person.value?.takesMedication === true
+);
+const medicalAgreementRequired = computed(
+  () => takesMedicationYes.value && !!medicalAgreementContent.value?.trim()
+);
 const participantUnder18 = computed(() => isUnder18(person.value?.birthDate));
 
 const availableRoles = computed(() => {
@@ -185,6 +194,13 @@ const agreementComplete = computed(() => {
   return true;
 });
 
+const medicalAgreementComplete = computed(() => {
+  if (!medicalAgreementRequired.value) return true;
+  if (!form.value.medicalAgreementAccepted) return false;
+  if (!form.value.agreementSignatureName?.trim()) return false;
+  return true;
+});
+
 const travelOptionsComplete = computed(
   () => !validateTravelOptionSelections(travelOptions.value, selectedTravelOptionIds.value)
 );
@@ -195,6 +211,7 @@ const readyToSubmit = computed(
     profileComplete.value &&
     applicationFormComplete.value &&
     agreementComplete.value &&
+    medicalAgreementComplete.value &&
     travelOptionsComplete.value
 );
 
@@ -225,6 +242,8 @@ const resetForm = () => {
     agreementAdultLastName: "",
     agreementAdultEmail: "",
     agreementAdultRelationship: "",
+    medicalAgreementAccepted: false,
+    medicalAgreementDate: null,
     version: 0,
   };
   selectedTravelOptionIds.value = [];
@@ -247,6 +266,8 @@ const applyFormFromApplication = (row) => {
     agreementAdultLastName: row?.agreementAdultLastName || "",
     agreementAdultEmail: row?.agreementAdultEmail || "",
     agreementAdultRelationship: row?.agreementAdultRelationship || "",
+    medicalAgreementAccepted: !!row?.medicalAgreementAccepted,
+    medicalAgreementDate: row?.medicalAgreementDate || null,
     version: row?.version ?? 0,
   };
 };
@@ -328,6 +349,9 @@ const loadExistingApplication = async () => {
   agreementContent.value = res.data?.participantAgreement?.exists
     ? res.data.participantAgreement.content || ""
     : "";
+  medicalAgreementContent.value = res.data?.medicalAgreement?.exists
+    ? res.data.medicalAgreement.content || ""
+    : "";
   editingApplication.value = true;
   canEdit.value = !!res.data?.canEdit;
   applyFormFromApplication(res.data?.application);
@@ -348,6 +372,9 @@ const loadNewApplication = async () => {
     .map((o) => Number(o.id));
   agreementContent.value = res.data?.participantAgreement?.exists
     ? res.data.participantAgreement.content || ""
+    : "";
+  medicalAgreementContent.value = res.data?.medicalAgreement?.exists
+    ? res.data.medicalAgreement.content || ""
     : "";
 
   if (!res.data?.alreadyApplied) return;
@@ -385,6 +412,7 @@ const load = async () => {
     travelOptions.value = [];
     selectedTravelOptionIds.value = [];
     agreementContent.value = "";
+    medicalAgreementContent.value = "";
     editingApplication.value = false;
     canEdit.value = false;
   } finally {
@@ -404,6 +432,7 @@ watch(
       travelOptions.value = [];
       selectedTravelOptionIds.value = [];
       agreementContent.value = "";
+      medicalAgreementContent.value = "";
       resetForm();
     }
   }
@@ -437,9 +466,10 @@ const buildPayload = () => ({
     ? form.value.preferredRoommateNames.trim()
     : null,
   agreementAccepted: agreementRequired.value ? !!form.value.agreementAccepted : false,
-  agreementSignatureName: agreementRequired.value
-    ? form.value.agreementSignatureName.trim() || null
-    : null,
+  agreementSignatureName:
+    agreementRequired.value || medicalAgreementRequired.value
+      ? form.value.agreementSignatureName.trim() || null
+      : null,
   agreementAdultFirstName:
     agreementRequired.value && participantUnder18.value
       ? form.value.agreementAdultFirstName.trim() || null
@@ -456,6 +486,9 @@ const buildPayload = () => ({
     agreementRequired.value && participantUnder18.value
       ? form.value.agreementAdultRelationship.trim() || null
       : null,
+  medicalAgreementAccepted: medicalAgreementRequired.value
+    ? !!form.value.medicalAgreementAccepted
+    : false,
   selectedTravelOptionIds: selectedTravelOptionIds.value,
   ...(editingApplication.value ? { version: form.value.version } : {}),
 });
@@ -502,6 +535,14 @@ const save = async () => {
         formError.value = "Enter the adult's relationship to the participant.";
         return;
       }
+    }
+  }
+  if (medicalAgreementRequired.value && form.value.medicalAgreementAccepted) {
+    if (!form.value.agreementSignatureName?.trim()) {
+      formError.value = participantUnder18.value
+        ? "Enter the adult's name as the electronic signature."
+        : "Enter your name as your electronic signature.";
+      return;
     }
   }
 
@@ -577,6 +618,16 @@ const save = async () => {
             class="mb-2"
           />
 
+          <v-select
+            v-if="licenseRequired"
+            v-model="form.licenseStatus"
+            :items="licenseItems"
+            :label="licenseLabel"
+            density="compact"
+            class="mb-2"
+            :disabled="!canEdit"
+          />
+
           <v-alert
             v-if="documentRequirementWarning"
             type="warning"
@@ -622,16 +673,6 @@ const save = async () => {
             :disabled="!canEdit"
           />
 
-          <v-select
-            v-if="licenseRequired"
-            v-model="form.licenseStatus"
-            :items="licenseItems"
-            :label="licenseLabel"
-            density="compact"
-            class="mb-2"
-            :disabled="!canEdit"
-          />
-
           <div class="text-subtitle-2 mb-1 mt-2">Roommate preference</div>
           <v-checkbox
             v-model="form.hasPreferredRoommate"
@@ -665,9 +706,13 @@ const save = async () => {
             v-model:agreement-adult-last-name="form.agreementAdultLastName"
             v-model:agreement-adult-email="form.agreementAdultEmail"
             v-model:agreement-adult-relationship="form.agreementAdultRelationship"
+            v-model:medical-agreement-accepted="form.medicalAgreementAccepted"
             :under18="participantUnder18"
             :can-agree="canAgreeToAgreement"
             :content="agreementContent"
+            :show-medical-agreement="takesMedicationYes"
+            :medical-agreement-content="medicalAgreementContent"
+            :medical-agreement-date="form.medicalAgreementDate"
             :disabled="!canEdit"
           />
         </template>

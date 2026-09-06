@@ -157,6 +157,70 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       expect(response.body.applicationStatus).toBe("applied");
       expect(response.body.assignment.status).toBe("applied");
     });
+
+    it("Medical agreement acceptance is saved on the application", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "med-agree-admin@example.com",
+      });
+      await request(app)
+        .put(`/trips/organizations/${org.id}/medical-agreement`)
+        .set(authHeader)
+        .send({ content: "# Medical\n\nTerms." });
+
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id);
+      const applicant = await registerUser({
+        email: "med-agree-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId, { takesMedication: true });
+
+      const response = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          medicalAgreementAccepted: true,
+          agreementSignatureName: "Med Applicant",
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.assignment.medicalAgreementAccepted).toBe(true);
+      expect(response.body.assignment.medicalAgreementDate).toBeTruthy();
+    });
+
+    it("Medical agreement acceptance is required when shown", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "med-req-admin@example.com",
+      });
+      await request(app)
+        .put(`/trips/organizations/${org.id}/medical-agreement`)
+        .set(authHeader)
+        .send({ content: "# Medical\n\nRequired." });
+
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id);
+      const applicant = await registerUser({
+        email: "med-req-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId, { takesMedication: true });
+
+      const response = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          medicalAgreementAccepted: false,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.applicationStatus).toBe("incomplete");
+    });
   });
 
   describe("US-7.3 — Staff manage participants and applications", () => {

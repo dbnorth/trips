@@ -241,7 +241,7 @@ const cancelApplication = () => {
 
           <div class="text-subtitle-2 mb-2 mt-4">Agreement</div>
           <div class="mb-2">
-            <div class="text-caption text-medium-emphasis">Agreed</div>
+            <div class="text-caption text-medium-emphasis">Participation agreed</div>
             <div>{{ yesNo(application.agreementAccepted) }}</div>
           </div>
           <div class="mb-2">
@@ -251,6 +251,14 @@ const cancelApplication = () => {
           <div class="mb-2">
             <div class="text-caption text-medium-emphasis">Agreement date</div>
             <div>{{ formatDateTime(application.agreementDate) }}</div>
+          </div>
+          <div class="mb-2">
+            <div class="text-caption text-medium-emphasis">Medical agreement agreed</div>
+            <div>{{ yesNo(application.medicalAgreementAccepted) }}</div>
+          </div>
+          <div class="mb-2">
+            <div class="text-caption text-medium-emphasis">Medical agreement date</div>
+            <div>{{ formatDateTime(application.medicalAgreementDate) }}</div>
           </div>
 
           <template v-if="under18 || application.agreementAdultFirstName || application.agreementAdultLastName">
