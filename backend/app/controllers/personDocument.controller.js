@@ -23,7 +23,11 @@ const canManagePerson = async (req, personId) => {
 };
 
 const includeDocumentType = [
-  { model: DocumentType, as: "documentType", attributes: ["id", "description", "type"] },
+  {
+    model: DocumentType,
+    as: "documentType",
+    attributes: ["id", "description", "type", "documentNumberRequired", "instructions"],
+  },
 ];
 
 const documentPath = (documentFileName) => path.join("documents", documentFileName || "");
@@ -46,7 +50,13 @@ const cleanupUploadedFile = (req) => {
   }
 };
 
-const validatePayload = async (body, { requireFile = false, file = null } = {}) => {
+const normalizeDocumentNumber = (value) => {
+  if (value == null) return null;
+  const trimmed = String(value).trim();
+  return trimmed || null;
+};
+
+const validatePayload = async (body) => {
   const documentTypeId = Number(body.documentTypeId);
   if (!Number.isInteger(documentTypeId) || documentTypeId < 1) {
     return { error: "Document type is required." };
@@ -57,14 +67,20 @@ const validatePayload = async (body, { requireFile = false, file = null } = {}) 
   if (!body.expirationDate) {
     return { error: "Expiration date is required." };
   }
-  if (requireFile && !file) {
-    return { error: "Document file is required." };
+
+  let documentNumber = null;
+  if (documentType.documentNumberRequired) {
+    documentNumber = normalizeDocumentNumber(body.documentNumber);
+    if (!documentNumber) {
+      return { error: "Document number is required." };
+    }
   }
 
   return {
     payload: {
       documentTypeId,
       countryIssued: body.countryIssued?.trim()?.toUpperCase() || null,
+      documentNumber,
       issueDate: body.issueDate || null,
       expirationDate: body.expirationDate,
     },
@@ -111,7 +127,7 @@ exports.create = async (req, res) => {
       return res.status(403).send({ message: "Forbidden." });
     }
 
-    const result = await validatePayload(req.body, { requireFile: true, file: req.file });
+    const result = await validatePayload(req.body);
     if (result.error) {
       cleanupUploadedFile(req);
       return res.status(400).send({ message: result.error });
@@ -120,7 +136,9 @@ exports.create = async (req, res) => {
     const data = await PersonDocument.create({
       personId: person.id,
       ...result.payload,
-      documentFileName: path.join("people", req.file.filename).replace(/\\/g, "/"),
+      documentFileName: req.file
+        ? path.join("people", req.file.filename).replace(/\\/g, "/")
+        : null,
     });
     res.send(await loadForPerson(data.id, person.id));
   } catch (err) {
@@ -149,7 +167,7 @@ exports.update = async (req, res) => {
       return res.status(404).send({ message: "Document not found." });
     }
 
-    const result = await validatePayload(req.body, { file: req.file });
+    const result = await validatePayload(req.body);
     if (result.error) {
       cleanupUploadedFile(req);
       return res.status(400).send({ message: result.error });

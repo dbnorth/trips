@@ -7,6 +7,7 @@ const props = defineProps({
   label: { type: String, default: "Country" },
   /** When true, empty value becomes US at mount (document country issued). Trip country leaves this false (FR-008). */
   defaultEmptyToUs: { type: Boolean, default: false },
+  errorMessages: { type: [String, Array], default: () => [] },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -33,6 +34,7 @@ onMounted(() => {
     density="compact"
     clearable
     auto-select-first
+    :error-messages="errorMessages"
     @update:model-value="(value) => $emit('update:modelValue', value)"
   />
 </template>

@@ -15,7 +15,12 @@ import {
   isUnder18,
   normalizeYesNo,
 } from "../utils/personProfile.js";
-import { isApplicationFormComplete, validateTravelOptionSelections } from "../utils/tripApplicationForm.js";
+import {
+  arePersonDocumentsUploaded,
+  isApplicationFormComplete,
+  isRequiredRoleDocumentUploaded,
+  validateTravelOptionSelections,
+} from "../utils/tripApplicationForm.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -123,28 +128,32 @@ const dateOnly = (value) => {
 
 const hasRequiredDocumentForTrip = computed(() => {
   const docTypeId = selectedRole.value?.workerRole?.documentTypeId;
-  if (!docTypeId) return true;
-
-  // Prefer trip end date (approval requirement); fall back to start date.
   const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
-  if (!compareDate) return true;
-
-  return personDocuments.value.some((doc) => {
-    if (Number(doc.documentTypeId) !== Number(docTypeId)) return false;
-    const expirationDate = dateOnly(doc.expirationDate);
-    // Must expire after the trip ends (past the end of the trip).
-    return expirationDate && expirationDate > compareDate;
+  return isRequiredRoleDocumentUploaded({
+    documents: personDocuments.value,
+    documentTypeId: docTypeId,
+    compareDate,
   });
 });
 
+const personDocumentsUploaded = computed(() =>
+  arePersonDocumentsUploaded(personDocuments.value)
+);
+
+const documentsCompleteForSubmit = computed(
+  () => personDocumentsUploaded.value && hasRequiredDocumentForTrip.value
+);
+
 const documentRequirementWarning = computed(() => {
-  if (!licenseRequired.value || !requiredDocumentType.value) return "";
-  if (hasRequiredDocumentForTrip.value) return "";
+  if (!personDocumentsUploaded.value) {
+    return "Upload a file for every document on your profile before submitting your application.";
+  }
+  if (!requiredDocumentType.value || hasRequiredDocumentForTrip.value) return "";
 
   const docName = requiredDocumentType.value.description || "required document";
   const endDate = dateOnly(trip.value?.endDate);
   const endPart = endDate ? ` (${endDate})` : "";
-  return `For your application to be approved, you will need to upload a ${docName} with an expiration date past the end of the trip${endPart}.`;
+  return `Upload a ${docName} with an expiration date past the end of the trip${endPart} before submitting your application.`;
 });
 
 const profileComplete = computed(() =>
@@ -206,14 +215,15 @@ const travelOptionsComplete = computed(
   () => !validateTravelOptionSelections(travelOptions.value, selectedTravelOptionIds.value)
 );
 
-/** Matches the backend "applied" status: profile + form + agreement + travel options. */
+/** Matches the backend "applied" status: profile + form + agreement + travel options + documents. */
 const readyToSubmit = computed(
   () =>
     profileComplete.value &&
     applicationFormComplete.value &&
     agreementComplete.value &&
     medicalAgreementComplete.value &&
-    travelOptionsComplete.value
+    travelOptionsComplete.value &&
+    documentsCompleteForSubmit.value
 );
 
 const primaryActionLabel = computed(() =>

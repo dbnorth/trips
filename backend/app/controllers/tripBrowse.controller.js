@@ -5,9 +5,13 @@ import {
   isSystemAdmin,
 } from "../authorization/accessControl.js";
 import {
+  arePersonDocumentsUploaded,
+  isRequiredRoleDocumentUploaded,
+  loadPersonDocumentsForCompleteness,
   loadPersonForCompleteness,
   resolveAppliedOrIncompleteStatus,
   isUnder18,
+  tripDocumentCompareDate,
 } from "../utils/tripParticipantApplicationStatus.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
@@ -595,6 +599,7 @@ exports.applyToTrip = async (req, res) => {
     const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const agreementRequired = !!participantAgreement.exists && !!participantAgreement.content?.trim();
     const person = await loadPersonForCompleteness(peopleId);
+    const personDocuments = await loadPersonDocumentsForCompleteness(peopleId);
     const medicalAgreementRequired = medicalAgreementRequiredForPerson(medicalAgreement, person);
     const participantUnder18 = isUnder18(person?.birthDate);
     const agreement = parseAgreementSignature(req.body, { agreementRequired, participantUnder18 });
@@ -621,6 +626,7 @@ exports.applyToTrip = async (req, res) => {
       });
     }
 
+    const documentCompareDate = tripDocumentCompareDate(trip);
     const status = resolveAppliedOrIncompleteStatus({
       person,
       tripWorkerRoleId,
@@ -642,6 +648,12 @@ exports.applyToTrip = async (req, res) => {
       isPregnant: pregnancy.isPregnant,
       pregnancyDueDate: pregnancy.pregnancyDueDate,
       travelOptionsComplete: !selectionCheck.missingSelection,
+      personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
+      requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
+        documents: personDocuments,
+        documentTypeId: selectedRole.workerRole?.documentTypeId ?? null,
+        compareDate: documentCompareDate,
+      }),
       orgId: trip.orgId,
     });
 
@@ -816,6 +828,7 @@ exports.updateApplication = async (req, res) => {
     const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const agreementRequired = !!participantAgreement.exists && !!participantAgreement.content?.trim();
     const person = await loadPersonForCompleteness(peopleId);
+    const personDocuments = await loadPersonDocumentsForCompleteness(peopleId);
     const medicalAgreementRequired = medicalAgreementRequiredForPerson(medicalAgreement, person);
     const participantUnder18 = isUnder18(person?.birthDate);
     const agreement = parseAgreementSignature(req.body, { agreementRequired, participantUnder18 });
@@ -834,6 +847,7 @@ exports.updateApplication = async (req, res) => {
       selectedTravelOptionIds
     );
 
+    const documentCompareDate = tripDocumentCompareDate(trip);
     const status = resolveAppliedOrIncompleteStatus({
       person,
       tripWorkerRoleId,
@@ -855,6 +869,12 @@ exports.updateApplication = async (req, res) => {
       isPregnant: pregnancy.isPregnant,
       pregnancyDueDate: pregnancy.pregnancyDueDate,
       travelOptionsComplete: !selectionCheck.missingSelection,
+      personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
+      requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
+        documents: personDocuments,
+        documentTypeId: selectedRole.workerRole?.documentTypeId ?? null,
+        compareDate: documentCompareDate,
+      }),
       orgId: trip.orgId,
     });
 

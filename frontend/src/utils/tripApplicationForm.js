@@ -2,6 +2,31 @@ const isBlank = (value) => value == null || String(value).trim() === "";
 
 const LICENSE_STATUSES = ["yes", "yes_retired", "no"];
 
+/** Every person-document row must have an uploaded file. */
+export const arePersonDocumentsUploaded = (documents = []) =>
+  (documents || []).every(
+    (doc) => doc.documentFileName && String(doc.documentFileName).trim() !== ""
+  );
+
+/**
+ * When the worker role requires a document type, the person must have that type
+ * with a file. If compareDate is set, expiration must be after it.
+ */
+export const isRequiredRoleDocumentUploaded = ({
+  documents = [],
+  documentTypeId = null,
+  compareDate = null,
+}) => {
+  if (documentTypeId == null || documentTypeId === "") return true;
+  return (documents || []).some((doc) => {
+    if (Number(doc.documentTypeId) !== Number(documentTypeId)) return false;
+    if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
+    if (!compareDate) return true;
+    const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+    return expirationDate && expirationDate > compareDate;
+  });
+};
+
 /**
  * Application fields excluding the participant agreement.
  * Used to gate agreeing until the rest of the form is filled in.
