@@ -14,7 +14,8 @@ import {
   resolveAppliedOrIncompleteStatus,
   shouldAutoSetApplicationStatus,
 } from "../utils/tripParticipantApplicationStatus.js";
-import { loadOrganizationAgreement } from "../utils/organizationAgreement.js";
+import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
+import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -43,6 +44,10 @@ const fields = [
   "agreementAdultLastName",
   "agreementAdultEmail",
   "agreementAdultRelationship",
+  "medicalAgreementAccepted",
+  "medicalAgreementDate",
+  "isPregnant",
+  "pregnancyDueDate",
   "assiginmentDateTime",
 ];
 
@@ -103,6 +108,12 @@ const computeStatusForPayload = async (payload, orgId) => {
   const licenseRequired = await loadLicenseRequired(payload.tripWorkerRoleId);
   const agreement = orgId != null ? await loadOrganizationAgreement(orgId) : null;
   const agreementRequired = !!agreement?.exists && !!agreement?.content?.trim();
+  const medicalAgreement = orgId != null ? await loadOrganizationMedicalAgreement(orgId) : null;
+  const medicalAgreementRequired =
+    !!medicalAgreement?.exists &&
+    !!medicalAgreement?.content?.trim() &&
+    (person?.takesMedication === true || person?.takesMedication === 1);
+  const pregnancy = normalizeApplicationPregnancy(payload, { gender: person?.gender ?? null });
   return resolveAppliedOrIncompleteStatus({
     person,
     tripWorkerRoleId: payload.tripWorkerRoleId,
@@ -119,6 +130,11 @@ const computeStatusForPayload = async (payload, orgId) => {
     agreementAdultLastName: payload.agreementAdultLastName || null,
     agreementAdultEmail: payload.agreementAdultEmail || null,
     agreementAdultRelationship: payload.agreementAdultRelationship || null,
+    medicalAgreementRequired,
+    medicalAgreementAccepted: !!payload.medicalAgreementAccepted,
+    isPregnant: pregnancy.ok ? pregnancy.isPregnant : null,
+    pregnancyDueDate: pregnancy.ok ? pregnancy.pregnancyDueDate : null,
+    orgId,
   });
 };
 
@@ -248,6 +264,14 @@ exports.create = async (req, res) => {
       payload.agreementAdultRelationship = null;
     }
 
+    payload.medicalAgreementAccepted = !!payload.medicalAgreementAccepted;
+    if (payload.medicalAgreementAccepted) {
+      payload.medicalAgreementDate = payload.medicalAgreementDate || new Date();
+    } else {
+      payload.medicalAgreementAccepted = false;
+      payload.medicalAgreementDate = null;
+    }
+
     const data = await TripPeopleRole.create(payload);
     const full = await TripPeopleRole.findByPk(data.id, { include: listIncludes });
     res.send(full);
@@ -324,6 +348,18 @@ exports.update = async (req, res) => {
         )
           ? body.agreementAdultRelationship
           : row.agreementAdultRelationship,
+        medicalAgreementAccepted: Object.prototype.hasOwnProperty.call(
+          body,
+          "medicalAgreementAccepted"
+        )
+          ? !!body.medicalAgreementAccepted
+          : !!row.medicalAgreementAccepted,
+        isPregnant: Object.prototype.hasOwnProperty.call(body, "isPregnant")
+          ? body.isPregnant
+          : row.isPregnant,
+        pregnancyDueDate: Object.prototype.hasOwnProperty.call(body, "pregnancyDueDate")
+          ? body.pregnancyDueDate
+          : row.pregnancyDueDate,
       };
       body.status = await computeStatusForPayload(merged, trip?.orgId);
     }
@@ -355,6 +391,17 @@ exports.update = async (req, res) => {
         body.agreementDate = new Date();
       } else {
         body.agreementDate = row.agreementDate || new Date();
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "medicalAgreementAccepted")) {
+      body.medicalAgreementAccepted = !!body.medicalAgreementAccepted;
+      if (!body.medicalAgreementAccepted) {
+        body.medicalAgreementDate = null;
+      } else if (!row.medicalAgreementAccepted) {
+        body.medicalAgreementDate = new Date();
+      } else {
+        body.medicalAgreementDate = row.medicalAgreementDate || new Date();
       }
     }
 

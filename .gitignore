@@ -13,6 +13,7 @@ backend/images/**
 backend/agreements/**
 !backend/agreements/**/
 !backend/agreements/**/.gitkeep
+backend/agreements-test/
 backend/documents/**
 !backend/documents/**/
 !backend/documents/**/.gitkeep

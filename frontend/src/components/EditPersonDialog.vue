@@ -14,10 +14,13 @@ import Utils from "../config/utils.js";
 import { formatPhoneForDisplay, formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
 import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
+import { normalizeYesNo } from "../utils/personProfile.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   personId: { type: [Number, String], default: null },
+  /** Org context for medical-condition catalog/selections (trip org or acting org). */
+  medicalConditionOrgId: { type: [Number, String], default: null },
 });
 
 const emit = defineEmits(["update:modelValue", "saved", "orgs-changed"]);
@@ -82,6 +85,7 @@ function emptyForm() {
     id: null,
     userId: null,
     firstName: "",
+    middleName: "",
     lastName: "",
     email: "",
     addLine1: "",
@@ -97,9 +101,11 @@ function emptyForm() {
     emergencyContactName: "",
     emergencyContactPhoneCountryCode: "",
     emergencyContactPhoneNumber: "",
-    hasAllergies: false,
+    hasAllergies: null,
     allergiesDescription: "",
-    takesMedication: false,
+    takesMedication: null,
+    medicalConditionIds: [],
+    medicalConditions: [],
     currentChurchHome: "",
     currentChurchHomeCity: "",
     currentChurchHomeStateProv: "",
@@ -111,6 +117,13 @@ function emptyForm() {
 }
 
 const isSystemAdmin = computed(() => Utils.isSystemAdmin(Utils.getStore("user")));
+
+const resolvedMedicalOrgId = computed(() => {
+  if (props.medicalConditionOrgId != null && props.medicalConditionOrgId !== "") {
+    return Number(props.medicalConditionOrgId);
+  }
+  return Utils.effectiveOrgId(Utils.getStore("user"));
+});
 
 const isSelfProfile = computed(() => {
   const currentUser = Utils.getStore("user");
@@ -151,6 +164,15 @@ const applyPersonData = (data) => {
     emergencyContactPhoneCountryCode: data.emergencyContactPhoneCountryCode
       ? formatCountryCode(data.emergencyContactPhoneCountryCode)
       : "",
+    medicalConditionIds: Array.isArray(data.medicalConditionIds)
+      ? data.medicalConditionIds.map((id) => Number(id))
+      : Array.isArray(data.medicalConditions)
+        ? data.medicalConditions.map((c) => Number(c.id))
+        : [],
+    medicalConditions: Array.isArray(data.medicalConditions) ? data.medicalConditions : [],
+    hasAllergies: normalizeYesNo(data.hasAllergies),
+    allergiesDescription: data.allergiesDescription || "",
+    takesMedication: normalizeYesNo(data.takesMedication),
   };
   clearPictureSelection();
 };
@@ -200,7 +222,9 @@ const loadPerson = async ({ afterConflict = false } = {}) => {
   loading.value = true;
   onLoadStart({ afterConflict });
   try {
-    const r = await PersonServices.get(props.personId);
+    const params = {};
+    if (resolvedMedicalOrgId.value != null) params.orgId = resolvedMedicalOrgId.value;
+    const r = await PersonServices.get(props.personId, params);
     applyPersonData(r.data || {});
     if (isSystemAdmin.value) {
       await Promise.all([loadOrgRoleOptions(), loadOrgRoles()]);
@@ -377,6 +401,7 @@ const save = async () => {
 
     const payload = {
       firstName: form.value.firstName.trim(),
+      middleName: form.value.middleName?.trim() || null,
       lastName: form.value.lastName.trim(),
       email: form.value.email?.trim() || null,
       country: address.country || null,
@@ -394,17 +419,25 @@ const save = async () => {
         ? formatCountryCode(form.value.emergencyContactPhoneCountryCode)
         : null,
       emergencyContactPhoneNumber: form.value.emergencyContactPhoneNumber?.trim() || null,
-      hasAllergies: !!form.value.hasAllergies,
-      allergiesDescription: form.value.hasAllergies
+      hasAllergies: normalizeYesNo(form.value.hasAllergies),
+      allergiesDescription: form.value.hasAllergies === true
         ? form.value.allergiesDescription?.trim() || null
         : null,
-      takesMedication: !!form.value.takesMedication,
+      takesMedication: normalizeYesNo(form.value.takesMedication),
       currentChurchHome: form.value.currentChurchHome?.trim() || null,
       currentChurchHomeCity: form.value.currentChurchHomeCity?.trim() || null,
       currentChurchHomeStateProv: form.value.currentChurchHomeStateProv?.trim() || null,
       bioText: form.value.bioText?.trim() || null,
       version: form.value.version,
     };
+
+    if (resolvedMedicalOrgId.value != null) {
+      payload.medicalConditionIds =
+        form.value.takesMedication === true
+          ? form.value.medicalConditionIds || []
+          : [];
+      payload.orgId = resolvedMedicalOrgId.value;
+    }
 
     if (isSystemAdmin.value && form.value.email?.trim()) {
       payload.isAdmin = !!form.value.isAdmin;
@@ -440,6 +473,7 @@ const save = async () => {
         <template v-if="!loading">
           <v-form ref="formRef" @submit.prevent="save">
           <v-text-field v-model="form.firstName" label="First name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'First name is required']" />
+          <v-text-field v-model="form.middleName" label="Middle name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'Middle name is required']" />
           <v-text-field v-model="form.lastName" label="Last name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'Last name is required']" />
           <v-text-field
             v-model="form.email"
@@ -497,7 +531,7 @@ const save = async () => {
               <PhoneInput v-model="form.phoneNumber" label="Phone number" />
             </v-col>
           </v-row>
-          <PersonProfileFields v-model="form" />
+          <PersonProfileFields v-model="form" :org-id="resolvedMedicalOrgId" />
           <v-textarea v-model="form.bioText" label="Bio" density="compact" rows="3" autocomplete="off" />
 
           <div class="mt-2 mb-2">

@@ -85,7 +85,7 @@ const participantItems = computed(() =>
       const p = row.person;
       if (!p?.id) return null;
       return {
-        title: `${p.firstName || ""} ${p.lastName || ""}`.trim(),
+        title: [p.firstName, p.middleName, p.lastName].filter(Boolean).join(" ").trim(),
         value: p.id,
       };
     })

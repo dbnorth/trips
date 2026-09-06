@@ -22,9 +22,12 @@ They do **not** authorize new scope — implement only from `features/feature-*.
 | System admin People list with no acting org (“All organizations”) returns **all** persons, including those with no org membership | `person.controller` `findAll` | Feature 11 |
 | Trip role privileges use **approved** `tripPeopleRole` only | `authenticate` loads `tripRoles` | Feature 7 |
 | Acting org header `X-Acting-Organization-Id` scopes lists for system admins | Axios + accessControl | Features 2–5 |
-| Person profile completeness gates applications | `isProfileComplete` | Features 2, 7 |
+| Person optional at register; **required for profile completeness** / application applied; create-account and add/edit person show it after first name; display/list names include it when set; public URL slugs use first+last only | `person.middleName`, Login/Apply create-account, Add/Edit person, `isProfileComplete` | Feature 20 |
+| When `takesMedication` is true, ≥1 org medical condition must be selected for profile completeness; catalog is org-scoped; selections persist on the person | `PersonProfileFields`, `person.controller`, `isProfileComplete` | Feature 17 |
+| Female applicants answer **Are you pregnant?** on the **application** (after allergies); Yes requires due date and shows doctor travel-clearance document message; stored on `tripPeopleRole` (not person); cleared when not female | `PersonProfileFields` (healthOnly), `pregnancyFields.js`, apply/update application, `isApplicationComplete` | Feature 19 |
 | Application status auto `incomplete`/`applied`; staff set `approved`/`declined`/`cancelled` | `tripParticipantApplicationStatus.js` | Feature 7 |
 | Under-18 agreement requires adult signer fields | Application completeness helpers | Feature 7 |
+| Org medical agreement Markdown (parallel to participant); shown on application when `takesMedication` is Yes; required **I agree to the medical agreement**; participant checkbox label **I agree to the Participation agreement**; shared e-signature text covers I agree checkboxes | `organizationAgreement.js`, org dialogs, `ParticipantAgreementSection`, browse apply/update | Feature 18 |
 | System admins cannot use browse/apply UI routes | `router.js` `canBrowseAndApplyToTrips` | Feature 7 |
 | Public pages unauthenticated; slug spaces → `_` | `/public/*`, donate URLs | Feature 9 |
 | Organization optional unique `subdomain`; create-account on `{subdomain}.…` hides org picker and registers into that org | `organizationSubdomain.js`, `auth.controller` register, Login/Apply create-account | Feature 15 |

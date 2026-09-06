@@ -149,6 +149,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
           willSelfFund: true,
           willRaiseFunds: false,
           hasPreferredRoommate: false,
+          isPregnant: false,
           agreementAccepted: true,
           agreementSignatureName: "Test Applicant",
         });
@@ -156,6 +157,201 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       expect(response.status).toBe(200);
       expect(response.body.applicationStatus).toBe("applied");
       expect(response.body.assignment.status).toBe("applied");
+    });
+
+    it("Pregnancy answers are saved on the application", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "preg-save-admin@example.com",
+      });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id);
+      const applicant = await registerUser({
+        email: "preg-save-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId);
+
+      const response = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          isPregnant: true,
+          pregnancyDueDate: "2026-11-15",
+          agreementAccepted: true,
+          agreementSignatureName: "Pregnant Applicant",
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.assignment.isPregnant).toBe(true);
+      expect(String(response.body.assignment.pregnancyDueDate).slice(0, 10)).toBe("2026-11-15");
+
+      const stored = await db.tripPeopleRole.findByPk(response.body.assignment.id);
+      expect(stored.isPregnant).toBe(true);
+      expect(String(stored.pregnancyDueDate).slice(0, 10)).toBe("2026-11-15");
+    });
+
+    it("Due date is cleared when pregnant is No", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "preg-clear-admin@example.com",
+      });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id);
+      const applicant = await registerUser({
+        email: "preg-clear-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId);
+
+      const created = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          isPregnant: true,
+          pregnancyDueDate: "2026-11-15",
+          agreementAccepted: true,
+          agreementSignatureName: "Clear Due",
+        });
+      expect(created.status).toBe(200);
+
+      const response = await request(app)
+        .put(`/trips/trips/browse/${trip.id}/application`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Clear Due",
+          version: created.body.assignment.version,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.application.isPregnant).toBe(false);
+      expect(response.body.application.pregnancyDueDate).toBeNull();
+    });
+
+    it("Pregnancy fields are cleared when gender is no longer female", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "preg-gender-admin@example.com",
+      });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id);
+      const applicant = await registerUser({
+        email: "preg-gender-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId);
+
+      const created = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          isPregnant: true,
+          pregnancyDueDate: "2026-11-15",
+          agreementAccepted: true,
+          agreementSignatureName: "Gender Change",
+        });
+      expect(created.status).toBe(200);
+
+      await request(app)
+        .put(`/trips/people/${applicant.user.personId}`)
+        .set(applicant.authHeader)
+        .send({ gender: "male" });
+
+      const response = await request(app)
+        .put(`/trips/trips/browse/${trip.id}/application`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          isPregnant: true,
+          pregnancyDueDate: "2026-11-15",
+          agreementAccepted: true,
+          agreementSignatureName: "Gender Change",
+          version: created.body.assignment.version,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.application.isPregnant).toBeNull();
+      expect(response.body.application.pregnancyDueDate).toBeNull();
+    });
+
+    it("Medical agreement acceptance is saved on the application", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "med-agree-admin@example.com",
+      });
+      await request(app)
+        .put(`/trips/organizations/${org.id}/medical-agreement`)
+        .set(authHeader)
+        .send({ content: "# Medical\n\nTerms." });
+
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id);
+      const applicant = await registerUser({
+        email: "med-agree-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId, { takesMedication: true });
+
+      const response = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          isPregnant: false,
+          medicalAgreementAccepted: true,
+          agreementSignatureName: "Med Applicant",
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.assignment.medicalAgreementAccepted).toBe(true);
+      expect(response.body.assignment.medicalAgreementDate).toBeTruthy();
+    });
+
+    it("Medical agreement acceptance is required when shown", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "med-req-admin@example.com",
+      });
+      await request(app)
+        .put(`/trips/organizations/${org.id}/medical-agreement`)
+        .set(authHeader)
+        .send({ content: "# Medical\n\nRequired." });
+
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id);
+      const applicant = await registerUser({
+        email: "med-req-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId, { takesMedication: true });
+
+      const response = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          medicalAgreementAccepted: false,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.applicationStatus).toBe("incomplete");
     });
   });
 
@@ -214,6 +410,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.body.id,
           willSelfFund: true,
+          isPregnant: false,
           agreementAccepted: true,
           agreementSignatureName: "To Approve",
         });
@@ -310,6 +507,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          isPregnant: false,
           agreementAccepted: true,
           agreementSignatureName: "Csv Person",
         });

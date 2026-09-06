@@ -19,6 +19,7 @@ export const emptyOrganizationForm = () => ({
   instagram: "",
   logo: null,
   agreementFileName: null,
+  medicalAgreementFileName: null,
   colorFamily: "blue",
   subdomain: "",
   version: 0,

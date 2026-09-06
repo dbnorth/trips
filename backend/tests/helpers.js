@@ -26,6 +26,7 @@ export const resetTestDatabase = async () => {
     db.tripPeopleRoleOption,
     db.tripDonation,
     db.personDocument,
+    db.personMedicalCondition,
     db.tripPeopleRole,
     db.tripWorkerRole,
     db.tripTravelOption,
@@ -34,6 +35,7 @@ export const resetTestDatabase = async () => {
     db.orgPeopleRole,
     db.trip,
     db.workerRole,
+    db.medicalCondition,
     db.donor,
     db.person,
     db.session,
@@ -123,6 +125,7 @@ export const createSystemAdminUser = async ({
 export const completePersonProfile = async (personId, overrides = {}) => {
   await db.person.update(
     {
+      middleName: "Ann",
       addLine1: "123 Main St",
       city: "Springfield",
       country: "US",

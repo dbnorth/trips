@@ -66,18 +66,20 @@ describe("Feature 1 — Login", () => {
       await clickByText(wrapper, "Add person / create account");
 
       const fields = wrapper.findAllComponents({ name: "VTextField" });
-      expect(fields.length).toBeGreaterThanOrEqual(5);
+      expect(fields.length).toBeGreaterThanOrEqual(6);
       await fields[0].vm.$emit("update:modelValue", "Jane");
-      await fields[1].vm.$emit("update:modelValue", "Doe");
-      await fields[2].vm.$emit("update:modelValue", "jane@example.com");
-      await fields[3].vm.$emit("update:modelValue", "password123");
+      await fields[1].vm.$emit("update:modelValue", "");
+      await fields[2].vm.$emit("update:modelValue", "Doe");
+      await fields[3].vm.$emit("update:modelValue", "jane@example.com");
       await fields[4].vm.$emit("update:modelValue", "password123");
+      await fields[5].vm.$emit("update:modelValue", "password123");
       await flushPromises();
 
       await clickByText(wrapper, "Create account");
 
       expect(authServices.registerUser).toHaveBeenCalledWith({
         firstName: "Jane",
+        middleName: null,
         lastName: "Doe",
         email: "jane@example.com",
         password: "password123",
@@ -93,10 +95,11 @@ describe("Feature 1 — Login", () => {
 
       const fields = wrapper.findAllComponents({ name: "VTextField" });
       await fields[0].vm.$emit("update:modelValue", "Jane");
-      await fields[1].vm.$emit("update:modelValue", "Doe");
-      await fields[2].vm.$emit("update:modelValue", "jane@example.com");
-      await fields[3].vm.$emit("update:modelValue", "password123");
-      await fields[4].vm.$emit("update:modelValue", "different");
+      await fields[1].vm.$emit("update:modelValue", "");
+      await fields[2].vm.$emit("update:modelValue", "Doe");
+      await fields[3].vm.$emit("update:modelValue", "jane@example.com");
+      await fields[4].vm.$emit("update:modelValue", "password123");
+      await fields[5].vm.$emit("update:modelValue", "different");
       await flushPromises();
 
       await clickByText(wrapper, "Create account");
@@ -187,5 +190,29 @@ describe("Feature 1 — Login", () => {
       expect(wrapper.text()).not.toContain("Joining");
       expect(authServices.getRegisterOrganizations).toHaveBeenCalled();
     });
+  });
+});
+
+describe("Feature 20 — Person Middle Name", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    getRegistrationHostSubdomain.mockReturnValue(null);
+    authServices.getRegisterOrganizations.mockResolvedValue({ data: [] });
+  });
+
+  it("Create-account form shows Middle name after First name", async () => {
+    const { wrapper } = await mountWithPlugins(Login);
+    await clickByText(wrapper, "Add person / create account");
+    await flushPromises();
+
+    const fields = wrapper.findAllComponents({ name: "VTextField" });
+    const labels = fields.map((c) => c.props("label"));
+    const firstIdx = labels.indexOf("First name");
+    const middleIdx = labels.indexOf("Middle name");
+    const lastIdx = labels.indexOf("Last name");
+    expect(firstIdx).toBeGreaterThan(-1);
+    expect(middleIdx).toBe(firstIdx + 1);
+    expect(lastIdx).toBe(middleIdx + 1);
   });
 });

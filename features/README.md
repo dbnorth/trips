@@ -34,8 +34,12 @@ These `feature-*.md` files are a **reverse-spec** of the imported Mission Trips 
 | 14 | [feature-14-add-person-role-select-fix.md](./feature-14-add-person-role-select-fix.md) | `feature/14-add-person-role-select-fix` | 2 |
 | 15 | [feature-15-organization-subdomain-registration.md](./feature-15-organization-subdomain-registration.md) | `feature/15-organization-subdomain-registration` | 1, 3 |
 | 16 | [feature-16-default-country-united-states.md](./feature-16-default-country-united-states.md) | `feature/16-default-country-united-states` | 2, 3, 4, 5, 8 |
+| 17 | [feature-17-org-medical-conditions.md](./feature-17-org-medical-conditions.md) | `feature/17-org-medical-conditions` | 2, 3, 7 |
+| 18 | [feature-18-org-medical-agreement.md](./feature-18-org-medical-agreement.md) | `feature/18-org-medical-agreement` | 3, 7, 17 |
+| 19 | [feature-19-pregnancy-health-questions.md](./feature-19-pregnancy-health-questions.md) | `feature/19-pregnancy-health-questions` | 2, 4, 7 |
+| 20 | [feature-20-person-middle-name.md](./feature-20-person-middle-name.md) | `feature/20-person-middle-name` | 1, 2 |
 
-Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16).
+Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20).
 
 New features: follow [framework.md](./framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, Gherkin, **Agent implementation request**, **Definition of Done**.
 

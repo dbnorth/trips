@@ -9,11 +9,13 @@ import {
 } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import {
-  AGREEMENTS_DIR_NAME,
+  getAgreementsDir,
+  AGREEMENT_KIND_MEDICAL,
   agreementVersionRelativePath,
   agreementAbsolutePath,
   loadOrganizationAgreement,
-  removeAllAgreementVersions,
+  loadOrganizationMedicalAgreement,
+  removeAllOrgAgreementFiles,
 } from "../utils/organizationAgreement.js";
 
 import {
@@ -203,7 +205,7 @@ exports.saveAgreement = async (req, res) => {
       return res.status(400).send({ message: "Agreement content is required." });
     }
 
-    fs.mkdirSync(AGREEMENTS_DIR_NAME, { recursive: true });
+    fs.mkdirSync(getAgreementsDir(), { recursive: true });
     const relativePath = agreementVersionRelativePath(org.id);
     const filePath = agreementAbsolutePath(relativePath);
 
@@ -213,6 +215,55 @@ exports.saveAgreement = async (req, res) => {
     res.send({
       message: "Participant agreement saved.",
       agreementFileName: relativePath,
+      exists: true,
+      content,
+    });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.getMedicalAgreement = async (req, res) => {
+  try {
+    if (!canManageOrg(req, req.params.id)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+    const org = await Organization.findByPk(req.params.id);
+    if (!org) return res.status(404).send({ message: "Organization not found." });
+    const loaded = await loadOrganizationMedicalAgreement(org.id);
+    res.send({
+      medicalAgreementFileName: loaded.agreementFileName,
+      exists: loaded.exists,
+      content: loaded.content,
+    });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.saveMedicalAgreement = async (req, res) => {
+  try {
+    if (!canManageOrg(req, req.params.id)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+    const org = await Organization.findByPk(req.params.id);
+    if (!org) return res.status(404).send({ message: "Organization not found." });
+
+    const content = typeof req.body?.content === "string" ? req.body.content : null;
+    if (content == null) {
+      return res.status(400).send({ message: "Agreement content is required." });
+    }
+
+    fs.mkdirSync(getAgreementsDir(), { recursive: true });
+    const relativePath = agreementVersionRelativePath(org.id, new Date(), AGREEMENT_KIND_MEDICAL);
+    const filePath = agreementAbsolutePath(relativePath);
+
+    fs.writeFileSync(filePath, content, "utf8");
+    await org.update({ medicalAgreementFileName: relativePath });
+
+    res.send({
+      message: "Medical agreement saved.",
+      medicalAgreementFileName: relativePath,
       exists: true,
       content,
     });
@@ -232,7 +283,7 @@ exports.delete = async (req, res) => {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       }
     }
-    removeAllAgreementVersions(org.id);
+    removeAllOrgAgreementFiles(org.id);
     await Organization.destroy({ where: { id: req.params.id } });
     res.send({ message: "Organization deleted." });
   } catch (err) {

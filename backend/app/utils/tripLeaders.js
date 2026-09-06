@@ -25,7 +25,8 @@ export const getTripLeaderPeopleIds = async (tripId) => {
   return rows.map((r) => Number(r.peopleId));
 };
 
-const formatPersonName = (person) => `${person.firstName || ""} ${person.lastName || ""}`.trim();
+const formatPersonName = (person) =>
+  [person?.firstName, person?.middleName, person?.lastName].filter(Boolean).join(" ").trim();
 
 const getTripMemberRoleIds = async () => {
   const roles = await db.role.findAll({
@@ -60,7 +61,7 @@ export const getTripLeadersForDisplay = async (tripId) => {
       {
         model: db.person,
         as: "person",
-        attributes: ["id", "firstName", "lastName", "email", "picture"],
+        attributes: ["id", "firstName", "middleName", "lastName", "email", "picture"],
       },
     ],
     order: [["id", "ASC"]],
@@ -73,6 +74,7 @@ export const getTripLeadersForDisplay = async (tripId) => {
       return {
         id: person.id,
         firstName: person.firstName || "",
+        middleName: person.middleName || "",
         lastName: person.lastName || "",
         name: formatPersonName(person) || "Trip Leader",
         email: person.email || null,
@@ -90,7 +92,7 @@ export const getTripLeaderNamesByTripIds = async (tripIds) => {
   const roleId = await getTripLeaderRoleId();
   const rows = await db.tripPeopleRole.findAll({
     where: { tripId: ids, roleId },
-    include: [{ model: db.person, as: "person", attributes: ["firstName", "lastName"] }],
+    include: [{ model: db.person, as: "person", attributes: ["firstName", "middleName", "lastName"] }],
     order: [["tripId", "ASC"], ["id", "ASC"]],
   });
 

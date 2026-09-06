@@ -16,7 +16,11 @@ const assertTripAccess = async (req, tripId) => {
   return { ok: true, trip: access.trip };
 };
 
-const yesNo = (value) => (value ? "Yes" : "No");
+const yesNo = (value) => {
+  if (value === true || value === 1 || value === "1") return "Yes";
+  if (value === false || value === 0 || value === "0") return "No";
+  return "";
+};
 
 const licenseLabel = (value) => {
   if (value === "yes") return "Yes";
@@ -36,6 +40,7 @@ const joinValues = (values) =>
 
 const PARTICIPANT_COLUMNS = [
   { key: "firstName", label: "First Name" },
+  { key: "middleName", label: "Middle Name" },
   { key: "lastName", label: "Last Name" },
   { key: "email", label: "Email" },
   { key: "addLine1", label: "Address Line 1" },
@@ -51,6 +56,8 @@ const PARTICIPANT_COLUMNS = [
   { key: "emergencyContactPhone", label: "Emergency Contact Phone" },
   { key: "hasAllergies", label: "Has Allergies" },
   { key: "allergiesDescription", label: "Allergies Description" },
+  { key: "isPregnant", label: "Pregnant" },
+  { key: "pregnancyDueDate", label: "Pregnancy Due Date" },
   { key: "takesMedication", label: "Takes Medication" },
   { key: "currentChurchHome", label: "Current Church Home" },
   { key: "currentChurchHomeCity", label: "Church City" },
@@ -183,6 +190,7 @@ exports.participantsCsv = async (req, res) => {
 
       return {
         firstName: person.firstName || "",
+        middleName: person.middleName || "",
         lastName: person.lastName || "",
         email: person.email || "",
         addLine1: person.addLine1 || "",
@@ -201,6 +209,8 @@ exports.participantsCsv = async (req, res) => {
         ),
         hasAllergies: yesNo(person.hasAllergies),
         allergiesDescription: person.allergiesDescription || "",
+        isPregnant: yesNo(r.isPregnant),
+        pregnancyDueDate: r.pregnancyDueDate || "",
         takesMedication: yesNo(person.takesMedication),
         currentChurchHome: person.currentChurchHome || "",
         currentChurchHomeCity: person.currentChurchHomeCity || "",

@@ -29,6 +29,7 @@
 | `/document-types`, `/people/:id/documents` | 4 |
 | `/trips` CRUD + image, `/dashboard/*` | 5 |
 | `/worker-roles`, `/trip-worker-roles`, `/trip-travel-options` | 6 |
+| `/medical-conditions` | 17 |
 | `/trips/browse/*`, `/trip-people-roles`, participants CSV | 7 |
 | `/donations`, `/donors`, donation/donor CSVs | 8 |
 | `/public/*` | 9 |
@@ -41,7 +42,7 @@
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | `POST` | `/trips/login` | none | Sign in; session token |
-| `POST` | `/trips/register` | none | Register user + person; optional `orgIds`; optional `subdomain` (Feature 15 — binds Trip Participant to matching org) |
+| `POST` | `/trips/register` | none | Register user + person; optional `orgIds`; optional `subdomain` (Feature 15 — binds Trip Participant to matching org); optional `middleName` (Feature 20) |
 | `GET` | `/trips/register/organizations` | none | Orgs for registration UI |
 | `GET` | `/trips/register/organizations/by-subdomain/:subdomain` | none | Resolve `{ id, name, subdomain }` or `404` (Feature 15) |
 | `POST` | `/trips/logout` | none | Invalidate session (token in body) |
@@ -93,6 +94,8 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `PUT` | `/trips/organizations/:id/logo` | auth | Logo (`multipart` field `logo`) |
 | `GET` | `/trips/organizations/:id/agreement` | auth | Agreement markdown |
 | `PUT` | `/trips/organizations/:id/agreement` | auth | Save agreement `{ content }` |
+| `GET` | `/trips/organizations/:id/medical-agreement` | auth | Medical agreement markdown |
+| `PUT` | `/trips/organizations/:id/medical-agreement` | auth | Save medical agreement `{ content }` |
 | `DELETE` | `/trips/organizations/:id` | sysadmin | Delete |
 
 ---
@@ -151,6 +154,20 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 
 ---
 
+## Medical conditions — Feature 17
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/trips/medical-conditions` | auth | Org catalog (`?orgId=`) — org members may read |
+| `GET` | `/trips/medical-conditions/:id` | auth | Get one |
+| `POST` | `/trips/medical-conditions` | auth | Create (org admin) — `name` ≤ 50, unique per org (CI) |
+| `PUT` | `/trips/medical-conditions/:id` | auth | Update name |
+| `DELETE` | `/trips/medical-conditions/:id` | auth | Delete (cascades person selections) |
+| `GET` | `/trips/people/:id` | auth | Includes `medicalConditions` / `medicalConditionIds` (`?orgId=` filters) |
+| `PUT` | `/trips/people/:id` | auth | Accepts `medicalConditionIds` + `orgId`; clears org links when `takesMedication` is false |
+
+---
+
 ## Applications & participants — Feature 7
 
 | Method | Path | Auth | Purpose |
@@ -158,10 +175,10 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `GET` | `/trips/trips/browse/orgs` | auth | Browse orgs |
 | `GET` | `/trips/trips/browse/mine` | auth | My trips |
 | `GET` | `/trips/trips/browse` | auth | Active trips (`?orgId=`) |
-| `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreement/options |
-| `POST` | `/trips/trips/browse/:id/apply` | auth | Apply |
+| `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreements/options |
+| `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance; `isPregnant` / `pregnancyDueDate` on assignment) |
 | `GET` | `/trips/trips/browse/:id/application` | auth | Own application |
-| `PUT` | `/trips/trips/browse/:id/application` | auth | Update application |
+| `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields) |
 | `GET` | `/trips/trip-people-roles` | auth | Roster (`?tripId=`) |
 | `GET` | `/trips/trip-people-roles/:id` | auth | One assignment |
 | `POST` | `/trips/trip-people-roles` | auth | Staff add participant |

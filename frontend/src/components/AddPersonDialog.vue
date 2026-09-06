@@ -10,6 +10,7 @@ import PersonProfileFields from "./PersonProfileFields.vue";
 import Utils from "../config/utils.js";
 import { formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
 import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
+import { normalizeYesNo } from "../utils/personProfile.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -25,6 +26,7 @@ const saving = ref(false);
 
 const emptyForm = () => ({
   firstName: "",
+  middleName: "",
   lastName: "",
   email: "",
   password: "",
@@ -41,9 +43,10 @@ const emptyForm = () => ({
   emergencyContactName: "",
   emergencyContactPhoneCountryCode: "",
   emergencyContactPhoneNumber: "",
-  hasAllergies: false,
+  hasAllergies: null,
   allergiesDescription: "",
-  takesMedication: false,
+  takesMedication: null,
+  medicalConditionIds: [],
   currentChurchHome: "",
   currentChurchHomeCity: "",
   currentChurchHomeStateProv: "",
@@ -148,6 +151,7 @@ const save = () => {
 
   const payload = {
     firstName: form.value.firstName.trim(),
+    middleName: form.value.middleName?.trim() || null,
     lastName: form.value.lastName.trim(),
     email: form.value.email.trim(),
     country: address.country || null,
@@ -165,11 +169,11 @@ const save = () => {
       ? formatCountryCode(form.value.emergencyContactPhoneCountryCode)
       : null,
     emergencyContactPhoneNumber: form.value.emergencyContactPhoneNumber?.trim() || null,
-    hasAllergies: !!form.value.hasAllergies,
-    allergiesDescription: form.value.hasAllergies
+    hasAllergies: normalizeYesNo(form.value.hasAllergies),
+    allergiesDescription: form.value.hasAllergies === true
       ? form.value.allergiesDescription?.trim() || null
       : null,
-    takesMedication: !!form.value.takesMedication,
+    takesMedication: normalizeYesNo(form.value.takesMedication),
     currentChurchHome: form.value.currentChurchHome?.trim() || null,
     currentChurchHomeCity: form.value.currentChurchHomeCity?.trim() || null,
     currentChurchHomeStateProv: form.value.currentChurchHomeStateProv?.trim() || null,
@@ -186,7 +190,22 @@ const save = () => {
   }
 
   PersonServices.create(payload)
-    .then((res) => {
+    .then(async (res) => {
+      const created = res.data?.person;
+      if (
+        created?.id &&
+        form.value.orgId &&
+        (form.value.takesMedication === true || (form.value.medicalConditionIds || []).length)
+      ) {
+        await PersonServices.update(created.id, {
+          takesMedication: normalizeYesNo(form.value.takesMedication),
+          medicalConditionIds: form.value.takesMedication === true
+            ? form.value.medicalConditionIds || []
+            : [],
+          orgId: form.value.orgId,
+          version: created.version,
+        });
+      }
       emit("saved", res.data);
       close();
     })
@@ -206,6 +225,7 @@ const save = () => {
 
       <v-card-text style="max-height: 70vh">
         <v-text-field v-model="form.firstName" label="First name" density="compact" autocomplete="off" />
+        <v-text-field v-model="form.middleName" label="Middle name" density="compact" autocomplete="off" />
         <v-text-field v-model="form.lastName" label="Last name" density="compact" autocomplete="off" />
         <v-text-field
           v-model="form.email"
@@ -290,7 +310,7 @@ const save = () => {
             <PhoneInput v-model="form.phoneNumber" label="Phone number" />
           </v-col>
         </v-row>
-        <PersonProfileFields v-model="form" />
+        <PersonProfileFields v-model="form" :org-id="form.orgId" />
         <v-textarea v-model="form.bioText" label="Bio" density="compact" rows="3" autocomplete="off" />
 
         <v-alert v-if="formError" type="error" density="compact" class="mt-2">{{ formError }}</v-alert>

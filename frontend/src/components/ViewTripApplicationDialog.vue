@@ -6,7 +6,7 @@ import {
   tripParticipantStatusColor,
 } from "../utils/tripParticipantStatus.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
-import { isUnder18 } from "../utils/personProfile.js";
+import { isUnder18, personDisplayName } from "../utils/personProfile.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -36,11 +36,9 @@ const dialogTitle = computed(() => {
   return "View application";
 });
 
-const participantName = computed(() => {
-  const p = application.value?.person;
-  if (!p) return "Participant";
-  return `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Participant";
-});
+const participantName = computed(() =>
+  personDisplayName(application.value?.person, "Participant")
+);
 
 const workerRoleName = computed(
   () => application.value?.tripWorkerRole?.workerRole?.name || "—"
@@ -52,9 +50,11 @@ const licenseRequired = computed(
 
 const under18 = computed(() => isUnder18(application.value?.person?.birthDate));
 
-const selectedTravelOptions = computed(() =>
-  (application.value?.travelOptions || []).filter((o) => o.selected)
-);
+const selectedTravelOptions = computed(() => {
+  const options = application.value?.travelOptions;
+  if (!Array.isArray(options)) return [];
+  return options.filter((o) => o && o.selected);
+});
 
 const licenseLabel = (value) => {
   if (value === "yes") return "Yes";
@@ -148,9 +148,15 @@ const cancelApplication = () => {
 </script>
 
 <template>
-  <v-dialog :model-value="modelValue" max-width="640" scrollable @update:model-value="(v) => !v && close()">
-    <v-card>
-      <v-card-title class="d-flex align-center justify-space-between flex-wrap ga-2">
+  <v-dialog
+    :model-value="modelValue"
+    max-width="640"
+    max-height="90vh"
+    scrollable
+    @update:model-value="(v) => !v && close()"
+  >
+    <v-card class="d-flex flex-column" style="max-height: min(90vh, 900px)">
+      <v-card-title class="d-flex align-center justify-space-between flex-wrap ga-2 flex-shrink-0">
         <span>{{ dialogTitle }}</span>
         <v-chip
           v-if="application"
@@ -162,7 +168,7 @@ const cancelApplication = () => {
         </v-chip>
       </v-card-title>
 
-      <v-card-text style="max-height: 75vh">
+      <v-card-text class="overflow-y-auto flex-grow-1">
         <v-progress-linear v-if="loading" indeterminate class="mb-4" />
 
         <v-alert v-else-if="loadError" type="error" density="compact" class="mb-4">
@@ -215,8 +221,9 @@ const cancelApplication = () => {
             <div>{{ application.preferredRoommateNames || "—" }}</div>
           </div>
 
-          <div v-if="selectedTravelOptions.length" class="text-subtitle-2 mb-2 mt-4">
-            Selected travel options
+          <div class="text-subtitle-2 mb-2 mt-4">Selected travel options</div>
+          <div v-if="!selectedTravelOptions.length" class="mb-3 text-medium-emphasis">
+            None selected
           </div>
           <div
             v-for="option in selectedTravelOptions"
@@ -232,7 +239,7 @@ const cancelApplication = () => {
 
           <div class="text-subtitle-2 mb-2 mt-4">Agreement</div>
           <div class="mb-2">
-            <div class="text-caption text-medium-emphasis">Agreed</div>
+            <div class="text-caption text-medium-emphasis">Participation agreed</div>
             <div>{{ yesNo(application.agreementAccepted) }}</div>
           </div>
           <div class="mb-2">
@@ -243,6 +250,33 @@ const cancelApplication = () => {
             <div class="text-caption text-medium-emphasis">Agreement date</div>
             <div>{{ formatDateTime(application.agreementDate) }}</div>
           </div>
+          <template
+            v-if="
+              application.person?.takesMedication === true ||
+              application.person?.takesMedication === 1 ||
+              application.medicalAgreementAccepted
+            "
+          >
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Medical agreement agreed</div>
+              <div>{{ yesNo(application.medicalAgreementAccepted) }}</div>
+            </div>
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Medical agreement date</div>
+              <div>{{ formatDateTime(application.medicalAgreementDate) }}</div>
+            </div>
+          </template>
+          <template v-if="application.person?.gender === 'female'">
+            <div class="text-subtitle-2 mb-2 mt-4">Pregnancy</div>
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Are you pregnant?</div>
+              <div>{{ yesNo(application.isPregnant) }}</div>
+            </div>
+            <div v-if="application.isPregnant === true || application.isPregnant === 1" class="mb-2">
+              <div class="text-caption text-medium-emphasis">Due date</div>
+              <div>{{ application.pregnancyDueDate || "—" }}</div>
+            </div>
+          </template>
 
           <template v-if="under18 || application.agreementAdultFirstName || application.agreementAdultLastName">
             <div class="text-subtitle-2 mb-2 mt-4">Adult signer</div>
@@ -277,7 +311,7 @@ const cancelApplication = () => {
         </template>
       </v-card-text>
 
-      <v-card-actions>
+      <v-card-actions class="flex-shrink-0">
         <v-spacer />
         <v-btn variant="text" :disabled="saving" @click="close">Close</v-btn>
         <v-btn

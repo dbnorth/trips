@@ -37,6 +37,10 @@ const TripPeopleRole = SequelizeInstance.define("tripPeopleRole", {
   agreementAdultLastName: { type: Sequelize.STRING(100), allowNull: true },
   agreementAdultEmail: { type: Sequelize.STRING(255), allowNull: true },
   agreementAdultRelationship: { type: Sequelize.STRING(100), allowNull: true },
+  medicalAgreementAccepted: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
+  medicalAgreementDate: { type: Sequelize.DATE, allowNull: true },
+  isPregnant: { type: Sequelize.BOOLEAN, allowNull: true, defaultValue: null },
+  pregnancyDueDate: { type: Sequelize.DATEONLY, allowNull: true },
   assiginmentDateTime: { type: Sequelize.DATE },
   version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
 });

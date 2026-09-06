@@ -9,11 +9,12 @@ import DonorTripHeading from "../components/DonorTripHeading.vue";
 import ParticipantAgreementSection from "../components/ParticipantAgreementSection.vue";
 import TripApplicationTravelOptions from "../components/TripApplicationTravelOptions.vue";
 import EditPersonDialog from "../components/EditPersonDialog.vue";
+import PersonProfileFields from "../components/PersonProfileFields.vue";
 import {
   tripParticipantStatusLabel,
   tripParticipantStatusColor,
 } from "../utils/tripParticipantStatus.js";
-import { isProfileComplete, isUnder18 } from "../utils/personProfile.js";
+import { isProfileComplete, isUnder18, normalizeYesNo } from "../utils/personProfile.js";
 import { isApplicationFormComplete, validateTravelOptionSelections } from "../utils/tripApplicationForm.js";
 
 const props = defineProps({
@@ -32,7 +33,19 @@ const application = ref(null);
 const canEdit = ref(false);
 const personDocuments = ref([]);
 const person = ref(null);
+const healthForm = ref({
+  gender: null,
+  hasAllergies: null,
+  allergiesDescription: "",
+  isPregnant: null,
+  pregnancyDueDate: "",
+  takesMedication: null,
+  medicalConditionIds: [],
+  medicalConditions: [],
+  version: 0,
+});
 const agreementContent = ref("");
+const medicalAgreementContent = ref("");
 const travelOptions = ref([]);
 const selectedTravelOptionIds = ref([]);
 const travelOptionsRef = ref(null);
@@ -54,10 +67,16 @@ const form = ref({
   agreementAdultLastName: "",
   agreementAdultEmail: "",
   agreementAdultRelationship: "",
+  medicalAgreementAccepted: false,
+  medicalAgreementDate: null,
   version: 0,
 });
 
 const agreementRequired = computed(() => !!agreementContent.value?.trim());
+const takesMedicationYes = computed(() => healthForm.value.takesMedication === true);
+const medicalAgreementRequired = computed(
+  () => takesMedicationYes.value && !!medicalAgreementContent.value?.trim()
+);
 const participantUnder18 = computed(() => isUnder18(person.value?.birthDate));
 
 const availableRoles = computed(() => {
@@ -123,11 +142,16 @@ const documentRequirementWarning = computed(() => {
   return `For your application to be approved, you will need to upload a ${docName} with an expiration date past the end of the trip${endPart}.`;
 });
 
-const profileComplete = computed(() => isProfileComplete(person.value));
+const profileComplete = computed(() =>
+  isProfileComplete(
+    { ...(person.value || {}), ...healthForm.value },
+    { orgId: trip.value?.orgId }
+  )
+);
 
 const onProfileSaved = async () => {
   showProfileDialog.value = false;
-  await loadPerson();
+  await Promise.all([loadPerson(), loadPersonDocuments()]);
 };
 
 const applicationFormComplete = computed(() =>
@@ -159,6 +183,13 @@ const agreementComplete = computed(() => {
   return true;
 });
 
+const medicalAgreementComplete = computed(() => {
+  if (!medicalAgreementRequired.value) return true;
+  if (!form.value.medicalAgreementAccepted) return false;
+  if (!form.value.agreementSignatureName?.trim()) return false;
+  return true;
+});
+
 const travelOptionsComplete = computed(
   () => !validateTravelOptionSelections(travelOptions.value, selectedTravelOptionIds.value)
 );
@@ -168,6 +199,7 @@ const readyToSubmit = computed(
     profileComplete.value &&
     applicationFormComplete.value &&
     agreementComplete.value &&
+    medicalAgreementComplete.value &&
     travelOptionsComplete.value
 );
 
@@ -193,18 +225,59 @@ const loadPersonDocuments = async () => {
   }
 };
 
+const applyHealthFromPerson = (data) => {
+  healthForm.value = {
+    gender: data?.gender || null,
+    hasAllergies: normalizeYesNo(data?.hasAllergies),
+    allergiesDescription: data?.allergiesDescription || "",
+    isPregnant: healthForm.value.isPregnant ?? null,
+    pregnancyDueDate: healthForm.value.pregnancyDueDate || "",
+    takesMedication: normalizeYesNo(data?.takesMedication),
+    medicalConditionIds: Array.isArray(data?.medicalConditionIds)
+      ? data.medicalConditionIds.map((id) => Number(id))
+      : Array.isArray(data?.medicalConditions)
+        ? data.medicalConditions.map((c) => Number(c.id))
+        : [],
+    medicalConditions: Array.isArray(data?.medicalConditions) ? data.medicalConditions : [],
+    version: data?.version ?? 0,
+  };
+};
+
 const loadPerson = async () => {
-  const personId = Utils.getStore("user")?.personId;
-  if (!personId) {
+  const id = Utils.getStore("user")?.personId;
+  if (!id) {
     person.value = null;
+    applyHealthFromPerson(null);
     return;
   }
   try {
-    const res = await PersonServices.get(personId);
+    const params = {};
+    if (trip.value?.orgId) params.orgId = trip.value.orgId;
+    const res = await PersonServices.get(id, params);
     person.value = res.data || null;
+    applyHealthFromPerson(person.value);
   } catch {
     person.value = null;
+    applyHealthFromPerson(null);
   }
+};
+
+const saveHealthProfile = async () => {
+  if (!personId.value || !trip.value?.orgId) return;
+  const res = await PersonServices.update(personId.value, {
+    hasAllergies: normalizeYesNo(healthForm.value.hasAllergies),
+    allergiesDescription: healthForm.value.hasAllergies === true
+      ? healthForm.value.allergiesDescription?.trim() || null
+      : null,
+    takesMedication: normalizeYesNo(healthForm.value.takesMedication),
+    medicalConditionIds: healthForm.value.takesMedication === true
+      ? healthForm.value.medicalConditionIds || []
+      : [],
+    orgId: trip.value.orgId,
+    version: healthForm.value.version,
+  });
+  person.value = { ...(person.value || {}), ...(res.data || {}) };
+  applyHealthFromPerson(res.data || person.value);
 };
 
 const applyFormFromApplication = (row) => {
@@ -222,7 +295,16 @@ const applyFormFromApplication = (row) => {
     agreementAdultLastName: row?.agreementAdultLastName || "",
     agreementAdultEmail: row?.agreementAdultEmail || "",
     agreementAdultRelationship: row?.agreementAdultRelationship || "",
+    medicalAgreementAccepted: !!row?.medicalAgreementAccepted,
+    medicalAgreementDate: row?.medicalAgreementDate || null,
     version: row?.version ?? 0,
+  };
+  healthForm.value = {
+    ...healthForm.value,
+    isPregnant: normalizeYesNo(row?.isPregnant),
+    pregnancyDueDate: row?.pregnancyDueDate
+      ? String(row.pregnancyDueDate).slice(0, 10)
+      : "",
   };
 };
 
@@ -234,7 +316,6 @@ const load = async () => {
     const [res] = await Promise.all([
       TripServices.getApplication(props.tripId),
       loadPersonDocuments(),
-      loadPerson(),
     ]);
     trip.value = res.data?.trip || null;
     rolesNeeded.value = res.data?.rolesNeeded || [];
@@ -247,7 +328,11 @@ const load = async () => {
     agreementContent.value = res.data?.participantAgreement?.exists
       ? res.data.participantAgreement.content || ""
       : "";
+    medicalAgreementContent.value = res.data?.medicalAgreement?.exists
+      ? res.data.medicalAgreement.content || ""
+      : "";
     applyFormFromApplication(application.value);
+    await loadPerson();
     if (!canEdit.value) {
       formError.value = `This application cannot be edited while its status is ${statusLabel.value}.`;
     }
@@ -323,9 +408,18 @@ const save = async () => {
       }
     }
   }
+  if (medicalAgreementRequired.value && form.value.medicalAgreementAccepted) {
+    if (!form.value.agreementSignatureName?.trim()) {
+      formError.value = participantUnder18.value
+        ? "Enter the adult's name as the electronic signature."
+        : "Enter your name as your electronic signature.";
+      return;
+    }
+  }
 
   saving.value = true;
   try {
+    await saveHealthProfile();
     const res = await TripServices.updateApplication(props.tripId, {
       tripWorkerRoleId: Number(form.value.tripWorkerRoleId),
       willSelfFund: !!form.value.willSelfFund,
@@ -336,9 +430,10 @@ const save = async () => {
         ? form.value.preferredRoommateNames.trim()
         : null,
       agreementAccepted: agreementRequired.value ? !!form.value.agreementAccepted : false,
-      agreementSignatureName: agreementRequired.value
-        ? form.value.agreementSignatureName.trim() || null
-        : null,
+      agreementSignatureName:
+        agreementRequired.value || medicalAgreementRequired.value
+          ? form.value.agreementSignatureName.trim() || null
+          : null,
       agreementAdultFirstName:
         agreementRequired.value && participantUnder18.value
           ? form.value.agreementAdultFirstName.trim() || null
@@ -354,6 +449,14 @@ const save = async () => {
       agreementAdultRelationship:
         agreementRequired.value && participantUnder18.value
           ? form.value.agreementAdultRelationship.trim() || null
+          : null,
+      medicalAgreementAccepted: medicalAgreementRequired.value
+        ? !!form.value.medicalAgreementAccepted
+        : false,
+      isPregnant: normalizeYesNo(healthForm.value.isPregnant),
+      pregnancyDueDate:
+        healthForm.value.isPregnant === true && healthForm.value.pregnancyDueDate
+          ? String(healthForm.value.pregnancyDueDate).slice(0, 10)
           : null,
       selectedTravelOptionIds: selectedTravelOptionIds.value,
       version: form.value.version,
@@ -445,6 +548,16 @@ onMounted(load);
           class="mb-2"
         />
 
+        <v-select
+          v-if="licenseRequired"
+          v-model="form.licenseStatus"
+          :items="licenseItems"
+          :label="licenseLabel"
+          density="compact"
+          :disabled="!canEdit"
+          class="mb-2"
+        />
+
         <v-alert
           v-if="documentRequirementWarning"
           type="warning"
@@ -452,7 +565,25 @@ onMounted(load);
           class="mb-3"
         >
           {{ documentRequirementWarning }}
+          <div class="mt-3">
+            <v-btn
+              size="small"
+              color="primary"
+              variant="flat"
+              :disabled="!personId"
+              @click="showProfileDialog = true"
+            >
+              Update profile
+            </v-btn>
+          </div>
         </v-alert>
+
+        <PersonProfileFields
+          v-model="healthForm"
+          :org-id="trip?.orgId"
+          health-only
+          :disabled="!canEdit"
+        />
 
         <div class="text-subtitle-2 mb-1 mt-2">Funding</div>
         <v-checkbox
@@ -468,16 +599,6 @@ onMounted(load);
           label="I will raise funds"
           density="compact"
           hide-details
-          :disabled="!canEdit"
-          class="mb-2"
-        />
-
-        <v-select
-          v-if="licenseRequired"
-          v-model="form.licenseStatus"
-          :items="licenseItems"
-          :label="licenseLabel"
-          density="compact"
           :disabled="!canEdit"
           class="mb-2"
         />
@@ -515,10 +636,14 @@ onMounted(load);
           v-model:agreement-adult-last-name="form.agreementAdultLastName"
           v-model:agreement-adult-email="form.agreementAdultEmail"
           v-model:agreement-adult-relationship="form.agreementAdultRelationship"
+          v-model:medical-agreement-accepted="form.medicalAgreementAccepted"
           :agreement-date="form.agreementDate"
           :under18="participantUnder18"
           :can-agree="canAgreeToAgreement"
           :content="agreementContent"
+          :show-medical-agreement="takesMedicationYes"
+          :medical-agreement-content="medicalAgreementContent"
+          :medical-agreement-date="form.medicalAgreementDate"
           :disabled="!canEdit"
         />
 
@@ -542,6 +667,7 @@ onMounted(load);
       v-if="personId"
       v-model="showProfileDialog"
       :person-id="personId"
+      :medical-condition-org-id="trip?.orgId"
       @saved="onProfileSaved"
     />
   </v-container>

@@ -34,7 +34,7 @@ const form = ref({
 const participantName = computed(() => {
   const p = props.participant?.person;
   if (!p) return "Participant";
-  return `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Participant";
+  return [p.firstName, p.middleName, p.lastName].filter(Boolean).join(" ").trim() || "Participant";
 });
 
 const tripWorkerRoleLabel = (row) => {

@@ -122,6 +122,37 @@ describe("Feature 3 — Organizations & Agreements", () => {
     });
   });
 
+  describe("US-18.1 — Manage organization medical agreement", () => {
+    it("Org Admin saves medical agreement markdown", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "medical-agreement@example.com",
+        orgName: "Medical Agreement Org",
+      });
+      const markdown = "# Medical Agreement\n\nI consent to medical disclosure.";
+
+      const save = await request(app)
+        .put(`/trips/organizations/${org.id}/medical-agreement`)
+        .set(authHeader)
+        .send({ content: markdown });
+
+      expect(save.status).toBe(200);
+      expect(save.body.content).toBe(markdown);
+      expect(save.body.exists).toBe(true);
+      expect(save.body.medicalAgreementFileName).toMatch(/medical-agreement/);
+
+      const get = await request(app)
+        .get(`/trips/organizations/${org.id}/medical-agreement`)
+        .set(authHeader);
+
+      expect(get.status).toBe(200);
+      expect(get.body.content).toBe(markdown);
+      expect(get.body.exists).toBe(true);
+
+      const stored = await db.organization.findByPk(org.id);
+      expect(stored.medicalAgreementFileName).toMatch(/medical-agreement/);
+    });
+  });
+
   describe("US-15.1 — Configure organization subdomain", () => {
     it("System Admin sets a unique subdomain on an organization", async () => {
       const { authHeader } = await createSystemAdminUser({
