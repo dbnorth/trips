@@ -11,6 +11,7 @@ import EditTripDialog from "../components/EditTripDialog.vue";
 import ViewPersonProfileDialog from "../components/ViewPersonProfileDialog.vue";
 import ViewTripApplicationDialog from "../components/ViewTripApplicationDialog.vue";
 import TripWorkerRolesCard from "../components/TripWorkerRolesCard.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 import ExportServices from "../services/exportServices.js";
 import TripTravelOptionServices from "../services/tripTravelOptionServices.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
@@ -36,6 +37,12 @@ const viewPersonId = ref(null);
 const showViewApplication = ref(false);
 const viewApplicationId = ref(null);
 const viewApplicationMode = ref("view");
+const showConfirmCancelParticipant = ref(false);
+const confirmCancelParticipantRow = ref(null);
+const cancelParticipantSaving = ref(false);
+const showConfirmUncancelParticipant = ref(false);
+const confirmUncancelParticipantRow = ref(null);
+const uncancelParticipantSaving = ref(false);
 const showDonations = ref(false);
 const donationsParticipant = ref(null);
 const teamRolesRefreshKey = ref(0);
@@ -156,7 +163,7 @@ const openViewProfile = (row) => {
 
 const applicationAction = (row) => {
   const status = String(row?.status || "").toLowerCase();
-  if (status === "approved") return { label: "View App", mode: "view" };
+  if (status === "approved" || status === "cancelled") return { label: "View App", mode: "view" };
   if (status === "applied") return { label: "Approve App", mode: "approve" };
   return { label: "Preview App", mode: "preview" };
 };
@@ -169,9 +176,66 @@ const openApplication = (row) => {
   showViewApplication.value = true;
 };
 
+const canCancelParticipant = (row) =>
+  ["incomplete", "applied", "approved"].includes(String(row?.status || "").toLowerCase());
+
+const canUncancelParticipant = (row) =>
+  String(row?.status || "").toLowerCase() === "cancelled";
+
+const requestCancelParticipant = (row) => {
+  if (!row?.id || !canCancelParticipant(row)) return;
+  confirmCancelParticipantRow.value = row;
+  showConfirmCancelParticipant.value = true;
+};
+
+const confirmCancelParticipant = async () => {
+  const row = confirmCancelParticipantRow.value;
+  if (!row?.id) return;
+  cancelParticipantSaving.value = true;
+  try {
+    await TripPeopleRoleServices.cancel(row.id);
+    message.value = "Application cancelled.";
+    showConfirmCancelParticipant.value = false;
+    confirmCancelParticipantRow.value = null;
+    await loadParticipants();
+    bumpTeamRoles();
+  } catch (e) {
+    message.value = e.response?.data?.message || "Unable to cancel application.";
+    showConfirmCancelParticipant.value = false;
+  } finally {
+    cancelParticipantSaving.value = false;
+  }
+};
+
+const requestUncancelParticipant = (row) => {
+  if (!row?.id || !canUncancelParticipant(row)) return;
+  confirmUncancelParticipantRow.value = row;
+  showConfirmUncancelParticipant.value = true;
+};
+
+const confirmUncancelParticipant = async () => {
+  const row = confirmUncancelParticipantRow.value;
+  if (!row?.id) return;
+  uncancelParticipantSaving.value = true;
+  try {
+    await TripPeopleRoleServices.uncancel(row.id);
+    message.value = "Application uncancelled.";
+    showConfirmUncancelParticipant.value = false;
+    confirmUncancelParticipantRow.value = null;
+    await loadParticipants();
+    bumpTeamRoles();
+  } catch (e) {
+    message.value = e.response?.data?.message || "Unable to uncancel application.";
+    showConfirmUncancelParticipant.value = false;
+  } finally {
+    uncancelParticipantSaving.value = false;
+  }
+};
+
 const onApplicationSaved = (payload) => {
   message.value = payload?.message || "Application updated.";
   loadParticipants();
+  bumpTeamRoles();
 };
 
 const onParticipantAdded = () => {
@@ -390,6 +454,24 @@ onMounted(refresh);
         <v-btn size="small" variant="text" @click="openApplication(item)">
           {{ applicationAction(item).label }}
         </v-btn>
+        <v-btn
+          v-if="canCancelParticipant(item)"
+          size="small"
+          variant="text"
+          color="error"
+          @click="requestCancelParticipant(item)"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          v-if="canUncancelParticipant(item)"
+          size="small"
+          variant="text"
+          color="primary"
+          @click="requestUncancelParticipant(item)"
+        >
+          Uncancel
+        </v-btn>
         <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
         <v-btn size="small" variant="text" @click="openDonations(item)">View donations</v-btn>
         <v-btn
@@ -428,6 +510,23 @@ onMounted(refresh);
       :participant-id="viewApplicationId"
       :mode="viewApplicationMode"
       @saved="onApplicationSaved"
+    />
+    <ConfirmDialog
+      v-model="showConfirmCancelParticipant"
+      title="Are you sure?"
+      message="Cancel this application? The role slot will be freed."
+      confirm-text="Cancel App"
+      confirm-color="error"
+      :loading="cancelParticipantSaving"
+      @confirm="confirmCancelParticipant"
+    />
+    <ConfirmDialog
+      v-model="showConfirmUncancelParticipant"
+      title="Are you sure?"
+      message="Uncancel this application? It will return to incomplete or applied based on completeness."
+      confirm-text="Uncancel"
+      :loading="uncancelParticipantSaving"
+      @confirm="confirmUncancelParticipant"
     />
   </v-container>
 </template>

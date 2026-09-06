@@ -17,6 +17,11 @@ import {
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
+import { withCapacityFields } from "../utils/tripRoleCapacity.js";
+import {
+  cancelApplicationAssignment,
+  uncancelApplicationAssignment,
+} from "../utils/applicationCancel.js";
 
 const Trip = db.trip;
 const TripWorkerRole = db.tripWorkerRole;
@@ -286,40 +291,13 @@ const canBrowseOrg = (req, orgId) => {
 const canViewTrip = (req, trip) =>
   !!req.user && !!trip && (trip.status === "active" || canBrowseOrg(req, trip.orgId));
 
-const signedUpCountsByTripWorkerRoleId = async (tripId) => {
-  const rows = await TripPeopleRole.findAll({
-    attributes: [
-      "tripWorkerRoleId",
-      [db.sequelize.fn("COUNT", db.sequelize.col("id")), "signedUpCount"],
-    ],
-    where: {
-      tripId,
-      status: { [Op.in]: ["incomplete", "applied", "approved"] },
-      tripWorkerRoleId: { [Op.ne]: null },
-    },
-    group: ["tripWorkerRoleId"],
-    raw: true,
-  });
-  return new Map(rows.map((r) => [Number(r.tripWorkerRoleId), Number(r.signedUpCount) || 0]));
-};
-
 const loadTripRolesNeeded = async (tripId) => {
   const rows = await TripWorkerRole.findAll({
     where: { tripId },
     include: [workerRoleInclude],
     order: [[{ model: WorkerRole, as: "workerRole" }, "name", "ASC"]],
   });
-  const counts = await signedUpCountsByTripWorkerRoleId(tripId);
-  return rows.map((row) => {
-    const json = row.toJSON();
-    const signedUpCount = counts.get(Number(json.id)) || 0;
-    const quantity = Number(json.quantity) || 0;
-    return {
-      ...json,
-      signedUpCount,
-      availableCount: Math.max(0, quantity - signedUpCount),
-    };
-  });
+  return withCapacityFields(tripId, rows);
 };
 
 const getPersonAssignment = async (tripId, peopleId) => {
@@ -409,7 +387,7 @@ exports.listMyTrips = async (req, res) => {
     const links = await TripPeopleRole.findAll({
       where: {
         peopleId,
-        status: { [Op.in]: ["incomplete", "applied", "approved"] },
+        status: { [Op.in]: ["incomplete", "applied", "approved", "cancelled"] },
       },
       attributes: ["id", "tripId", "status"],
       include: [
@@ -968,6 +946,81 @@ exports.updateApplication = async (req, res) => {
       participantAgreement,
       medicalAgreement,
       travelOptions: travelOptionsWithSelection,
+    });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.cancelApplication = async (req, res) => {
+  try {
+    const peopleId = req.user?.personId;
+    if (!peopleId) {
+      return res.status(400).send({ message: "Your account is not linked to a person profile." });
+    }
+
+    const trip = await Trip.findByPk(req.params.id, { include: [orgInclude] });
+    if (!trip || trip.status !== "active") {
+      return res.status(404).send({ message: "Trip not found." });
+    }
+    if (!canBrowseOrg(req, trip.orgId)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+
+    const assignment = await loadApplicationAssignment(trip.id, peopleId);
+    if (!assignment) {
+      return res.status(404).send({ message: "Application not found." });
+    }
+
+    const result = await cancelApplicationAssignment(assignment);
+    if (!result.ok) {
+      return res.status(result.status).send({ message: result.message });
+    }
+
+    const full = await loadApplicationAssignment(trip.id, peopleId);
+    res.send({
+      message: "Application cancelled.",
+      application: full,
+      applicationStatus: "cancelled",
+      alreadyApplied: true,
+    });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.uncancelApplication = async (req, res) => {
+  try {
+    const peopleId = req.user?.personId;
+    if (!peopleId) {
+      return res.status(400).send({ message: "Your account is not linked to a person profile." });
+    }
+
+    const trip = await Trip.findByPk(req.params.id, { include: [orgInclude] });
+    if (!trip || trip.status !== "active") {
+      return res.status(404).send({ message: "Trip not found." });
+    }
+    if (!canBrowseOrg(req, trip.orgId)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+
+    const assignment = await loadApplicationAssignment(trip.id, peopleId);
+    if (!assignment) {
+      return res.status(404).send({ message: "Application not found." });
+    }
+
+    const result = await uncancelApplicationAssignment(assignment, { orgId: trip.orgId });
+    if (!result.ok) {
+      return res.status(result.status).send({ message: result.message });
+    }
+
+    const full = await loadApplicationAssignment(trip.id, peopleId);
+    res.send({
+      message: "Application uncancelled.",
+      application: full,
+      applicationStatus: result.status,
+      alreadyApplied: true,
+      canEdit: EDITABLE_APPLICATION_STATUSES.includes(result.status),
     });
   } catch (err) {
     res.status(500).send({ message: err.message });

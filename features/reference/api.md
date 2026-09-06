@@ -180,10 +180,14 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance; `isPregnant` / `pregnancyDueDate` on assignment) |
 | `GET` | `/trips/trips/browse/:id/application` | auth | Own application |
 | `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields) |
+| `POST` | `/trips/trips/browse/:id/application/cancel` | auth | Applicant cancel own application (`incomplete`/`applied`/`approved` → `cancelled`) |
+| `POST` | `/trips/trips/browse/:id/application/uncancel` | auth | Applicant uncancel → auto `incomplete`/`applied`; fails if role full |
 | `GET` | `/trips/trip-people-roles` | auth | Roster (`?tripId=`) |
 | `GET` | `/trips/trip-people-roles/:id` | auth | One assignment |
 | `POST` | `/trips/trip-people-roles` | auth | Staff add participant |
-| `PUT` | `/trips/trip-people-roles/:id` | auth | Update / approve / decline / cancel |
+| `POST` | `/trips/trip-people-roles/:id/cancel` | auth | Staff cancel (`incomplete`/`applied`/`approved`) |
+| `POST` | `/trips/trip-people-roles/:id/uncancel` | auth | Staff uncancel → auto `incomplete`/`applied`; fails if role full |
+| `PUT` | `/trips/trip-people-roles/:id` | auth | Update / approve / decline |
 | `DELETE` | `/trips/trip-people-roles/:id` | auth | Delete |
 | `GET` | `/trips/export/trips/:tripId/participants.csv` | auth | Participants CSV |
 

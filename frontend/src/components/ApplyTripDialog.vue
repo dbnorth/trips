@@ -9,6 +9,7 @@ import ParticipantAgreementSection from "./ParticipantAgreementSection.vue";
 import TripApplicationTravelOptions from "./TripApplicationTravelOptions.vue";
 import EditPersonDialog from "./EditPersonDialog.vue";
 import PersonProfileFields from "./PersonProfileFields.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
 import {
   getMissingProfileFields,
   isProfileComplete,
@@ -78,6 +79,16 @@ const form = ref({
 
 const editingApplication = ref(false);
 const canEdit = ref(true);
+const applicationStatus = ref(null);
+const showConfirmCancel = ref(false);
+const showConfirmUncancel = ref(false);
+
+const canCancelApplication = computed(() =>
+  ["incomplete", "applied", "approved"].includes(String(applicationStatus.value || "").toLowerCase())
+);
+const canUncancelApplication = computed(
+  () => String(applicationStatus.value || "").toLowerCase() === "cancelled"
+);
 
 const agreementRequired = computed(() => !!agreementContent.value?.trim());
 const takesMedicationYes = computed(() => healthForm.value.takesMedication === true);
@@ -289,6 +300,7 @@ const resetForm = () => {
   formError.value = "";
   editingApplication.value = false;
   canEdit.value = true;
+  applicationStatus.value = null;
 };
 
 const applyFormFromApplication = (row) => {
@@ -403,11 +415,17 @@ const loadExistingApplication = async () => {
     : "";
   editingApplication.value = true;
   canEdit.value = !!res.data?.canEdit;
+  applicationStatus.value = res.data?.applicationStatus || res.data?.application?.status || null;
   applyFormFromApplication(res.data?.application);
   if (!canEdit.value) {
-    formError.value = `This application cannot be edited while its status is ${
-      res.data?.applicationStatus || "unknown"
-    }.`;
+    const status = applicationStatus.value || "unknown";
+    if (status === "cancelled") {
+      formError.value = "This application is cancelled. You can Uncancel it if a role slot is available.";
+    } else if (status === "approved") {
+      formError.value = "You are approved for this trip. You can Cancel the application if needed.";
+    } else {
+      formError.value = `This application cannot be edited while its status is ${status}.`;
+    }
   }
 };
 
@@ -429,18 +447,19 @@ const loadNewApplication = async () => {
   if (!res.data?.alreadyApplied) return;
 
   const status = res.data?.applicationStatus;
-  if (status === "incomplete" || status === "applied") {
+  if (["incomplete", "applied", "approved", "cancelled"].includes(status)) {
     await loadExistingApplication();
     return;
   }
 
   formError.value =
-    status === "approved"
-      ? "You are already on this trip."
+    status === "declined"
+      ? "Your previous application for this trip was declined."
       : status
         ? `Your previous application for this trip is ${status}.`
         : "You have already applied to this trip.";
   canEdit.value = false;
+  applicationStatus.value = status || null;
 };
 
 const load = async () => {
@@ -617,6 +636,54 @@ const save = async () => {
     saving.value = false;
   }
 };
+
+const cancelApplication = () => {
+  if (!canCancelApplication.value || !props.tripId) return;
+  showConfirmCancel.value = true;
+};
+
+const confirmCancelApplication = async () => {
+  if (!props.tripId) return;
+  saving.value = true;
+  formError.value = "";
+  try {
+    await TripServices.cancelApplication(props.tripId);
+    showConfirmCancel.value = false;
+    emit("saved");
+    close();
+  } catch (e) {
+    formError.value = e.response?.data?.message || "Unable to cancel application.";
+    showConfirmCancel.value = false;
+  } finally {
+    saving.value = false;
+  }
+};
+
+const uncancelApplication = () => {
+  if (!canUncancelApplication.value || !props.tripId) return;
+  showConfirmUncancel.value = true;
+};
+
+const confirmUncancelApplication = async () => {
+  if (!props.tripId) return;
+  saving.value = true;
+  formError.value = "";
+  try {
+    const res = await TripServices.uncancelApplication(props.tripId);
+    applicationStatus.value = res.data?.applicationStatus || null;
+    canEdit.value = !!res.data?.canEdit;
+    if (res.data?.application) applyFormFromApplication(res.data.application);
+    formError.value = "";
+    showConfirmUncancel.value = false;
+    emit("saved");
+    if (!canEdit.value) close();
+  } catch (e) {
+    formError.value = e.response?.data?.message || "Unable to uncancel application.";
+    showConfirmUncancel.value = false;
+  } finally {
+    saving.value = false;
+  }
+};
 </script>
 
 <template>
@@ -774,8 +841,26 @@ const save = async () => {
         <v-alert v-if="formError" type="error" density="compact" class="mt-3">{{ formError }}</v-alert>
       </v-card-text>
       <v-card-actions class="flex-shrink-0">
+        <v-btn
+          v-if="canCancelApplication"
+          color="error"
+          variant="tonal"
+          :disabled="saving"
+          @click="cancelApplication"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          v-if="canUncancelApplication"
+          color="primary"
+          variant="tonal"
+          :disabled="saving"
+          @click="uncancelApplication"
+        >
+          Uncancel
+        </v-btn>
         <v-spacer />
-        <v-btn variant="text" :disabled="saving" @click="close">Cancel</v-btn>
+        <v-btn variant="text" :disabled="saving" @click="close">Close</v-btn>
         <v-btn
           color="primary"
           :loading="saving"
@@ -794,5 +879,22 @@ const save = async () => {
     :person-id="personId"
     :medical-condition-org-id="trip?.orgId"
     @saved="onProfileSaved"
+  />
+  <ConfirmDialog
+    v-model="showConfirmCancel"
+    title="Are you sure?"
+    message="Cancel this application? Your role slot will be freed."
+    confirm-text="Cancel App"
+    confirm-color="error"
+    :loading="saving"
+    @confirm="confirmCancelApplication"
+  />
+  <ConfirmDialog
+    v-model="showConfirmUncancel"
+    title="Are you sure?"
+    message="Uncancel this application? It will return to incomplete or applied based on completeness."
+    confirm-text="Uncancel"
+    :loading="saving"
+    @confirm="confirmUncancelApplication"
   />
 </template>

@@ -212,7 +212,7 @@ Notes:
 | peopleId | INTEGER | required FK → person |
 | roleId | INTEGER | required FK → role |
 | tripWorkerRoleId | INTEGER | optional FK → tripWorkerRole |
-| status | ENUM(`incomplete`,`applied`,`approved`,`declined`,`cancelled`) | required, default `incomplete` |
+| status | ENUM(`incomplete`,`applied`,`approved`,`declined`,`cancelled`) | required, default `incomplete`; **capacity** (Feature 26): `incomplete`/`applied`/`approved` occupy a trip worker-role slot; `cancelled`/`declined` do not |
 | participantCost | DECIMAL(10,2) | |
 | whygoText | TEXT | |
 | willSelfFund, willRaiseFunds | BOOLEAN | required, default `false` |
