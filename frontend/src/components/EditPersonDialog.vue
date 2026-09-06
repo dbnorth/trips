@@ -171,6 +171,7 @@ const applyPersonData = (data) => {
         : [],
     medicalConditions: Array.isArray(data.medicalConditions) ? data.medicalConditions : [],
     hasAllergies: normalizeYesNo(data.hasAllergies),
+    allergiesDescription: data.allergiesDescription || "",
     takesMedication: normalizeYesNo(data.takesMedication),
   };
   clearPictureSelection();

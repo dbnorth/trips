@@ -9,7 +9,7 @@ import {
 } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import {
-  AGREEMENTS_DIR_NAME,
+  getAgreementsDir,
   AGREEMENT_KIND_MEDICAL,
   agreementVersionRelativePath,
   agreementAbsolutePath,
@@ -205,7 +205,7 @@ exports.saveAgreement = async (req, res) => {
       return res.status(400).send({ message: "Agreement content is required." });
     }
 
-    fs.mkdirSync(AGREEMENTS_DIR_NAME, { recursive: true });
+    fs.mkdirSync(getAgreementsDir(), { recursive: true });
     const relativePath = agreementVersionRelativePath(org.id);
     const filePath = agreementAbsolutePath(relativePath);
 
@@ -254,7 +254,7 @@ exports.saveMedicalAgreement = async (req, res) => {
       return res.status(400).send({ message: "Agreement content is required." });
     }
 
-    fs.mkdirSync(AGREEMENTS_DIR_NAME, { recursive: true });
+    fs.mkdirSync(getAgreementsDir(), { recursive: true });
     const relativePath = agreementVersionRelativePath(org.id, new Date(), AGREEMENT_KIND_MEDICAL);
     const filePath = agreementAbsolutePath(relativePath);
 

@@ -11,6 +11,7 @@ import {
 } from "../utils/tripParticipantApplicationStatus.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
+import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 
 const Trip = db.trip;
 const TripWorkerRole = db.tripWorkerRole;
@@ -226,6 +227,9 @@ const parseMedicalAgreementAcceptance = (body, { medicalAgreementRequired }) => 
     medicalAgreementDate: new Date(),
   };
 };
+
+const parsePregnancyFields = (body, person) =>
+  normalizeApplicationPregnancy(body || {}, { gender: person?.gender ?? null });
 
 const medicalAgreementRequiredForPerson = (medicalAgreement, person) =>
   !!medicalAgreement?.exists &&
@@ -596,6 +600,8 @@ exports.applyToTrip = async (req, res) => {
     const agreement = parseAgreementSignature(req.body, { agreementRequired, participantUnder18 });
     if (!agreement.ok) return res.status(400).send({ message: agreement.message });
     const medical = parseMedicalAgreementAcceptance(req.body, { medicalAgreementRequired });
+    const pregnancy = parsePregnancyFields(req.body, person);
+    if (!pregnancy.ok) return res.status(400).send({ message: pregnancy.message });
 
     const travelOptions = await loadTripTravelOptions(trip.id);
     const selectedTravelOptionIds = parseSelectedTravelOptionIds(req.body);
@@ -633,6 +639,8 @@ exports.applyToTrip = async (req, res) => {
       agreementAdultRelationship: agreement.agreementAdultRelationship,
       medicalAgreementRequired,
       medicalAgreementAccepted: medical.medicalAgreementAccepted,
+      isPregnant: pregnancy.isPregnant,
+      pregnancyDueDate: pregnancy.pregnancyDueDate,
       travelOptionsComplete: !selectionCheck.missingSelection,
       orgId: trip.orgId,
     });
@@ -658,6 +666,8 @@ exports.applyToTrip = async (req, res) => {
       agreementAdultRelationship: agreement.agreementAdultRelationship,
       medicalAgreementAccepted: medical.medicalAgreementAccepted,
       medicalAgreementDate: medical.medicalAgreementDate,
+      isPregnant: pregnancy.isPregnant,
+      pregnancyDueDate: pregnancy.pregnancyDueDate,
       assiginmentDateTime: new Date(),
     });
 
@@ -811,6 +821,8 @@ exports.updateApplication = async (req, res) => {
     const agreement = parseAgreementSignature(req.body, { agreementRequired, participantUnder18 });
     if (!agreement.ok) return res.status(400).send({ message: agreement.message });
     const medical = parseMedicalAgreementAcceptance(req.body, { medicalAgreementRequired });
+    const pregnancy = parsePregnancyFields(req.body, person);
+    if (!pregnancy.ok) return res.status(400).send({ message: pregnancy.message });
 
     const travelOptions = await loadTripTravelOptions(trip.id);
     const selectedTravelOptionIds = parseSelectedTravelOptionIds(req.body);
@@ -840,6 +852,8 @@ exports.updateApplication = async (req, res) => {
       agreementAdultRelationship: agreement.agreementAdultRelationship,
       medicalAgreementRequired,
       medicalAgreementAccepted: medical.medicalAgreementAccepted,
+      isPregnant: pregnancy.isPregnant,
+      pregnancyDueDate: pregnancy.pregnancyDueDate,
       travelOptionsComplete: !selectionCheck.missingSelection,
       orgId: trip.orgId,
     });
@@ -891,6 +905,8 @@ exports.updateApplication = async (req, res) => {
       agreementAdultRelationship: agreement.agreementAdultRelationship,
       medicalAgreementAccepted: medical.medicalAgreementAccepted,
       medicalAgreementDate,
+      isPregnant: pregnancy.isPregnant,
+      pregnancyDueDate: pregnancy.pregnancyDueDate,
       status,
       version: Number(assignment.version) + 1,
     });

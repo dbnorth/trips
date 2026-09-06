@@ -4,6 +4,9 @@ import PhoneInput from "./PhoneInput.vue";
 import PhoneCountryCodeInput from "./PhoneCountryCodeInput.vue";
 import MedicalConditionServices from "../services/medicalConditionServices.js";
 
+const DOCTOR_TRAVEL_DOCUMENT_MESSAGE =
+  "You must provide a document from your doctor that says it is safe for you to travel on the trip dates.";
+
 const props = defineProps({
   modelValue: { type: Object, required: true },
   /** Organization whose medical-condition catalog to load (FR-008). */
@@ -28,6 +31,10 @@ const genderItems = [
   { title: "Male", value: "male" },
   { title: "Female", value: "female" },
 ];
+
+const showPregnancyFields = computed(
+  () => props.healthOnly && props.modelValue?.gender === "female"
+);
 
 const catalog = ref([]);
 const catalogLoading = ref(false);
@@ -65,6 +72,23 @@ watch(
   { immediate: true }
 );
 
+const onGenderChange = (value) => {
+  const next = { ...props.modelValue, gender: value };
+  if (value !== "female") {
+    next.isPregnant = null;
+    next.pregnancyDueDate = null;
+  }
+  emit("update:modelValue", next);
+};
+
+const onIsPregnantChange = (value) => {
+  const next = { ...props.modelValue, isPregnant: value };
+  if (value !== true) {
+    next.pregnancyDueDate = null;
+  }
+  emit("update:modelValue", next);
+};
+
 const onTakesMedicationChange = (value) => {
   const next = { ...props.modelValue, takesMedication: value };
   if (value !== true) {
@@ -94,7 +118,7 @@ const onTakesMedicationChange = (value) => {
           label="Gender"
           density="compact"
           clearable
-          @update:model-value="update('gender', $event)"
+          @update:model-value="onGenderChange"
         />
       </v-col>
     </v-row>
@@ -143,6 +167,29 @@ const onTakesMedicationChange = (value) => {
     :disabled="disabled"
     @update:model-value="update('allergiesDescription', $event)"
   />
+  <template v-if="showPregnancyFields">
+    <v-select
+      :model-value="modelValue.isPregnant"
+      :items="yesNoItems"
+      label="Are you pregnant?"
+      density="compact"
+      :disabled="disabled"
+      @update:model-value="onIsPregnantChange"
+    />
+    <template v-if="modelValue.isPregnant === true">
+      <v-text-field
+        :model-value="modelValue.pregnancyDueDate"
+        label="Due date"
+        type="date"
+        density="compact"
+        :disabled="disabled"
+        @update:model-value="update('pregnancyDueDate', $event)"
+      />
+      <v-alert type="info" density="compact" class="mb-2">
+        {{ DOCTOR_TRAVEL_DOCUMENT_MESSAGE }}
+      </v-alert>
+    </template>
+  </template>
   <v-select
     :model-value="modelValue.takesMedication"
     :items="yesNoItems"

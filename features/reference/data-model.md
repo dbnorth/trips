@@ -71,7 +71,7 @@ Notes:
 | id | INTEGER PK | autoIncrement |
 | userId | INTEGER | optional FK → user |
 | firstName, lastName | STRING | required |
-| middleName | STRING | nullable; optional (Feature 19) |
+| middleName | STRING | nullable; optional (Feature 20) |
 | email | STRING | |
 | addLine1, addLine2, city, state_prov, postalCode | STRING | |
 | country | STRING(2) | |
@@ -221,6 +221,10 @@ Notes:
 | agreementAdultEmail | STRING(255) | |
 | agreementAdultRelationship | STRING(100) | |
 | medicalAgreementAccepted | BOOLEAN | required, default `false` |
+| medicalAgreementDate | DATE | |
+| isPregnant | BOOLEAN | nullable; `null` = unanswered; application-scoped (Feature 19) |
+| pregnancyDueDate | DATEONLY | cleared unless `isPregnant` is true |
+| assiginmentDateTime | DATE | |
 | medicalAgreementDate | DATE | |
 | assiginmentDateTime | DATE | |
 | version | INTEGER | required, default `0` |

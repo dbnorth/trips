@@ -288,7 +288,7 @@ describe("People — Features 2 & 11", () => {
       });
     });
 
-    describe("Feature 19 — Person Middle Name", () => {
+    describe("Feature 20 — Person Middle Name", () => {
       it("Edit person saves middle name", async () => {
         const { authHeader, user } = await registerUser({
           email: "middle.save@example.com",

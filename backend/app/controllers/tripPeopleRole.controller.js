@@ -15,6 +15,7 @@ import {
   shouldAutoSetApplicationStatus,
 } from "../utils/tripParticipantApplicationStatus.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
+import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -45,6 +46,8 @@ const fields = [
   "agreementAdultRelationship",
   "medicalAgreementAccepted",
   "medicalAgreementDate",
+  "isPregnant",
+  "pregnancyDueDate",
   "assiginmentDateTime",
 ];
 
@@ -110,6 +113,7 @@ const computeStatusForPayload = async (payload, orgId) => {
     !!medicalAgreement?.exists &&
     !!medicalAgreement?.content?.trim() &&
     (person?.takesMedication === true || person?.takesMedication === 1);
+  const pregnancy = normalizeApplicationPregnancy(payload, { gender: person?.gender ?? null });
   return resolveAppliedOrIncompleteStatus({
     person,
     tripWorkerRoleId: payload.tripWorkerRoleId,
@@ -128,6 +132,8 @@ const computeStatusForPayload = async (payload, orgId) => {
     agreementAdultRelationship: payload.agreementAdultRelationship || null,
     medicalAgreementRequired,
     medicalAgreementAccepted: !!payload.medicalAgreementAccepted,
+    isPregnant: pregnancy.ok ? pregnancy.isPregnant : null,
+    pregnancyDueDate: pregnancy.ok ? pregnancy.pregnancyDueDate : null,
     orgId,
   });
 };
@@ -348,6 +354,12 @@ exports.update = async (req, res) => {
         )
           ? !!body.medicalAgreementAccepted
           : !!row.medicalAgreementAccepted,
+        isPregnant: Object.prototype.hasOwnProperty.call(body, "isPregnant")
+          ? body.isPregnant
+          : row.isPregnant,
+        pregnancyDueDate: Object.prototype.hasOwnProperty.call(body, "pregnancyDueDate")
+          ? body.pregnancyDueDate
+          : row.pregnancyDueDate,
       };
       body.status = await computeStatusForPayload(merged, trip?.orgId);
     }

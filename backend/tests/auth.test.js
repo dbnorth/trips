@@ -289,7 +289,7 @@ describe("Feature 1 — User Authentication & Sessions", () => {
     });
   });
 
-  describe("Feature 19 — Person Middle Name", () => {
+  describe("Feature 20 — Person Middle Name", () => {
     it("Registration saves middle name on the person", async () => {
       const response = await request(app).post("/trips/register").send({
         firstName: "Jane",

@@ -250,14 +250,33 @@ const cancelApplication = () => {
             <div class="text-caption text-medium-emphasis">Agreement date</div>
             <div>{{ formatDateTime(application.agreementDate) }}</div>
           </div>
-          <div class="mb-2">
-            <div class="text-caption text-medium-emphasis">Medical agreement agreed</div>
-            <div>{{ yesNo(application.medicalAgreementAccepted) }}</div>
-          </div>
-          <div class="mb-2">
-            <div class="text-caption text-medium-emphasis">Medical agreement date</div>
-            <div>{{ formatDateTime(application.medicalAgreementDate) }}</div>
-          </div>
+          <template
+            v-if="
+              application.person?.takesMedication === true ||
+              application.person?.takesMedication === 1 ||
+              application.medicalAgreementAccepted
+            "
+          >
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Medical agreement agreed</div>
+              <div>{{ yesNo(application.medicalAgreementAccepted) }}</div>
+            </div>
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Medical agreement date</div>
+              <div>{{ formatDateTime(application.medicalAgreementDate) }}</div>
+            </div>
+          </template>
+          <template v-if="application.person?.gender === 'female'">
+            <div class="text-subtitle-2 mb-2 mt-4">Pregnancy</div>
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Are you pregnant?</div>
+              <div>{{ yesNo(application.isPregnant) }}</div>
+            </div>
+            <div v-if="application.isPregnant === true || application.isPregnant === 1" class="mb-2">
+              <div class="text-caption text-medium-emphasis">Due date</div>
+              <div>{{ application.pregnancyDueDate || "—" }}</div>
+            </div>
+          </template>
 
           <template v-if="under18 || application.agreementAdultFirstName || application.agreementAdultLastName">
             <div class="text-subtitle-2 mb-2 mt-4">Adult signer</div>

@@ -1,7 +1,7 @@
 # Feature: Person Middle Name
 
-**Feature ID:** 19
-**Branch pattern:** `feature/19-person-middle-name`
+**Feature ID:** 20
+**Branch pattern:** `feature/20-person-middle-name`
 **Status:** Done
 **Created:** 2026-09-05
 **Input:** Add an optional middle name on the person, shown after the first name field on create-account and add/edit person forms
@@ -11,23 +11,23 @@
 
 ## User Stories
 
-### US-19.1: Enter middle name when creating an account
+### US-20.1: Enter middle name when creating an account
 **As a** visitor creating an account  
 **I want** an optional Middle name field after First name  
 **So that** my legal / preferred name can include a middle name from the start
 
 **Priority:** P1  
 **Independent test:** Login create-account and Apply create-account show Middle name after First name; register API accepts and stores it on the person  
-**Acceptance scenarios:** see ### US-19.1
+**Acceptance scenarios:** see ### US-20.1
 
-### US-19.2: Enter middle name when adding or editing a person
+### US-20.2: Enter middle name when adding or editing a person
 **As a** staff user (or self editing my profile)  
 **I want** an optional Middle name field after First name on Add person and Edit person  
 **So that** I can record or update a person’s middle name
 
 **Priority:** P1  
 **Independent test:** AddPersonDialog and EditPersonDialog show Middle name after First name; create/update person persist it  
-**Acceptance scenarios:** see ### US-19.2
+**Acceptance scenarios:** see ### US-20.2
 
 ---
 
@@ -126,7 +126,7 @@
 
 ## Acceptance Criteria (Gherkin)
 
-### US-19.1 — Enter middle name when creating an account
+### US-20.1 — Enter middle name when creating an account
 
 #### Scenario: Create-account form shows Middle name after First name
 * **Given** I open the Login create-account form (or Apply create-account)
@@ -140,7 +140,7 @@
 * **Then** the created person has that middleName stored
 * **And** loading the person returns middleName
 
-### US-19.2 — Enter middle name when adding or editing a person
+### US-20.2 — Enter middle name when adding or editing a person
 
 #### Scenario: Add person form shows Middle name after First name
 * **Given** I open Add person
@@ -170,19 +170,19 @@
 
 | Story | Scenario | Test file (expected) | `it(...)` description |
 |-------|----------|----------------------|------------------------|
-| US-19.1 | Create-account form shows Middle name after First name | `frontend/tests/` Login / ApplyCreateAccount | `Create-account form shows Middle name after First name` |
-| US-19.1 | Registration saves middle name on the person | `backend/tests/auth.test.js` (or equivalent) | `Registration saves middle name on the person` |
-| US-19.2 | Add person form shows Middle name after First name | `frontend/tests/` AddPersonDialog / EditPersonDialog | `Add person form shows Middle name after First name` |
-| US-19.2 | Edit person saves middle name | `backend/tests/people.test.js` | `Edit person saves middle name` |
-| US-19.2 | Blank middle name clears the value | `backend/tests/people.test.js` | `Blank middle name clears the value` |
-| US-19.2 | Application completeness requires middle name | `backend/tests/people.test.js` or applications | `Application completeness requires middle name` |
+| US-20.1 | Create-account form shows Middle name after First name | `frontend/tests/` Login / ApplyCreateAccount | `Create-account form shows Middle name after First name` |
+| US-20.1 | Registration saves middle name on the person | `backend/tests/auth.test.js` (or equivalent) | `Registration saves middle name on the person` |
+| US-20.2 | Add person form shows Middle name after First name | `frontend/tests/` AddPersonDialog / EditPersonDialog | `Add person form shows Middle name after First name` |
+| US-20.2 | Edit person saves middle name | `backend/tests/people.test.js` | `Edit person saves middle name` |
+| US-20.2 | Blank middle name clears the value | `backend/tests/people.test.js` | `Blank middle name clears the value` |
+| US-20.2 | Application completeness requires middle name | `backend/tests/people.test.js` or applications | `Application completeness requires middle name` |
 
 ---
 
 ## Agent implementation request
 
 ```text
-Implement Feature 19 from @features/feature-19-person-middle-name.md on branch `feature/19-person-middle-name`.
+Implement Feature 20 from @features/feature-20-person-middle-name.md on branch `feature/20-person-middle-name`.
 
 Follow layer order in @features/framework.md.
 Map every Gherkin scenario in the Test Coverage Map; run `npm test` before finishing.
@@ -204,7 +204,7 @@ Do not implement behavior not in this spec.
 *   [x] Automated tests for every Gherkin scenario
 *   [x] Living reference updated in this PR
 *   [x] `npm test` green
-*   [ ] On `feature/19-person-middle-name`; PR → `dev`
+*   [ ] On `feature/20-person-middle-name`; PR → `dev`
 
 ---
 
