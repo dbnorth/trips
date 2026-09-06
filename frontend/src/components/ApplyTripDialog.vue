@@ -8,7 +8,13 @@ import DonorTripHeading from "./DonorTripHeading.vue";
 import ParticipantAgreementSection from "./ParticipantAgreementSection.vue";
 import TripApplicationTravelOptions from "./TripApplicationTravelOptions.vue";
 import EditPersonDialog from "./EditPersonDialog.vue";
-import { isProfileComplete, isUnder18 } from "../utils/personProfile.js";
+import PersonProfileFields from "./PersonProfileFields.vue";
+import {
+  getMissingProfileFields,
+  isProfileComplete,
+  isUnder18,
+  normalizeYesNo,
+} from "../utils/personProfile.js";
 import { isApplicationFormComplete, validateTravelOptionSelections } from "../utils/tripApplicationForm.js";
 
 const props = defineProps({
@@ -25,6 +31,14 @@ const trip = ref(null);
 const rolesNeeded = ref([]);
 const personDocuments = ref([]);
 const person = ref(null);
+const healthForm = ref({
+  hasAllergies: null,
+  allergiesDescription: "",
+  takesMedication: null,
+  medicalConditionIds: [],
+  medicalConditions: [],
+  version: 0,
+});
 const agreementContent = ref("");
 const travelOptions = ref([]);
 const selectedTravelOptionIds = ref([]);
@@ -123,11 +137,23 @@ const documentRequirementWarning = computed(() => {
   return `For your application to be approved, you will need to upload a ${docName} with an expiration date past the end of the trip${endPart}.`;
 });
 
-const profileComplete = computed(() => isProfileComplete(person.value));
+const profileComplete = computed(() =>
+  isProfileComplete(
+    { ...(person.value || {}), ...healthForm.value },
+    { orgId: trip.value?.orgId }
+  )
+);
+
+const missingProfileFields = computed(() =>
+  getMissingProfileFields(
+    { ...(person.value || {}), ...healthForm.value },
+    { orgId: trip.value?.orgId }
+  )
+);
 
 const onProfileSaved = async () => {
   showProfileDialog.value = false;
-  await loadPerson();
+  await Promise.all([loadPerson(), loadPersonDocuments()]);
 };
 
 const applicationFormComplete = computed(() =>
@@ -239,18 +265,56 @@ const loadPersonDocuments = async () => {
   }
 };
 
+const applyHealthFromPerson = (data) => {
+  healthForm.value = {
+    hasAllergies: normalizeYesNo(data?.hasAllergies),
+    allergiesDescription: data?.allergiesDescription || "",
+    takesMedication: normalizeYesNo(data?.takesMedication),
+    medicalConditionIds: Array.isArray(data?.medicalConditionIds)
+      ? data.medicalConditionIds.map((id) => Number(id))
+      : Array.isArray(data?.medicalConditions)
+        ? data.medicalConditions.map((c) => Number(c.id))
+        : [],
+    medicalConditions: Array.isArray(data?.medicalConditions) ? data.medicalConditions : [],
+    version: data?.version ?? 0,
+  };
+};
+
 const loadPerson = async () => {
   const personId = Utils.getStore("user")?.personId;
   if (!personId) {
     person.value = null;
+    applyHealthFromPerson(null);
     return;
   }
   try {
-    const res = await PersonServices.get(personId);
+    const params = {};
+    if (trip.value?.orgId) params.orgId = trip.value.orgId;
+    const res = await PersonServices.get(personId, params);
     person.value = res.data || null;
+    applyHealthFromPerson(person.value);
   } catch {
     person.value = null;
+    applyHealthFromPerson(null);
   }
+};
+
+const saveHealthProfile = async () => {
+  if (!personId.value || !trip.value?.orgId) return;
+  const res = await PersonServices.update(personId.value, {
+    hasAllergies: normalizeYesNo(healthForm.value.hasAllergies),
+    allergiesDescription: healthForm.value.hasAllergies === true
+      ? healthForm.value.allergiesDescription?.trim() || null
+      : null,
+    takesMedication: normalizeYesNo(healthForm.value.takesMedication),
+    medicalConditionIds: healthForm.value.takesMedication === true
+      ? healthForm.value.medicalConditionIds || []
+      : [],
+    orgId: trip.value.orgId,
+    version: healthForm.value.version,
+  });
+  person.value = { ...(person.value || {}), ...(res.data || {}) };
+  applyHealthFromPerson(res.data || person.value);
 };
 
 const loadExistingApplication = async () => {
@@ -309,8 +373,10 @@ const load = async () => {
   formError.value = "";
   resetForm();
   try {
-    await Promise.all([loadPersonDocuments(), loadPerson()]);
+    await loadPersonDocuments();
     await loadNewApplication();
+    // Load person after trip so medical-condition org context is known (Feature 17).
+    await loadPerson();
   } catch (e) {
     formError.value = e.response?.data?.message || "Unable to load trip.";
     trip.value = null;
@@ -441,6 +507,7 @@ const save = async () => {
 
   saving.value = true;
   try {
+    await saveHealthProfile();
     const payload = buildPayload();
     if (editingApplication.value) {
       await TripServices.updateApplication(props.tripId, payload);
@@ -458,10 +525,10 @@ const save = async () => {
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="640" scrollable persistent>
-    <v-card>
-      <v-card-title>{{ dialogTitle }}</v-card-title>
-      <v-card-text style="max-height: 75vh">
+  <v-dialog v-model="open" max-width="640" max-height="90vh" scrollable persistent>
+    <v-card class="d-flex flex-column" style="max-height: min(90vh, 900px)">
+      <v-card-title class="flex-shrink-0">{{ dialogTitle }}</v-card-title>
+      <v-card-text class="overflow-y-auto flex-grow-1">
         <v-progress-linear v-if="loading" indeterminate class="mb-4" />
 
         <template v-if="!loading && trip">
@@ -474,6 +541,9 @@ const save = async () => {
             class="mb-3"
           >
             Your profile needs to be completed before this application can be submitted.
+            <ul v-if="missingProfileFields.length" class="mt-2 mb-0 pl-4">
+              <li v-for="field in missingProfileFields" :key="field">{{ field }}</li>
+            </ul>
             <div class="mt-3">
               <v-btn
                 size="small"
@@ -514,7 +584,25 @@ const save = async () => {
             class="mb-3"
           >
             {{ documentRequirementWarning }}
+            <div class="mt-3">
+              <v-btn
+                size="small"
+                color="primary"
+                variant="flat"
+                :disabled="!personId"
+                @click="showProfileDialog = true"
+              >
+                Update profile
+              </v-btn>
+            </div>
           </v-alert>
+
+          <PersonProfileFields
+            v-model="healthForm"
+            :org-id="trip?.orgId"
+            health-only
+            :disabled="!canEdit"
+          />
 
           <div class="text-subtitle-2 mb-1 mt-2">Funding</div>
           <v-checkbox
@@ -586,7 +674,7 @@ const save = async () => {
 
         <v-alert v-if="formError" type="error" density="compact" class="mt-3">{{ formError }}</v-alert>
       </v-card-text>
-      <v-card-actions>
+      <v-card-actions class="flex-shrink-0">
         <v-spacer />
         <v-btn variant="text" :disabled="saving" @click="close">Cancel</v-btn>
         <v-btn
@@ -605,6 +693,7 @@ const save = async () => {
     v-if="personId"
     v-model="showProfileDialog"
     :person-id="personId"
+    :medical-condition-org-id="trip?.orgId"
     @saved="onProfileSaved"
   />
 </template>

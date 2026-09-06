@@ -277,6 +277,7 @@ onMounted(() => {
       <v-btn v-if="showOrgAdminNav || showTripLeaderNav || showParticipantNav" variant="text" :to="{ name: 'donations' }">Donations</v-btn>
       <v-btn v-if="user.isAdmin || showOrgAdminNav || showTripLeaderNav" variant="text" :to="{ name: 'templates' }">Templates</v-btn>
       <v-btn v-if="user.isAdmin || showOrgAdminNav" variant="text" :to="{ name: 'workerRoles' }">Worker roles</v-btn>
+      <v-btn v-if="user.isAdmin || showOrgAdminNav" variant="text" :to="{ name: 'medicalConditions' }">Medical conditions</v-btn>
 
       <v-select
         v-if="showUserOrgSelector && userOrgItems.length > 1"

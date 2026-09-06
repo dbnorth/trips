@@ -119,6 +119,7 @@ const computeStatusForPayload = async (payload, orgId) => {
     agreementAdultLastName: payload.agreementAdultLastName || null,
     agreementAdultEmail: payload.agreementAdultEmail || null,
     agreementAdultRelationship: payload.agreementAdultRelationship || null,
+    orgId,
   });
 };
 

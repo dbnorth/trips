@@ -10,6 +10,7 @@ import TripPeopleRolesList from "./views/TripPeopleRolesList.vue";
 import DonationsList from "./views/DonationsList.vue";
 import EmailTemplatesList from "./views/EmailTemplatesList.vue";
 import WorkerRolesList from "./views/WorkerRolesList.vue";
+import MedicalConditionsList from "./views/MedicalConditionsList.vue";
 import DocumentTypesList from "./views/DocumentTypesList.vue";
 import TripBrowseView from "./views/TripBrowseView.vue";
 import EditTripApplicationView from "./views/EditTripApplicationView.vue";
@@ -40,6 +41,7 @@ const router = createRouter({
     { path: "/donations", name: "donations", component: DonationsList },
     { path: "/templates", name: "templates", component: EmailTemplatesList },
     { path: "/worker-roles", name: "workerRoles", component: WorkerRolesList },
+    { path: "/medical-conditions", name: "medicalConditions", component: MedicalConditionsList },
     { path: "/document-types", name: "documentTypes", component: DocumentTypesList },
     {
       path: "/org/:orgSlug",
@@ -128,6 +130,13 @@ export function applyAuthGuards(router) {
       }
     }
     if (to.name === "workerRoles" && !user.isAdmin) {
+      const isOrgAdmin = (user.orgRoles || []).some((r) => r.roleName === "Org Admin");
+      if (!isOrgAdmin) {
+        next({ name: "home" });
+        return;
+      }
+    }
+    if (to.name === "medicalConditions" && !user.isAdmin) {
       const isOrgAdmin = (user.orgRoles || []).some((r) => r.roleName === "Org Admin");
       if (!isOrgAdmin) {
         next({ name: "home" });

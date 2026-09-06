@@ -86,103 +86,116 @@ watch(
 </script>
 
 <template>
-  <div v-if="showAgreement" class="mt-4">
+  <div class="mt-4">
     <div class="text-subtitle-2 mb-2">Participant agreement</div>
-    <div class="agreement-preview pa-4 rounded mb-3">
-      <div class="agreement-html" v-html="previewHtml" />
-    </div>
-
-    <v-alert v-if="under18" type="warning" density="compact" class="mb-3" variant="tonal">
-      Since the participant is under 18, this must be signed by an adult.
-    </v-alert>
-
-    <template v-if="under18">
-      <v-row dense>
-        <v-col cols="12" sm="6">
-          <v-text-field
-            :model-value="agreementAdultFirstName"
-            label="First name"
-            density="compact"
-            autocomplete="given-name"
-            :disabled="disabled"
-            @update:model-value="emit('update:agreementAdultFirstName', $event ?? '')"
-          />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field
-            :model-value="agreementAdultLastName"
-            label="Last name"
-            density="compact"
-            autocomplete="family-name"
-            :disabled="disabled"
-            @update:model-value="emit('update:agreementAdultLastName', $event ?? '')"
-          />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field
-            :model-value="agreementAdultEmail"
-            label="Email"
-            type="email"
-            density="compact"
-            autocomplete="email"
-            :disabled="disabled"
-            @update:model-value="emit('update:agreementAdultEmail', $event ?? '')"
-          />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field
-            :model-value="agreementAdultRelationship"
-            label="Relationship to participant"
-            density="compact"
-            autocomplete="off"
-            :disabled="disabled"
-            @update:model-value="emit('update:agreementAdultRelationship', $event ?? '')"
-          />
-        </v-col>
-      </v-row>
-    </template>
-
-    <div class="text-body-2 mb-2">
-      I agree and understand that by typing my name below that it serves as my electronic
-      signature and it is the legal equivalent of my manual/handwritten signature and I consent
-      to be legally bound to this agreement.
-    </div>
-
-    <v-text-field
-      :model-value="agreementSignatureName"
-      :label="signatureLabel"
-      density="compact"
-      autocomplete="name"
-      :disabled="disabled"
-      :hint="signatureHint"
-      persistent-hint
-      class="mb-3"
-      @update:model-value="onSignature"
-    />
 
     <v-alert
-      v-if="!canAgree"
+      v-if="!showAgreement"
       type="info"
       density="compact"
       variant="tonal"
       class="mb-2"
     >
-      Your profile and application must be complete before you can agree to this agreement.
+      This organization has not published a participant agreement yet.
     </v-alert>
 
-    <v-checkbox
-      :model-value="agreementAccepted"
-      label="I Agree"
-      density="compact"
-      hide-details
-      :disabled="agreeDisabled"
-      class="mt-0 mb-2"
-      @update:model-value="onAccepted"
-    />
+    <template v-else>
+      <div class="agreement-preview pa-4 rounded mb-3">
+        <div class="agreement-html" v-html="previewHtml" />
+      </div>
 
-    <div v-if="agreementAccepted && agreementDateLabel" class="text-caption text-medium-emphasis mt-1">
-      Agreement date: {{ agreementDateLabel }}
-    </div>
+      <v-alert v-if="under18" type="warning" density="compact" class="mb-3" variant="tonal">
+        Since the participant is under 18, this must be signed by an adult.
+      </v-alert>
+
+      <template v-if="under18">
+        <v-row dense>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              :model-value="agreementAdultFirstName"
+              label="First name"
+              density="compact"
+              autocomplete="given-name"
+              :disabled="disabled"
+              @update:model-value="emit('update:agreementAdultFirstName', $event ?? '')"
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              :model-value="agreementAdultLastName"
+              label="Last name"
+              density="compact"
+              autocomplete="family-name"
+              :disabled="disabled"
+              @update:model-value="emit('update:agreementAdultLastName', $event ?? '')"
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              :model-value="agreementAdultEmail"
+              label="Email"
+              type="email"
+              density="compact"
+              autocomplete="email"
+              :disabled="disabled"
+              @update:model-value="emit('update:agreementAdultEmail', $event ?? '')"
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              :model-value="agreementAdultRelationship"
+              label="Relationship to participant"
+              density="compact"
+              autocomplete="off"
+              :disabled="disabled"
+              @update:model-value="emit('update:agreementAdultRelationship', $event ?? '')"
+            />
+          </v-col>
+        </v-row>
+      </template>
+
+      <div class="text-body-2 mb-2">
+        I agree and understand that by typing my name below that it serves as my electronic
+        signature and it is the legal equivalent of my manual/handwritten signature and I consent
+        to be legally bound to this agreement.
+      </div>
+
+      <v-text-field
+        :model-value="agreementSignatureName"
+        :label="signatureLabel"
+        density="compact"
+        autocomplete="name"
+        :disabled="disabled"
+        :hint="signatureHint"
+        persistent-hint
+        class="mb-3"
+        @update:model-value="onSignature"
+      />
+
+      <v-alert
+        v-if="!canAgree"
+        type="info"
+        density="compact"
+        variant="tonal"
+        class="mb-2"
+      >
+        Your profile and application must be complete before you can agree to this agreement.
+      </v-alert>
+
+      <v-checkbox
+        :model-value="agreementAccepted"
+        label="I Agree"
+        density="compact"
+        hide-details
+        :disabled="agreeDisabled"
+        class="mt-0 mb-2"
+        @update:model-value="onAccepted"
+      />
+
+      <div v-if="agreementAccepted && agreementDateLabel" class="text-caption text-medium-emphasis mt-1">
+        Agreement date: {{ agreementDateLabel }}
+      </div>
+    </template>
   </div>
 </template>
 
