@@ -1,6 +1,8 @@
 /**
  * Feature 17 — Organization Medical Conditions & Person Selections
  * Spec: features/feature-17-org-medical-conditions.md
+ * Feature 19 — Pregnancy Health Questions
+ * Spec: features/feature-19-pregnancy-health-questions.md
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -15,6 +17,9 @@ vi.mock("../src/services/medicalConditionServices.js", () => ({
     getAll: vi.fn(),
   },
 }));
+
+const DOCTOR_MSG =
+  "You must provide a document from your doctor that says it is safe for you to travel on the trip dates.";
 
 describe("PersonProfileFields — Feature 17", () => {
   beforeEach(() => {
@@ -69,6 +74,116 @@ describe("PersonProfileFields — Feature 17", () => {
     );
     expect(select).toBeFalsy();
     expect(MedicalConditionServices.getAll).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+});
+
+describe("PersonProfileFields — Feature 19", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    MedicalConditionServices.getAll.mockResolvedValue({ data: [] });
+  });
+
+  it("Pregnancy question appears after allergies for female", async () => {
+    const form = reactive({
+      gender: "female",
+      hasAllergies: false,
+      isPregnant: null,
+      takesMedication: null,
+    });
+
+    const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+      props: { modelValue: form, healthOnly: true },
+    });
+    await flushPromises();
+
+    const labels = wrapper.findAllComponents({ name: "VSelect" }).map((c) => c.props("label"));
+    const allergiesIdx = labels.indexOf("Have allergies?");
+    const pregnantIdx = labels.indexOf("Are you pregnant?");
+    const medIdx = labels.indexOf("Take medication?");
+    expect(pregnantIdx).toBeGreaterThan(-1);
+    expect(allergiesIdx).toBeLessThan(pregnantIdx);
+    expect(pregnantIdx).toBeLessThan(medIdx);
+    wrapper.unmount();
+  });
+
+  it("Due date appears when pregnant is Yes", async () => {
+    const form = reactive({
+      gender: "female",
+      hasAllergies: false,
+      isPregnant: true,
+      pregnancyDueDate: "",
+      takesMedication: null,
+    });
+
+    const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+      props: { modelValue: form, healthOnly: true },
+    });
+    await flushPromises();
+
+    const due = wrapper.findAllComponents({ name: "VTextField" }).find((c) =>
+      c.props("label") === "Due date"
+    );
+    expect(due).toBeTruthy();
+    wrapper.unmount();
+  });
+
+  it("Doctor document message appears when pregnant is Yes", async () => {
+    const form = reactive({
+      gender: "female",
+      hasAllergies: false,
+      isPregnant: true,
+      pregnancyDueDate: "2026-12-01",
+      takesMedication: null,
+    });
+
+    const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+      props: { modelValue: form, healthOnly: true },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain(DOCTOR_MSG);
+    wrapper.unmount();
+  });
+
+  it("Pregnancy question is hidden for male", async () => {
+    const form = reactive({
+      gender: "male",
+      hasAllergies: false,
+      isPregnant: null,
+      takesMedication: null,
+    });
+
+    const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+      props: { modelValue: form, healthOnly: true },
+    });
+    await flushPromises();
+
+    const pregnant = wrapper.findAllComponents({ name: "VSelect" }).find((c) =>
+      c.props("label") === "Are you pregnant?"
+    );
+    expect(pregnant).toBeFalsy();
+    expect(wrapper.text()).not.toContain(DOCTOR_MSG);
+    wrapper.unmount();
+  });
+
+  it("Pregnancy question is hidden when gender is unanswered", async () => {
+    const form = reactive({
+      gender: null,
+      hasAllergies: false,
+      isPregnant: null,
+      takesMedication: null,
+    });
+
+    const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+      props: { modelValue: form, healthOnly: true },
+    });
+    await flushPromises();
+
+    const pregnant = wrapper.findAllComponents({ name: "VSelect" }).find((c) =>
+      c.props("label") === "Are you pregnant?"
+    );
+    expect(pregnant).toBeFalsy();
     wrapper.unmount();
   });
 });

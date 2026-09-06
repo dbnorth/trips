@@ -176,9 +176,9 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `GET` | `/trips/trips/browse/mine` | auth | My trips |
 | `GET` | `/trips/trips/browse` | auth | Active trips (`?orgId=`) |
 | `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreements/options |
-| `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance) |
+| `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance; `isPregnant` / `pregnancyDueDate` on assignment) |
 | `GET` | `/trips/trips/browse/:id/application` | auth | Own application |
-| `PUT` | `/trips/trips/browse/:id/application` | auth | Update application |
+| `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields) |
 | `GET` | `/trips/trip-people-roles` | auth | Roster (`?tripId=`) |
 | `GET` | `/trips/trip-people-roles/:id` | auth | One assignment |
 | `POST` | `/trips/trip-people-roles` | auth | Staff add participant |

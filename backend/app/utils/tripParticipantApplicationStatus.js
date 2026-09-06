@@ -89,6 +89,9 @@ export const isApplicationComplete = ({
   agreementAdultRelationship = null,
   medicalAgreementRequired = false,
   medicalAgreementAccepted = false,
+  gender = null,
+  isPregnant = null,
+  pregnancyDueDate = null,
   travelOptionsComplete = true,
 }) => {
   if (tripWorkerRoleId == null || tripWorkerRoleId === "") return false;
@@ -107,6 +110,10 @@ export const isApplicationComplete = ({
     }
   }
   if (medicalAgreementRequired && !medicalAgreementAccepted) return false;
+  if (gender === "female") {
+    if (isPregnant !== true && isPregnant !== false) return false;
+    if (isPregnant === true && isBlank(pregnancyDueDate)) return false;
+  }
   return true;
 };
 
@@ -128,6 +135,8 @@ export const resolveAppliedOrIncompleteStatus = ({
   agreementAdultRelationship = null,
   medicalAgreementRequired = false,
   medicalAgreementAccepted = false,
+  isPregnant = null,
+  pregnancyDueDate = null,
   travelOptionsComplete = true,
   orgId = null,
 }) => {
@@ -150,6 +159,9 @@ export const resolveAppliedOrIncompleteStatus = ({
     agreementAdultRelationship,
     medicalAgreementRequired,
     medicalAgreementAccepted,
+    gender: person?.gender ?? null,
+    isPregnant,
+    pregnancyDueDate,
     travelOptionsComplete,
   });
   const profileOk = isProfileComplete(person, { orgId });
