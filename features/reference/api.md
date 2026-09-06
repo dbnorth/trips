@@ -135,14 +135,14 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 
 ---
 
-## Worker roles & travel options — Feature 6
+## Worker roles & travel options — Features 6, 25
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/worker-roles` | auth | Org worker-role catalog (`?orgId=`) |
+| `GET` | `/trips/worker-roles` | auth | Org worker-role catalog (`?orgId=`); includes `requiredDocumentTypes` / `requiredDocumentTypeIds` (Feature 25) |
 | `GET` | `/trips/worker-roles/:id` | auth | Get |
-| `POST` | `/trips/worker-roles` | auth | Create (org admin) |
-| `PUT` | `/trips/worker-roles/:id` | auth | Update |
+| `POST` | `/trips/worker-roles` | auth | Create (org admin); `requiredDocumentTypeIds?: number[]` (Feature 25) |
+| `PUT` | `/trips/worker-roles/:id` | auth | Update; replace required document list when `requiredDocumentTypeIds` sent |
 | `DELETE` | `/trips/worker-roles/:id` | auth | Delete |
 | `GET` | `/trips/trip-worker-roles` | auth | Needs for `?tripId=` |
 | `POST` | `/trips/trip-worker-roles` | auth | Add role quantity |

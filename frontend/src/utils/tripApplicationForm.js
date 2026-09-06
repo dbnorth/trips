@@ -9,21 +9,54 @@ export const arePersonDocumentsUploaded = (documents = []) =>
   );
 
 /**
- * When the worker role requires a document type, the person must have that type
+ * When the worker role requires document type(s), the person must have each type
  * with a file. If compareDate is set, expiration must be after it.
  */
 export const isRequiredRoleDocumentUploaded = ({
   documents = [],
   documentTypeId = null,
+  documentTypeIds = null,
   compareDate = null,
 }) => {
-  if (documentTypeId == null || documentTypeId === "") return true;
-  return (documents || []).some((doc) => {
-    if (Number(doc.documentTypeId) !== Number(documentTypeId)) return false;
-    if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
-    if (!compareDate) return true;
-    const expirationDate = String(doc.expirationDate || "").slice(0, 10);
-    return expirationDate && expirationDate > compareDate;
+  const ids =
+    documentTypeIds != null
+      ? [
+          ...new Set(
+            (documentTypeIds || [])
+              .map((v) => Number(v))
+              .filter((n) => Number.isFinite(n) && n > 0)
+          ),
+        ]
+      : documentTypeId == null || documentTypeId === ""
+        ? []
+        : [Number(documentTypeId)];
+  if (!ids.length) return true;
+  return ids.every((id) =>
+    (documents || []).some((doc) => {
+      if (Number(doc.documentTypeId) !== id) return false;
+      if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
+      if (!compareDate) return true;
+      const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+      return expirationDate && expirationDate > compareDate;
+    })
+  );
+};
+
+/** Required document types that are missing or invalid for the trip compare date. */
+export const missingRequiredRoleDocuments = ({
+  documents = [],
+  requiredDocumentTypes = [],
+  compareDate = null,
+}) => {
+  const required = requiredDocumentTypes || [];
+  if (!required.length) return [];
+  return required.filter((docType) => {
+    const id = Number(docType.id ?? docType);
+    return !isRequiredRoleDocumentUploaded({
+      documents,
+      documentTypeIds: [id],
+      compareDate,
+    });
   });
 };
 

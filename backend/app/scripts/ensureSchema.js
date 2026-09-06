@@ -627,6 +627,47 @@ const ensureWorkerRoleDocumentType = async () => {
   }
 };
 
+const ensureWorkerRoleRequiredDocuments = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'workerRoleDocumentTypes'`
+  );
+  if (!tables.length) {
+    await db.sequelize.query(`
+      CREATE TABLE workerRoleDocumentTypes (
+        id INT NOT NULL AUTO_INCREMENT,
+        workerRoleId INT NOT NULL,
+        documentTypeId INT NOT NULL,
+        createdAt DATETIME NOT NULL,
+        updatedAt DATETIME NOT NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY workerRoleDocumentTypes_role_type_unique (workerRoleId, documentTypeId),
+        KEY workerRoleDocumentTypes_workerRoleId_idx (workerRoleId),
+        KEY workerRoleDocumentTypes_documentTypeId_idx (documentTypeId),
+        CONSTRAINT workerRoleDocumentTypes_workerRoleId_fk
+          FOREIGN KEY (workerRoleId) REFERENCES workerRoles (id)
+          ON DELETE CASCADE ON UPDATE CASCADE,
+        CONSTRAINT workerRoleDocumentTypes_documentTypeId_fk
+          FOREIGN KEY (documentTypeId) REFERENCES documentTypes (id)
+          ON DELETE RESTRICT ON UPDATE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    logger.info("workerRoleDocumentTypes table created.");
+  }
+
+  await db.sequelize.query(`
+    INSERT INTO workerRoleDocumentTypes (workerRoleId, documentTypeId, createdAt, updatedAt)
+    SELECT wr.id, wr.documentTypeId, NOW(), NOW()
+    FROM workerRoles wr
+    WHERE wr.documentTypeId IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM workerRoleDocumentTypes j
+        WHERE j.workerRoleId = wr.id AND j.documentTypeId = wr.documentTypeId
+      )
+  `);
+};
+
 const ensureNamedUniqueIndexes = async () => {
   const renames = [
     ["roles", "roleName", "roles_roleName_unique"],
@@ -817,6 +858,7 @@ export const ensureSchema = async () => {
   await ensureDocumentTypesTable();
   await ensurePersonDocumentsTable();
   await ensureWorkerRoleDocumentType();
+  await ensureWorkerRoleRequiredDocuments();
   await ensureTripTravelOptionsTable();
   await ensureTripPeopleRoleOptionsTable();
   await ensureMedicalConditionsTable();

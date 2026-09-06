@@ -21,6 +21,7 @@ import DocumentType from "./documentType.model.js";
 import PersonDocument from "./personDocument.model.js";
 import MedicalCondition from "./medicalCondition.model.js";
 import PersonMedicalCondition from "./personMedicalCondition.model.js";
+import WorkerRoleDocumentType from "./workerRoleDocumentType.model.js";
 
 const db = {};
 db.Sequelize = Sequelize;
@@ -46,6 +47,7 @@ db.documentType = DocumentType;
 db.personDocument = PersonDocument;
 db.medicalCondition = MedicalCondition;
 db.personMedicalCondition = PersonMedicalCondition;
+db.workerRoleDocumentType = WorkerRoleDocumentType;
 
 db.user.hasMany(db.session, { foreignKey: "userId", onDelete: "CASCADE" });
 db.session.belongsTo(db.user, { foreignKey: "userId", onDelete: "CASCADE" });
@@ -112,6 +114,37 @@ db.workerRole.belongsTo(db.documentType, {
   foreignKey: "documentTypeId",
   as: "documentType",
   onDelete: "SET NULL",
+});
+
+db.workerRole.belongsToMany(db.documentType, {
+  through: db.workerRoleDocumentType,
+  foreignKey: "workerRoleId",
+  otherKey: "documentTypeId",
+  as: "requiredDocumentTypes",
+});
+db.documentType.belongsToMany(db.workerRole, {
+  through: db.workerRoleDocumentType,
+  foreignKey: "documentTypeId",
+  otherKey: "workerRoleId",
+  as: "workerRolesRequiring",
+});
+db.workerRole.hasMany(db.workerRoleDocumentType, {
+  foreignKey: "workerRoleId",
+  onDelete: "CASCADE",
+});
+db.workerRoleDocumentType.belongsTo(db.workerRole, {
+  foreignKey: "workerRoleId",
+  as: "workerRole",
+  onDelete: "CASCADE",
+});
+db.documentType.hasMany(db.workerRoleDocumentType, {
+  foreignKey: "documentTypeId",
+  onDelete: "RESTRICT",
+});
+db.workerRoleDocumentType.belongsTo(db.documentType, {
+  foreignKey: "documentTypeId",
+  as: "documentType",
+  onDelete: "RESTRICT",
 });
 
 db.documentType.hasMany(db.personDocument, {
