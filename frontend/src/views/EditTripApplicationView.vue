@@ -34,8 +34,11 @@ const canEdit = ref(false);
 const personDocuments = ref([]);
 const person = ref(null);
 const healthForm = ref({
+  gender: null,
   hasAllergies: null,
   allergiesDescription: "",
+  isPregnant: null,
+  pregnancyDueDate: "",
   takesMedication: null,
   medicalConditionIds: [],
   medicalConditions: [],
@@ -70,9 +73,7 @@ const form = ref({
 });
 
 const agreementRequired = computed(() => !!agreementContent.value?.trim());
-const takesMedicationYes = computed(
-  () => healthForm.value.takesMedication === true || person.value?.takesMedication === true
-);
+const takesMedicationYes = computed(() => healthForm.value.takesMedication === true);
 const medicalAgreementRequired = computed(
   () => takesMedicationYes.value && !!medicalAgreementContent.value?.trim()
 );
@@ -226,8 +227,11 @@ const loadPersonDocuments = async () => {
 
 const applyHealthFromPerson = (data) => {
   healthForm.value = {
+    gender: data?.gender || null,
     hasAllergies: normalizeYesNo(data?.hasAllergies),
     allergiesDescription: data?.allergiesDescription || "",
+    isPregnant: healthForm.value.isPregnant ?? null,
+    pregnancyDueDate: healthForm.value.pregnancyDueDate || "",
     takesMedication: normalizeYesNo(data?.takesMedication),
     medicalConditionIds: Array.isArray(data?.medicalConditionIds)
       ? data.medicalConditionIds.map((id) => Number(id))
@@ -294,6 +298,13 @@ const applyFormFromApplication = (row) => {
     medicalAgreementAccepted: !!row?.medicalAgreementAccepted,
     medicalAgreementDate: row?.medicalAgreementDate || null,
     version: row?.version ?? 0,
+  };
+  healthForm.value = {
+    ...healthForm.value,
+    isPregnant: normalizeYesNo(row?.isPregnant),
+    pregnancyDueDate: row?.pregnancyDueDate
+      ? String(row.pregnancyDueDate).slice(0, 10)
+      : "",
   };
 };
 
@@ -442,6 +453,11 @@ const save = async () => {
       medicalAgreementAccepted: medicalAgreementRequired.value
         ? !!form.value.medicalAgreementAccepted
         : false,
+      isPregnant: normalizeYesNo(healthForm.value.isPregnant),
+      pregnancyDueDate:
+        healthForm.value.isPregnant === true && healthForm.value.pregnancyDueDate
+          ? String(healthForm.value.pregnancyDueDate).slice(0, 10)
+          : null,
       selectedTravelOptionIds: selectedTravelOptionIds.value,
       version: form.value.version,
     });

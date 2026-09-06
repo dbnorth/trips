@@ -118,22 +118,6 @@ watch(
 
 <template>
   <div class="mt-4">
-    <div v-if="showMedicalAgreement" class="mb-4">
-      <div class="text-subtitle-2 mb-2">Medical agreement</div>
-      <v-alert
-        v-if="!showMedicalContent"
-        type="info"
-        density="compact"
-        variant="tonal"
-        class="mb-2"
-      >
-        This organization has not published a medical agreement yet.
-      </v-alert>
-      <div v-else class="agreement-preview pa-4 rounded mb-3">
-        <div class="agreement-html" v-html="medicalPreviewHtml" />
-      </div>
-    </div>
-
     <div class="text-subtitle-2 mb-2">Participant agreement</div>
 
     <v-alert
@@ -202,6 +186,22 @@ watch(
       </template>
     </template>
 
+    <div v-if="showMedicalAgreement" class="mb-4 mt-4">
+      <div class="text-subtitle-2 mb-2">Medical agreement</div>
+      <v-alert
+        v-if="!showMedicalContent"
+        type="info"
+        density="compact"
+        variant="tonal"
+        class="mb-2"
+      >
+        This organization has not published a medical agreement yet.
+      </v-alert>
+      <div v-else class="agreement-preview pa-4 rounded mb-3">
+        <div class="agreement-html" v-html="medicalPreviewHtml" />
+      </div>
+    </div>
+
     <template v-if="showSignatureBlock">
       <div class="text-body-2 mb-2 mt-2">
         I agree and understand that by typing my name below that it serves as my electronic
@@ -232,6 +232,21 @@ watch(
       </v-alert>
 
       <v-checkbox
+        v-if="showAgreement"
+        :model-value="agreementAccepted"
+        label="I agree to the Participation agreement"
+        density="compact"
+        hide-details
+        :disabled="agreeDisabled"
+        class="mt-0 mb-2"
+        @update:model-value="onAccepted"
+      />
+
+      <div v-if="showAgreement && agreementAccepted && agreementDateLabel" class="text-caption text-medium-emphasis mb-2">
+        Agreement date: {{ agreementDateLabel }}
+      </div>
+
+      <v-checkbox
         v-if="showMedicalAgreement && showMedicalContent"
         :model-value="medicalAgreementAccepted"
         label="I agree to the medical agreement"
@@ -247,21 +262,6 @@ watch(
       >
         Medical agreement date: {{ medicalAgreementDateLabel }}
       </div>
-
-      <v-checkbox
-        v-if="showAgreement"
-        :model-value="agreementAccepted"
-        label="I agree to the Participation agreement"
-        density="compact"
-        hide-details
-        :disabled="agreeDisabled"
-        class="mt-0 mb-2"
-        @update:model-value="onAccepted"
-      />
-
-      <div v-if="showAgreement && agreementAccepted && agreementDateLabel" class="text-caption text-medium-emphasis mt-1">
-        Agreement date: {{ agreementDateLabel }}
-      </div>
     </template>
   </div>
 </template>
@@ -269,8 +269,14 @@ watch(
 <style scoped>
 .agreement-preview {
   background: rgba(0, 0, 0, 0.04);
-  max-height: 320px;
-  overflow: auto;
+  /* Cap height and keep an independent scrollbar so long MD is readable
+     inside the already-scrollable apply/edit dialogs. */
+  max-height: min(60vh, 480px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .agreement-html :deep(h1) {

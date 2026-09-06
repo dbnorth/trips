@@ -231,7 +231,7 @@ const ensurePersonProfileFields = async () => {
     }
   }
 
-  for (const columnName of ["passportCountry", "passportIssueDate", "passportExpireDate"]) {
+  for (const columnName of ["passportCountry", "passportIssueDate", "passportExpireDate", "isPregnant", "pregnancyDueDate"]) {
     const [rows] = await db.sequelize.query(
       `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE()
@@ -261,6 +261,8 @@ const ensureTripPeopleRoleApplicationFields = async () => {
     ["agreementAdultRelationship", "VARCHAR(100) NULL"],
     ["medicalAgreementAccepted", "TINYINT(1) NOT NULL DEFAULT 0"],
     ["medicalAgreementDate", "DATETIME NULL"],
+    ["isPregnant", "TINYINT(1) NULL"],
+    ["pregnancyDueDate", "DATE NULL"],
   ];
 
   for (const [columnName, definition] of columns) {

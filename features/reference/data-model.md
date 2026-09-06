@@ -221,6 +221,10 @@ Notes:
 | agreementAdultRelationship | STRING(100) | |
 | medicalAgreementAccepted | BOOLEAN | required, default `false` |
 | medicalAgreementDate | DATE | |
+| isPregnant | BOOLEAN | nullable; `null` = unanswered; application-scoped (Feature 19) |
+| pregnancyDueDate | DATEONLY | cleared unless `isPregnant` is true |
+| assiginmentDateTime | DATE | |
+| medicalAgreementDate | DATE | |
 | assiginmentDateTime | DATE | |
 | version | INTEGER | required, default `0` |
 

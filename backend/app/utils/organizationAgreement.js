@@ -3,7 +3,9 @@ import path from "path";
 import db from "../models/index.js";
 
 const Organization = db.organization;
-const AGREEMENTS_DIR = "agreements";
+
+/** Directory for agreement Markdown files (override with AGREEMENTS_DIR for tests). */
+export const getAgreementsDir = () => process.env.AGREEMENTS_DIR || "agreements";
 
 export const AGREEMENT_KIND_PARTICIPANT = "participant-agreement";
 export const AGREEMENT_KIND_MEDICAL = "medical-agreement";
@@ -34,18 +36,18 @@ export const agreementVersionRelativePath = (
   kind = AGREEMENT_KIND_PARTICIPANT
 ) =>
   path
-    .join(AGREEMENTS_DIR, `org-${orgId}-${kindSlug(kind)}-${agreementVersionStamp(date)}.md`)
+    .join(getAgreementsDir(), `org-${orgId}-${kindSlug(kind)}-${agreementVersionStamp(date)}.md`)
     .replace(/\\/g, "/");
 
 /** Legacy unversioned path (pre-versioning). */
 export const agreementRelativePath = (orgId, kind = AGREEMENT_KIND_PARTICIPANT) =>
-  path.join(AGREEMENTS_DIR, `org-${orgId}-${kindSlug(kind)}.md`).replace(/\\/g, "/");
+  path.join(getAgreementsDir(), `org-${orgId}-${kindSlug(kind)}.md`).replace(/\\/g, "/");
 
 const versionFileRegex = (orgId, kind = AGREEMENT_KIND_PARTICIPANT) =>
   new RegExp(`^org-${orgId}-${kindSlug(kind)}(?:-(\\d{4}-\\d{2}-\\d{2}-\\d{6}))?\\.md$`);
 
 export const listAgreementVersions = (orgId, kind = AGREEMENT_KIND_PARTICIPANT) => {
-  const dir = path.resolve(AGREEMENTS_DIR);
+  const dir = path.resolve(getAgreementsDir());
   if (!fs.existsSync(dir)) return [];
 
   const re = versionFileRegex(orgId, kind);
@@ -54,7 +56,7 @@ export const listAgreementVersions = (orgId, kind = AGREEMENT_KIND_PARTICIPANT) 
     .map((name) => {
       const match = name.match(re);
       if (!match) return null;
-      const relativePath = path.join(AGREEMENTS_DIR, name).replace(/\\/g, "/");
+      const relativePath = path.join(getAgreementsDir(), name).replace(/\\/g, "/");
       const stamp = match[1] || "0000-00-00-000000";
       let mtimeMs = 0;
       try {
@@ -149,5 +151,3 @@ export const loadOrganizationAgreement = async (
 
 export const loadOrganizationMedicalAgreement = (orgId) =>
   loadOrganizationAgreement(orgId, AGREEMENT_KIND_MEDICAL);
-
-export const AGREEMENTS_DIR_NAME = AGREEMENTS_DIR;
