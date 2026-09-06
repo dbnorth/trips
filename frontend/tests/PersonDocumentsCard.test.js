@@ -1,6 +1,9 @@
 /**
  * Feature 22 — Document Type Number Required & Instructions
  * Spec: features/feature-22-document-number-and-instructions.md
+ *
+ * Feature 24 — Document Type Diploma
+ * Spec: features/feature-24-document-type-diploma.md
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -9,6 +12,7 @@ import PersonDocumentsCard from "../src/components/PersonDocumentsCard.vue";
 import DocumentTypeFormDialog from "../src/components/DocumentTypeFormDialog.vue";
 import DocumentTypeServices from "../src/services/documentTypeServices.js";
 import PersonDocumentServices from "../src/services/personDocumentServices.js";
+import { DOCUMENT_TYPE_OPTIONS } from "../src/utils/documentTypes.js";
 import { mountWithPlugins } from "./testUtils.js";
 
 vi.mock("../src/services/documentTypeServices.js", () => ({
@@ -114,6 +118,24 @@ describe("Feature 22 — Document number & instructions", () => {
       documentNumberRequired: true,
       instructions: "Bring original.",
     });
+
+    wrapper.unmount();
+  });
+
+  it("Admin type dropdown includes Diploma", async () => {
+    expect(DOCUMENT_TYPE_OPTIONS.map((o) => o.value)).toContain("diploma");
+    expect(DOCUMENT_TYPE_OPTIONS.find((o) => o.value === "diploma")?.title).toBe("Diploma");
+
+    const { wrapper } = await mountWithPlugins(DocumentTypeFormDialog, {
+      props: { modelValue: true },
+      global: { stubs: { VDialog: dialogStub } },
+    });
+    await flushPromises();
+
+    const typeSelect = wrapper.findAllComponents({ name: "VSelect" })[0];
+    const items = typeSelect.props("items") || [];
+    expect(items.map((i) => i.value)).toContain("diploma");
+    expect(items.find((i) => i.value === "diploma")?.title).toBe("Diploma");
 
     wrapper.unmount();
   });

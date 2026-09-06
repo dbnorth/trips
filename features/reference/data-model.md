@@ -19,7 +19,7 @@ Notes:
 | `role` | 2 | Role catalog |
 | `orgPeopleRole` | 2 | Person ↔ org ↔ role |
 | `organization` | 3 | Sponsors / branding / agreement file |
-| `documentType` | 4, 22 | Passport / medical licence catalog |
+| `documentType` | 4, 22, 24 | Passport / medical licence / certification / diploma catalog |
 | `personDocument` | 4, 22 | Uploaded person documents |
 | `trip` | 5 | Trip catalog |
 | `tripPeopleRole` | 5, 7 | Leaders, applications, participants |
@@ -153,7 +153,7 @@ Notes:
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
 | description | STRING(255) | required |
-| type | ENUM(`medical_licence`,`passport`,`certification`) | required (`certification` — Feature 22) |
+| type | ENUM(`medical_licence`,`passport`,`certification`,`diploma`) | required (`certification` — Feature 22; `diploma` — Feature 24) |
 | documentNumberRequired | BOOLEAN | required, default `false` (Feature 22) |
 | instructions | TEXT | nullable (Feature 22) |
 
