@@ -185,7 +185,8 @@ export const getDonationTotalsByTripIds = async (tripIds) => {
   return map;
 };
 
-export const syncTripLeaders = async (tripId, orgId, leaderPeopleIds = []) => {
+export const syncTripLeaders = async (tripId, orgId, leaderPeopleIds = [], options = {}) => {
+  const { transaction } = options;
   const roleId = await getTripLeaderRoleId();
   const allowedIds = await getOrgTripLeaderPeopleIds(orgId);
 
@@ -203,25 +204,31 @@ export const syncTripLeaders = async (tripId, orgId, leaderPeopleIds = []) => {
     }
   }
 
-  const existing = await db.tripPeopleRole.findAll({ where: { tripId, roleId } });
+  const existing = await db.tripPeopleRole.findAll({
+    where: { tripId, roleId },
+    transaction,
+  });
   const existingIds = new Set(existing.map((r) => Number(r.peopleId)));
   const desiredIds = new Set(normalized);
 
   for (const row of existing) {
     if (!desiredIds.has(Number(row.peopleId))) {
-      await row.destroy();
+      await row.destroy({ transaction });
     }
   }
 
   for (const peopleId of normalized) {
     if (!existingIds.has(peopleId)) {
-      await db.tripPeopleRole.create({
-        tripId,
-        peopleId,
-        roleId,
-        status: "approved",
-        assiginmentDateTime: new Date(),
-      });
+      await db.tripPeopleRole.create(
+        {
+          tripId,
+          peopleId,
+          roleId,
+          status: "approved",
+          assiginmentDateTime: new Date(),
+        },
+        { transaction }
+      );
     }
   }
 };

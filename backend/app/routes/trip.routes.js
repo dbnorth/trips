@@ -27,6 +27,7 @@ router.put("/browse/:id/application", [authenticate], tripBrowse.updateApplicati
 router.get("/", [authenticate], trips.findAll);
 router.get("/:id", [authenticate], trips.findOne);
 router.post("/", [authenticate], trips.create);
+router.post("/:id/copy", [authenticate], trips.copy);
 router.put("/:id", [authenticate], trips.update);
 router.put("/:id/image", [authenticate], handleTripImageUpload, trips.uploadImage);
 router.delete("/:id", [authenticate], trips.delete);
