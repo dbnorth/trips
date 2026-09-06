@@ -66,6 +66,7 @@ const buildAuthPayload = async (user, token) => {
     isAdmin: user.isAdmin,
     personId: person?.id ?? null,
     firstName: person?.firstName ?? "",
+    middleName: person?.middleName ?? "",
     lastName: person?.lastName ?? "",
     orgRoles: orgRoles.map((r) => ({
       orgId: r.orgId,
@@ -148,7 +149,7 @@ exports.login = async (req, res) => {
 };
 
 exports.register = async (req, res) => {
-  const { email, password, firstName, lastName, orgIds, subdomain } = req.body;
+  const { email, password, firstName, middleName, lastName, orgIds, subdomain } = req.body;
   if (!email?.trim() || !password || !firstName?.trim() || !lastName?.trim()) {
     return res.status(400).send({ message: "First name, last name, email, and password are required." });
   }
@@ -198,9 +199,15 @@ exports.register = async (req, res) => {
       });
     }
 
+    const middleTrimmed =
+      middleName == null || String(middleName).trim() === ""
+        ? null
+        : String(middleName).trim();
+
     const user = await ensureUserForEmail(emailNorm, password);
     const person = await upsertPersonForUser(user, {
       firstName,
+      middleName: middleTrimmed,
       lastName,
       emailNorm,
     });

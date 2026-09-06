@@ -5,6 +5,7 @@ const Person = SequelizeInstance.define("person", {
   id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
   userId: { type: Sequelize.INTEGER, allowNull: true },
   firstName: { type: Sequelize.STRING, allowNull: false },
+  middleName: { type: Sequelize.STRING, allowNull: true },
   lastName: { type: Sequelize.STRING, allowNull: false },
   email: { type: Sequelize.STRING },
   addLine1: { type: Sequelize.STRING },

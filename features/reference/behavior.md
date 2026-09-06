@@ -22,7 +22,7 @@ They do **not** authorize new scope — implement only from `features/feature-*.
 | System admin People list with no acting org (“All organizations”) returns **all** persons, including those with no org membership | `person.controller` `findAll` | Feature 11 |
 | Trip role privileges use **approved** `tripPeopleRole` only | `authenticate` loads `tripRoles` | Feature 7 |
 | Acting org header `X-Acting-Organization-Id` scopes lists for system admins | Axios + accessControl | Features 2–5 |
-| Person profile completeness gates applications | `isProfileComplete` | Features 2, 7 |
+| Person optional at register; **required for profile completeness** / application applied; create-account and add/edit person show it after first name; display/list names include it when set; public URL slugs use first+last only | `person.middleName`, Login/Apply create-account, Add/Edit person, `isProfileComplete` | Feature 19 |
 | When `takesMedication` is true, ≥1 org medical condition must be selected for profile completeness; catalog is org-scoped; selections persist on the person | `PersonProfileFields`, `person.controller`, `isProfileComplete` | Feature 17 |
 | Application status auto `incomplete`/`applied`; staff set `approved`/`declined`/`cancelled` | `tripParticipantApplicationStatus.js` | Feature 7 |
 | Under-18 agreement requires adult signer fields | Application completeness helpers | Feature 7 |

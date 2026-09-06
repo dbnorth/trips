@@ -160,6 +160,7 @@ const ensureTripPeopleRoleTripWorkerRoleId = async () => {
 
 const ensurePersonProfileFields = async () => {
   const columns = [
+    ["middleName", "VARCHAR(255) NULL AFTER firstName"],
     ["birthDate", "DATE NULL"],
     ["gender", "ENUM('male', 'female') NULL"],
     ["emergencyContactName", "VARCHAR(255) NULL"],

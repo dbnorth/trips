@@ -125,6 +125,7 @@ export const createSystemAdminUser = async ({
 export const completePersonProfile = async (personId, overrides = {}) => {
   await db.person.update(
     {
+      middleName: "Ann",
       addLine1: "123 Main St",
       city: "Springfield",
       country: "US",

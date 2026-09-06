@@ -6,7 +6,7 @@ import {
   tripParticipantStatusColor,
 } from "../utils/tripParticipantStatus.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
-import { isUnder18 } from "../utils/personProfile.js";
+import { isUnder18, personDisplayName } from "../utils/personProfile.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -36,11 +36,9 @@ const dialogTitle = computed(() => {
   return "View application";
 });
 
-const participantName = computed(() => {
-  const p = application.value?.person;
-  if (!p) return "Participant";
-  return `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Participant";
-});
+const participantName = computed(() =>
+  personDisplayName(application.value?.person, "Participant")
+);
 
 const workerRoleName = computed(
   () => application.value?.tripWorkerRole?.workerRole?.name || "—"

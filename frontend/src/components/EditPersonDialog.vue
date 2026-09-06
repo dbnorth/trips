@@ -85,6 +85,7 @@ function emptyForm() {
     id: null,
     userId: null,
     firstName: "",
+    middleName: "",
     lastName: "",
     email: "",
     addLine1: "",
@@ -399,6 +400,7 @@ const save = async () => {
 
     const payload = {
       firstName: form.value.firstName.trim(),
+      middleName: form.value.middleName?.trim() || null,
       lastName: form.value.lastName.trim(),
       email: form.value.email?.trim() || null,
       country: address.country || null,
@@ -421,16 +423,20 @@ const save = async () => {
         ? form.value.allergiesDescription?.trim() || null
         : null,
       takesMedication: normalizeYesNo(form.value.takesMedication),
-      medicalConditionIds: form.value.takesMedication === true
-        ? form.value.medicalConditionIds || []
-        : [],
-      orgId: resolvedMedicalOrgId.value ?? undefined,
       currentChurchHome: form.value.currentChurchHome?.trim() || null,
       currentChurchHomeCity: form.value.currentChurchHomeCity?.trim() || null,
       currentChurchHomeStateProv: form.value.currentChurchHomeStateProv?.trim() || null,
       bioText: form.value.bioText?.trim() || null,
       version: form.value.version,
     };
+
+    if (resolvedMedicalOrgId.value != null) {
+      payload.medicalConditionIds =
+        form.value.takesMedication === true
+          ? form.value.medicalConditionIds || []
+          : [];
+      payload.orgId = resolvedMedicalOrgId.value;
+    }
 
     if (isSystemAdmin.value && form.value.email?.trim()) {
       payload.isAdmin = !!form.value.isAdmin;
@@ -466,6 +472,7 @@ const save = async () => {
         <template v-if="!loading">
           <v-form ref="formRef" @submit.prevent="save">
           <v-text-field v-model="form.firstName" label="First name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'First name is required']" />
+          <v-text-field v-model="form.middleName" label="Middle name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'Middle name is required']" />
           <v-text-field v-model="form.lastName" label="Last name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'Last name is required']" />
           <v-text-field
             v-model="form.email"

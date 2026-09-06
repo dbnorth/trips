@@ -36,8 +36,9 @@ These `feature-*.md` files are a **reverse-spec** of the imported Mission Trips 
 | 16 | [feature-16-default-country-united-states.md](./feature-16-default-country-united-states.md) | `feature/16-default-country-united-states` | 2, 3, 4, 5, 8 |
 | 17 | [feature-17-org-medical-conditions.md](./feature-17-org-medical-conditions.md) | `feature/17-org-medical-conditions` | 2, 3, 7 |
 | 18 | [feature-18-org-medical-agreement.md](./feature-18-org-medical-agreement.md) | `feature/18-org-medical-agreement` | 3, 7, 17 |
+| 19 | [feature-19-person-middle-name.md](./feature-19-person-middle-name.md) | `feature/19-person-middle-name` | 1, 2 |
 
-Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18).
+Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19).
 
 New features: follow [framework.md](./framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, Gherkin, **Agent implementation request**, **Definition of Done**.
 

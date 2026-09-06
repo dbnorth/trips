@@ -32,7 +32,7 @@ const form = ref({
   whygoText: "",
 });
 
-const personLabel = (p) => `${p.firstName || ""} ${p.lastName || ""}`.trim();
+const personLabel = (p) => [p.firstName, p.middleName, p.lastName].filter(Boolean).join(" ").trim();
 
 const tripWorkerRoleLabel = (row) => {
   const name = row.workerRole?.name || "Worker role";

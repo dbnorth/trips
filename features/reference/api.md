@@ -42,7 +42,7 @@
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | `POST` | `/trips/login` | none | Sign in; session token |
-| `POST` | `/trips/register` | none | Register user + person; optional `orgIds`; optional `subdomain` (Feature 15 — binds Trip Participant to matching org) |
+| `POST` | `/trips/register` | none | Register user + person; optional `orgIds`; optional `subdomain` (Feature 15 — binds Trip Participant to matching org); optional `middleName` (Feature 19) |
 | `GET` | `/trips/register/organizations` | none | Orgs for registration UI |
 | `GET` | `/trips/register/organizations/by-subdomain/:subdomain` | none | Resolve `{ id, name, subdomain }` or `404` (Feature 15) |
 | `POST` | `/trips/logout` | none | Invalidate session (token in body) |

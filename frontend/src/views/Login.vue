@@ -13,6 +13,7 @@ const email = ref("");
 const password = ref("");
 const confirmPassword = ref("");
 const firstName = ref("");
+const middleName = ref("");
 const lastName = ref("");
 const selectedOrgIds = ref([]);
 const organizations = ref([]);
@@ -67,6 +68,7 @@ const register = () => {
   loading.value = true;
   const payload = {
     firstName: firstName.value,
+    middleName: middleName.value?.trim() || null,
     lastName: lastName.value,
     email: email.value,
     password: password.value,
@@ -128,6 +130,7 @@ const showLogin = () => {
   formError.value = "";
   confirmPassword.value = "";
   firstName.value = "";
+  middleName.value = "";
   lastName.value = "";
   selectedOrgIds.value = [];
 };
@@ -168,6 +171,7 @@ onMounted(() => {
 
             <template v-else>
               <v-text-field v-model="firstName" label="First name" autocomplete="given-name" />
+              <v-text-field v-model="middleName" label="Middle name" autocomplete="additional-name" />
               <v-text-field v-model="lastName" label="Last name" autocomplete="family-name" />
               <v-text-field v-model="email" label="Email" type="email" autocomplete="email" />
               <v-text-field v-model="password" label="Password" type="password" autocomplete="new-password" />
