@@ -9,6 +9,7 @@ import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import { TRIP_PARTICIPANT_STATUSES } from "../models/tripPeopleRole.model.js";
 import {
   arePersonDocumentsUploaded,
+  isRequiredPassportUploaded,
   isRequiredRoleDocumentUploaded,
   loadPersonDocumentsForCompleteness,
   loadWorkerRoleDocumentRequirements,
@@ -116,7 +117,7 @@ const computeStatusForPayload = async (payload, orgId) => {
   const trip =
     payload.tripId != null
       ? await Trip.findByPk(payload.tripId, {
-          attributes: ["id", "startDate", "endDate"],
+          attributes: ["id", "startDate", "endDate", "requirePassport"],
         })
       : null;
   const agreement = orgId != null ? await loadOrganizationAgreement(orgId) : null;
@@ -127,6 +128,7 @@ const computeStatusForPayload = async (payload, orgId) => {
     !!medicalAgreement?.content?.trim() &&
     (person?.takesMedication === true || person?.takesMedication === 1);
   const pregnancy = normalizeApplicationPregnancy(payload, { gender: person?.gender ?? null });
+  const documentCompareDate = tripDocumentCompareDate(trip);
   return resolveAppliedOrIncompleteStatus({
     person,
     tripWorkerRoleId: payload.tripWorkerRoleId,
@@ -151,7 +153,12 @@ const computeStatusForPayload = async (payload, orgId) => {
     requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
       documents: personDocuments,
       documentTypeId,
-      compareDate: tripDocumentCompareDate(trip),
+      compareDate: documentCompareDate,
+    }),
+    requiredPassportUploaded: isRequiredPassportUploaded({
+      documents: personDocuments,
+      requirePassport: !!trip?.requirePassport,
+      compareDate: documentCompareDate,
     }),
     orgId,
   });
