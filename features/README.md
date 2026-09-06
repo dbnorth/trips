@@ -44,8 +44,9 @@ These `feature-*.md` files are a **reverse-spec** of the imported Mission Trips 
 | 24 | [feature-24-document-type-diploma.md](./feature-24-document-type-diploma.md) | `feature/24-document-type-diploma` | 4, 22 |
 | 25 | [feature-25-worker-role-required-documents.md](./feature-25-worker-role-required-documents.md) | `feature/25-worker-role-required-documents` | 4, 6, 7, 22 |
 | 26 | [feature-26-role-capacity-and-cancel.md](./feature-26-role-capacity-and-cancel.md) | `feature/26-role-capacity-and-cancel` | 6, 7 |
+| 27 | [feature-27-application-submit-unavailable-info.md](./feature-27-application-submit-unavailable-info.md) | `feature/27-application-submit-unavailable-info` | 7 |
 
-Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26).
+Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27).
 
 New features: follow [framework.md](./framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, Gherkin, **Agent implementation request**, **Definition of Done**.
 

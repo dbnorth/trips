@@ -17,8 +17,6 @@ const props = defineProps({
   medicalAgreementContent: { type: String, default: "" },
   medicalAgreementAccepted: { type: Boolean, default: false },
   medicalAgreementDate: { type: [String, Date], default: null },
-  /** When false, I Agree is disabled until profile + application are complete. */
-  canAgree: { type: Boolean, default: true },
   disabled: { type: Boolean, default: false },
 });
 
@@ -39,7 +37,6 @@ const showMedicalContent = computed(() => !!props.medicalAgreementContent?.trim(
 const showSignatureBlock = computed(
   () => showAgreement.value || (props.showMedicalAgreement && showMedicalContent.value)
 );
-const agreeDisabled = computed(() => props.disabled || !props.canAgree);
 
 const agreementDateLabel = computed(() => formatAgreementDate(props.agreementDate));
 const medicalAgreementDateLabel = computed(() => formatAgreementDate(props.medicalAgreementDate));
@@ -77,7 +74,7 @@ const clearAdultFields = () => {
 };
 
 const onAccepted = (value) => {
-  if (agreeDisabled.value) return;
+  if (props.disabled) return;
   emit("update:agreementAccepted", !!value);
   if (!value) {
     emit("update:agreementSignatureName", "");
@@ -86,25 +83,13 @@ const onAccepted = (value) => {
 };
 
 const onMedicalAccepted = (value) => {
-  if (agreeDisabled.value) return;
+  if (props.disabled) return;
   emit("update:medicalAgreementAccepted", !!value);
 };
 
 const onSignature = (value) => {
   emit("update:agreementSignatureName", value ?? "");
 };
-
-watch(
-  () => props.canAgree,
-  (ok) => {
-    if (!ok && props.agreementAccepted) {
-      emit("update:agreementAccepted", false);
-    }
-    if (!ok && props.medicalAgreementAccepted) {
-      emit("update:medicalAgreementAccepted", false);
-    }
-  }
-);
 
 watch(
   () => props.showMedicalAgreement,
@@ -203,41 +188,13 @@ watch(
     </div>
 
     <template v-if="showSignatureBlock">
-      <div class="text-body-2 mb-2 mt-2">
-        I agree and understand that by typing my name below that it serves as my electronic
-        signature and it is the legal equivalent of my manual/handwritten signature and I consent
-        to be legally bound to each agreement I accept using the I agree checkboxes below.
-      </div>
-
-      <v-text-field
-        :model-value="agreementSignatureName"
-        :label="signatureLabel"
-        density="compact"
-        autocomplete="name"
-        :disabled="disabled"
-        :hint="signatureHint"
-        persistent-hint
-        class="mb-3"
-        @update:model-value="onSignature"
-      />
-
-      <v-alert
-        v-if="!canAgree"
-        type="info"
-        density="compact"
-        variant="tonal"
-        class="mb-2"
-      >
-        Your profile and application must be complete before you can agree to this agreement.
-      </v-alert>
-
       <v-checkbox
         v-if="showAgreement"
         :model-value="agreementAccepted"
         label="I agree to the Participation agreement"
         density="compact"
         hide-details
-        :disabled="agreeDisabled"
+        :disabled="disabled"
         class="mt-0 mb-2"
         @update:model-value="onAccepted"
       />
@@ -252,7 +209,7 @@ watch(
         label="I agree to the medical agreement"
         density="compact"
         hide-details
-        :disabled="agreeDisabled"
+        :disabled="disabled"
         class="mt-0 mb-2"
         @update:model-value="onMedicalAccepted"
       />
@@ -262,6 +219,24 @@ watch(
       >
         Medical agreement date: {{ medicalAgreementDateLabel }}
       </div>
+
+      <div class="text-body-2 mb-2 mt-2">
+        I agree and understand that by typing my name below that it serves as my electronic
+        signature and it is the legal equivalent of my manual/handwritten signature and I consent
+        to be legally bound to each agreement I accept using the I agree checkboxes above.
+      </div>
+
+      <v-text-field
+        :model-value="agreementSignatureName"
+        :label="signatureLabel"
+        density="compact"
+        autocomplete="name"
+        :disabled="disabled"
+        :hint="signatureHint"
+        persistent-hint
+        class="mb-3"
+        @update:model-value="onSignature"
+      />
     </template>
   </div>
 </template>
@@ -269,14 +244,7 @@ watch(
 <style scoped>
 .agreement-preview {
   background: rgba(0, 0, 0, 0.04);
-  /* Cap height and keep an independent scrollbar so long MD is readable
-     inside the already-scrollable apply/edit dialogs. */
-  max-height: min(60vh, 480px);
   overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
 }
 
 .agreement-html :deep(h1) {

@@ -4,8 +4,6 @@ const Person = db.person;
 const TripWorkerRole = db.tripWorkerRole;
 const WorkerRole = db.workerRole;
 
-const LICENSE_STATUSES = ["yes", "yes_retired", "no"];
-
 const isBlank = (value) => value == null || String(value).trim() === "";
 
 /** Age under 18 as of a given date (defaults to today). */
@@ -179,7 +177,6 @@ export const isApplicationComplete = ({
 }) => {
   if (tripWorkerRoleId == null || tripWorkerRoleId === "") return false;
   if (!willSelfFund && !willRaiseFunds) return false;
-  if (licenseRequired && !LICENSE_STATUSES.includes(licenseStatus)) return false;
   if (hasPreferredRoommate && isBlank(preferredRoommateNames)) return false;
   if (!travelOptionsComplete) return false;
   if (!personDocumentsUploaded) return false;

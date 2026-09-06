@@ -57,10 +57,6 @@ const workerRoleName = computed(
   () => application.value?.tripWorkerRole?.workerRole?.name || "—"
 );
 
-const licenseRequired = computed(
-  () => !!application.value?.tripWorkerRole?.workerRole?.licenseRequired
-);
-
 const under18 = computed(() => isUnder18(application.value?.person?.birthDate));
 
 const selectedTravelOptions = computed(() => {
@@ -68,13 +64,6 @@ const selectedTravelOptions = computed(() => {
   if (!Array.isArray(options)) return [];
   return options.filter((o) => o && o.selected);
 });
-
-const licenseLabel = (value) => {
-  if (value === "yes") return "Yes";
-  if (value === "yes_retired") return "Yes, retired";
-  if (value === "no") return "No";
-  return "—";
-};
 
 const formatCost = (value) => (value != null ? formatMoneyDisplay(value) : "—");
 
@@ -255,14 +244,6 @@ const confirmUncancelApplication = async () => {
             <div class="text-caption text-medium-emphasis">Will raise funds</div>
             <div>{{ yesNo(application.willRaiseFunds) }}</div>
           </div>
-
-          <template v-if="licenseRequired">
-            <div class="text-subtitle-2 mb-2 mt-4">License</div>
-            <div class="mb-3">
-              <div class="text-caption text-medium-emphasis">License status</div>
-              <div>{{ licenseLabel(application.licenseStatus) }}</div>
-            </div>
-          </template>
 
           <div class="text-subtitle-2 mb-2 mt-4">Roommate preference</div>
           <div class="mb-2">
