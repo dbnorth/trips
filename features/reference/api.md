@@ -94,6 +94,8 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `PUT` | `/trips/organizations/:id/logo` | auth | Logo (`multipart` field `logo`) |
 | `GET` | `/trips/organizations/:id/agreement` | auth | Agreement markdown |
 | `PUT` | `/trips/organizations/:id/agreement` | auth | Save agreement `{ content }` |
+| `GET` | `/trips/organizations/:id/medical-agreement` | auth | Medical agreement markdown |
+| `PUT` | `/trips/organizations/:id/medical-agreement` | auth | Save medical agreement `{ content }` |
 | `DELETE` | `/trips/organizations/:id` | sysadmin | Delete |
 
 ---
@@ -173,8 +175,8 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `GET` | `/trips/trips/browse/orgs` | auth | Browse orgs |
 | `GET` | `/trips/trips/browse/mine` | auth | My trips |
 | `GET` | `/trips/trips/browse` | auth | Active trips (`?orgId=`) |
-| `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreement/options |
-| `POST` | `/trips/trips/browse/:id/apply` | auth | Apply |
+| `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreements/options |
+| `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance) |
 | `GET` | `/trips/trips/browse/:id/application` | auth | Own application |
 | `PUT` | `/trips/trips/browse/:id/application` | auth | Update application |
 | `GET` | `/trips/trip-people-roles` | auth | Roster (`?tripId=`) |

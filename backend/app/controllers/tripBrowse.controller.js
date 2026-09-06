@@ -9,7 +9,7 @@ import {
   resolveAppliedOrIncompleteStatus,
   isUnder18,
 } from "../utils/tripParticipantApplicationStatus.js";
-import { loadOrganizationAgreement } from "../utils/organizationAgreement.js";
+import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
 
 const Trip = db.trip;
@@ -210,6 +210,27 @@ const parseAgreementSignature = (body, { agreementRequired, participantUnder18 }
     agreementAdultRelationship: participantUnder18 ? agreementAdultRelationship : null,
   };
 };
+
+const parseMedicalAgreementAcceptance = (body, { medicalAgreementRequired }) => {
+  const medicalAgreementAccepted = parseBool(body?.medicalAgreementAccepted);
+  if (!medicalAgreementRequired || !medicalAgreementAccepted) {
+    return {
+      ok: true,
+      medicalAgreementAccepted: false,
+      medicalAgreementDate: null,
+    };
+  }
+  return {
+    ok: true,
+    medicalAgreementAccepted: true,
+    medicalAgreementDate: new Date(),
+  };
+};
+
+const medicalAgreementRequiredForPerson = (medicalAgreement, person) =>
+  !!medicalAgreement?.exists &&
+  !!medicalAgreement?.content?.trim() &&
+  (person?.takesMedication === true || person?.takesMedication === 1);
 const orgInclude = {
   model: db.organization,
   as: "organization",
@@ -466,6 +487,7 @@ exports.getBrowseTrip = async (req, res) => {
 
     const rolesNeeded = await loadTripRolesNeeded(trip.id);
     const participantAgreement = await loadOrganizationAgreement(trip.orgId);
+    const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const travelOptions = await loadTravelOptionsForApplication(trip.id, assignment?.id);
     const tripLeaders = await getTripLeadersForDisplay(trip.id);
 
@@ -496,6 +518,7 @@ exports.getBrowseTrip = async (req, res) => {
       myTripInfo,
       tripLeaders,
       participantAgreement,
+      medicalAgreement,
       travelOptions,
     });
   } catch (err) {
@@ -565,11 +588,14 @@ exports.applyToTrip = async (req, res) => {
       : null;
 
     const participantAgreement = await loadOrganizationAgreement(trip.orgId);
+    const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const agreementRequired = !!participantAgreement.exists && !!participantAgreement.content?.trim();
     const person = await loadPersonForCompleteness(peopleId);
+    const medicalAgreementRequired = medicalAgreementRequiredForPerson(medicalAgreement, person);
     const participantUnder18 = isUnder18(person?.birthDate);
     const agreement = parseAgreementSignature(req.body, { agreementRequired, participantUnder18 });
     if (!agreement.ok) return res.status(400).send({ message: agreement.message });
+    const medical = parseMedicalAgreementAcceptance(req.body, { medicalAgreementRequired });
 
     const travelOptions = await loadTripTravelOptions(trip.id);
     const selectedTravelOptionIds = parseSelectedTravelOptionIds(req.body);
@@ -605,6 +631,8 @@ exports.applyToTrip = async (req, res) => {
       agreementAdultLastName: agreement.agreementAdultLastName,
       agreementAdultEmail: agreement.agreementAdultEmail,
       agreementAdultRelationship: agreement.agreementAdultRelationship,
+      medicalAgreementRequired,
+      medicalAgreementAccepted: medical.medicalAgreementAccepted,
       travelOptionsComplete: !selectionCheck.missingSelection,
       orgId: trip.orgId,
     });
@@ -628,6 +656,8 @@ exports.applyToTrip = async (req, res) => {
       agreementAdultLastName: agreement.agreementAdultLastName,
       agreementAdultEmail: agreement.agreementAdultEmail,
       agreementAdultRelationship: agreement.agreementAdultRelationship,
+      medicalAgreementAccepted: medical.medicalAgreementAccepted,
+      medicalAgreementDate: medical.medicalAgreementDate,
       assiginmentDateTime: new Date(),
     });
 
@@ -697,6 +727,7 @@ exports.getApplication = async (req, res) => {
 
     const rolesNeeded = await loadTripRolesNeeded(trip.id);
     const participantAgreement = await loadOrganizationAgreement(trip.orgId);
+    const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const travelOptions = await loadTravelOptionsForApplication(trip.id, assignment.id);
     res.send({
       trip,
@@ -705,6 +736,7 @@ exports.getApplication = async (req, res) => {
       applicationStatus: assignment.status,
       canEdit: EDITABLE_APPLICATION_STATUSES.includes(assignment.status),
       participantAgreement,
+      medicalAgreement,
       travelOptions,
     });
   } catch (err) {
@@ -771,11 +803,14 @@ exports.updateApplication = async (req, res) => {
       : null;
 
     const participantAgreement = await loadOrganizationAgreement(trip.orgId);
+    const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const agreementRequired = !!participantAgreement.exists && !!participantAgreement.content?.trim();
     const person = await loadPersonForCompleteness(peopleId);
+    const medicalAgreementRequired = medicalAgreementRequiredForPerson(medicalAgreement, person);
     const participantUnder18 = isUnder18(person?.birthDate);
     const agreement = parseAgreementSignature(req.body, { agreementRequired, participantUnder18 });
     if (!agreement.ok) return res.status(400).send({ message: agreement.message });
+    const medical = parseMedicalAgreementAcceptance(req.body, { medicalAgreementRequired });
 
     const travelOptions = await loadTripTravelOptions(trip.id);
     const selectedTravelOptionIds = parseSelectedTravelOptionIds(req.body);
@@ -803,6 +838,8 @@ exports.updateApplication = async (req, res) => {
       agreementAdultLastName: agreement.agreementAdultLastName,
       agreementAdultEmail: agreement.agreementAdultEmail,
       agreementAdultRelationship: agreement.agreementAdultRelationship,
+      medicalAgreementRequired,
+      medicalAgreementAccepted: medical.medicalAgreementAccepted,
       travelOptionsComplete: !selectionCheck.missingSelection,
       orgId: trip.orgId,
     });
@@ -829,6 +866,14 @@ exports.updateApplication = async (req, res) => {
           ? assignment.agreementDate || agreement.agreementDate
           : null;
 
+    const medicalAgreementDate =
+      medical.medicalAgreementAccepted &&
+      (!assignment.medicalAgreementAccepted)
+        ? medical.medicalAgreementDate
+        : medical.medicalAgreementAccepted
+          ? assignment.medicalAgreementDate || medical.medicalAgreementDate
+          : null;
+
     await assignment.update({
       tripWorkerRoleId,
       willSelfFund,
@@ -844,6 +889,8 @@ exports.updateApplication = async (req, res) => {
       agreementAdultLastName: agreement.agreementAdultLastName,
       agreementAdultEmail: agreement.agreementAdultEmail,
       agreementAdultRelationship: agreement.agreementAdultRelationship,
+      medicalAgreementAccepted: medical.medicalAgreementAccepted,
+      medicalAgreementDate,
       status,
       version: Number(assignment.version) + 1,
     });
@@ -858,6 +905,7 @@ exports.updateApplication = async (req, res) => {
       applicationStatus: status,
       alreadyApplied: true,
       participantAgreement,
+      medicalAgreement,
       travelOptions: travelOptionsWithSelection,
     });
   } catch (err) {

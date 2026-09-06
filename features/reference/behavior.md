@@ -26,6 +26,7 @@ They do **not** authorize new scope — implement only from `features/feature-*.
 | When `takesMedication` is true, ≥1 org medical condition must be selected for profile completeness; catalog is org-scoped; selections persist on the person | `PersonProfileFields`, `person.controller`, `isProfileComplete` | Feature 17 |
 | Application status auto `incomplete`/`applied`; staff set `approved`/`declined`/`cancelled` | `tripParticipantApplicationStatus.js` | Feature 7 |
 | Under-18 agreement requires adult signer fields | Application completeness helpers | Feature 7 |
+| Org medical agreement Markdown (parallel to participant); shown on application when `takesMedication` is Yes; required **I agree to the medical agreement**; participant checkbox label **I agree to the Participation agreement**; shared e-signature text covers I agree checkboxes | `organizationAgreement.js`, org dialogs, `ParticipantAgreementSection`, browse apply/update | Feature 18 |
 | System admins cannot use browse/apply UI routes | `router.js` `canBrowseAndApplyToTrips` | Feature 7 |
 | Public pages unauthenticated; slug spaces → `_` | `/public/*`, donate URLs | Feature 9 |
 | Organization optional unique `subdomain`; create-account on `{subdomain}.…` hides org picker and registers into that org | `organizationSubdomain.js`, `auth.controller` register, Login/Apply create-account | Feature 15 |

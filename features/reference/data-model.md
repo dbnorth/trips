@@ -123,6 +123,7 @@ Notes:
 | instagram | STRING(255) | |
 | logo | STRING(500) | |
 | agreementFileName | STRING(500) | Markdown path under `agreements/` |
+| medicalAgreementFileName | STRING(500) | Medical agreement Markdown path under `agreements/` |
 | colorFamily | STRING(50) | UI theme |
 | subdomain | STRING(63) | optional, unique (lowercase); org branded host label — Feature 15 |
 | version | INTEGER | required, default `0` |
@@ -218,6 +219,8 @@ Notes:
 | agreementAdultFirstName, agreementAdultLastName | STRING(100) | |
 | agreementAdultEmail | STRING(255) | |
 | agreementAdultRelationship | STRING(100) | |
+| medicalAgreementAccepted | BOOLEAN | required, default `false` |
+| medicalAgreementDate | DATE | |
 | assiginmentDateTime | DATE | |
 | version | INTEGER | required, default `0` |
 

@@ -12,6 +12,7 @@
 ## User Stories
 
 ### US-17.1: Maintain organization medical conditions
+
 **As an** Org Admin  
 **I want to** add, edit, and remove medical condition names for my organization  
 **So that** applicants can pick from our standard list when they take medication
@@ -21,6 +22,7 @@
 **Acceptance scenarios:** see ### US-17.1
 
 ### US-17.2: Select medical conditions when taking medication
+
 **As a** trip applicant (or person editing their profile)  
 **I want** a multi-select of my org’s medical conditions to appear when I answer “Take medication?” Yes  
 **So that** I can record which conditions apply to me
@@ -30,6 +32,7 @@
 **Acceptance scenarios:** see ### US-17.2
 
 ### US-17.3: Reload prior selections on a later application
+
 **As a** trip applicant who already selected medical conditions for an organization  
 **I want** those selections pre-checked when I apply to another trip for the same org  
 **So that** I do not re-enter the same health information
@@ -109,15 +112,15 @@
 
 ## API Requirements
 
-| Method | Endpoint | Auth | Purpose |
-|--------|----------|------|---------|
-| `GET` | `/trips/medical-conditions` | Yes | List conditions for `?orgId=` (org members / applicants for that org’s trips, Org Admin, System Admin) |
-| `GET` | `/trips/medical-conditions/:id` | Yes | Get one (org-scoped access) |
-| `POST` | `/trips/medical-conditions` | Yes | Create (`orgId`, `name`) — Org Admin / System Admin |
-| `PUT` | `/trips/medical-conditions/:id` | Yes | Update name — Org Admin / System Admin |
-| `DELETE` | `/trips/medical-conditions/:id` | Yes | Delete + cascade person links — Org Admin / System Admin |
-| `GET` | `/trips/people/:id` (or profile payload) | Yes | Include selected `medicalConditionIds` (and/or nested `{ id, name }`) for response consumers |
-| `PUT` | `/trips/people/:id` (profile update) | Yes | Accept `medicalConditionIds: number[]` when saving profile; enforce FR-005 / FR-009 / FR-010 |
+| Method   | Endpoint                                 | Auth | Purpose                                                                                                |
+| -------- | ---------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------ |
+| `GET`    | `/trips/medical-conditions`              | Yes  | List conditions for `?orgId=` (org members / applicants for that org’s trips, Org Admin, System Admin) |
+| `GET`    | `/trips/medical-conditions/:id`          | Yes  | Get one (org-scoped access)                                                                            |
+| `POST`   | `/trips/medical-conditions`              | Yes  | Create (`orgId`, `name`) — Org Admin / System Admin                                                    |
+| `PUT`    | `/trips/medical-conditions/:id`          | Yes  | Update name — Org Admin / System Admin                                                                 |
+| `DELETE` | `/trips/medical-conditions/:id`          | Yes  | Delete + cascade person links — Org Admin / System Admin                                               |
+| `GET`    | `/trips/people/:id` (or profile payload) | Yes  | Include selected `medicalConditionIds` (and/or nested `{ id, name }`) for response consumers           |
+| `PUT`    | `/trips/people/:id` (profile update)     | Yes  | Accept `medicalConditionIds: number[]` when saving profile; enforce FR-005 / FR-009 / FR-010           |
 
 **Payload notes:**
 
@@ -130,13 +133,13 @@
 
 ## Screen Requirements
 
-| Route / UI | Change |
-|------------|--------|
-| `/medical-conditions` (new) | Org Admin (and System Admin) list + add/edit/delete dialogs; name field max 50; org picker for System Admin like worker roles |
-| App nav | Link **Medical conditions** near Worker roles / other org admin tools (same audience) |
-| `PersonProfileFields` (Add/Edit person, application profile sections) | When Take medication? = Yes, show multi-select of conditions for current org context; hide when No |
-| View person profile | Show selected condition names when medication is Yes |
-| Trip application / browse apply flows | Same profile fields; org context = trip’s organization |
+| Route / UI                                                            | Change                                                                                                                        |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `/medical-conditions` (new)                                           | Org Admin (and System Admin) list + add/edit/delete dialogs; name field max 50; org picker for System Admin like worker roles |
+| App nav                                                               | Link **Medical conditions** near Worker roles / other org admin tools (same audience)                                         |
+| `PersonProfileFields` (Add/Edit person, application profile sections) | When Take medication? = Yes, show multi-select of conditions for current org context; hide when No                            |
+| View person profile                                                   | Show selected condition names when medication is Yes                                                                          |
+| Trip application / browse apply flows                                 | Same profile fields; org context = trip’s organization                                                                        |
 
 **UX notes:**
 
@@ -150,21 +153,21 @@
 
 ### `medicalCondition` (new)
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | PK | |
-| orgId | FK → organization | required |
-| name | STRING(50) | required; unique per org case-insensitive |
-| createdAt / updatedAt | timestamps | as other models |
+| Column                | Type              | Notes                                     |
+| --------------------- | ----------------- | ----------------------------------------- |
+| id                    | PK                |                                           |
+| orgId                 | FK → organization | required                                  |
+| name                  | STRING(50)        | required; unique per org case-insensitive |
+| createdAt / updatedAt | timestamps        | as other models                           |
 
 ### `personMedicalCondition` (new join)
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | PK | or composite PK `(personId, medicalConditionId)` |
-| personId | FK → person | required |
-| medicalConditionId | FK → medicalCondition | required |
-| unique | `(personId, medicalConditionId)` | |
+| Column             | Type                             | Notes                                            |
+| ------------------ | -------------------------------- | ------------------------------------------------ |
+| id                 | PK                               | or composite PK `(personId, medicalConditionId)` |
+| personId           | FK → person                      | required                                         |
+| medicalConditionId | FK → medicalCondition            | required                                         |
+| unique             | `(personId, medicalConditionId)` |                                                  |
 
 Associations: Organization `hasMany` MedicalCondition; Person `belongsToMany` MedicalCondition through PersonMedicalCondition; delete condition cascades join rows.
 
@@ -177,60 +180,67 @@ No change to `takesMedication` column semantics other than gating UI and clearin
 ### US-17.1 — Maintain organization medical conditions
 
 #### Scenario: Org Admin creates a medical condition
-* **Given** I am Org Admin for organization A
-* **When** I create a medical condition named "Diabetes" (≤ 50 characters)
-* **Then** it appears in organization A’s medical conditions list
-* **And** it does not appear in organization B’s list
+
+- **Given** I am Org Admin for organization A
+- **When** I create a medical condition named "Diabetes" (≤ 50 characters)
+- **Then** it appears in organization A’s medical conditions list
+- **And** it does not appear in organization B’s list
 
 #### Scenario: Duplicate condition name in the same org is rejected
-* **Given** organization A already has a condition named "Asthma"
-* **When** I create another condition named "asthma" for organization A
-* **Then** the API rejects the create with a clear error
+
+- **Given** organization A already has a condition named "Asthma"
+- **When** I create another condition named "asthma" for organization A
+- **Then** the API rejects the create with a clear error
 
 #### Scenario: Name longer than 50 characters is rejected
-* **Given** I am Org Admin for organization A
-* **When** I submit a medical condition name with 51 characters
-* **Then** the create is rejected
+
+- **Given** I am Org Admin for organization A
+- **When** I submit a medical condition name with 51 characters
+- **Then** the create is rejected
 
 ### US-17.2 — Select medical conditions when taking medication
 
 #### Scenario: Condition list appears when Take medication is Yes
-* **Given** organization A has medical conditions "Diabetes" and "Asthma"
-* **And** I am applying to a trip for organization A (or editing my profile in org A context)
-* **When** I set Take medication? to Yes
-* **Then** I see a multi-select listing "Diabetes" and "Asthma"
+
+- **Given** organization A has medical conditions "Diabetes" and "Asthma"
+- **And** I am applying to a trip for organization A (or editing my profile in org A context)
+- **When** I set Take medication? to Yes
+- **Then** I see a multi-select listing "Diabetes" and "Asthma"
 
 #### Scenario: Condition list is hidden when Take medication is No
-* **Given** I am on the person health section
-* **When** Take medication? is No
-* **Then** the medical conditions multi-select is not shown
+
+- **Given** I am on the person health section
+- **When** Take medication? is No
+- **Then** the medical conditions multi-select is not shown
 
 #### Scenario: Selected conditions are saved on the person
-* **Given** Take medication? is Yes and I select "Diabetes"
-* **When** I save my profile
-* **Then** my person record retains "Diabetes" as a selected medical condition for that org
+
+- **Given** Take medication? is Yes and I select "Diabetes"
+- **When** I save my profile
+- **Then** my person record retains "Diabetes" as a selected medical condition for that org
 
 ### US-17.3 — Reload prior selections on a later application
 
 #### Scenario: Prior selections reload on another trip in the same org
-* **Given** I previously saved medical condition "Diabetes" on my person for organization A
-* **And** I open an application for a different trip that belongs to organization A
-* **When** the health section loads with Take medication? Yes
-* **Then** "Diabetes" is already selected
+
+- **Given** I previously saved medical condition "Diabetes" on my person for organization A
+- **And** I open an application for a different trip that belongs to organization A
+- **When** the health section loads with Take medication? Yes
+- **Then** "Diabetes" is already selected
 
 ---
 
 ## Test Coverage Map
 
-| Story | Scenario | Test file | Test name |
-|-------|----------|-----------|-----------|
-| US-17.1 | Org Admin creates a medical condition | `backend/tests/medical-conditions.test.js` | `Org Admin creates a medical condition` |
-| US-17.1 | Duplicate condition name in the same org is rejected | `backend/tests/medical-conditions.test.js` | `Duplicate condition name in the same org is rejected` |
-| US-17.1 | Name longer than 50 characters is rejected | `backend/tests/medical-conditions.test.js` | `Name longer than 50 characters is rejected` |
-| US-17.2 | Condition list appears when Take medication is Yes | `frontend/tests/PersonProfileFields.test.js` | `Condition list appears when Take medication is Yes` |
-| US-17.2 | Condition list is hidden when Take medication is No | `frontend/tests/PersonProfileFields.test.js` | `Condition list is hidden when Take medication is No` |
-| US-17.2 | Selected conditions are saved on the person | `backend/tests/medical-conditions.test.js` | `Selected conditions are saved on the person` |
-| US-17.3 | Prior selections reload on another trip in the same org | `backend/tests/medical-conditions.test.js` | `Prior selections reload on another trip in the same org` |
+| Story   | Scenario                                                | Test file                                    | Test name                                                 |
+| ------- | ------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------- |
+| US-17.1 | Org Admin creates a medical condition                   | `backend/tests/medical-conditions.test.js`   | `Org Admin creates a medical condition`                   |
+| US-17.1 | Duplicate condition name in the same org is rejected    | `backend/tests/medical-conditions.test.js`   | `Duplicate condition name in the same org is rejected`    |
+| US-17.1 | Name longer than 50 characters is rejected              | `backend/tests/medical-conditions.test.js`   | `Name longer than 50 characters is rejected`              |
+| US-17.2 | Condition list appears when Take medication is Yes      | `frontend/tests/PersonProfileFields.test.js` | `Condition list appears when Take medication is Yes`      |
+| US-17.2 | Condition list is hidden when Take medication is No     | `frontend/tests/PersonProfileFields.test.js` | `Condition list is hidden when Take medication is No`     |
+| US-17.2 | Selected conditions are saved on the person             | `backend/tests/medical-conditions.test.js`   | `Selected conditions are saved on the person`             |
+| US-17.3 | Prior selections reload on another trip in the same org | `backend/tests/medical-conditions.test.js`   | `Prior selections reload on another trip in the same org` |
 
 ---
 
@@ -254,13 +264,13 @@ Trip application org context for the list is the trip’s orgId (FR-008).
 
 ## Definition of Done
 
-*   [x] Org-scoped medical condition CRUD (**FR-001**–**FR-003**, **FR-011**)
-*   [x] Take medication? Yes shows multi-select; No hides and clears org selections (**FR-004**, **FR-005**)
-*   [x] Selections saved on person and reload for later same-org applications (**FR-006**, **FR-007**)
-*   [x] Profile completeness requires ≥1 condition when medication is Yes (**FR-010**)
-*   [x] Automated tests for every Gherkin scenario
-*   [x] `npm test` green
-*   [x] Living reference updated (api / data-model / behavior)
+- [x] Org-scoped medical condition CRUD (**FR-001**–**FR-003**, **FR-011**)
+- [x] Take medication? Yes shows multi-select; No hides and clears org selections (**FR-004**, **FR-005**)
+- [x] Selections saved on person and reload for later same-org applications (**FR-006**, **FR-007**)
+- [x] Profile completeness requires ≥1 condition when medication is Yes (**FR-010**)
+- [x] Automated tests for every Gherkin scenario
+- [x] `npm test` green
+- [x] Living reference updated (api / data-model / behavior)
 
 ## Out of Scope
 

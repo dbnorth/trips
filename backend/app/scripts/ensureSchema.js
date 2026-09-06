@@ -109,6 +109,23 @@ const ensureOrganizationAgreementFileName = async () => {
   logger.info("organizations.agreementFileName column added.");
 };
 
+const ensureOrganizationMedicalAgreementFileName = async () => {
+  fs.mkdirSync("agreements", { recursive: true });
+
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'organizations'
+       AND COLUMN_NAME = 'medicalAgreementFileName'`
+  );
+  if (rows.length) return;
+
+  await db.sequelize.query(
+    "ALTER TABLE organizations ADD COLUMN medicalAgreementFileName VARCHAR(500) NULL AFTER agreementFileName"
+  );
+  logger.info("organizations.medicalAgreementFileName column added.");
+};
+
 const ensureTripPeopleRoleTripWorkerRoleId = async () => {
   const [rows] = await db.sequelize.query(
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -242,6 +259,8 @@ const ensureTripPeopleRoleApplicationFields = async () => {
     ["agreementAdultLastName", "VARCHAR(100) NULL"],
     ["agreementAdultEmail", "VARCHAR(255) NULL"],
     ["agreementAdultRelationship", "VARCHAR(100) NULL"],
+    ["medicalAgreementAccepted", "TINYINT(1) NOT NULL DEFAULT 0"],
+    ["medicalAgreementDate", "DATETIME NULL"],
   ];
 
   for (const [columnName, definition] of columns) {
@@ -697,6 +716,7 @@ export const ensureSchema = async () => {
   await ensureOrganizationWebsiteUrl();
   await ensureOrganizationSubdomain();
   await ensureOrganizationAgreementFileName();
+  await ensureOrganizationMedicalAgreementFileName();
   await ensureTripPeopleRoleTripWorkerRoleId();
   await ensurePersonProfileFields();
   await ensureTripPeopleRoleApplicationFields();

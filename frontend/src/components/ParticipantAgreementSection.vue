@@ -12,6 +12,11 @@ const props = defineProps({
   agreementAdultLastName: { type: String, default: "" },
   agreementAdultEmail: { type: String, default: "" },
   agreementAdultRelationship: { type: String, default: "" },
+  /** When true, show medical agreement block (Take medication? Yes). */
+  showMedicalAgreement: { type: Boolean, default: false },
+  medicalAgreementContent: { type: String, default: "" },
+  medicalAgreementAccepted: { type: Boolean, default: false },
+  medicalAgreementDate: { type: [String, Date], default: null },
   /** When false, I Agree is disabled until profile + application are complete. */
   canAgree: { type: Boolean, default: true },
   disabled: { type: Boolean, default: false },
@@ -24,24 +29,20 @@ const emit = defineEmits([
   "update:agreementAdultLastName",
   "update:agreementAdultEmail",
   "update:agreementAdultRelationship",
+  "update:medicalAgreementAccepted",
 ]);
 
 const previewHtml = computed(() => markdownToHtml(props.content));
+const medicalPreviewHtml = computed(() => markdownToHtml(props.medicalAgreementContent));
 const showAgreement = computed(() => !!props.content?.trim());
+const showMedicalContent = computed(() => !!props.medicalAgreementContent?.trim());
+const showSignatureBlock = computed(
+  () => showAgreement.value || (props.showMedicalAgreement && showMedicalContent.value)
+);
 const agreeDisabled = computed(() => props.disabled || !props.canAgree);
 
-const agreementDateLabel = computed(() => {
-  if (!props.agreementDate) return "";
-  const d = new Date(props.agreementDate);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-});
+const agreementDateLabel = computed(() => formatAgreementDate(props.agreementDate));
+const medicalAgreementDateLabel = computed(() => formatAgreementDate(props.medicalAgreementDate));
 
 const signatureLabel = computed(() =>
   props.under18
@@ -54,6 +55,19 @@ const signatureHint = computed(() =>
     ? "Type the adult's full name as the electronic signature"
     : "Type your full name as your electronic signature"
 );
+
+function formatAgreementDate(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 const clearAdultFields = () => {
   emit("update:agreementAdultFirstName", "");
@@ -71,6 +85,11 @@ const onAccepted = (value) => {
   }
 };
 
+const onMedicalAccepted = (value) => {
+  if (agreeDisabled.value) return;
+  emit("update:medicalAgreementAccepted", !!value);
+};
+
 const onSignature = (value) => {
   emit("update:agreementSignatureName", value ?? "");
 };
@@ -81,12 +100,40 @@ watch(
     if (!ok && props.agreementAccepted) {
       emit("update:agreementAccepted", false);
     }
+    if (!ok && props.medicalAgreementAccepted) {
+      emit("update:medicalAgreementAccepted", false);
+    }
+  }
+);
+
+watch(
+  () => props.showMedicalAgreement,
+  (show) => {
+    if (!show && props.medicalAgreementAccepted) {
+      emit("update:medicalAgreementAccepted", false);
+    }
   }
 );
 </script>
 
 <template>
   <div class="mt-4">
+    <div v-if="showMedicalAgreement" class="mb-4">
+      <div class="text-subtitle-2 mb-2">Medical agreement</div>
+      <v-alert
+        v-if="!showMedicalContent"
+        type="info"
+        density="compact"
+        variant="tonal"
+        class="mb-2"
+      >
+        This organization has not published a medical agreement yet.
+      </v-alert>
+      <div v-else class="agreement-preview pa-4 rounded mb-3">
+        <div class="agreement-html" v-html="medicalPreviewHtml" />
+      </div>
+    </div>
+
     <div class="text-subtitle-2 mb-2">Participant agreement</div>
 
     <v-alert
@@ -153,11 +200,13 @@ watch(
           </v-col>
         </v-row>
       </template>
+    </template>
 
-      <div class="text-body-2 mb-2">
+    <template v-if="showSignatureBlock">
+      <div class="text-body-2 mb-2 mt-2">
         I agree and understand that by typing my name below that it serves as my electronic
         signature and it is the legal equivalent of my manual/handwritten signature and I consent
-        to be legally bound to this agreement.
+        to be legally bound to each agreement I accept using the I agree checkboxes below.
       </div>
 
       <v-text-field
@@ -183,8 +232,26 @@ watch(
       </v-alert>
 
       <v-checkbox
+        v-if="showMedicalAgreement && showMedicalContent"
+        :model-value="medicalAgreementAccepted"
+        label="I agree to the medical agreement"
+        density="compact"
+        hide-details
+        :disabled="agreeDisabled"
+        class="mt-0 mb-2"
+        @update:model-value="onMedicalAccepted"
+      />
+      <div
+        v-if="showMedicalAgreement && showMedicalContent && medicalAgreementAccepted && medicalAgreementDateLabel"
+        class="text-caption text-medium-emphasis mb-2"
+      >
+        Medical agreement date: {{ medicalAgreementDateLabel }}
+      </div>
+
+      <v-checkbox
+        v-if="showAgreement"
         :model-value="agreementAccepted"
-        label="I Agree"
+        label="I agree to the Participation agreement"
         density="compact"
         hide-details
         :disabled="agreeDisabled"
@@ -192,7 +259,7 @@ watch(
         @update:model-value="onAccepted"
       />
 
-      <div v-if="agreementAccepted && agreementDateLabel" class="text-caption text-medium-emphasis mt-1">
+      <div v-if="showAgreement && agreementAccepted && agreementDateLabel" class="text-caption text-medium-emphasis mt-1">
         Agreement date: {{ agreementDateLabel }}
       </div>
     </template>
@@ -258,9 +325,5 @@ watch(
   text-decoration: underline !important;
   cursor: pointer;
   word-break: break-all;
-}
-
-.agreement-html :deep(a:hover) {
-  color: #0d47a1 !important;
 }
 </style>

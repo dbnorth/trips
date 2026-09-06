@@ -21,6 +21,7 @@ const saving = ref(false);
 const logoFile = ref(null);
 const logoPreview = ref(null);
 const showAgreementDialog = ref(false);
+const showMedicalAgreementDialog = ref(false);
 const { formError, formNotice, prepareSave, onLoadStart, onLoadSuccess, handleSaveError } =
   useVersionConflictForm();
 
@@ -28,6 +29,7 @@ const form = ref(emptyOrganizationForm());
 
 const currentLogoUrl = computed(() => OrganizationServices.getLogoUrl(form.value.logo));
 const hasAgreement = computed(() => !!form.value.agreementFileName);
+const hasMedicalAgreement = computed(() => !!form.value.medicalAgreementFileName);
 const isSystemAdmin = computed(() => Utils.isSystemAdmin(Utils.getStore("user")));
 
 const clearLogoSelection = () => {
@@ -81,6 +83,7 @@ watch(
 const close = () => {
   clearLogoSelection();
   showAgreementDialog.value = false;
+  showMedicalAgreementDialog.value = false;
   emit("update:modelValue", false);
 };
 
@@ -88,9 +91,19 @@ const openAgreement = () => {
   showAgreementDialog.value = true;
 };
 
+const openMedicalAgreement = () => {
+  showMedicalAgreementDialog.value = true;
+};
+
 const onAgreementSaved = (data) => {
   if (data?.agreementFileName) {
     form.value.agreementFileName = data.agreementFileName;
+  }
+};
+
+const onMedicalAgreementSaved = (data) => {
+  if (data?.medicalAgreementFileName) {
+    form.value.medicalAgreementFileName = data.medicalAgreementFileName;
   }
 };
 
@@ -176,6 +189,17 @@ const save = async () => {
               Edit participant agreement
             </v-btn>
           </div>
+
+          <div class="mt-4 mb-2">
+            <div class="text-subtitle-2 mb-2">Medical agreement</div>
+            <div class="text-caption text-medium-emphasis mb-2">
+              <span v-if="hasMedicalAgreement">Markdown agreement on file.</span>
+              <span v-else>No medical agreement saved yet.</span>
+            </div>
+            <v-btn variant="tonal" color="primary" size="small" @click="openMedicalAgreement">
+              Edit medical agreement
+            </v-btn>
+          </div>
         </template>
 
         <v-alert v-if="formNotice" type="warning" density="compact" class="mt-2">{{ formNotice }}</v-alert>
@@ -193,7 +217,15 @@ const save = async () => {
       v-model="showAgreementDialog"
       :organization-id="organizationId || form.id"
       :organization-name="form.name"
+      kind="participant"
       @saved="onAgreementSaved"
+    />
+    <OrganizationAgreementDialog
+      v-model="showMedicalAgreementDialog"
+      :organization-id="organizationId || form.id"
+      :organization-name="form.name"
+      kind="medical"
+      @saved="onMedicalAgreementSaved"
     />
   </v-dialog>
 </template>
