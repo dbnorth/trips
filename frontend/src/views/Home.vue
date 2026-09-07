@@ -395,6 +395,18 @@ const openOrgTrip = (trip) => {
   router.push({ name: "tripView", params: { tripId: trip.id } });
 };
 
+const openOrgTripStatus = (trip) => {
+  router.push({ name: "tripStatus", params: { tripId: trip.id } });
+};
+
+const openOrgTripRooming = (trip) => {
+  router.push({ name: "tripRooming", params: { tripId: trip.id } });
+};
+
+const openOrgTripFlights = (trip) => {
+  router.push({ name: "tripFlights", params: { tripId: trip.id } });
+};
+
 const openEditOrgTrip = (trip) => {
   if (!trip?.id) return;
   editOrgTripId.value = trip.id;
@@ -817,7 +829,7 @@ onUnmounted(() => {
                 <th>Start</th>
                 <th>End</th>
                 <th>Status</th>
-                <th class="text-right" style="min-width: 100px">Actions</th>
+                <th class="text-right" style="min-width: 280px">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -828,8 +840,11 @@ onUnmounted(() => {
                 <td>{{ formatDate(item.endDate) }}</td>
                 <td>{{ item.status || "—" }}</td>
                 <td class="text-right">
-                  <div class="d-flex justify-end ga-2 flex-wrap">
+                  <div class="d-flex justify-end ga-1 flex-wrap">
                     <v-btn size="small" variant="tonal" @click="openOrgTrip(item)">View</v-btn>
+                    <v-btn size="small" variant="text" @click="openOrgTripStatus(item)">Status</v-btn>
+                    <v-btn size="small" variant="text" @click="openOrgTripRooming(item)">Room list</v-btn>
+                    <v-btn size="small" variant="text" @click="openOrgTripFlights(item)">Flights</v-btn>
                     <v-btn size="small" variant="text" @click="openEditOrgTrip(item)">Edit</v-btn>
                   </div>
                 </td>
