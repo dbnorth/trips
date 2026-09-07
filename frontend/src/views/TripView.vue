@@ -19,10 +19,18 @@ import { countryName } from "../utils/locationData.js";
 import { donorTripPath, donorParticipantPath } from "../utils/donateUrls.js";
 import PersonServices from "../services/personServices.js";
 
+const props = defineProps({
+  tripId: { type: [String, Number], default: null },
+});
+
 const route = useRoute();
 const router = useRouter();
 
-const tripId = computed(() => route.params.tripId);
+const tripId = computed(() => props.tripId ?? route.params.tripId);
+
+const openTripStatus = () =>
+  router.push({ name: "tripStatus", params: { tripId: tripId.value } });
+
 const trip = ref(null);
 const participants = ref([]);
 const donations = ref([]);
@@ -297,7 +305,10 @@ onMounted(refresh);
         <v-btn variant="text" @click="router.push({ name: 'trips' })">Back to trips</v-btn>
         <h1 class="text-h5">{{ trip?.name || "Trip" }}</h1>
       </div>
-      <v-btn v-if="trip" variant="tonal" @click="showEditTrip = true">Edit trip</v-btn>
+      <div class="d-flex align-center ga-2">
+        <v-btn v-if="trip" variant="tonal" @click="openTripStatus">Trip Status</v-btn>
+        <v-btn v-if="trip" variant="tonal" @click="showEditTrip = true">Edit trip</v-btn>
+      </div>
     </div>
 
     <v-progress-linear v-if="loading" indeterminate class="mb-4" />

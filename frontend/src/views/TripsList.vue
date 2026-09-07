@@ -94,6 +94,10 @@ const openView = (trip) => {
   router.push({ name: "tripView", params: { tripId: trip.id } });
 };
 
+const openStatus = (trip) => {
+  router.push({ name: "tripStatus", params: { tripId: trip.id } });
+};
+
 const donorLink = (trip) => donorTripPath(trip);
 
 const formatLeaders = (trip) => (trip.leaderNames || []).join(", ") || "—";
@@ -165,6 +169,7 @@ onUnmounted(() => {
       </template>
       <template #item.actions="{ item }">
         <v-btn size="small" variant="text" @click="openView(item)">View</v-btn>
+        <v-btn size="small" variant="text" @click="openStatus(item)">Status</v-btn>
         <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
       </template>
     </v-data-table>
