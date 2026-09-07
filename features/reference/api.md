@@ -27,9 +27,10 @@
 | `/users`, `/roles`, `/people`, `/org-people-roles` | 2, **11** (all-orgs people list) |
 | `/organizations` | 3 |
 | `/document-types`, `/people/:id/documents` | 4 |
-| `/trips` CRUD + image, `/dashboard/*` | 5, **28** (trip status board), **29** (rooming) |
+| `/trips` CRUD + image, `/dashboard/*` | 5, **28** (trip status board), **29** (rooming), **30** (flights) |
 | `/worker-roles`, `/trip-worker-roles`, `/trip-travel-options` | 6 |
 | `/medical-conditions` | 17 |
+| `/airports`, `/airlines` | **30** |
 | `/trips/browse/*`, `/trip-people-roles`, participants CSV | 7, **28** |
 | `/donations`, `/donors`, donation/donor CSVs | 8 |
 | `/public/*` | 9 |
@@ -127,6 +128,10 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `GET` | `/trips/trips/:id/status` | auth | Trip Status board (Trip Leader / Org Admin / System Admin): trip summary, roles with capacity counts, travel-option columns, participants with status / missing items / owed / raised / selected options — Feature 28 |
 | `GET` | `/trips/trips/:id/rooming` | auth | Rooming list load (staff): trip summary, hotel header, rooms, participant assignment grid + roommate prefs — Feature 29 |
 | `PUT` | `/trips/trips/:id/rooming` | auth | Upsert rooming hotel header + rooms/assignments from participant grid — Feature 29 |
+| `GET` | `/trips/trips/:id/flights` | auth | Participant flights board (staff) — Feature 30 |
+| `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId` | auth | Upsert flight header (purchased, cost, comments) — Feature 30 |
+| `GET` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | List flight segments — Feature 30 |
+| `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | Replace flight segments — Feature 30 |
 | `POST` | `/trips/trips` | auth | Create (+ optional `leaderPeopleIds`, `requirePassport`) |
 | `POST` | `/trips/trips/:id/copy` | auth | Copy source trip → new trip (name required; leaders, worker roles, travel options, `requirePassport`; not participants/donations) — Features 21, 23 |
 | `PUT` | `/trips/trips/:id` | auth | Update |
@@ -169,6 +174,21 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `DELETE` | `/trips/medical-conditions/:id` | auth | Delete (cascades person selections) |
 | `GET` | `/trips/people/:id` | auth | Includes `medicalConditions` / `medicalConditionIds` (`?orgId=` filters) |
 | `PUT` | `/trips/people/:id` | auth | Accepts `medicalConditionIds` + `orgId`; clears org links when `takesMedication` is false |
+
+---
+
+## Airports & airlines — Feature 30
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/trips/airports` | auth | List airport catalog |
+| `POST` | `/trips/airports` | auth (sysadmin) | Create airport |
+| `PUT` | `/trips/airports/:id` | auth (sysadmin) | Update airport |
+| `DELETE` | `/trips/airports/:id` | auth (sysadmin) | Delete if unused |
+| `GET` | `/trips/airlines` | auth | List airline catalog |
+| `POST` | `/trips/airlines` | auth (sysadmin) | Create airline |
+| `PUT` | `/trips/airlines/:id` | auth (sysadmin) | Update airline |
+| `DELETE` | `/trips/airlines/:id` | auth (sysadmin) | Delete if unused |
 
 ---
 

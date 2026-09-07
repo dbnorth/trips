@@ -3,6 +3,8 @@
  * Labels mirror frontend `getIncompleteSubmitReasons` (Feature 27).
  */
 
+import { isFlightPurchaseComplete } from "./flightPurchaseFields.js";
+
 const isBlank = (value) => value == null || String(value).trim() === "";
 
 /**
@@ -38,6 +40,11 @@ export const getApplicationMissingItemLabels = ({
   willRaiseFunds = false,
   hasPreferredRoommate = false,
   preferredRoommateNames = null,
+  flightPurchaseOption = null,
+  preferredDepartureAirportId = null,
+  preferredReturnAirportId = null,
+  preferredCabinClass = null,
+  preferredAirlineId = null,
   gender = null,
   isPregnant = null,
   pregnancyDueDate = null,
@@ -73,6 +80,24 @@ export const getApplicationMissingItemLabels = ({
   }
   if (hasPreferredRoommate && isBlank(preferredRoommateNames)) {
     reasons.push("Preferred roommate name(s)");
+  }
+  if (
+    !isFlightPurchaseComplete({
+      flightPurchaseOption,
+      preferredDepartureAirportId,
+      preferredReturnAirportId,
+      preferredCabinClass,
+      preferredAirlineId,
+    })
+  ) {
+    if (flightPurchaseOption !== "self" && flightPurchaseOption !== "organization") {
+      reasons.push("Flight purchase option");
+    } else {
+      if (preferredDepartureAirportId == null) reasons.push("Preferred departure airport");
+      if (preferredReturnAirportId == null) reasons.push("Preferred return airport");
+      if (isBlank(preferredCabinClass)) reasons.push("Class of travel");
+      if (preferredAirlineId == null) reasons.push("Preferred airline");
+    }
   }
 
   if (String(gender || "").toLowerCase() === "female") {

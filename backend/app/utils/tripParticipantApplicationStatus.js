@@ -1,4 +1,5 @@
 import db from "../models/index.js";
+import { isFlightPurchaseComplete } from "./flightPurchaseFields.js";
 
 const Person = db.person;
 const TripWorkerRole = db.tripWorkerRole;
@@ -156,6 +157,11 @@ export const isApplicationComplete = ({
   licenseStatus,
   hasPreferredRoommate,
   preferredRoommateNames,
+  flightPurchaseOption = null,
+  preferredDepartureAirportId = null,
+  preferredReturnAirportId = null,
+  preferredCabinClass = null,
+  preferredAirlineId = null,
   licenseRequired = false,
   agreementRequired = false,
   agreementAccepted = false,
@@ -178,6 +184,17 @@ export const isApplicationComplete = ({
   if (tripWorkerRoleId == null || tripWorkerRoleId === "") return false;
   if (!willSelfFund && !willRaiseFunds) return false;
   if (hasPreferredRoommate && isBlank(preferredRoommateNames)) return false;
+  if (
+    !isFlightPurchaseComplete({
+      flightPurchaseOption,
+      preferredDepartureAirportId,
+      preferredReturnAirportId,
+      preferredCabinClass,
+      preferredAirlineId,
+    })
+  ) {
+    return false;
+  }
   if (!travelOptionsComplete) return false;
   if (!personDocumentsUploaded) return false;
   if (!requiredRoleDocumentUploaded) return false;
@@ -208,6 +225,11 @@ export const resolveAppliedOrIncompleteStatus = ({
   licenseStatus,
   hasPreferredRoommate,
   preferredRoommateNames,
+  flightPurchaseOption = null,
+  preferredDepartureAirportId = null,
+  preferredReturnAirportId = null,
+  preferredCabinClass = null,
+  preferredAirlineId = null,
   licenseRequired = false,
   agreementRequired = false,
   agreementAccepted = false,
@@ -234,6 +256,11 @@ export const resolveAppliedOrIncompleteStatus = ({
     licenseStatus,
     hasPreferredRoommate,
     preferredRoommateNames,
+    flightPurchaseOption,
+    preferredDepartureAirportId,
+    preferredReturnAirportId,
+    preferredCabinClass,
+    preferredAirlineId,
     licenseRequired,
     agreementRequired,
     agreementAccepted,

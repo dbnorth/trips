@@ -43,6 +43,18 @@ export default {
   updateRooming(id, data) {
     return apiClient.put(`/trips/${id}/rooming`, data);
   },
+  getFlights(id) {
+    return apiClient.get(`/trips/${id}/flights`);
+  },
+  updateFlight(tripId, tripPeopleRoleId, data) {
+    return apiClient.put(`/trips/${tripId}/flights/${tripPeopleRoleId}`, data);
+  },
+  getFlightSegments(tripId, tripPeopleRoleId) {
+    return apiClient.get(`/trips/${tripId}/flights/${tripPeopleRoleId}/segments`);
+  },
+  updateFlightSegments(tripId, tripPeopleRoleId, data) {
+    return apiClient.put(`/trips/${tripId}/flights/${tripPeopleRoleId}/segments`, data);
+  },
   create(data) {
     return apiClient.post("/trips", data);
   },

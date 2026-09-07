@@ -11,6 +11,7 @@ import {
   resetTestDatabase,
   registerUser,
   createOrgAdminUser,
+  createSystemAdminUser,
   assignOrgRole,
   findRole,
   completePersonProfile,
@@ -126,6 +127,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: false,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
         });
 
@@ -151,6 +153,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: false,
@@ -193,6 +196,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: false,
@@ -215,6 +219,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: false,
@@ -282,6 +287,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.body.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           licenseStatus: "yes",
           hasPreferredRoommate: false,
@@ -308,6 +314,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.body.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           licenseStatus: "yes",
           hasPreferredRoommate: false,
@@ -389,6 +396,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.body.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: false,
@@ -414,6 +422,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.body.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: false,
@@ -452,6 +461,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: false,
@@ -513,6 +523,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.body.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: false,
@@ -542,6 +553,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.body.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: false,
@@ -577,6 +589,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: false,
@@ -605,6 +618,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: true,
@@ -620,6 +634,61 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       const stored = await db.tripPeopleRole.findByPk(response.body.assignment.id);
       expect(stored.isPregnant).toBe(true);
       expect(String(stored.pregnancyDueDate).slice(0, 10)).toBe("2026-11-15");
+    });
+
+    it("Organization flight purchase preferences are saved on the application", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "flight-pref-admin@example.com",
+      });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id);
+      const applicant = await registerUser({
+        email: "flight-pref-app@example.com",
+        orgIds: [org.id],
+      });
+      await completePersonProfile(applicant.user.personId);
+
+      const sys = await createSystemAdminUser({ email: "flight-pref-sys@example.com" });
+      await request(app)
+        .post("/trips/airports")
+        .set(sys.authHeader)
+        .send({ code: "DFW", airportName: "DFW", city: "Dallas", country: "US" });
+      await request(app)
+        .post("/trips/airports")
+        .set(sys.authHeader)
+        .send({ code: "AUS", airportName: "Austin", city: "Austin", country: "US" });
+      await request(app)
+        .post("/trips/airlines")
+        .set(sys.authHeader)
+        .send({ code: "AA", name: "American Airlines" });
+
+      const response = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(applicant.authHeader)
+        .send({
+          tripWorkerRoleId: tripWorkerRole.id,
+          willSelfFund: true,
+          willRaiseFunds: false,
+          hasPreferredRoommate: false,
+          flightPurchaseOption: "organization",
+          preferredDepartureAirportCode: "DFW",
+          preferredReturnAirportCode: "AUS",
+          preferredCabinClass: "Economy",
+          preferredAirlineCode: "AA",
+          isPregnant: false,
+          agreementAccepted: true,
+          agreementSignatureName: "Flight Pref Applicant",
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.assignment.flightPurchaseOption).toBe("organization");
+      expect(response.body.assignment.preferredCabinClass).toBe("Economy");
+
+      const stored = await db.tripPeopleRole.findByPk(response.body.assignment.id);
+      expect(stored.flightPurchaseOption).toBe("organization");
+      expect(stored.preferredCabinClass).toBe("Economy");
+      expect(stored.preferredDepartureAirportId).toBeTruthy();
+      expect(stored.preferredReturnAirportId).toBeTruthy();
+      expect(stored.preferredAirlineId).toBeTruthy();
     });
 
     it("Due date is cleared when pregnant is No", async () => {
@@ -639,6 +708,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: true,
@@ -654,6 +724,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: false,
@@ -684,6 +755,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: true,
@@ -704,6 +776,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: true,
@@ -740,6 +813,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           isPregnant: false,
@@ -774,6 +848,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           hasPreferredRoommate: false,
           medicalAgreementAccepted: false,
@@ -839,6 +914,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.body.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           isPregnant: false,
           agreementAccepted: true,
           agreementSignatureName: "To Approve",
@@ -936,6 +1012,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           isPregnant: false,
           agreementAccepted: true,
           agreementSignatureName: "Csv Person",
@@ -985,6 +1062,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: false,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
         });
       expect(applyA.status).toBe(200);
@@ -1003,6 +1081,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           isPregnant: false,
           agreementAccepted: true,
@@ -1037,6 +1116,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           isPregnant: false,
           agreementAccepted: true,
@@ -1051,6 +1131,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           isPregnant: false,
           agreementAccepted: true,
@@ -1084,6 +1165,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           isPregnant: false,
           agreementAccepted: true,
@@ -1103,6 +1185,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           isPregnant: false,
           agreementAccepted: true,
@@ -1134,6 +1217,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: false,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
         });
       expect(apply.status).toBe(200);
@@ -1181,6 +1265,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           isPregnant: false,
           agreementAccepted: true,
@@ -1232,6 +1317,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           isPregnant: false,
           agreementAccepted: true,
@@ -1250,6 +1336,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
           isPregnant: false,
           agreementAccepted: true,
@@ -1320,6 +1407,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           tripWorkerRoleId: tripWorkerRole.body.id,
           willSelfFund: true,
+          flightPurchaseOption: "self",
           isPregnant: false,
           agreementAccepted: true,
           agreementSignatureName: "Staff Cancel App",

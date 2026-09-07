@@ -44,6 +44,11 @@ export const getIncompleteSubmitReasons = ({
   willRaiseFunds = false,
   hasPreferredRoommate = false,
   preferredRoommateNames = null,
+  flightPurchaseOption = null,
+  preferredDepartureAirportCode = null,
+  preferredReturnAirportCode = null,
+  preferredCabinClass = null,
+  preferredAirlineCode = null,
   gender = null,
   isPregnant = null,
   pregnancyDueDate = null,
@@ -79,6 +84,14 @@ export const getIncompleteSubmitReasons = ({
   }
   if (hasPreferredRoommate && isBlank(preferredRoommateNames)) {
     reasons.push("Preferred roommate name(s)");
+  }
+  if (flightPurchaseOption !== "self" && flightPurchaseOption !== "organization") {
+    reasons.push("Flight purchase option");
+  } else if (flightPurchaseOption === "organization") {
+    if (isBlank(preferredDepartureAirportCode)) reasons.push("Preferred departure airport");
+    if (isBlank(preferredReturnAirportCode)) reasons.push("Preferred return airport");
+    if (isBlank(preferredCabinClass)) reasons.push("Class of travel");
+    if (isBlank(preferredAirlineCode)) reasons.push("Preferred airline");
   }
 
   if (String(gender || "").toLowerCase() === "female") {

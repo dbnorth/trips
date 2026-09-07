@@ -23,6 +23,11 @@ export const seedRoles = async () => {
 
 export const resetTestDatabase = async () => {
   const ordered = [
+    db.tripFlightSegment,
+    db.tripFlight,
+    db.tripRoomAssignment,
+    db.tripRoom,
+    db.tripRoomingList,
     db.tripPeopleRoleOption,
     db.tripDonation,
     db.personDocument,
@@ -42,6 +47,8 @@ export const resetTestDatabase = async () => {
     db.user,
     db.organization,
     db.documentType,
+    db.airport,
+    db.airline,
     db.role,
   ];
 

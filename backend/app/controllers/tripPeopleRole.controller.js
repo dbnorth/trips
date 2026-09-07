@@ -25,6 +25,7 @@ import {
   cancelApplicationAssignment,
   uncancelApplicationAssignment,
 } from "../utils/applicationCancel.js";
+import { flightPurchaseInclude } from "../utils/flightPurchaseFields.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -46,6 +47,11 @@ const fields = [
   "licenseStatus",
   "hasPreferredRoommate",
   "preferredRoommateNames",
+  "flightPurchaseOption",
+  "preferredDepartureAirportId",
+  "preferredReturnAirportId",
+  "preferredCabinClass",
+  "preferredAirlineId",
   "agreementAccepted",
   "agreementSignatureName",
   "agreementDate",
@@ -83,6 +89,7 @@ const listIncludes = [
       },
     ],
   },
+  ...flightPurchaseInclude,
 ];
 
 const exports = {};
@@ -147,6 +154,11 @@ const computeStatusForPayload = async (payload, orgId) => {
     licenseStatus: payload.licenseStatus || null,
     hasPreferredRoommate: !!payload.hasPreferredRoommate,
     preferredRoommateNames: payload.preferredRoommateNames || null,
+    flightPurchaseOption: payload.flightPurchaseOption || null,
+    preferredDepartureAirportId: payload.preferredDepartureAirportId ?? null,
+    preferredReturnAirportId: payload.preferredReturnAirportId ?? null,
+    preferredCabinClass: payload.preferredCabinClass || null,
+    preferredAirlineId: payload.preferredAirlineId ?? null,
     licenseRequired,
     agreementRequired,
     agreementAccepted: !!payload.agreementAccepted,

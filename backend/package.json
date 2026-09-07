@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "seed": "node app/scripts/seedRoles.js",
+    "seed": "node app/scripts/seedRoles.js && node app/scripts/seedAirportsAirlines.js",
+    "seed:catalogs": "node app/scripts/seedAirportsAirlines.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "bundle": "node scripts/make-deploy.mjs"

@@ -2,6 +2,7 @@ import { Router } from "express";
 import trips from "../controllers/trip.controller.js";
 import tripBrowse from "../controllers/tripBrowse.controller.js";
 import tripRooming from "../controllers/tripRooming.controller.js";
+import tripFlight from "../controllers/tripFlight.controller.js";
 import authenticate from "../authorization/accessControl.js";
 import { uploadTripImage } from "../config/multer.js";
 
@@ -31,6 +32,18 @@ router.get("/", [authenticate], trips.findAll);
 router.get("/:id/status", [authenticate], trips.findStatus);
 router.get("/:id/rooming", [authenticate], tripRooming.findRooming);
 router.put("/:id/rooming", [authenticate], tripRooming.updateRooming);
+router.get("/:id/flights", [authenticate], tripFlight.findFlights);
+router.put("/:id/flights/:tripPeopleRoleId", [authenticate], tripFlight.updateFlightHeader);
+router.get(
+  "/:id/flights/:tripPeopleRoleId/segments",
+  [authenticate],
+  tripFlight.findSegments
+);
+router.put(
+  "/:id/flights/:tripPeopleRoleId/segments",
+  [authenticate],
+  tripFlight.replaceSegments
+);
 router.get("/:id", [authenticate], trips.findOne);
 router.post("/", [authenticate], trips.create);
 router.post("/:id/copy", [authenticate], trips.copy);

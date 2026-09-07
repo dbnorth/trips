@@ -8,6 +8,7 @@ import Utils from "../config/utils.js";
 import DonorTripHeading from "../components/DonorTripHeading.vue";
 import ParticipantAgreementSection from "../components/ParticipantAgreementSection.vue";
 import TripApplicationTravelOptions from "../components/TripApplicationTravelOptions.vue";
+import TripApplicationFlightPurchase from "../components/TripApplicationFlightPurchase.vue";
 import EditPersonDialog from "../components/EditPersonDialog.vue";
 import PersonProfileFields from "../components/PersonProfileFields.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -75,6 +76,11 @@ const form = ref({
   willRaiseFunds: false,
   hasPreferredRoommate: false,
   preferredRoommateNames: "",
+  flightPurchaseOption: null,
+  preferredDepartureAirportCode: null,
+  preferredReturnAirportCode: null,
+  preferredCabinClass: "",
+  preferredAirlineCode: null,
   agreementAccepted: false,
   agreementSignatureName: "",
   agreementDate: null,
@@ -202,6 +208,11 @@ const applicationFormComplete = computed(() =>
     willRaiseFunds: form.value.willRaiseFunds,
     hasPreferredRoommate: form.value.hasPreferredRoommate,
     preferredRoommateNames: form.value.preferredRoommateNames,
+    flightPurchaseOption: form.value.flightPurchaseOption,
+    preferredDepartureAirportCode: form.value.preferredDepartureAirportCode,
+    preferredReturnAirportCode: form.value.preferredReturnAirportCode,
+    preferredCabinClass: form.value.preferredCabinClass,
+    preferredAirlineCode: form.value.preferredAirlineCode,
   })
 );
 
@@ -284,6 +295,11 @@ const submitUnavailableReasons = computed(() => {
     willRaiseFunds: form.value.willRaiseFunds,
     hasPreferredRoommate: form.value.hasPreferredRoommate,
     preferredRoommateNames: form.value.preferredRoommateNames,
+    flightPurchaseOption: form.value.flightPurchaseOption,
+    preferredDepartureAirportCode: form.value.preferredDepartureAirportCode,
+    preferredReturnAirportCode: form.value.preferredReturnAirportCode,
+    preferredCabinClass: form.value.preferredCabinClass,
+    preferredAirlineCode: form.value.preferredAirlineCode,
     gender: healthForm.value.gender ?? person.value?.gender,
     isPregnant: normalizeYesNo(healthForm.value.isPregnant),
     pregnancyDueDate: healthForm.value.pregnancyDueDate,
@@ -393,6 +409,13 @@ const applyFormFromApplication = (row) => {
     willRaiseFunds: !!row?.willRaiseFunds,
     hasPreferredRoommate: !!row?.hasPreferredRoommate,
     preferredRoommateNames: row?.preferredRoommateNames || "",
+    flightPurchaseOption: row?.flightPurchaseOption || null,
+    preferredDepartureAirportCode:
+      row?.preferredDepartureAirport?.code || row?.preferredDepartureAirportCode || null,
+    preferredReturnAirportCode:
+      row?.preferredReturnAirport?.code || row?.preferredReturnAirportCode || null,
+    preferredCabinClass: row?.preferredCabinClass || "",
+    preferredAirlineCode: row?.preferredAirline?.code || row?.preferredAirlineCode || null,
     agreementAccepted: !!row?.agreementAccepted,
     agreementSignatureName: row?.agreementSignatureName || "",
     agreementDate: row?.agreementDate || null,
@@ -536,6 +559,23 @@ const save = async () => {
       preferredRoommateNames: form.value.hasPreferredRoommate
         ? form.value.preferredRoommateNames.trim()
         : null,
+      flightPurchaseOption: form.value.flightPurchaseOption || null,
+      preferredDepartureAirportCode:
+        form.value.flightPurchaseOption === "organization"
+          ? form.value.preferredDepartureAirportCode || null
+          : null,
+      preferredReturnAirportCode:
+        form.value.flightPurchaseOption === "organization"
+          ? form.value.preferredReturnAirportCode || null
+          : null,
+      preferredCabinClass:
+        form.value.flightPurchaseOption === "organization"
+          ? form.value.preferredCabinClass?.trim() || null
+          : null,
+      preferredAirlineCode:
+        form.value.flightPurchaseOption === "organization"
+          ? form.value.preferredAirlineCode || null
+          : null,
       agreementAccepted: agreementRequired.value ? !!form.value.agreementAccepted : false,
       agreementSignatureName:
         agreementRequired.value || medicalAgreementRequired.value
@@ -773,6 +813,16 @@ onMounted(load);
           label="Preferred roommate name(s)"
           density="compact"
           autocomplete="off"
+          :disabled="!canEdit"
+        />
+
+        <TripApplicationFlightPurchase
+          v-model:flight-purchase-option="form.flightPurchaseOption"
+          v-model:preferred-departure-airport-code="form.preferredDepartureAirportCode"
+          v-model:preferred-return-airport-code="form.preferredReturnAirportCode"
+          v-model:preferred-cabin-class="form.preferredCabinClass"
+          v-model:preferred-airline-code="form.preferredAirlineCode"
+          :organization-name="trip?.organization?.name"
           :disabled="!canEdit"
         />
 

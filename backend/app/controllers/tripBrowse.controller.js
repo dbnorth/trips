@@ -22,6 +22,10 @@ import {
   cancelApplicationAssignment,
   uncancelApplicationAssignment,
 } from "../utils/applicationCancel.js";
+import {
+  parseFlightPurchaseFields,
+  flightPurchaseInclude,
+} from "../utils/flightPurchaseFields.js";
 
 const Trip = db.trip;
 const TripWorkerRole = db.tripWorkerRole;
@@ -580,6 +584,11 @@ exports.applyToTrip = async (req, res) => {
       ? String(req.body?.preferredRoommateNames || "").trim() || null
       : null;
 
+    const flightPurchase = await parseFlightPurchaseFields(req.body);
+    if (!flightPurchase.ok) {
+      return res.status(400).send({ message: flightPurchase.message });
+    }
+
     const participantAgreement = await loadOrganizationAgreement(trip.orgId);
     const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const agreementRequired = !!participantAgreement.exists && !!participantAgreement.content?.trim();
@@ -620,6 +629,11 @@ exports.applyToTrip = async (req, res) => {
       licenseStatus,
       hasPreferredRoommate,
       preferredRoommateNames,
+      flightPurchaseOption: flightPurchase.flightPurchaseOption,
+      preferredDepartureAirportId: flightPurchase.preferredDepartureAirportId,
+      preferredReturnAirportId: flightPurchase.preferredReturnAirportId,
+      preferredCabinClass: flightPurchase.preferredCabinClass,
+      preferredAirlineId: flightPurchase.preferredAirlineId,
       licenseRequired,
       agreementRequired,
       agreementAccepted: agreement.agreementAccepted,
@@ -663,6 +677,11 @@ exports.applyToTrip = async (req, res) => {
       licenseStatus,
       hasPreferredRoommate,
       preferredRoommateNames,
+      flightPurchaseOption: flightPurchase.flightPurchaseOption,
+      preferredDepartureAirportId: flightPurchase.preferredDepartureAirportId,
+      preferredReturnAirportId: flightPurchase.preferredReturnAirportId,
+      preferredCabinClass: flightPurchase.preferredCabinClass,
+      preferredAirlineId: flightPurchase.preferredAirlineId,
       agreementAccepted: agreement.agreementAccepted,
       agreementSignatureName: agreement.agreementSignatureName,
       agreementDate: agreement.agreementDate,
@@ -717,6 +736,7 @@ const loadApplicationAssignment = async (tripId, peopleId) => {
         include: [workerRoleInclude],
       },
       { model: Role, as: "role", attributes: ["id", "roleName"] },
+      ...flightPurchaseInclude,
     ],
   });
 };
@@ -818,6 +838,11 @@ exports.updateApplication = async (req, res) => {
       ? String(req.body?.preferredRoommateNames || "").trim() || null
       : null;
 
+    const flightPurchase = await parseFlightPurchaseFields(req.body);
+    if (!flightPurchase.ok) {
+      return res.status(400).send({ message: flightPurchase.message });
+    }
+
     const participantAgreement = await loadOrganizationAgreement(trip.orgId);
     const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const agreementRequired = !!participantAgreement.exists && !!participantAgreement.content?.trim();
@@ -850,6 +875,11 @@ exports.updateApplication = async (req, res) => {
       licenseStatus,
       hasPreferredRoommate,
       preferredRoommateNames,
+      flightPurchaseOption: flightPurchase.flightPurchaseOption,
+      preferredDepartureAirportId: flightPurchase.preferredDepartureAirportId,
+      preferredReturnAirportId: flightPurchase.preferredReturnAirportId,
+      preferredCabinClass: flightPurchase.preferredCabinClass,
+      preferredAirlineId: flightPurchase.preferredAirlineId,
       licenseRequired,
       agreementRequired,
       agreementAccepted: agreement.agreementAccepted,
@@ -918,6 +948,11 @@ exports.updateApplication = async (req, res) => {
       licenseStatus,
       hasPreferredRoommate,
       preferredRoommateNames,
+      flightPurchaseOption: flightPurchase.flightPurchaseOption,
+      preferredDepartureAirportId: flightPurchase.preferredDepartureAirportId,
+      preferredReturnAirportId: flightPurchase.preferredReturnAirportId,
+      preferredCabinClass: flightPurchase.preferredCabinClass,
+      preferredAirlineId: flightPurchase.preferredAirlineId,
       participantCost,
       agreementAccepted: agreement.agreementAccepted,
       agreementSignatureName: agreement.agreementSignatureName,
