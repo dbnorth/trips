@@ -22,6 +22,9 @@ import PersonDocument from "./personDocument.model.js";
 import MedicalCondition from "./medicalCondition.model.js";
 import PersonMedicalCondition from "./personMedicalCondition.model.js";
 import WorkerRoleDocumentType from "./workerRoleDocumentType.model.js";
+import TripRoomingList from "./tripRoomingList.model.js";
+import TripRoom from "./tripRoom.model.js";
+import TripRoomAssignment from "./tripRoomAssignment.model.js";
 
 const db = {};
 db.Sequelize = Sequelize;
@@ -48,6 +51,9 @@ db.personDocument = PersonDocument;
 db.medicalCondition = MedicalCondition;
 db.personMedicalCondition = PersonMedicalCondition;
 db.workerRoleDocumentType = WorkerRoleDocumentType;
+db.tripRoomingList = TripRoomingList;
+db.tripRoom = TripRoom;
+db.tripRoomAssignment = TripRoomAssignment;
 
 db.user.hasMany(db.session, { foreignKey: "userId", onDelete: "CASCADE" });
 db.session.belongsTo(db.user, { foreignKey: "userId", onDelete: "CASCADE" });
@@ -224,6 +230,39 @@ db.medicalCondition.hasMany(db.personMedicalCondition, {
 db.personMedicalCondition.belongsTo(db.medicalCondition, {
   foreignKey: "medicalConditionId",
   as: "medicalCondition",
+  onDelete: "CASCADE",
+});
+
+db.trip.hasOne(db.tripRoomingList, { foreignKey: "tripId", as: "roomingList", onDelete: "CASCADE" });
+db.tripRoomingList.belongsTo(db.trip, { foreignKey: "tripId", as: "trip", onDelete: "CASCADE" });
+db.tripRoomingList.hasMany(db.tripRoom, {
+  foreignKey: "tripRoomingListId",
+  as: "rooms",
+  onDelete: "CASCADE",
+});
+db.tripRoom.belongsTo(db.tripRoomingList, {
+  foreignKey: "tripRoomingListId",
+  as: "roomingList",
+  onDelete: "CASCADE",
+});
+db.tripRoom.hasMany(db.tripRoomAssignment, {
+  foreignKey: "tripRoomId",
+  as: "assignments",
+  onDelete: "CASCADE",
+});
+db.tripRoomAssignment.belongsTo(db.tripRoom, {
+  foreignKey: "tripRoomId",
+  as: "room",
+  onDelete: "CASCADE",
+});
+db.tripPeopleRole.hasOne(db.tripRoomAssignment, {
+  foreignKey: "tripPeopleRoleId",
+  as: "roomAssignment",
+  onDelete: "CASCADE",
+});
+db.tripRoomAssignment.belongsTo(db.tripPeopleRole, {
+  foreignKey: "tripPeopleRoleId",
+  as: "tripPeopleRole",
   onDelete: "CASCADE",
 });
 

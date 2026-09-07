@@ -37,6 +37,12 @@ export default {
   getStatus(id) {
     return apiClient.get(`/trips/${id}/status`);
   },
+  getRooming(id) {
+    return apiClient.get(`/trips/${id}/rooming`);
+  },
+  updateRooming(id, data) {
+    return apiClient.put(`/trips/${id}/rooming`, data);
+  },
   create(data) {
     return apiClient.post("/trips", data);
   },
