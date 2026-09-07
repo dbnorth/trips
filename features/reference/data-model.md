@@ -231,6 +231,7 @@ Notes:
 | preferredReturnAirportId | INTEGER | nullable FK → airport |
 | preferredCabinClass | STRING(50) | nullable |
 | preferredAirlineId | INTEGER | nullable FK → airline |
+| preferredRefundableTicket | BOOLEAN | nullable; required for `applied` when organization purchases |
 | agreementAccepted | BOOLEAN | required, default `false` |
 | agreementSignatureName | STRING(255) | |
 | agreementDate | DATE | |

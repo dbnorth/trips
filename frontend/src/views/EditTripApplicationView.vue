@@ -81,6 +81,7 @@ const form = ref({
   preferredReturnAirportCode: null,
   preferredCabinClass: "",
   preferredAirlineCode: null,
+  preferredRefundableTicket: null,
   agreementAccepted: false,
   agreementSignatureName: "",
   agreementDate: null,
@@ -213,6 +214,7 @@ const applicationFormComplete = computed(() =>
     preferredReturnAirportCode: form.value.preferredReturnAirportCode,
     preferredCabinClass: form.value.preferredCabinClass,
     preferredAirlineCode: form.value.preferredAirlineCode,
+    preferredRefundableTicket: form.value.preferredRefundableTicket,
   })
 );
 
@@ -300,6 +302,7 @@ const submitUnavailableReasons = computed(() => {
     preferredReturnAirportCode: form.value.preferredReturnAirportCode,
     preferredCabinClass: form.value.preferredCabinClass,
     preferredAirlineCode: form.value.preferredAirlineCode,
+    preferredRefundableTicket: form.value.preferredRefundableTicket,
     gender: healthForm.value.gender ?? person.value?.gender,
     isPregnant: normalizeYesNo(healthForm.value.isPregnant),
     pregnancyDueDate: healthForm.value.pregnancyDueDate,
@@ -416,6 +419,10 @@ const applyFormFromApplication = (row) => {
       row?.preferredReturnAirport?.code || row?.preferredReturnAirportCode || null,
     preferredCabinClass: row?.preferredCabinClass || "",
     preferredAirlineCode: row?.preferredAirline?.code || row?.preferredAirlineCode || null,
+    preferredRefundableTicket:
+      row?.preferredRefundableTicket === true || row?.preferredRefundableTicket === false
+        ? !!row.preferredRefundableTicket
+        : null,
     agreementAccepted: !!row?.agreementAccepted,
     agreementSignatureName: row?.agreementSignatureName || "",
     agreementDate: row?.agreementDate || null,
@@ -575,6 +582,13 @@ const save = async () => {
       preferredAirlineCode:
         form.value.flightPurchaseOption === "organization"
           ? form.value.preferredAirlineCode || null
+          : null,
+      preferredRefundableTicket:
+        form.value.flightPurchaseOption === "organization"
+          ? form.value.preferredRefundableTicket === true ||
+            form.value.preferredRefundableTicket === false
+            ? form.value.preferredRefundableTicket
+            : null
           : null,
       agreementAccepted: agreementRequired.value ? !!form.value.agreementAccepted : false,
       agreementSignatureName:
@@ -822,6 +836,7 @@ onMounted(load);
           v-model:preferred-return-airport-code="form.preferredReturnAirportCode"
           v-model:preferred-cabin-class="form.preferredCabinClass"
           v-model:preferred-airline-code="form.preferredAirlineCode"
+          v-model:preferred-refundable-ticket="form.preferredRefundableTicket"
           :organization-name="trip?.organization?.name"
           :disabled="!canEdit"
         />

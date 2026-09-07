@@ -7,6 +7,13 @@ export const FLIGHT_PURCHASE_OPTIONS = [FLIGHT_PURCHASE_SELF, FLIGHT_PURCHASE_OR
 const Airport = db.airport;
 const Airline = db.airline;
 
+const parseOptionalBool = (value) => {
+  if (value === true || value === 1 || value === "1" || value === "true") return true;
+  if (value === false || value === 0 || value === "0" || value === "false") return false;
+  if (value == null || value === "") return null;
+  return undefined;
+};
+
 /**
  * Parse application flight-purchase fields from a request body.
  * When option is not `organization`, preference FKs/class are cleared.
@@ -31,6 +38,7 @@ export const parseFlightPurchaseFields = async (body, { transaction } = {}) => {
       preferredReturnAirportId: null,
       preferredCabinClass: null,
       preferredAirlineId: null,
+      preferredRefundableTicket: null,
     };
   }
 
@@ -44,6 +52,13 @@ export const parseFlightPurchaseFields = async (body, { transaction } = {}) => {
     .trim()
     .toUpperCase();
   const preferredCabinClass = String(body?.preferredCabinClass || "").trim() || null;
+  const preferredRefundableTicket = parseOptionalBool(body?.preferredRefundableTicket);
+  if (preferredRefundableTicket === undefined) {
+    return {
+      ok: false,
+      message: "Refundable ticket must be true or false when the organization purchases travel.",
+    };
+  }
 
   let preferredDepartureAirportId = null;
   let preferredReturnAirportId = null;
@@ -78,6 +93,7 @@ export const parseFlightPurchaseFields = async (body, { transaction } = {}) => {
     preferredReturnAirportId,
     preferredCabinClass,
     preferredAirlineId,
+    preferredRefundableTicket,
   };
 };
 
@@ -87,6 +103,7 @@ export const isFlightPurchaseComplete = ({
   preferredReturnAirportId = null,
   preferredCabinClass = null,
   preferredAirlineId = null,
+  preferredRefundableTicket = null,
 } = {}) => {
   if (flightPurchaseOption !== FLIGHT_PURCHASE_SELF && flightPurchaseOption !== FLIGHT_PURCHASE_ORGANIZATION) {
     return false;
@@ -96,6 +113,7 @@ export const isFlightPurchaseComplete = ({
     if (preferredReturnAirportId == null) return false;
     if (!preferredCabinClass || String(preferredCabinClass).trim() === "") return false;
     if (preferredAirlineId == null) return false;
+    if (preferredRefundableTicket !== true && preferredRefundableTicket !== false) return false;
   }
   return true;
 };
@@ -109,6 +127,10 @@ export const flightPurchaseCodesFromRow = (row) => {
     preferredReturnAirportCode: json.preferredReturnAirport?.code || null,
     preferredCabinClass: json.preferredCabinClass || null,
     preferredAirlineCode: json.preferredAirline?.code || null,
+    preferredRefundableTicket:
+      json.preferredRefundableTicket === true || json.preferredRefundableTicket === false
+        ? json.preferredRefundableTicket
+        : null,
     preferredDepartureAirportId: json.preferredDepartureAirportId ?? null,
     preferredReturnAirportId: json.preferredReturnAirportId ?? null,
     preferredAirlineId: json.preferredAirlineId ?? null,

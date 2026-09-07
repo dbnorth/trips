@@ -45,6 +45,7 @@ export const getApplicationMissingItemLabels = ({
   preferredReturnAirportId = null,
   preferredCabinClass = null,
   preferredAirlineId = null,
+  preferredRefundableTicket = null,
   gender = null,
   isPregnant = null,
   pregnancyDueDate = null,
@@ -88,6 +89,7 @@ export const getApplicationMissingItemLabels = ({
       preferredReturnAirportId,
       preferredCabinClass,
       preferredAirlineId,
+      preferredRefundableTicket,
     })
   ) {
     if (flightPurchaseOption !== "self" && flightPurchaseOption !== "organization") {
@@ -97,6 +99,9 @@ export const getApplicationMissingItemLabels = ({
       if (preferredReturnAirportId == null) reasons.push("Preferred return airport");
       if (isBlank(preferredCabinClass)) reasons.push("Class of travel");
       if (preferredAirlineId == null) reasons.push("Preferred airline");
+      if (preferredRefundableTicket !== true && preferredRefundableTicket !== false) {
+        reasons.push("Refundable ticket");
+      }
     }
   }
 

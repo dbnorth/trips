@@ -269,6 +269,7 @@ const ensureTripPeopleRoleApplicationFields = async () => {
     ["preferredReturnAirportId", "INT NULL"],
     ["preferredCabinClass", "VARCHAR(50) NULL"],
     ["preferredAirlineId", "INT NULL"],
+    ["preferredRefundableTicket", "TINYINT(1) NULL"],
   ];
 
   for (const [columnName, definition] of columns) {

@@ -117,6 +117,10 @@ const serializeApplicationFlightPurchase = (json) => {
           cabinClass: json.preferredCabinClass || null,
           airlineCode: json.preferredAirline?.code || null,
           airlineName: json.preferredAirline?.name || null,
+          refundableTicket:
+            json.preferredRefundableTicket === true || json.preferredRefundableTicket === false
+              ? !!json.preferredRefundableTicket
+              : null,
         }
       : null;
 
@@ -143,6 +147,8 @@ const serializeApplicationFlightPurchase = (json) => {
         `Airline ${[preferences.airlineCode, preferences.airlineName].filter(Boolean).join(" — ")}`
       );
     }
+    if (preferences.refundableTicket === true) bits.push("Refundable");
+    if (preferences.refundableTicket === false) bits.push("Non-refundable");
     preferencesText = bits.length ? bits.join(" · ") : null;
   }
 

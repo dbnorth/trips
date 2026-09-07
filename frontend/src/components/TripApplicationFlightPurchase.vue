@@ -10,6 +10,7 @@ const props = defineProps({
   preferredReturnAirportCode: { type: String, default: null },
   preferredCabinClass: { type: String, default: "" },
   preferredAirlineCode: { type: String, default: null },
+  preferredRefundableTicket: { type: Boolean, default: null },
   organizationName: { type: String, default: "Organization" },
   disabled: { type: Boolean, default: false },
 });
@@ -20,6 +21,7 @@ const emit = defineEmits([
   "update:preferredReturnAirportCode",
   "update:preferredCabinClass",
   "update:preferredAirlineCode",
+  "update:preferredRefundableTicket",
 ]);
 
 const airports = ref([]);
@@ -99,6 +101,7 @@ watch(
       emit("update:preferredReturnAirportCode", null);
       emit("update:preferredCabinClass", "");
       emit("update:preferredAirlineCode", null);
+      emit("update:preferredRefundableTicket", null);
     }
   }
 );
@@ -166,6 +169,24 @@ onMounted(loadCatalogs);
         clearable
         :disabled="disabled"
         @update:model-value="(v) => $emit('update:preferredCabinClass', v || '')"
+      />
+      <v-select
+        :model-value="
+          preferredRefundableTicket === true || preferredRefundableTicket === false
+            ? preferredRefundableTicket
+            : null
+        "
+        :items="[
+          { title: 'Yes', value: true },
+          { title: 'No', value: false },
+        ]"
+        item-title="title"
+        item-value="value"
+        label="Refundable ticket"
+        density="compact"
+        clearable
+        :disabled="disabled"
+        @update:model-value="(v) => $emit('update:preferredRefundableTicket', v ?? null)"
       />
       <v-autocomplete
         :model-value="preferredAirlineCode"

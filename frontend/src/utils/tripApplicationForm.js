@@ -93,6 +93,7 @@ export const isApplicationFormComplete = ({
   preferredReturnAirportCode = null,
   preferredCabinClass = null,
   preferredAirlineCode = null,
+  preferredRefundableTicket = null,
 }) => {
   if (tripWorkerRoleId == null || tripWorkerRoleId === "") return false;
   if (!willSelfFund && !willRaiseFunds) return false;
@@ -103,6 +104,7 @@ export const isApplicationFormComplete = ({
     if (isBlank(preferredReturnAirportCode)) return false;
     if (isBlank(preferredCabinClass)) return false;
     if (isBlank(preferredAirlineCode)) return false;
+    if (preferredRefundableTicket !== true && preferredRefundableTicket !== false) return false;
   }
   return true;
 };

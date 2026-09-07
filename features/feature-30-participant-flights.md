@@ -103,8 +103,8 @@
 - **FR-019**: Trip application (apply dialog and edit-application page) MUST collect a **flight purchase option**:
   - **Arrange for and purchase my own air travel** (`self`)
   - **{Organization name} arrange for and purchase my air travel** (`organization`)
-- **FR-020**: When `organization` is selected, the application MUST collect **preferred departure airport**, **preferred return airport**, **class of travel**, and **preferred airline** (airport/airline from global catalogs). When `self` is selected, those preference fields MUST be cleared and hidden.
-- **FR-021**: Flight purchase option is **required** for application status `applied`. When `organization`, the four preference fields are also required for `applied`. Incomplete apps may save without them (status `incomplete`).
+- **FR-020**: When `organization` is selected, the application MUST collect **preferred departure airport**, **preferred return airport**, **class of travel**, **preferred airline**, and **refundable ticket** (Yes/No boolean). When `self` is selected, those preference fields MUST be cleared and hidden.
+- **FR-021**: Flight purchase option is **required** for application status `applied`. When `organization`, the preference fields in **FR-020** are also required for `applied`. Incomplete apps may save without them (status `incomplete`).
 - **FR-022**: Staff view-application UI MUST show the flight purchase option and, when organization, the preference values.
 
 ---

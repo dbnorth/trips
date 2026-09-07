@@ -49,6 +49,7 @@ export const getIncompleteSubmitReasons = ({
   preferredReturnAirportCode = null,
   preferredCabinClass = null,
   preferredAirlineCode = null,
+  preferredRefundableTicket = null,
   gender = null,
   isPregnant = null,
   pregnancyDueDate = null,
@@ -92,6 +93,9 @@ export const getIncompleteSubmitReasons = ({
     if (isBlank(preferredReturnAirportCode)) reasons.push("Preferred return airport");
     if (isBlank(preferredCabinClass)) reasons.push("Class of travel");
     if (isBlank(preferredAirlineCode)) reasons.push("Preferred airline");
+    if (preferredRefundableTicket !== true && preferredRefundableTicket !== false) {
+      reasons.push("Refundable ticket");
+    }
   }
 
   if (String(gender || "").toLowerCase() === "female") {
