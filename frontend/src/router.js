@@ -7,6 +7,7 @@ import OrganizationsList from "./views/OrganizationsList.vue";
 import TripsList from "./views/TripsList.vue";
 import TripView from "./views/TripView.vue";
 import TripStatusView from "./views/TripStatusView.vue";
+import TripRoomingView from "./views/TripRoomingView.vue";
 import TripPeopleRolesList from "./views/TripPeopleRolesList.vue";
 import DonationsList from "./views/DonationsList.vue";
 import EmailTemplatesList from "./views/EmailTemplatesList.vue";
@@ -34,6 +35,12 @@ const router = createRouter({
       path: "/trips/:tripId/status",
       name: "tripStatus",
       component: TripStatusView,
+      props: true,
+    },
+    {
+      path: "/trips/:tripId/rooming",
+      name: "tripRooming",
+      component: TripRoomingView,
       props: true,
     },
     { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },

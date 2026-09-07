@@ -27,7 +27,7 @@
 | `/users`, `/roles`, `/people`, `/org-people-roles` | 2, **11** (all-orgs people list) |
 | `/organizations` | 3 |
 | `/document-types`, `/people/:id/documents` | 4 |
-| `/trips` CRUD + image, `/dashboard/*` | 5, **28** (trip status board) |
+| `/trips` CRUD + image, `/dashboard/*` | 5, **28** (trip status board), **29** (rooming) |
 | `/worker-roles`, `/trip-worker-roles`, `/trip-travel-options` | 6 |
 | `/medical-conditions` | 17 |
 | `/trips/browse/*`, `/trip-people-roles`, participants CSV | 7, **28** |
@@ -125,6 +125,8 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `GET` | `/trips/trips` | auth | Scoped list + aggregates |
 | `GET` | `/trips/trips/:id` | auth | Detail if `canAccessTrip` |
 | `GET` | `/trips/trips/:id/status` | auth | Trip Status board (Trip Leader / Org Admin / System Admin): trip summary, roles with capacity counts, travel-option columns, participants with status / missing items / owed / raised / selected options — Feature 28 |
+| `GET` | `/trips/trips/:id/rooming` | auth | Rooming list load (staff): trip summary, hotel header, rooms, participant assignment grid + roommate prefs — Feature 29 |
+| `PUT` | `/trips/trips/:id/rooming` | auth | Upsert rooming hotel header + rooms/assignments from participant grid — Feature 29 |
 | `POST` | `/trips/trips` | auth | Create (+ optional `leaderPeopleIds`, `requirePassport`) |
 | `POST` | `/trips/trips/:id/copy` | auth | Copy source trip → new trip (name required; leaders, worker roles, travel options, `requirePassport`; not participants/donations) — Features 21, 23 |
 | `PUT` | `/trips/trips/:id` | auth | Update |

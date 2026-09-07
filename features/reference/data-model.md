@@ -30,6 +30,9 @@ Notes:
 | `tripWorkerRole` | 6 | Per-trip role quantities |
 | `tripTravelOption` | 6 | Travel/cost option sets |
 | `tripPeopleRoleOption` | 7 | Selected travel options on an application |
+| `tripRoomingList` | 29 | Per-trip hotel / check-in / notes |
+| `tripRoom` | 29 | Room number, type, nights |
+| `tripRoomAssignment` | 29 | Participant ↔ room |
 | `donor` | 8, 9 | Donor contacts |
 | `tripDonation` | 8, 9 | Donations |
 | `emailTemplate` | 10 | Email templates |
@@ -199,7 +202,7 @@ Notes:
 | requirePassport | BOOLEAN | required, default `false` (Feature 23) |
 | version | INTEGER | required, default `0` |
 
-**Associations:** `belongsTo` organization; `hasMany` tripPeopleRole, tripDonation, emailTemplate, tripWorkerRole, tripTravelOption.
+**Associations:** `belongsTo` organization; `hasMany` tripPeopleRole, tripDonation, emailTemplate, tripWorkerRole, tripTravelOption; `hasOne` tripRoomingList (Feature 29).
 
 ---
 
@@ -234,7 +237,47 @@ Notes:
 | assiginmentDateTime | DATE | |
 | version | INTEGER | required, default `0` |
 
-**Associations:** `belongsTo` trip, person, role, tripWorkerRole; `hasMany` tripPeopleRoleOption.
+**Associations:** `belongsTo` trip, person, role, tripWorkerRole; `hasMany` tripPeopleRoleOption; `hasOne` tripRoomAssignment (Feature 29).
+
+---
+
+## `tripRoomingList` — Feature 29
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tripId | INTEGER | required FK → trip, **unique** (one list per trip) |
+| hotelName | STRING(255) | |
+| checkInDate | DATEONLY | |
+| notes | TEXT | |
+
+**Associations:** `belongsTo` trip; `hasMany` tripRoom.
+
+---
+
+## `tripRoom` — Feature 29
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tripRoomingListId | INTEGER | required FK → tripRoomingList |
+| roomNumber | STRING(50) | required |
+| roomType | STRING(20) | required; `King` \| `Double` \| `Triple` |
+| numberOfNights | INTEGER | required, positive |
+
+**Associations:** `belongsTo` tripRoomingList; `hasMany` tripRoomAssignment.
+
+---
+
+## `tripRoomAssignment` — Feature 29
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tripRoomId | INTEGER | required FK → tripRoom |
+| tripPeopleRoleId | INTEGER | required FK → tripPeopleRole, **unique** (one room per participant) |
+
+**Associations:** `belongsTo` tripRoom, tripPeopleRole.
 
 ---
 
@@ -412,7 +455,8 @@ organization ──1:N── orgPeopleRole ──N:1── person
 organization ──1:N── trip ──1:N── tripPeopleRole ──N:1── person / role
                   ├──1:N── tripWorkerRole ──N:1── workerRole
                   ├──1:N── tripTravelOption
-                  └──1:N── tripDonation ──N:1── donor / person
+                  ├──1:N── tripDonation ──N:1── donor / person
+                  └──1:1── tripRoomingList ──1:N── tripRoom ──1:N── tripRoomAssignment ──N:1── tripPeopleRole
 
 tripPeopleRole ──1:N── tripPeopleRoleOption ──N:1── tripTravelOption
 person ──1:N── personDocument ──N:1── documentType
