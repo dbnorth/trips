@@ -255,6 +255,56 @@ const confirmUncancelApplication = async () => {
             <div>{{ application.preferredRoommateNames || "—" }}</div>
           </div>
 
+          <div class="text-subtitle-2 mb-2 mt-4">Flight purchase</div>
+          <div class="mb-2">
+            <div class="text-caption text-medium-emphasis">Option</div>
+            <div>
+              {{
+                application.flightPurchaseOption === "self"
+                  ? "Arrange for and purchase my own air travel"
+                  : application.flightPurchaseOption === "organization"
+                    ? "Organization arranges and purchases air travel"
+                    : "—"
+              }}
+            </div>
+          </div>
+          <template v-if="application.flightPurchaseOption === 'organization'">
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Preferred departure airport</div>
+              <div>
+                {{
+                  application.preferredDepartureAirport?.code ||
+                  application.preferredDepartureAirportCode ||
+                  "—"
+                }}
+              </div>
+            </div>
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Preferred return airport</div>
+              <div>
+                {{
+                  application.preferredReturnAirport?.code ||
+                  application.preferredReturnAirportCode ||
+                  "—"
+                }}
+              </div>
+            </div>
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Class of travel</div>
+              <div>{{ application.preferredCabinClass || "—" }}</div>
+            </div>
+            <div class="mb-3">
+              <div class="text-caption text-medium-emphasis">Preferred airline</div>
+              <div>
+                {{
+                  application.preferredAirline?.code ||
+                  application.preferredAirlineCode ||
+                  "—"
+                }}
+              </div>
+            </div>
+          </template>
+
           <div class="text-subtitle-2 mb-2 mt-4">Selected travel options</div>
           <div v-if="!selectedTravelOptions.length" class="mb-3 text-medium-emphasis">
             None selected

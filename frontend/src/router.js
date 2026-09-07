@@ -8,12 +8,15 @@ import TripsList from "./views/TripsList.vue";
 import TripView from "./views/TripView.vue";
 import TripStatusView from "./views/TripStatusView.vue";
 import TripRoomingView from "./views/TripRoomingView.vue";
+import TripFlightsView from "./views/TripFlightsView.vue";
 import TripPeopleRolesList from "./views/TripPeopleRolesList.vue";
 import DonationsList from "./views/DonationsList.vue";
 import EmailTemplatesList from "./views/EmailTemplatesList.vue";
 import WorkerRolesList from "./views/WorkerRolesList.vue";
 import MedicalConditionsList from "./views/MedicalConditionsList.vue";
 import DocumentTypesList from "./views/DocumentTypesList.vue";
+import AirportsList from "./views/AirportsList.vue";
+import AirlinesList from "./views/AirlinesList.vue";
 import TripBrowseView from "./views/TripBrowseView.vue";
 import EditTripApplicationView from "./views/EditTripApplicationView.vue";
 import DonorTripPage from "./views/DonorTripPage.vue";
@@ -43,6 +46,12 @@ const router = createRouter({
       component: TripRoomingView,
       props: true,
     },
+    {
+      path: "/trips/:tripId/flights",
+      name: "tripFlights",
+      component: TripFlightsView,
+      props: true,
+    },
     { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
     { path: "/browse-trips/:tripId", name: "tripBrowse", component: TripBrowseView, props: true },
     {
@@ -57,6 +66,8 @@ const router = createRouter({
     { path: "/worker-roles", name: "workerRoles", component: WorkerRolesList },
     { path: "/medical-conditions", name: "medicalConditions", component: MedicalConditionsList },
     { path: "/document-types", name: "documentTypes", component: DocumentTypesList },
+    { path: "/airports", name: "airports", component: AirportsList },
+    { path: "/airlines", name: "airlines", component: AirlinesList },
     {
       path: "/org/:orgSlug",
       name: "orgTrips",
@@ -125,6 +136,10 @@ export function applyAuthGuards(router) {
       return;
     }
     if (to.name === "documentTypes" && !user.isAdmin) {
+      next({ name: "home" });
+      return;
+    }
+    if ((to.name === "airports" || to.name === "airlines") && !user.isAdmin) {
       next({ name: "home" });
       return;
     }

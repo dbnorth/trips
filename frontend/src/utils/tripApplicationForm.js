@@ -88,10 +88,22 @@ export const isApplicationFormComplete = ({
   willRaiseFunds,
   hasPreferredRoommate = false,
   preferredRoommateNames = null,
+  flightPurchaseOption = null,
+  preferredDepartureAirportCode = null,
+  preferredReturnAirportCode = null,
+  preferredCabinClass = null,
+  preferredAirlineCode = null,
 }) => {
   if (tripWorkerRoleId == null || tripWorkerRoleId === "") return false;
   if (!willSelfFund && !willRaiseFunds) return false;
   if (hasPreferredRoommate && isBlank(preferredRoommateNames)) return false;
+  if (flightPurchaseOption !== "self" && flightPurchaseOption !== "organization") return false;
+  if (flightPurchaseOption === "organization") {
+    if (isBlank(preferredDepartureAirportCode)) return false;
+    if (isBlank(preferredReturnAirportCode)) return false;
+    if (isBlank(preferredCabinClass)) return false;
+    if (isBlank(preferredAirlineCode)) return false;
+  }
   return true;
 };
 

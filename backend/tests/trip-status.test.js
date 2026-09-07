@@ -171,6 +171,7 @@ describe("Feature 28 — View Trip Status", () => {
           status: "incomplete",
           participantCost: 1000,
           willSelfFund: false,
+          flightPurchaseOption: "self",
           willRaiseFunds: false,
         });
       expect(assignment.status).toBe(200);

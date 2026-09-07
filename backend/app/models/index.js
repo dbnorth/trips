@@ -25,6 +25,10 @@ import WorkerRoleDocumentType from "./workerRoleDocumentType.model.js";
 import TripRoomingList from "./tripRoomingList.model.js";
 import TripRoom from "./tripRoom.model.js";
 import TripRoomAssignment from "./tripRoomAssignment.model.js";
+import Airport from "./airport.model.js";
+import Airline from "./airline.model.js";
+import TripFlight from "./tripFlight.model.js";
+import TripFlightSegment from "./tripFlightSegment.model.js";
 
 const db = {};
 db.Sequelize = Sequelize;
@@ -54,6 +58,10 @@ db.workerRoleDocumentType = WorkerRoleDocumentType;
 db.tripRoomingList = TripRoomingList;
 db.tripRoom = TripRoom;
 db.tripRoomAssignment = TripRoomAssignment;
+db.airport = Airport;
+db.airline = Airline;
+db.tripFlight = TripFlight;
+db.tripFlightSegment = TripFlightSegment;
 
 db.user.hasMany(db.session, { foreignKey: "userId", onDelete: "CASCADE" });
 db.session.belongsTo(db.user, { foreignKey: "userId", onDelete: "CASCADE" });
@@ -265,5 +273,56 @@ db.tripRoomAssignment.belongsTo(db.tripPeopleRole, {
   as: "tripPeopleRole",
   onDelete: "CASCADE",
 });
+
+db.tripPeopleRole.hasOne(db.tripFlight, {
+  foreignKey: "tripPeopleRoleId",
+  as: "flight",
+  onDelete: "CASCADE",
+});
+db.tripFlight.belongsTo(db.tripPeopleRole, {
+  foreignKey: "tripPeopleRoleId",
+  as: "tripPeopleRole",
+  onDelete: "CASCADE",
+});
+db.tripPeopleRole.belongsTo(db.airport, {
+  foreignKey: "preferredDepartureAirportId",
+  as: "preferredDepartureAirport",
+});
+db.tripPeopleRole.belongsTo(db.airport, {
+  foreignKey: "preferredReturnAirportId",
+  as: "preferredReturnAirport",
+});
+db.tripPeopleRole.belongsTo(db.airline, {
+  foreignKey: "preferredAirlineId",
+  as: "preferredAirline",
+});
+db.tripFlight.hasMany(db.tripFlightSegment, {
+  foreignKey: "tripFlightId",
+  as: "segments",
+  onDelete: "CASCADE",
+});
+db.tripFlightSegment.belongsTo(db.tripFlight, {
+  foreignKey: "tripFlightId",
+  as: "flight",
+  onDelete: "CASCADE",
+});
+db.airport.hasMany(db.tripFlightSegment, {
+  foreignKey: "departureAirportId",
+  as: "departureSegments",
+});
+db.airport.hasMany(db.tripFlightSegment, {
+  foreignKey: "arrivalAirportId",
+  as: "arrivalSegments",
+});
+db.tripFlightSegment.belongsTo(db.airport, {
+  foreignKey: "departureAirportId",
+  as: "departureAirport",
+});
+db.tripFlightSegment.belongsTo(db.airport, {
+  foreignKey: "arrivalAirportId",
+  as: "arrivalAirport",
+});
+db.airline.hasMany(db.tripFlightSegment, { foreignKey: "airlineId", as: "segments" });
+db.tripFlightSegment.belongsTo(db.airline, { foreignKey: "airlineId", as: "airline" });
 
 export default db;

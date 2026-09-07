@@ -33,6 +33,10 @@ Notes:
 | `tripRoomingList` | 29 | Per-trip hotel / check-in / notes |
 | `tripRoom` | 29 | Room number, type, nights |
 | `tripRoomAssignment` | 29 | Participant ↔ room |
+| `airport` | 30 | Global airport catalog |
+| `airline` | 30 | Global airline catalog |
+| `tripFlight` | 30 | Per-participant flight header |
+| `tripFlightSegment` | 30 | Ordered flight segments |
 | `donor` | 8, 9 | Donor contacts |
 | `tripDonation` | 8, 9 | Donations |
 | `emailTemplate` | 10 | Email templates |
@@ -222,6 +226,11 @@ Notes:
 | licenseStatus | ENUM(`yes`,`yes_retired`,`no`) | |
 | hasPreferredRoommate | BOOLEAN | required, default `false` |
 | preferredRoommateNames | STRING(500) | |
+| flightPurchaseOption | ENUM(`self`,`organization`) | nullable; Feature 30 application |
+| preferredDepartureAirportId | INTEGER | nullable FK → airport |
+| preferredReturnAirportId | INTEGER | nullable FK → airport |
+| preferredCabinClass | STRING(50) | nullable |
+| preferredAirlineId | INTEGER | nullable FK → airline |
 | agreementAccepted | BOOLEAN | required, default `false` |
 | agreementSignatureName | STRING(255) | |
 | agreementDate | DATE | |
@@ -237,7 +246,7 @@ Notes:
 | assiginmentDateTime | DATE | |
 | version | INTEGER | required, default `0` |
 
-**Associations:** `belongsTo` trip, person, role, tripWorkerRole; `hasMany` tripPeopleRoleOption; `hasOne` tripRoomAssignment (Feature 29).
+**Associations:** `belongsTo` trip, person, role, tripWorkerRole; `hasMany` tripPeopleRoleOption; `hasOne` tripRoomAssignment (Feature 29); `hasOne` tripFlight (Feature 30).
 
 ---
 
@@ -278,6 +287,72 @@ Notes:
 | tripPeopleRoleId | INTEGER | required FK → tripPeopleRole, **unique** (one room per participant) |
 
 **Associations:** `belongsTo` tripRoom, tripPeopleRole.
+
+---
+
+## `airport` — Feature 30
+
+Seeded from `backend/app/data/airports.json` (OpenFlights IATA set) via `npm run seed:catalogs`.
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| code | STRING(10) | required, unique |
+| airportName | STRING(255) | required |
+| city | STRING(255) | required |
+| country | STRING(100) | required |
+
+**Associations:** `hasMany` tripFlightSegment (as departure/arrival).
+
+---
+
+## `airline` — Feature 30
+
+Seeded from `backend/app/data/airlines.json` (OpenFlights active IATA set) via `npm run seed:catalogs`.
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| code | STRING(10) | required, unique |
+| name | STRING(255) | required |
+
+**Associations:** `hasMany` tripFlightSegment.
+
+---
+
+## `tripFlight` — Feature 30
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tripPeopleRoleId | INTEGER | required FK → tripPeopleRole, unique |
+| purchased | BOOLEAN | required, default `false` |
+| cost | DECIMAL(10,2) | nullable |
+| comments | TEXT | |
+
+**Associations:** `belongsTo` tripPeopleRole; `hasMany` tripFlightSegment.
+
+---
+
+## `tripFlightSegment` — Feature 30
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tripFlightId | INTEGER | required FK → tripFlight |
+| segmentNumber | INTEGER | required; unique per flight |
+| departureAirportId | INTEGER | required FK → airport |
+| airlineId | INTEGER | required FK → airline |
+| flightNumber | STRING(20) | required |
+| departureDate | DATEONLY | required |
+| departureTime | STRING(5) | required (`HH:MM`) |
+| arrivalAirportId | INTEGER | required FK → airport |
+| arrivalDate | DATEONLY | required |
+| arrivalTime | STRING(5) | required (`HH:MM`) |
+| cabinClass | STRING(50) | optional |
+| seatNumber | STRING(20) | optional |
+
+**Associations:** `belongsTo` tripFlight, departureAirport, arrivalAirport, airline.
 
 ---
 

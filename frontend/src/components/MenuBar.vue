@@ -275,6 +275,8 @@ onMounted(() => {
       <v-btn v-if="user.isAdmin || showOrgAdminNav" variant="text" :to="{ name: 'people' }">People</v-btn>
       <v-btn v-if="user.isAdmin" variant="text" :to="{ name: 'organizations' }">Organizations</v-btn>
       <v-btn v-if="user.isAdmin" variant="text" :to="{ name: 'documentTypes' }">Document types</v-btn>
+      <v-btn v-if="user.isAdmin" variant="text" :to="{ name: 'airports' }">Airports</v-btn>
+      <v-btn v-if="user.isAdmin" variant="text" :to="{ name: 'airlines' }">Airlines</v-btn>
       <v-btn v-if="showOrgAdminNav || user.isAdmin" variant="text" :to="{ name: 'trips' }">Trips</v-btn>
       <v-btn v-if="isTripLeaderOnly" variant="text" :to="{ name: 'tripPeople' }">Trips</v-btn>
       <v-btn v-if="showOrgAdminNav || showTripLeaderNav || showParticipantNav" variant="text" :to="{ name: 'donations' }">Donations</v-btn>

@@ -264,6 +264,11 @@ const ensureTripPeopleRoleApplicationFields = async () => {
     ["medicalAgreementDate", "DATETIME NULL"],
     ["isPregnant", "TINYINT(1) NULL"],
     ["pregnancyDueDate", "DATE NULL"],
+    ["flightPurchaseOption", "ENUM('self', 'organization') NULL"],
+    ["preferredDepartureAirportId", "INT NULL"],
+    ["preferredReturnAirportId", "INT NULL"],
+    ["preferredCabinClass", "VARCHAR(50) NULL"],
+    ["preferredAirlineId", "INT NULL"],
   ];
 
   for (const [columnName, definition] of columns) {
@@ -841,11 +846,44 @@ const ensureTripRequirePassport = async () => {
   logger.info("trips.requirePassport column added.");
 };
 
+const ensureTripFlightSegmentCabinAndSeat = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tripFlightSegments'`
+  );
+  if (!tables.length) return;
+
+  const [columns] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tripFlightSegments'
+       AND COLUMN_NAME IN ('cabinClass', 'seatNumber')`
+  );
+  const have = new Set(columns.map((c) => c.COLUMN_NAME));
+
+  if (!have.has("cabinClass")) {
+    await db.sequelize.query(
+      `ALTER TABLE tripFlightSegments
+       ADD COLUMN cabinClass VARCHAR(50) NULL AFTER arrivalTime`
+    );
+    logger.info("tripFlightSegments.cabinClass column added.");
+  }
+  if (!have.has("seatNumber")) {
+    await db.sequelize.query(
+      `ALTER TABLE tripFlightSegments
+       ADD COLUMN seatNumber VARCHAR(20) NULL AFTER cabinClass`
+    );
+    logger.info("tripFlightSegments.seatNumber column added.");
+  }
+};
+
 export const ensureSchema = async () => {
   await ensureNamedUniqueIndexes();
   await ensureEmailTemplateOrgNullable();
   await ensureTripPeopleRoleParticipantCost();
   await ensureTripRequirePassport();
+  await ensureTripFlightSegmentCabinAndSeat();
   await ensureOrganizationWebsiteUrl();
   await ensureOrganizationSubdomain();
   await ensureOrganizationAgreementFileName();
