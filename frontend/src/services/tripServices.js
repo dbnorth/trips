@@ -34,6 +34,9 @@ export default {
   get(id) {
     return apiClient.get(`/trips/${id}`);
   },
+  getStatus(id) {
+    return apiClient.get(`/trips/${id}/status`);
+  },
   create(data) {
     return apiClient.post("/trips", data);
   },

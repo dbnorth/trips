@@ -27,10 +27,10 @@
 | `/users`, `/roles`, `/people`, `/org-people-roles` | 2, **11** (all-orgs people list) |
 | `/organizations` | 3 |
 | `/document-types`, `/people/:id/documents` | 4 |
-| `/trips` CRUD + image, `/dashboard/*` | 5 |
+| `/trips` CRUD + image, `/dashboard/*` | 5, **28** (trip status board) |
 | `/worker-roles`, `/trip-worker-roles`, `/trip-travel-options` | 6 |
 | `/medical-conditions` | 17 |
-| `/trips/browse/*`, `/trip-people-roles`, participants CSV | 7 |
+| `/trips/browse/*`, `/trip-people-roles`, participants CSV | 7, **28** |
 | `/donations`, `/donors`, donation/donor CSVs | 8 |
 | `/public/*` | 9 |
 | `/email-templates` | 10 |
@@ -124,6 +124,7 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 |--------|------|------|---------|
 | `GET` | `/trips/trips` | auth | Scoped list + aggregates |
 | `GET` | `/trips/trips/:id` | auth | Detail if `canAccessTrip` |
+| `GET` | `/trips/trips/:id/status` | auth | Trip Status board (Trip Leader / Org Admin / System Admin): trip summary, roles with capacity counts, travel-option columns, participants with status / missing items / owed / raised / selected options — Feature 28 |
 | `POST` | `/trips/trips` | auth | Create (+ optional `leaderPeopleIds`, `requirePassport`) |
 | `POST` | `/trips/trips/:id/copy` | auth | Copy source trip → new trip (name required; leaders, worker roles, travel options, `requirePassport`; not participants/donations) — Features 21, 23 |
 | `PUT` | `/trips/trips/:id` | auth | Update |
@@ -183,6 +184,7 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `POST` | `/trips/trips/browse/:id/application/cancel` | auth | Applicant cancel own application (`incomplete`/`applied`/`approved` → `cancelled`) |
 | `POST` | `/trips/trips/browse/:id/application/uncancel` | auth | Applicant uncancel → auto `incomplete`/`applied`; fails if role full |
 | `GET` | `/trips/trip-people-roles` | auth | Roster (`?tripId=`) |
+| `GET` | `/trips/trips/:id/status` | auth | Trip Status board — Feature 28 (also listed under Trips catalog) |
 | `GET` | `/trips/trip-people-roles/:id` | auth | One assignment |
 | `POST` | `/trips/trip-people-roles` | auth | Staff add participant |
 | `POST` | `/trips/trip-people-roles/:id/cancel` | auth | Staff cancel (`incomplete`/`applied`/`approved`) |

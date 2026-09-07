@@ -27,6 +27,7 @@ router.post("/browse/:id/application/cancel", [authenticate], tripBrowse.cancelA
 router.post("/browse/:id/application/uncancel", [authenticate], tripBrowse.uncancelApplication);
 
 router.get("/", [authenticate], trips.findAll);
+router.get("/:id/status", [authenticate], trips.findStatus);
 router.get("/:id", [authenticate], trips.findOne);
 router.post("/", [authenticate], trips.create);
 router.post("/:id/copy", [authenticate], trips.copy);
