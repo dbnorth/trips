@@ -282,6 +282,10 @@ exports.findStatus = async (req, res) => {
         preferredReturnAirportId: json.preferredReturnAirportId ?? null,
         preferredCabinClass: json.preferredCabinClass || null,
         preferredAirlineId: json.preferredAirlineId ?? null,
+        preferredRefundableTicket:
+          json.preferredRefundableTicket === true || json.preferredRefundableTicket === false
+            ? json.preferredRefundableTicket
+            : null,
         gender: person?.gender ?? null,
         isPregnant: pregnancy.ok ? pregnancy.isPregnant : null,
         pregnancyDueDate: pregnancy.ok ? pregnancy.pregnancyDueDate : null,

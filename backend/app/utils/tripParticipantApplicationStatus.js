@@ -162,6 +162,7 @@ export const isApplicationComplete = ({
   preferredReturnAirportId = null,
   preferredCabinClass = null,
   preferredAirlineId = null,
+  preferredRefundableTicket = null,
   licenseRequired = false,
   agreementRequired = false,
   agreementAccepted = false,
@@ -191,6 +192,7 @@ export const isApplicationComplete = ({
       preferredReturnAirportId,
       preferredCabinClass,
       preferredAirlineId,
+      preferredRefundableTicket,
     })
   ) {
     return false;
@@ -230,6 +232,7 @@ export const resolveAppliedOrIncompleteStatus = ({
   preferredReturnAirportId = null,
   preferredCabinClass = null,
   preferredAirlineId = null,
+  preferredRefundableTicket = null,
   licenseRequired = false,
   agreementRequired = false,
   agreementAccepted = false,
@@ -261,6 +264,7 @@ export const resolveAppliedOrIncompleteStatus = ({
     preferredReturnAirportId,
     preferredCabinClass,
     preferredAirlineId,
+    preferredRefundableTicket,
     licenseRequired,
     agreementRequired,
     agreementAccepted,

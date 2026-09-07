@@ -293,6 +293,18 @@ const confirmUncancelApplication = async () => {
               <div class="text-caption text-medium-emphasis">Class of travel</div>
               <div>{{ application.preferredCabinClass || "—" }}</div>
             </div>
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Refundable ticket</div>
+              <div>
+                {{
+                  application.preferredRefundableTicket === true
+                    ? "Yes"
+                    : application.preferredRefundableTicket === false
+                      ? "No"
+                      : "—"
+                }}
+              </div>
+            </div>
             <div class="mb-3">
               <div class="text-caption text-medium-emphasis">Preferred airline</div>
               <div>

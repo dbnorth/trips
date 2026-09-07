@@ -674,6 +674,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
           preferredReturnAirportCode: "AUS",
           preferredCabinClass: "Economy",
           preferredAirlineCode: "AA",
+          preferredRefundableTicket: true,
           isPregnant: false,
           agreementAccepted: true,
           agreementSignatureName: "Flight Pref Applicant",
@@ -682,10 +683,12 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       expect(response.status).toBe(200);
       expect(response.body.assignment.flightPurchaseOption).toBe("organization");
       expect(response.body.assignment.preferredCabinClass).toBe("Economy");
+      expect(response.body.assignment.preferredRefundableTicket).toBe(true);
 
       const stored = await db.tripPeopleRole.findByPk(response.body.assignment.id);
       expect(stored.flightPurchaseOption).toBe("organization");
       expect(stored.preferredCabinClass).toBe("Economy");
+      expect(stored.preferredRefundableTicket).toBe(true);
       expect(stored.preferredDepartureAirportId).toBeTruthy();
       expect(stored.preferredReturnAirportId).toBeTruthy();
       expect(stored.preferredAirlineId).toBeTruthy();

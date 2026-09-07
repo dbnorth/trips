@@ -52,6 +52,7 @@ const fields = [
   "preferredReturnAirportId",
   "preferredCabinClass",
   "preferredAirlineId",
+  "preferredRefundableTicket",
   "agreementAccepted",
   "agreementSignatureName",
   "agreementDate",
@@ -159,6 +160,10 @@ const computeStatusForPayload = async (payload, orgId) => {
     preferredReturnAirportId: payload.preferredReturnAirportId ?? null,
     preferredCabinClass: payload.preferredCabinClass || null,
     preferredAirlineId: payload.preferredAirlineId ?? null,
+    preferredRefundableTicket:
+      payload.preferredRefundableTicket === true || payload.preferredRefundableTicket === false
+        ? payload.preferredRefundableTicket
+        : null,
     licenseRequired,
     agreementRequired,
     agreementAccepted: !!payload.agreementAccepted,
