@@ -123,6 +123,12 @@ const openSegments = (row) => {
   showSegments.value = true;
 };
 
+const onSegmentsSaved = () => {
+  showSegments.value = false;
+  segmentsParticipant.value = null;
+  load();
+};
+
 const participantLabel = computed(() => {
   const p = segmentsParticipant.value;
   if (!p) return "";
@@ -229,7 +235,9 @@ onMounted(load);
       :trip-id="resolvedTripId"
       :trip-people-role-id="segmentsParticipant?.tripPeopleRoleId"
       :participant-name="participantLabel"
-      @saved="load"
+      :trip-start-date="trip?.startDate || ''"
+      :trip-end-date="trip?.endDate || ''"
+      @saved="onSegmentsSaved"
     />
   </v-container>
 </template>

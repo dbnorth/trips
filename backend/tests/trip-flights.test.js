@@ -171,6 +171,7 @@ describe("Feature 30 — Participant Flights", () => {
         .send({
           segments: [
             {
+              segmentType: "arrival",
               segmentNumber: 1,
               departureAirportCode: "DFW",
               airlineCode: "AA",
@@ -184,6 +185,7 @@ describe("Feature 30 — Participant Flights", () => {
               seatNumber: "12A",
             },
             {
+              segmentType: "arrival",
               segmentNumber: 2,
               departureAirportCode: "MIA",
               airlineCode: "AA",
@@ -196,16 +198,37 @@ describe("Feature 30 — Participant Flights", () => {
               cabinClass: "Economy",
               seatNumber: "14C",
             },
+            {
+              segmentType: "return",
+              segmentNumber: 1,
+              departureAirportCode: "GUA",
+              airlineCode: "AA",
+              flightNumber: "300",
+              departureDate: "2026-07-10",
+              departureTime: "09:00",
+              arrivalAirportCode: "DFW",
+              arrivalDate: "2026-07-10",
+              arrivalTime: "14:30",
+              cabinClass: "Economy",
+              seatNumber: "8B",
+            },
           ],
         });
       expect(segments.status).toBe(200);
       expect(segments.body.segments[0]).toMatchObject({
+        segmentType: "arrival",
         cabinClass: "Economy",
         seatNumber: "12A",
       });
       expect(segments.body.segments[1]).toMatchObject({
+        segmentType: "arrival",
         cabinClass: "Economy",
         seatNumber: "14C",
+      });
+      expect(segments.body.segments[2]).toMatchObject({
+        segmentType: "return",
+        segmentNumber: 1,
+        seatNumber: "8B",
       });
 
       const response = await request(app)
@@ -224,9 +247,9 @@ describe("Feature 30 — Participant Flights", () => {
         city: "Dallas",
       });
       expect(ada.finalArrival).toMatchObject({
-        date: "2026-07-01",
-        time: "16:45",
-        city: "Guatemala City",
+        date: "2026-07-10",
+        time: "14:30",
+        city: "Dallas",
       });
     });
 
@@ -350,6 +373,7 @@ describe("Feature 30 — Participant Flights", () => {
         .send({
           segments: [
             {
+              segmentType: "arrival",
               segmentNumber: 1,
               departureAirportCode: "ZZZ",
               airlineCode: "AA",

@@ -341,7 +341,8 @@ Seeded from `backend/app/data/airlines.json` (OpenFlights active IATA set) via `
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
 | tripFlightId | INTEGER | required FK → tripFlight |
-| segmentNumber | INTEGER | required; unique per flight |
+| segmentType | ENUM(`arrival`,`return`) | required; default `arrival` |
+| segmentNumber | INTEGER | required; unique per flight **and** type |
 | departureAirportId | INTEGER | required FK → airport |
 | airlineId | INTEGER | required FK → airline |
 | flightNumber | STRING(20) | required |
