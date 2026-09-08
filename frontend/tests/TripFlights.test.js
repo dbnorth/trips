@@ -98,6 +98,7 @@ describe("Feature 30 — Participant Flights", () => {
       data: {
         segments: [
           {
+            segmentType: "arrival",
             segmentNumber: 1,
             departureAirportCode: "DFW",
             airlineCode: "AA",
@@ -194,7 +195,13 @@ describe("Feature 30 — Participant Flights", () => {
     expect(dialog.exists()).toBe(true);
     expect(dialog.props("modelValue")).toBe(true);
 
-    await dialog.vm.addSegment();
+    await dialog.vm.addSegment("arrival");
+    expect(dialog.vm.segments[0].departureDate).toBe("2026-07-01");
+    expect(dialog.vm.segments[0].arrivalDate).toBe("2026-07-01");
+    await dialog.vm.addSegment("return");
+    expect(dialog.vm.segments[1].departureDate).toBe("2026-07-14");
+    expect(dialog.vm.segments[1].arrivalDate).toBe("2026-07-14");
+    dialog.vm.segments.splice(1, 1);
     dialog.vm.segments[0].departureAirportCode = "DFW";
     dialog.vm.segments[0].arrivalAirportCode = "GUA";
     dialog.vm.segments[0].airlineCode = "AA";
@@ -214,6 +221,7 @@ describe("Feature 30 — Participant Flights", () => {
       data: {
         segments: [
           {
+            segmentType: "arrival",
             segmentNumber: 1,
             departureAirportCode: "DFW",
             airlineCode: "AA",

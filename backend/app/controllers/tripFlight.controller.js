@@ -65,6 +65,7 @@ const serializeSegment = (segment) => {
   const json = typeof segment.toJSON === "function" ? segment.toJSON() : segment;
   return {
     id: json.id,
+    segmentType: json.segmentType || "arrival",
     segmentNumber: json.segmentNumber,
     departureAirportCode: json.departureAirport?.code || null,
     airlineCode: json.airline?.code || null,
@@ -79,15 +80,28 @@ const serializeSegment = (segment) => {
   };
 };
 
+const sortSegments = (segments) =>
+  [...(segments || [])].sort((a, b) => {
+    const aType = a.segmentType || "arrival";
+    const bType = b.segmentType || "arrival";
+    if (aType !== bType) return aType === "arrival" ? -1 : 1;
+    return a.segmentNumber - b.segmentNumber;
+  });
+
+const toSegmentJson = (segment) =>
+  typeof segment.toJSON === "function" ? segment.toJSON() : segment;
+
 const deriveItinerary = (segments) => {
   if (!segments?.length) {
     return { initialDeparture: null, finalArrival: null, segmentCount: 0 };
   }
-  const ordered = [...segments].sort((a, b) => a.segmentNumber - b.segmentNumber);
-  const first = ordered[0];
-  const last = ordered[ordered.length - 1];
-  const firstJson = typeof first.toJSON === "function" ? first.toJSON() : first;
-  const lastJson = typeof last.toJSON === "function" ? last.toJSON() : last;
+  const ordered = sortSegments(segments);
+  const arrival = ordered.filter((s) => (s.segmentType || "arrival") === "arrival");
+  const ret = ordered.filter((s) => s.segmentType === "return");
+  const first = arrival[0] || ordered[0];
+  const last = ret.length ? ret[ret.length - 1] : arrival[arrival.length - 1] || ordered[ordered.length - 1];
+  const firstJson = toSegmentJson(first);
+  const lastJson = toSegmentJson(last);
   return {
     segmentCount: ordered.length,
     initialDeparture: {
@@ -353,10 +367,7 @@ exports.findSegments = async (req, res) => {
       ],
     });
 
-    const segments = (flight?.segments || [])
-      .slice()
-      .sort((a, b) => a.segmentNumber - b.segmentNumber)
-      .map(serializeSegment);
+    const segments = sortSegments(flight?.segments || []).map(serializeSegment);
 
     res.send({ tripPeopleRoleId, segments });
   } catch (err) {
@@ -387,20 +398,31 @@ exports.replaceSegments = async (req, res) => {
       return res.status(400).send({ message: "segments array is required." });
     }
 
-    const segmentNumbers = new Set();
+    const segmentKeys = new Set();
     const normalized = [];
 
     for (const raw of bodySegments) {
+      const segmentTypeRaw = String(raw.segmentType || "").trim().toLowerCase();
+      if (segmentTypeRaw !== "arrival" && segmentTypeRaw !== "return") {
+        await transaction.rollback();
+        return res
+          .status(400)
+          .send({ message: "Each segment needs segmentType of arrival or return." });
+      }
+      const segmentType = segmentTypeRaw;
       const segmentNumber = Number(raw.segmentNumber);
       if (!Number.isInteger(segmentNumber) || segmentNumber <= 0) {
         await transaction.rollback();
         return res.status(400).send({ message: "Each segment needs a positive segment number." });
       }
-      if (segmentNumbers.has(segmentNumber)) {
+      const key = `${segmentType}:${segmentNumber}`;
+      if (segmentKeys.has(key)) {
         await transaction.rollback();
-        return res.status(400).send({ message: "Duplicate segment numbers are not allowed." });
+        return res
+          .status(400)
+          .send({ message: "Duplicate segment numbers within a flight type are not allowed." });
       }
-      segmentNumbers.add(segmentNumber);
+      segmentKeys.add(key);
 
       const departureAirportCode = String(raw.departureAirportCode || "").trim().toUpperCase();
       const arrivalAirportCode = String(raw.arrivalAirportCode || "").trim().toUpperCase();
@@ -432,9 +454,9 @@ exports.replaceSegments = async (req, res) => {
 
       if (compareDateTime(arrivalDate, arrivalTime, departureDate, departureTime) < 0) {
         await transaction.rollback();
-        return res
-          .status(400)
-          .send({ message: `Segment ${segmentNumber}: arrival must not be before departure.` });
+        return res.status(400).send({
+          message: `Segment ${segmentType} ${segmentNumber}: arrival must not be before departure.`,
+        });
       }
 
       const depAirport = await Airport.findOne({
@@ -464,6 +486,7 @@ exports.replaceSegments = async (req, res) => {
       }
 
       normalized.push({
+        segmentType,
         segmentNumber,
         departureAirportId: depAirport.id,
         arrivalAirportId: arrAirport.id,
@@ -489,7 +512,10 @@ exports.replaceSegments = async (req, res) => {
     const reloaded = await TripFlightSegment.findAll({
       where: { tripFlightId: flight.id },
       include: segmentIncludes,
-      order: [["segmentNumber", "ASC"]],
+      order: [
+        ["segmentType", "ASC"],
+        ["segmentNumber", "ASC"],
+      ],
     });
     res.send({
       tripPeopleRoleId,

@@ -859,7 +859,7 @@ const ensureTripFlightSegmentCabinAndSeat = async () => {
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
      WHERE TABLE_SCHEMA = DATABASE()
        AND TABLE_NAME = 'tripFlightSegments'
-       AND COLUMN_NAME IN ('cabinClass', 'seatNumber')`
+       AND COLUMN_NAME IN ('cabinClass', 'seatNumber', 'segmentType')`
   );
   const have = new Set(columns.map((c) => c.COLUMN_NAME));
 
@@ -876,6 +876,41 @@ const ensureTripFlightSegmentCabinAndSeat = async () => {
        ADD COLUMN seatNumber VARCHAR(20) NULL AFTER cabinClass`
     );
     logger.info("tripFlightSegments.seatNumber column added.");
+  }
+  if (!have.has("segmentType")) {
+    await db.sequelize.query(
+      `ALTER TABLE tripFlightSegments
+       ADD COLUMN segmentType ENUM('arrival', 'return') NOT NULL DEFAULT 'arrival'
+       AFTER tripFlightId`
+    );
+    logger.info("tripFlightSegments.segmentType column added.");
+  }
+
+  // Prefer unique (tripFlightId, segmentType, segmentNumber); drop older flight+number unique if present.
+  const [indexes] = await db.sequelize.query(
+    `SHOW INDEX FROM tripFlightSegments WHERE Non_unique = 0`
+  );
+  const uniqueNames = new Set(indexes.map((r) => r.Key_name).filter((n) => n !== "PRIMARY"));
+  if (!uniqueNames.has("trip_flight_segments_flight_type_number_unique")) {
+    // Drop any unique that is only (tripFlightId, segmentNumber)
+    const byKey = new Map();
+    for (const row of indexes) {
+      if (row.Key_name === "PRIMARY") continue;
+      if (!byKey.has(row.Key_name)) byKey.set(row.Key_name, []);
+      byKey.get(row.Key_name).push(row.Column_name);
+    }
+    for (const [name, cols] of byKey.entries()) {
+      if (cols.length === 2 && cols.includes("tripFlightId") && cols.includes("segmentNumber")) {
+        await db.sequelize.query(`ALTER TABLE tripFlightSegments DROP INDEX \`${name}\``);
+        logger.info(`Dropped legacy unique index ${name} on tripFlightSegments.`);
+      }
+    }
+    await db.sequelize.query(
+      `ALTER TABLE tripFlightSegments
+       ADD UNIQUE INDEX trip_flight_segments_flight_type_number_unique
+       (tripFlightId, segmentType, segmentNumber)`
+    );
+    logger.info("tripFlightSegments unique (tripFlightId, segmentType, segmentNumber) added.");
   }
 };
 

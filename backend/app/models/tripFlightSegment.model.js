@@ -4,6 +4,11 @@ import SequelizeInstance from "../config/sequelizeInstance.js";
 const TripFlightSegment = SequelizeInstance.define("tripFlightSegment", {
   id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
   tripFlightId: { type: Sequelize.INTEGER, allowNull: false },
+  segmentType: {
+    type: Sequelize.ENUM("arrival", "return"),
+    allowNull: false,
+    defaultValue: "arrival",
+  },
   segmentNumber: { type: Sequelize.INTEGER, allowNull: false },
   departureAirportId: { type: Sequelize.INTEGER, allowNull: false },
   airlineId: { type: Sequelize.INTEGER, allowNull: false },

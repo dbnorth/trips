@@ -73,13 +73,14 @@
   - **Cost** (nullable money; editable; empty allowed)
   - **Comments** (optional text; editable on the row or in an expandable/detail field — MUST be persistable with the flight record)
   - From segments (read-only summary):
-    - **Initial departure** date, time, and **departure city** (city of the departure airport on the lowest `segmentNumber`)
-    - **Final arrival** date, time, and **arrival city** (city of the arrival airport on the highest `segmentNumber`)
+    - **Initial departure** date, time, and **departure city** (city of the departure airport on the lowest `segmentNumber` among **Arrival** segments; if none, first segment overall)
+    - **Final arrival** date, time, and **arrival city** (city of the arrival airport on the highest `segmentNumber` among **Return** segments if any; otherwise highest **Arrival** segment)
   - When the participant has no segments → summary fields show **—** (or equivalent empty indicator)
 - **FR-006**: Each eligible participant has at most **one flight record** for the trip (keyed by `tripPeopleRoleId`). Opening the page or first save MAY lazily create an empty flight record; GET MUST return a flight payload per participant even when no row exists yet (defaults: purchased `false`, cost `null`, comments empty, segments `[]`).
 - **FR-007**: A **flight record** stores: link to participant assignment (`tripPeopleRoleId`), **purchased** (boolean), **cost** (nullable decimal), **comments** (text, optional).
-- **FR-008**: A flight has an ordered sequence of **flight segments**. Each segment stores:
-  - **Segment number** (positive integer; unique per flight; order of itinerary)
+- **FR-008**: A flight has **Arrival** and **Return** flight segments. Each segment stores:
+  - **Segment type** (`arrival` or `return`)
+  - **Segment number** (positive integer; unique per flight **and** segment type; numbered within Arrival and within Return separately)
   - **Departure airport code** (FK → Airport Code)
   - **Airline code** (FK → Airline Code)
   - **Flight number** (string)
@@ -90,13 +91,13 @@
   - **Arrival time** (time)
   - **Class** (optional cabin/service class text)
   - **Seat number** (optional)
-- **FR-009**: Each participant row MUST provide a **Flight segments** control (link/button) that opens a dialog to **add**, **edit**, and **delete** that participant’s segments. Dialog MUST support multiple segments; Save in the dialog persists the full segment list for that flight (replace or per-row CRUD — either is fine if net result matches and tests pass). Closing without save MAY discard unsaved dialog edits (optional confirm out of scope).
+- **FR-009**: Each participant row MUST provide a **Flight segments** control (link/button) that opens a dialog to **add**, **edit**, and **delete** that participant’s segments. Dialog MUST show **Arrival Flight** and **Return Flight** section headers, each with its own **Add Segment** control (no single top-level Add segment). The first Arrival segment MUST default departure/arrival dates to the trip **start** date; the first Return segment MUST default departure/arrival dates to the trip **end** date. Save persists the full segment list for that flight. Closing without save MAY discard unsaved dialog edits (optional confirm out of scope).
 - **FR-010**: Segment entry MUST use **Airport Code** and **Airline Code** catalogs (select by code; display name/city as helpful labels). Invalid / unknown codes → `400`.
 - **FR-011**: **Airport Code** catalog table stores: **Code** (unique, e.g. IATA), **Airport** (name), **City**, **Country**.
 - **FR-012**: **Airline Code** catalog table stores: **Airline Code** (unique), **Airline Name**.
 - **FR-013**: System Admin MUST be able to **create / update / delete** Airport and Airline catalog rows (minimal admin UI or settings screens; API required). Trip Leader / Org Admin / System Admin MUST be able to **list** airports and airlines for segment dropdowns.
 - **FR-014**: Saving purchased / cost / comments from the flights page MUST persist the flight record (create or update) without requiring segments.
-- **FR-015**: After segment changes, reloading the flights page MUST refresh initial departure / final arrival summary from segments ordered by `segmentNumber` ascending.
+- **FR-015**: After segment changes, reloading the flights page MUST refresh initial departure / final arrival summary per **FR-005** (Arrival for initial departure; Return if present else Arrival for final arrival).
 - **FR-016**: Empty states: no eligible participants → empty table message (e.g. **No participants**). Trip heading still shows.
 - **FR-017**: Back control returns to trips list (**Back to trips**).
 - **FR-018**: Money formatting for cost MUST match existing trip/donation display conventions when shown.
@@ -114,7 +115,7 @@
 - **Eligible participants:** `tripPeopleRole` status in `incomplete`, `applied`, or `approved` (exclude `cancelled` and `declined` — “denied” = `declined`).
 - Auth gate matches Feature 28 / 29 staff manage (Trip Leader / Org Admin / System Admin).
 - **One flight record per** `tripPeopleRole` (unique).
-- Initial/final itinerary summary uses **min/max `segmentNumber`**, not calendar sort (staff owns segment numbering).
+- Initial/final itinerary summary: **initial departure** from lowest Arrival `segmentNumber`; **final arrival** from highest Return `segmentNumber` if any Return segments exist, else highest Arrival.
 - Departure/arrival **city** comes from the Airport catalog’s **City** for the segment’s departure/arrival airport code.
 - Airport and Airline catalogs are **global** (not org-scoped).
 - Seed loads the global IATA catalogs from `backend/app/data/airports.json` and `airlines.json` (`npm run seed` / `npm run seed:catalogs`). System Admin can still extend.
@@ -123,7 +124,8 @@
 ## Edge Cases
 
 - Participant with zero segments → summary **—**; purchased/cost/comments still editable.
-- Duplicate `segmentNumber` on the same flight → `400`.
+- Duplicate `segmentNumber` within the same flight **and** segment type → `400`.
+- Missing or invalid `segmentType` → `400`.
 - Arrival before departure on a segment → `400` (same-day times must be consistent; cross-midnight allowed if arrival date &gt; departure date).
 - Cost negative → `400`. Cost blank/`null` → stored null.
 - Deleting all segments leaves flight header intact.
@@ -209,6 +211,7 @@
 
 ```json
 {
+  "segmentType": "arrival",
   "segmentNumber": 1,
   "departureAirportCode": "DFW",
   "airlineCode": "AA",
@@ -234,7 +237,7 @@
 | `TripsList` | Actions: **Flights** → trip flights page |
 | Trip flights page | Heading (trip name + dates); participant table; Save for header fields as needed; **Back to trips** |
 | Participant row | Name; purchased; cost; comments; itinerary summary; **Flight segments** link |
-| Flight segments dialog | Ordered list; add / edit / delete segments; airport & airline selectors; Save / Close |
+| Flight segments dialog | **Arrival Flight** and **Return Flight** sections; **Add Segment** per section; edit / delete; airport & airline selectors; Save / Close |
 | Airport / Airline admin | Minimal System Admin screens or settings to CRUD catalogs (list + add/edit/delete) |
 
 **Action label:** `Flights`  
@@ -250,7 +253,7 @@
 | `airport` | `id`, `code` (unique), `airportName`, `city`, `country` | Global catalog |
 | `airline` | `id`, `code` (unique), `name` | Global catalog |
 | `tripFlight` | `id`, `tripPeopleRoleId` (unique), `purchased`, `cost` (nullable), `comments` | 1:1 with assignment |
-| `tripFlightSegment` | `id`, `tripFlightId`, `segmentNumber`, `departureAirportId` (or code FK), `airlineId` (or code FK), `flightNumber`, `departureDate`, `departureTime`, `arrivalAirportId`, `arrivalDate`, `arrivalTime`, `cabinClass` (nullable), `seatNumber` (nullable) | Unique `(tripFlightId, segmentNumber)` |
+| `tripFlightSegment` | `id`, `tripFlightId`, `segmentType` (`arrival`\|`return`), `segmentNumber`, `departureAirportId` (or code FK), `airlineId` (or code FK), `flightNumber`, `departureDate`, `departureTime`, `arrivalAirportId`, `arrivalDate`, `arrivalTime`, `cabinClass` (nullable), `seatNumber` (nullable) | Unique `(tripFlightId, segmentType, segmentNumber)` |
 
 Prefer FK to airport/airline `id` (or unique code) consistently. Associations: TripPeopleRole `hasOne` TripFlight; TripFlight `hasMany` TripFlightSegment; Segment `belongsTo` Airport (×2) and Airline.
 
@@ -275,12 +278,12 @@ Migration / Sequelize sync required. Seed global airports/airlines from `app/dat
 ### US-30.2 — See participant flight summary board
 
 #### Scenario: Page lists eligible participants with itinerary summary
-* **Given** trip T has approved participant Ada with two segments (segment 1 departs DFW / Dallas at 08:30 on 2026-07-01; segment 2 arrives GUA / Guatemala City at 16:45 on 2026-07-01)
+* **Given** trip T has approved participant Ada with two Arrival segments (segment 1 departs DFW / Dallas at 08:30 on 2026-07-01; segment 2 arrives GUA / Guatemala City at 16:45 on 2026-07-01) and one Return segment (arrives DFW / Dallas at 14:30 on 2026-07-10)
 * **And** Ada’s flight is marked purchased with cost 850
 * **When** I open Flights for T
 * **Then** Ada’s row shows purchased Yes (or checked), cost 850
 * **And** initial departure shows 2026-07-01, 08:30, Dallas
-* **And** final arrival shows 2026-07-01, 16:45, Guatemala City
+* **And** final arrival shows 2026-07-10, 14:30, Dallas
 
 #### Scenario: Cancelled participant is not listed
 * **Given** trip T has a cancelled participant
