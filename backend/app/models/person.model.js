@@ -24,6 +24,7 @@ const Person = SequelizeInstance.define("person", {
   hasAllergies: { type: Sequelize.BOOLEAN, allowNull: true, defaultValue: null },
   allergiesDescription: { type: Sequelize.TEXT },
   takesMedication: { type: Sequelize.BOOLEAN, allowNull: true, defaultValue: null },
+  speaksOtherLanguage: { type: Sequelize.BOOLEAN, allowNull: true, defaultValue: null },
   currentChurchHome: { type: Sequelize.STRING(255) },
   currentChurchHomeCity: { type: Sequelize.STRING(100) },
   currentChurchHomeStateProv: { type: Sequelize.STRING(100) },

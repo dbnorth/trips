@@ -27,6 +27,8 @@ Notes:
 | `workerRoleDocumentType` | 25 | Worker role ↔ required document types |
 | `medicalCondition` | 17 | Org medical-condition catalog (name ≤ 50) |
 | `personMedicalCondition` | 17 | Person selected medical conditions |
+| `language` | 31 | Global language catalog |
+| `personLanguage` | 31 | Person other-language fluency and medical terminology |
 | `tripWorkerRole` | 6 | Per-trip role quantities |
 | `tripTravelOption` | 6 | Travel/cost option sets |
 | `tripPeopleRoleOption` | 7 | Selected travel options on an application |
@@ -93,6 +95,7 @@ Notes:
 | hasAllergies | BOOLEAN | nullable; `null` = unanswered |
 | allergiesDescription | TEXT | |
 | takesMedication | BOOLEAN | nullable; `null` = unanswered |
+| speaksOtherLanguage | BOOLEAN | nullable; `null` = unanswered (Feature 31) |
 | currentChurchHome | STRING(255) | |
 | currentChurchHomeCity | STRING(100) | |
 | currentChurchHomeStateProv | STRING(100) | |
@@ -100,7 +103,7 @@ Notes:
 | bioText | TEXT | |
 | version | INTEGER | required, default `0` |
 
-**Associations:** `belongsTo` user; `hasMany` orgPeopleRole, tripPeopleRole, personDocument; `hasMany` tripDonation as participant.
+**Associations:** `belongsTo` user; `hasMany` orgPeopleRole, tripPeopleRole, personDocument, personLanguage; `hasMany` tripDonation as participant.
 
 ---
 
@@ -409,6 +412,33 @@ Seeded from `backend/app/data/airlines.json` (OpenFlights active IATA set) via `
 | unique | `(personId, medicalConditionId)` | |
 
 **Associations:** `belongsTo` person, medicalCondition. Deleting a condition cascades join rows.
+
+---
+
+## `language` — Feature 31
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| code | STRING(10) | required; unique ISO 639-1 or 639-3 |
+| name | STRING(100) | required |
+
+Seeded global catalog. No org column.
+
+---
+
+## `personLanguage` — Feature 31
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| personId | INTEGER | required FK → person |
+| languageId | INTEGER | required FK → language |
+| fluency | ENUM(`basic`,`conversational`) | required |
+| knowsMedicalTerminology | BOOLEAN | required |
+| unique | `(personId, languageId)` | |
+
+**Associations:** `belongsTo` person (cascade delete), language.
 
 ---
 

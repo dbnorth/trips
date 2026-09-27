@@ -1,6 +1,7 @@
 import db from "../models/index.js";
 import logger from "../config/logger.js";
 import fs from "fs";
+import { LANGUAGE_SEED } from "../data/languages.js";
 
 const ensureEmailTemplateOrgNullable = async () => {
   const [rows] = await db.sequelize.query(
@@ -169,6 +170,7 @@ const ensurePersonProfileFields = async () => {
     ["hasAllergies", "TINYINT(1) NULL"],
     ["allergiesDescription", "TEXT NULL"],
     ["takesMedication", "TINYINT(1) NULL"],
+    ["speaksOtherLanguage", "TINYINT(1) NULL"],
     ["currentChurchHome", "VARCHAR(255) NULL"],
     ["currentChurchHomeCity", "VARCHAR(100) NULL"],
     ["currentChurchHomeStateProv", "VARCHAR(100) NULL"],
@@ -914,6 +916,36 @@ const ensureTripFlightSegmentCabinAndSeat = async () => {
   }
 };
 
+const ensureLanguageCatalog = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'languages'`
+  );
+  if (!tables.length) return;
+
+  const Op = db.Sequelize.Op;
+  for (const row of LANGUAGE_SEED) {
+    const existing = await db.language.findOne({ where: { code: row.code } });
+    if (!existing) {
+      await db.language.create(row);
+    } else if (existing.name !== row.name) {
+      await existing.update({ name: row.name });
+    }
+  }
+
+  const keep = new Set(LANGUAGE_SEED.map((row) => row.code));
+  const extras = await db.language.findAll({
+    where: { code: { [Op.notIn]: [...keep] } },
+  });
+  for (const extra of extras) {
+    const used = await db.personLanguage.count({ where: { languageId: extra.id } });
+    if (used) continue;
+    await extra.destroy();
+    logger.info(`Removed language ${extra.code} (${extra.name}) not in the Western Hemisphere seed.`);
+  }
+};
+
 export const ensureSchema = async () => {
   await ensureNamedUniqueIndexes();
   await ensureEmailTemplateOrgNullable();
@@ -937,6 +969,7 @@ export const ensureSchema = async () => {
   await ensureTripPeopleRoleOptionsTable();
   await ensureMedicalConditionsTable();
   await ensurePersonMedicalConditionsTable();
+  await ensureLanguageCatalog();
 };
 
 export default ensureSchema;

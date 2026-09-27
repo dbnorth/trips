@@ -17,7 +17,7 @@ import {
   tripParticipantStatusLabel,
   tripParticipantStatusColor,
 } from "../utils/tripParticipantStatus.js";
-import { isProfileComplete, isUnder18, normalizeYesNo } from "../utils/personProfile.js";
+import { isProfileComplete, isUnder18, normalizeYesNo, otherLanguageFieldsFromPerson, otherLanguagePayload } from "../utils/personProfile.js";
 import {
   arePersonDocumentsUploaded,
   isApplicationFormComplete,
@@ -57,6 +57,8 @@ const healthForm = ref({
   takesMedication: null,
   medicalConditionIds: [],
   medicalConditions: [],
+  speaksOtherLanguage: null,
+  languages: [],
   version: 0,
 });
 const agreementContent = ref("");
@@ -364,6 +366,7 @@ const applyHealthFromPerson = (data) => {
         ? data.medicalConditions.map((c) => Number(c.id))
         : [],
     medicalConditions: Array.isArray(data?.medicalConditions) ? data.medicalConditions : [],
+    ...otherLanguageFieldsFromPerson(data),
     version: data?.version ?? 0,
   };
 };
@@ -398,6 +401,7 @@ const saveHealthProfile = async () => {
     medicalConditionIds: healthForm.value.takesMedication === true
       ? healthForm.value.medicalConditionIds || []
       : [],
+    ...otherLanguagePayload(healthForm.value),
     orgId: trip.value.orgId,
     version: healthForm.value.version,
   });

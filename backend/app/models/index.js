@@ -29,6 +29,8 @@ import Airport from "./airport.model.js";
 import Airline from "./airline.model.js";
 import TripFlight from "./tripFlight.model.js";
 import TripFlightSegment from "./tripFlightSegment.model.js";
+import Language from "./language.model.js";
+import PersonLanguage from "./personLanguage.model.js";
 
 const db = {};
 db.Sequelize = Sequelize;
@@ -62,6 +64,8 @@ db.airport = Airport;
 db.airline = Airline;
 db.tripFlight = TripFlight;
 db.tripFlightSegment = TripFlightSegment;
+db.language = Language;
+db.personLanguage = PersonLanguage;
 
 db.user.hasMany(db.session, { foreignKey: "userId", onDelete: "CASCADE" });
 db.session.belongsTo(db.user, { foreignKey: "userId", onDelete: "CASCADE" });
@@ -324,5 +328,10 @@ db.tripFlightSegment.belongsTo(db.airport, {
 });
 db.airline.hasMany(db.tripFlightSegment, { foreignKey: "airlineId", as: "segments" });
 db.tripFlightSegment.belongsTo(db.airline, { foreignKey: "airlineId", as: "airline" });
+
+db.person.hasMany(db.personLanguage, { foreignKey: "personId", as: "personLanguages", onDelete: "CASCADE" });
+db.personLanguage.belongsTo(db.person, { foreignKey: "personId", as: "person", onDelete: "CASCADE" });
+db.language.hasMany(db.personLanguage, { foreignKey: "languageId", as: "personLanguages", onDelete: "RESTRICT" });
+db.personLanguage.belongsTo(db.language, { foreignKey: "languageId", as: "language", onDelete: "RESTRICT" });
 
 export default db;

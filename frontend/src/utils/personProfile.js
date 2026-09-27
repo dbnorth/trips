@@ -57,6 +57,17 @@ export const getMissingProfileFields = (person, options = {}) => {
     if (!selected.length) missing.push("Medical conditions");
   }
 
+  if (person.speaksOtherLanguage === true) {
+    const languages = Array.isArray(person.languages) ? person.languages : [];
+    const complete = languages.filter(
+      (row) =>
+        row?.languageId &&
+        (row.fluency === "basic" || row.fluency === "conversational") &&
+        (row.knowsMedicalTerminology === true || row.knowsMedicalTerminology === false)
+    );
+    if (!complete.length) missing.push("Other languages");
+  }
+
   return missing;
 };
 
@@ -70,6 +81,32 @@ export const isProfileFieldMissing = (person, field) => {
 
 export const isProfileComplete = (person, options = {}) =>
   getMissingProfileFields(person, options).length === 0;
+
+export const otherLanguageFieldsFromPerson = (data) => ({
+  speaksOtherLanguage: normalizeYesNo(data?.speaksOtherLanguage),
+  languages: Array.isArray(data?.languages)
+    ? data.languages.map((row) => ({
+        languageId: Number(row.languageId),
+        fluency: row.fluency || null,
+        knowsMedicalTerminology: normalizeYesNo(row.knowsMedicalTerminology),
+      }))
+    : [],
+});
+
+export const otherLanguagePayload = (form) => {
+  const speaksOtherLanguage = normalizeYesNo(form?.speaksOtherLanguage);
+  return {
+    speaksOtherLanguage,
+    languages:
+      speaksOtherLanguage === true
+        ? (form.languages || []).map((row) => ({
+            languageId: row.languageId,
+            fluency: row.fluency,
+            knowsMedicalTerminology: row.knowsMedicalTerminology,
+          }))
+        : [],
+  };
+};
 
 /** Age under 18 as of a given date (defaults to today). */
 export const isUnder18 = (birthDate, asOf = new Date()) => {

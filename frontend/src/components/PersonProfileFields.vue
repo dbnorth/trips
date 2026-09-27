@@ -3,6 +3,7 @@ import { ref, watch, computed } from "vue";
 import PhoneInput from "./PhoneInput.vue";
 import PhoneCountryCodeInput from "./PhoneCountryCodeInput.vue";
 import MedicalConditionServices from "../services/medicalConditionServices.js";
+import LanguageServices from "../services/languageServices.js";
 
 const DOCTOR_TRAVEL_DOCUMENT_MESSAGE =
   "You must provide a document from your doctor that says it is safe for you to travel on the trip dates.";
@@ -87,6 +88,70 @@ const onIsPregnantChange = (value) => {
     next.pregnancyDueDate = null;
   }
   emit("update:modelValue", next);
+};
+
+const fluencyItems = [
+  { title: "Basic", value: "basic" },
+  { title: "Conversational", value: "conversational" },
+];
+
+const languageCatalog = ref([]);
+const languageCatalogLoading = ref(false);
+const languageCatalogError = ref("");
+
+const languageItems = computed(() =>
+  languageCatalog.value.map((row) => ({
+    title: row.name,
+    value: row.id,
+  }))
+);
+
+const loadLanguageCatalog = async () => {
+  languageCatalogError.value = "";
+  languageCatalogLoading.value = true;
+  try {
+    const res = await LanguageServices.getAll();
+    languageCatalog.value = res.data || [];
+  } catch (e) {
+    languageCatalog.value = [];
+    languageCatalogError.value = e.response?.data?.message || "Unable to load languages.";
+  } finally {
+    languageCatalogLoading.value = false;
+  }
+};
+
+watch(
+  () => props.modelValue?.speaksOtherLanguage,
+  (speaks) => {
+    if (speaks === true) loadLanguageCatalog();
+  },
+  { immediate: true }
+);
+
+const onSpeaksOtherLanguageChange = (value) => {
+  const next = { ...props.modelValue, speaksOtherLanguage: value };
+  if (value !== true) next.languages = [];
+  emit("update:modelValue", next);
+};
+
+const updateLanguageRow = (index, field, value) => {
+  const languages = (props.modelValue.languages || []).map((row, i) =>
+    i === index ? { ...row, [field]: value } : row
+  );
+  emit("update:modelValue", { ...props.modelValue, languages });
+};
+
+const addLanguageRow = () => {
+  const languages = [
+    ...(props.modelValue.languages || []),
+    { languageId: null, fluency: null, knowsMedicalTerminology: null },
+  ];
+  emit("update:modelValue", { ...props.modelValue, languages });
+};
+
+const removeLanguageRow = (index) => {
+  const languages = (props.modelValue.languages || []).filter((_, i) => i !== index);
+  emit("update:modelValue", { ...props.modelValue, languages });
 };
 
 const onTakesMedicationChange = (value) => {
@@ -236,6 +301,69 @@ const onTakesMedicationChange = (value) => {
       :disabled="disabled"
       @update:model-value="update('medicalConditionIds', $event || [])"
     />
+  </template>
+
+  <v-select
+    :model-value="modelValue.speaksOtherLanguage"
+    :items="yesNoItems"
+    label="Do you speak a language other than English?"
+    density="compact"
+    :disabled="disabled"
+    @update:model-value="onSpeaksOtherLanguageChange"
+  />
+  <template v-if="modelValue.speaksOtherLanguage === true">
+    <v-alert v-if="languageCatalogError" type="error" density="compact" class="mb-2">
+      {{ languageCatalogError }}
+    </v-alert>
+    <div
+      v-for="(row, index) in modelValue.languages || []"
+      :key="index"
+      class="mb-3 pa-3"
+      style="border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 4px"
+    >
+      <div class="d-flex justify-end">
+        <v-btn
+          size="small"
+          variant="text"
+          color="error"
+          :disabled="disabled"
+          @click="removeLanguageRow(index)"
+        >
+          Remove
+        </v-btn>
+      </div>
+      <v-autocomplete
+        :model-value="row.languageId"
+        :items="languageItems"
+        item-title="title"
+        item-value="value"
+        label="Language"
+        density="compact"
+        :loading="languageCatalogLoading"
+        :disabled="disabled"
+        clearable
+        @update:model-value="updateLanguageRow(index, 'languageId', $event)"
+      />
+      <v-select
+        :model-value="row.fluency"
+        :items="fluencyItems"
+        label="Fluency"
+        density="compact"
+        :disabled="disabled"
+        @update:model-value="updateLanguageRow(index, 'fluency', $event)"
+      />
+      <v-select
+        :model-value="row.knowsMedicalTerminology"
+        :items="yesNoItems"
+        label="Do you know medical terminology in this language?"
+        density="compact"
+        :disabled="disabled"
+        @update:model-value="updateLanguageRow(index, 'knowsMedicalTerminology', $event)"
+      />
+    </div>
+    <v-btn size="small" variant="tonal" class="mb-4" :disabled="disabled" @click="addLanguageRow">
+      Add language
+    </v-btn>
   </template>
 
   <template v-if="!healthOnly">

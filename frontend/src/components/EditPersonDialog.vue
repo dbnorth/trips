@@ -14,7 +14,7 @@ import Utils from "../config/utils.js";
 import { formatPhoneForDisplay, formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
 import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
-import { normalizeYesNo } from "../utils/personProfile.js";
+import { normalizeYesNo, otherLanguageFieldsFromPerson, otherLanguagePayload } from "../utils/personProfile.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -106,6 +106,8 @@ function emptyForm() {
     takesMedication: null,
     medicalConditionIds: [],
     medicalConditions: [],
+    speaksOtherLanguage: null,
+    languages: [],
     currentChurchHome: "",
     currentChurchHomeCity: "",
     currentChurchHomeStateProv: "",
@@ -173,6 +175,7 @@ const applyPersonData = (data) => {
     hasAllergies: normalizeYesNo(data.hasAllergies),
     allergiesDescription: data.allergiesDescription || "",
     takesMedication: normalizeYesNo(data.takesMedication),
+    ...otherLanguageFieldsFromPerson(data),
   };
   clearPictureSelection();
 };
@@ -424,6 +427,7 @@ const save = async () => {
         ? form.value.allergiesDescription?.trim() || null
         : null,
       takesMedication: normalizeYesNo(form.value.takesMedication),
+      ...otherLanguagePayload(form.value),
       currentChurchHome: form.value.currentChurchHome?.trim() || null,
       currentChurchHomeCity: form.value.currentChurchHomeCity?.trim() || null,
       currentChurchHomeStateProv: form.value.currentChurchHomeStateProv?.trim() || null,

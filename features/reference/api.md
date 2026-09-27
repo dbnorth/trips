@@ -30,6 +30,7 @@
 | `/trips` CRUD + image, `/dashboard/*` | 5, **28** (trip status board), **29** (rooming), **30** (flights) |
 | `/worker-roles`, `/trip-worker-roles`, `/trip-travel-options` | 6 |
 | `/medical-conditions` | 17 |
+| `/languages` | 31 |
 | `/airports`, `/airlines` | **30** |
 | `/trips/browse/*`, `/trip-people-roles`, participants CSV | 7, **28** |
 | `/donations`, `/donors`, donation/donor CSVs | 8 |
@@ -174,6 +175,16 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `DELETE` | `/trips/medical-conditions/:id` | auth | Delete (cascades person selections) |
 | `GET` | `/trips/people/:id` | auth | Includes `medicalConditions` / `medicalConditionIds` (`?orgId=` filters) |
 | `PUT` | `/trips/people/:id` | auth | Accepts `medicalConditionIds` + `orgId`; clears org links when `takesMedication` is false |
+
+---
+
+## Other languages — Feature 31
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/trips/languages` | auth | List global language catalog |
+| `GET` | `/trips/people/:id` | auth | Includes `speaksOtherLanguage` and `languages` |
+| `PUT` | `/trips/people/:id` | auth | Accepts `speaksOtherLanguage` and `languages`; No/unanswered clears rows; Yes requires language, Basic/Conversational fluency, and medical terminology Yes/No |
 
 ---
 

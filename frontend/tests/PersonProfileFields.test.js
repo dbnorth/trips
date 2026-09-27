@@ -10,9 +10,16 @@ import { reactive, nextTick } from "vue";
 import { flushPromises } from "@vue/test-utils";
 import PersonProfileFields from "../src/components/PersonProfileFields.vue";
 import MedicalConditionServices from "../src/services/medicalConditionServices.js";
+import LanguageServices from "../src/services/languageServices.js";
 import { mountWithPlugins } from "./testUtils.js";
 
 vi.mock("../src/services/medicalConditionServices.js", () => ({
+  default: {
+    getAll: vi.fn(),
+  },
+}));
+
+vi.mock("../src/services/languageServices.js", () => ({
   default: {
     getAll: vi.fn(),
   },
@@ -185,5 +192,54 @@ describe("PersonProfileFields — Feature 19", () => {
     );
     expect(pregnant).toBeFalsy();
     wrapper.unmount();
+  });
+});
+
+describe("Feature 31 — Person Other Languages", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    LanguageServices.getAll.mockResolvedValue({
+      data: [{ id: 1, code: "es", name: "Spanish" }],
+    });
+  });
+
+  describe("US-31.1 — Say whether you speak a language other than English", () => {
+    it("Other language question starts unanswered", async () => {
+      const form = reactive({
+        speaksOtherLanguage: null,
+        languages: [],
+        takesMedication: null,
+      });
+
+      const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+        props: { modelValue: form, healthOnly: true },
+      });
+      await flushPromises();
+
+      const question = wrapper.findAllComponents({ name: "VSelect" }).find(
+        (c) => c.props("label") === "Do you speak a language other than English?"
+      );
+      expect(question).toBeTruthy();
+      expect(question.props("modelValue")).toBeNull();
+      expect(wrapper.text()).not.toContain("Add language");
+      wrapper.unmount();
+    });
+
+    it("Other language rows hidden when answer is No", async () => {
+      const form = reactive({
+        speaksOtherLanguage: false,
+        languages: [],
+        takesMedication: null,
+      });
+
+      const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+        props: { modelValue: form, healthOnly: true },
+      });
+      await flushPromises();
+
+      expect(wrapper.text()).not.toContain("Add language");
+      expect(wrapper.text()).not.toContain("Do you know medical terminology in this language?");
+      wrapper.unmount();
+    });
   });
 });

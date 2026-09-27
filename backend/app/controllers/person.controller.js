@@ -15,6 +15,13 @@ import {
   resolveLinkedUser,
   linkPersonToUser,
 } from "../utils/userPerson.js";
+import {
+  normalizeTriState,
+  validateLanguageRows,
+  replacePersonLanguages,
+  clearPersonLanguages,
+  loadPersonLanguages,
+} from "../utils/personLanguages.js";
 
 const Person = db.person;
 const User = db.user;
@@ -48,6 +55,7 @@ const personFields = [
   "hasAllergies",
   "allergiesDescription",
   "takesMedication",
+  "speaksOtherLanguage",
   "currentChurchHome",
   "currentChurchHomeCity",
   "currentChurchHomeStateProv",
@@ -187,7 +195,43 @@ const enrichPersonPayload = async (person, queryOrgId = null) => {
 
   payload.medicalConditions = medicalConditions;
   payload.medicalConditionIds = medicalConditions.map((c) => c.id);
+  payload.speaksOtherLanguage = normalizeTriState(payload.speaksOtherLanguage);
+  payload.languages = await loadPersonLanguages(person.id);
   return payload;
+};
+
+/**
+ * When the request includes speaksOtherLanguage and/or languages, validate and replace rows.
+ * Returns { ok: false, status, message } or { ok: true, speaksOtherLanguage }.
+ */
+const applyLanguageFields = async (personId, source, { hasSpeaks, hasLanguages }) => {
+  if (!hasSpeaks && !hasLanguages) return { ok: true, skipped: true };
+
+  const speaks = hasSpeaks ? normalizeTriState(source.speaksOtherLanguage) : null;
+  const person = await Person.findByPk(personId);
+  const effectiveSpeaks = hasSpeaks
+    ? speaks
+    : normalizeTriState(person?.speaksOtherLanguage);
+
+  if (effectiveSpeaks === true) {
+    const check = await validateLanguageRows(source.languages);
+    if (!check.ok) return check;
+    await replacePersonLanguages(personId, check.rows);
+    return { ok: true };
+  }
+
+  await clearPersonLanguages(personId);
+  return { ok: true };
+};
+
+const stripLanguageInput = (data) => {
+  const hasSpeaks = Object.prototype.hasOwnProperty.call(data, "speaksOtherLanguage");
+  const hasLanguages = Object.prototype.hasOwnProperty.call(data, "languages");
+  const languages = data.languages;
+  const speaksOtherLanguage = hasSpeaks ? normalizeTriState(data.speaksOtherLanguage) : undefined;
+  delete data.languages;
+  if (hasSpeaks) data.speaksOtherLanguage = speaksOtherLanguage;
+  return { hasSpeaks, hasLanguages, languages, speaksOtherLanguage };
 };
 
 /**
@@ -282,6 +326,7 @@ exports.findOne = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const { orgId: bodyOrgId, roleId, password, isAdmin, ...personData } = req.body;
+    const languageInput = stripLanguageInput(personData);
     if (Object.prototype.hasOwnProperty.call(personData, "middleName")) {
       const trimmed =
         personData.middleName == null ? "" : String(personData.middleName).trim();
@@ -289,6 +334,13 @@ exports.create = async (req, res) => {
     }
     const validationError = validatePersonFields(personData);
     if (validationError) return res.status(400).send({ message: validationError });
+
+    if (languageInput.hasSpeaks && languageInput.speaksOtherLanguage === true) {
+      const languageCheck = await validateLanguageRows(languageInput.languages);
+      if (!languageCheck.ok) {
+        return res.status(languageCheck.status).send({ message: languageCheck.message });
+      }
+    }
     let orgId = bodyOrgId != null && bodyOrgId !== "" ? parseInt(bodyOrgId, 10) : null;
 
     if (!isSystemAdmin(req)) {
@@ -349,6 +401,7 @@ exports.create = async (req, res) => {
           hasAllergies: personData.hasAllergies,
           allergiesDescription: personData.allergiesDescription,
           takesMedication: personData.takesMedication,
+          speaksOtherLanguage: personData.speaksOtherLanguage,
           currentChurchHome: personData.currentChurchHome,
           currentChurchHomeCity: personData.currentChurchHomeCity,
           currentChurchHomeStateProv: personData.currentChurchHomeStateProv,
@@ -360,6 +413,15 @@ exports.create = async (req, res) => {
       let orgRoleResult = null;
       if (orgId) {
         orgRoleResult = await ensureOrgPeopleRole(orgId, person.id, roleId);
+      }
+
+      const languageResult = await applyLanguageFields(
+        person.id,
+        languageInput,
+        languageInput
+      );
+      if (!languageResult.ok) {
+        return res.status(languageResult.status).send({ message: languageResult.message });
       }
 
       const message = isExisting
@@ -382,6 +444,11 @@ exports.create = async (req, res) => {
       await ensureOrgPeopleRole(orgId, person.id, roleId);
     }
 
+    const languageResult = await applyLanguageFields(person.id, languageInput, languageInput);
+    if (!languageResult.ok) {
+      return res.status(languageResult.status).send({ message: languageResult.message });
+    }
+
     res.send({ person, existingPerson: false, message: "Person created." });
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -397,12 +464,23 @@ exports.update = async (req, res) => {
     }
 
     const body = { ...req.body };
+    const languageInput = stripLanguageInput(body);
     if (Object.prototype.hasOwnProperty.call(body, "middleName")) {
       const trimmed = body.middleName == null ? "" : String(body.middleName).trim();
       body.middleName = trimmed === "" ? null : trimmed;
     }
     const validationError = validatePersonFields(body);
     if (validationError) return res.status(400).send({ message: validationError });
+
+    const speaksForLanguages = languageInput.hasSpeaks
+      ? languageInput.speaksOtherLanguage
+      : normalizeTriState(person.speaksOtherLanguage);
+    if ((languageInput.hasSpeaks || languageInput.hasLanguages) && speaksForLanguages === true) {
+      const languageCheck = await validateLanguageRows(languageInput.languages);
+      if (!languageCheck.ok) {
+        return res.status(languageCheck.status).send({ message: languageCheck.message });
+      }
+    }
 
     if (Object.prototype.hasOwnProperty.call(body, "email") && person.userId) {
       const newEmail = body.email?.trim()?.toLowerCase() || "";
@@ -469,6 +547,13 @@ exports.update = async (req, res) => {
 
     const result = await optimisticUpdate(Person, req.params.id, body, personFields);
     if (!result.ok) return res.status(result.status).send({ message: result.message });
+
+    if (languageInput.hasSpeaks || languageInput.hasLanguages) {
+      const languageResult = await applyLanguageFields(person.id, languageInput, languageInput);
+      if (!languageResult.ok) {
+        return res.status(languageResult.status).send({ message: languageResult.message });
+      }
+    }
 
     const takesMedicationExplicitYes =
       hasTakesMedication &&
