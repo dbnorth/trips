@@ -53,8 +53,9 @@ These `feature-*.md` files are a **reverse-spec** of the imported Mission Trips 
 | 33 | [feature-33-person-preferred-name.md](./feature-33-person-preferred-name.md) | `feature/33-person-preferred-name` | 1, 2, 20 |
 | 34 | [feature-34-document-specializations.md](./feature-34-document-specializations.md) | `feature/34-document-specializations` | 4, 12, 22 |
 | 35 | [feature-35-person-document-dialog.md](./feature-35-person-document-dialog.md) | `feature/35-person-document-dialog` | 4, 22, 34 |
+| 36 | [feature-36-allergies-description-hint.md](./feature-36-allergies-description-hint.md) | `feature/36-allergies-description-hint` | 2 |
 
-Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35).
+Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36).
 
 New features: follow [framework.md](./framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, Gherkin, **Agent implementation request**, **Definition of Done**.
 
