@@ -30,6 +30,13 @@ const pickPayload = (body) => {
       body.documentNumberRequired === 1 ||
       body.documentNumberRequired === "1";
   }
+  if (Object.prototype.hasOwnProperty.call(body, "allowSpecialization")) {
+    payload.allowSpecialization =
+      body.allowSpecialization === true ||
+      body.allowSpecialization === "true" ||
+      body.allowSpecialization === 1 ||
+      body.allowSpecialization === "1";
+  }
   if (Object.prototype.hasOwnProperty.call(body, "instructions")) {
     const val = body.instructions;
     if (val == null) payload.instructions = null;
@@ -94,6 +101,7 @@ exports.create = async (req, res) => {
       description: payload.description,
       type: payload.type,
       documentNumberRequired: payload.documentNumberRequired ?? false,
+      allowSpecialization: payload.allowSpecialization ?? false,
       instructions: Object.prototype.hasOwnProperty.call(payload, "instructions")
         ? payload.instructions
         : null,
