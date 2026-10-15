@@ -7,6 +7,7 @@ import {
   isProfileFieldMissing,
   personDisplayName,
 } from "../utils/personProfile.js";
+import { emergencyContactRelationshipLabel } from "../utils/emergencyContactRelationship.js";
 import { countryName } from "../utils/locationData.js";
 import { formatCountryCode, formatPhoneForDisplay } from "../utils/phoneUtils.js";
 
@@ -72,6 +73,11 @@ const fieldRows = computed(() => {
     { key: "birthDate", label: "Birthdate", value: p.birthDate },
     { key: "gender", label: "Gender", value: formatGender(p.gender) },
     { key: "emergencyContactName", label: "Emergency contact name", value: p.emergencyContactName },
+    {
+      key: "emergencyContactRelationship",
+      label: "Emergency contact relationship",
+      value: emergencyContactRelationshipLabel(p.emergencyContactRelationship),
+    },
     {
       key: "emergencyContactPhoneCountryCode",
       label: "Emergency contact phone",

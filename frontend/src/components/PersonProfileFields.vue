@@ -4,6 +4,7 @@ import PhoneInput from "./PhoneInput.vue";
 import PhoneCountryCodeInput from "./PhoneCountryCodeInput.vue";
 import MedicalConditionServices from "../services/medicalConditionServices.js";
 import LanguageServices from "../services/languageServices.js";
+import { EMERGENCY_CONTACT_RELATIONSHIPS } from "../utils/emergencyContactRelationship.js";
 
 const DOCTOR_TRAVEL_DOCUMENT_MESSAGE =
   "You must provide a document from your doctor that says it is safe for you to travel on the trip dates.";
@@ -195,6 +196,15 @@ const onTakesMedicationChange = (value) => {
       density="compact"
       autocomplete="off"
       @update:model-value="update('emergencyContactName', $event)"
+    />
+    <v-select
+      :model-value="modelValue.emergencyContactRelationship"
+      :items="EMERGENCY_CONTACT_RELATIONSHIPS"
+      label="Emergency contact relationship"
+      density="compact"
+      clearable
+      :disabled="disabled"
+      @update:model-value="update('emergencyContactRelationship', $event || null)"
     />
     <v-row dense>
       <v-col cols="4">

@@ -146,6 +146,7 @@ export const completePersonProfile = async (personId, overrides = {}) => {
       emergencyContactName: "Sam Contact",
       emergencyContactPhoneCountryCode: "1",
       emergencyContactPhoneNumber: "5559876543",
+      emergencyContactRelationship: "spouse",
       hasAllergies: false,
       currentChurchHome: "First Church",
       currentChurchHomeCity: "Springfield",

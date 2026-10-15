@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { canAccessOrg, isOrgAdminForOrg, isSystemAdmin, peopleListOrgIds, ROLE_TRIP_LEADER } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
+import { normalizeEmergencyContactRelationship } from "../utils/emergencyContactRelationship.js";
 import {
   normalizeEmail,
   findUserByEmail,
@@ -52,6 +53,7 @@ const personFields = [
   "emergencyContactName",
   "emergencyContactPhoneCountryCode",
   "emergencyContactPhoneNumber",
+  "emergencyContactRelationship",
   "hasAllergies",
   "allergiesDescription",
   "takesMedication",
@@ -71,6 +73,11 @@ const validatePersonFields = (data) => {
     !["male", "female"].includes(data.gender)
   ) {
     return "Gender must be male or female.";
+  }
+  if (Object.prototype.hasOwnProperty.call(data, "emergencyContactRelationship")) {
+    const relationship = normalizeEmergencyContactRelationship(data.emergencyContactRelationship);
+    if (!relationship.ok) return relationship.message;
+    data.emergencyContactRelationship = relationship.value;
   }
   return null;
 };
@@ -398,6 +405,7 @@ exports.create = async (req, res) => {
           emergencyContactName: personData.emergencyContactName,
           emergencyContactPhoneCountryCode: personData.emergencyContactPhoneCountryCode,
           emergencyContactPhoneNumber: personData.emergencyContactPhoneNumber,
+          emergencyContactRelationship: personData.emergencyContactRelationship,
           hasAllergies: personData.hasAllergies,
           allergiesDescription: personData.allergiesDescription,
           takesMedication: personData.takesMedication,

@@ -354,5 +354,71 @@ describe("People — Features 2 & 11", () => {
         expect(isProfileComplete(await db.person.findByPk(user.personId))).toBe(true);
       });
     });
+
+    describe("Feature 32 — Emergency Contact Relationship", () => {
+      describe("US-32.1 — Choose the emergency contact relationship", () => {
+        it("Spouse is saved on the person", async () => {
+          const { authHeader, user } = await registerUser({
+            email: "relationship.save@example.com",
+            firstName: "Pat",
+            lastName: "Profile",
+          });
+
+          const response = await request(app)
+            .put(`/trips/people/${user.personId}`)
+            .set(authHeader)
+            .send({
+              version: 0,
+              emergencyContactRelationship: "spouse",
+            });
+
+          expect(response.status).toBe(200);
+          expect(response.body.emergencyContactRelationship).toBe("spouse");
+
+          const get = await request(app).get(`/trips/people/${user.personId}`).set(authHeader);
+          expect(get.status).toBe(200);
+          expect(get.body.emergencyContactRelationship).toBe("spouse");
+        });
+
+        it("Unknown relationship is rejected", async () => {
+          const { authHeader, user } = await registerUser({
+            email: "relationship.bad@example.com",
+            firstName: "Pat",
+            lastName: "Profile",
+          });
+
+          const response = await request(app)
+            .put(`/trips/people/${user.personId}`)
+            .set(authHeader)
+            .send({
+              version: 0,
+              emergencyContactRelationship: "cousin",
+            });
+
+          expect(response.status).toBe(400);
+          expect(response.body.message).toMatch(/relationship/i);
+        });
+      });
+
+      describe("US-32.2 — Require a relationship before the profile is complete", () => {
+        it("Missing relationship keeps the profile incomplete", async () => {
+          const { isProfileComplete } = await import(
+            "../app/utils/tripParticipantApplicationStatus.js"
+          );
+          const { user } = await registerUser({
+            email: "relationship.complete@example.com",
+            firstName: "Pat",
+            lastName: "Profile",
+          });
+          await completePersonProfile(user.personId, { emergencyContactRelationship: null });
+
+          const person = await db.person.findByPk(user.personId);
+          expect(isProfileComplete(person)).toBe(false);
+
+          await person.update({ emergencyContactRelationship: "mother" });
+          expect(isProfileComplete(await db.person.findByPk(user.personId))).toBe(true);
+        });
+      });
+    });
   });
 });

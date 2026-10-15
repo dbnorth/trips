@@ -24,6 +24,7 @@ export const PROFILE_FIELD_CHECKS = [
   { key: "emergencyContactName", label: "Emergency contact name" },
   { key: "emergencyContactPhoneCountryCode", label: "Emergency contact country code" },
   { key: "emergencyContactPhoneNumber", label: "Emergency contact phone number" },
+  { key: "emergencyContactRelationship", label: "Emergency contact relationship" },
   {
     key: "allergiesDescription",
     label: "Allergies description",

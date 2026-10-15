@@ -243,3 +243,34 @@ describe("Feature 31 — Person Other Languages", () => {
     });
   });
 });
+
+describe("Feature 32 — Emergency Contact Relationship", () => {
+  describe("US-32.1 — Choose the emergency contact relationship", () => {
+    it("Relationship dropdown lists the seven options", async () => {
+      const form = reactive({
+        emergencyContactName: "",
+        emergencyContactRelationship: null,
+      });
+
+      const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+        props: { modelValue: form },
+      });
+      await flushPromises();
+
+      const select = wrapper.findAllComponents({ name: "VSelect" }).find(
+        (c) => c.props("label") === "Emergency contact relationship"
+      );
+      expect(select).toBeTruthy();
+      expect(select.props("items").map((item) => item.title)).toEqual([
+        "Spouse",
+        "Father",
+        "Mother",
+        "Child",
+        "Grand Mother",
+        "Grand Father",
+        "Other",
+      ]);
+      wrapper.unmount();
+    });
+  });
+});

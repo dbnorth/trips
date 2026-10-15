@@ -1,6 +1,7 @@
 import db from "../models/index.js";
 import { canAccessTrip } from "../authorization/accessControl.js";
 import { toCsv, sendCsv } from "../utils/csvExport.js";
+import { emergencyContactRelationshipLabel } from "../utils/emergencyContactRelationship.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const TripDonation = db.tripDonation;
@@ -53,6 +54,7 @@ const PARTICIPANT_COLUMNS = [
   { key: "birthDate", label: "Birthdate" },
   { key: "gender", label: "Gender" },
   { key: "emergencyContactName", label: "Emergency Contact Name" },
+  { key: "emergencyContactRelationship", label: "Emergency Contact Relationship" },
   { key: "emergencyContactPhone", label: "Emergency Contact Phone" },
   { key: "hasAllergies", label: "Has Allergies" },
   { key: "allergiesDescription", label: "Allergies Description" },
@@ -203,6 +205,9 @@ exports.participantsCsv = async (req, res) => {
         birthDate: person.birthDate || "",
         gender: person.gender || "",
         emergencyContactName: person.emergencyContactName || "",
+        emergencyContactRelationship: emergencyContactRelationshipLabel(
+          person.emergencyContactRelationship
+        ),
         emergencyContactPhone: formatPhone(
           person.emergencyContactPhoneCountryCode,
           person.emergencyContactPhoneNumber
