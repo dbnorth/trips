@@ -896,6 +896,59 @@ const ensureTripRequirePassport = async () => {
   logger.info("trips.requirePassport column added.");
 };
 
+const ensureEmailTypes = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailTypes'`
+  );
+  if (!tables.length) {
+    await db.sequelize.query(`
+      CREATE TABLE emailTypes (
+        id INT NOT NULL AUTO_INCREMENT,
+        typeCode VARCHAR(255) NOT NULL,
+        description VARCHAR(255) NOT NULL,
+        eventCode VARCHAR(255) NOT NULL,
+        createdAt DATETIME NOT NULL,
+        updatedAt DATETIME NOT NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY emailTypes_typeCode_unique (typeCode)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    logger.info("emailTypes table created.");
+  }
+
+  const [typeCol] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailTemplates'
+       AND COLUMN_NAME = 'emailTypeId'`
+  );
+  if (!typeCol.length) {
+    await db.sequelize.query(
+      "ALTER TABLE emailTemplates ADD COLUMN emailTypeId INT NULL"
+    );
+    await db.sequelize.query(
+      `ALTER TABLE emailTemplates
+       ADD CONSTRAINT emailtemplates_emailTypeId_fk
+       FOREIGN KEY (emailTypeId) REFERENCES emailTypes(id)
+       ON DELETE RESTRICT ON UPDATE CASCADE`
+    );
+    logger.info("emailTemplates.emailTypeId column added.");
+  }
+
+  const [bodyCol] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailTemplates'
+       AND COLUMN_NAME = 'emailBody'`
+  );
+  if (!bodyCol.length) {
+    await db.sequelize.query("ALTER TABLE emailTemplates ADD COLUMN emailBody TEXT NULL");
+    logger.info("emailTemplates.emailBody column added.");
+  }
+};
+
 const ensureTripDeposit = async () => {
   const [rows] = await db.sequelize.query(
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -1016,6 +1069,7 @@ export const ensureSchema = async () => {
   await ensureTripPeopleRoleParticipantCost();
   await ensureTripRequirePassport();
   await ensureTripDeposit();
+  await ensureEmailTypes();
   await ensureTripFlightSegmentCabinAndSeat();
   await ensureOrganizationWebsiteUrl();
   await ensureOrganizationSubdomain();

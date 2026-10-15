@@ -10,6 +10,7 @@ import {
   syncTestDatabase,
   resetTestDatabase,
   createOrgAdminUser,
+  createSystemAdminUser,
 } from "./helpers.js";
 
 describe("Feature 10 — Email Templates", () => {
@@ -123,6 +124,60 @@ describe("Feature 10 — Email Templates", () => {
       expect(Array.isArray(orgSources.body)).toBe(true);
       expect(orgSources.body.map((t) => t.id)).toContain(orgTemplate.body.id);
       expect(orgSources.body.every((t) => t.functionCode)).toBe(true);
+    });
+  });
+
+  describe("Feature 39 — Email Types and Organization Email Templates", () => {
+    describe("US-39.2 — Maintain an organization email template", () => {
+      it("Organization email template is saved", async () => {
+        const sys = await createSystemAdminUser({
+          email: "template-type-admin@example.com",
+        });
+        const emailType = await request(app)
+          .post("/trips/email-types")
+          .set(sys.authHeader)
+          .send({
+            typeCode: "apply-received",
+            description: "Application received",
+            eventCode: "application-submitted",
+          });
+        expect(emailType.status).toBe(200);
+
+        const { authHeader, org } = await createOrgAdminUser({
+          email: "org-template-admin@example.com",
+          orgName: "Template Org",
+        });
+
+        const create = await request(app)
+          .post("/trips/email-templates")
+          .set(authHeader)
+          .send({
+            orgId: org.id,
+            emailTypeId: emailType.body.id,
+            functionCode: "Send Now",
+            subject: "Application received",
+            fromEmail: "trips@example.com",
+            emailBody: "We received your application.",
+          });
+
+        expect(create.status).toBe(200);
+
+        const loaded = await request(app)
+          .get(`/trips/email-templates/${create.body.id}`)
+          .set(authHeader);
+
+        expect(loaded.status).toBe(200);
+        expect(loaded.body.orgId).toBe(org.id);
+        expect(loaded.body.emailTypeId).toBe(emailType.body.id);
+        expect(loaded.body.emailType).toMatchObject({
+          id: emailType.body.id,
+          description: "Application received",
+        });
+        expect(loaded.body.functionCode).toBe("Send Now");
+        expect(loaded.body.subject).toBe("Application received");
+        expect(loaded.body.fromEmail).toBe("trips@example.com");
+        expect(loaded.body.emailBody).toBe("We received your application.");
+      });
     });
   });
 });
