@@ -4,6 +4,7 @@ import fs from "fs";
 import { canAccessOrg, isOrgAdminForOrg, isSystemAdmin, peopleListOrgIds, ROLE_TRIP_LEADER } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import { normalizeEmergencyContactRelationship } from "../utils/emergencyContactRelationship.js";
+import { resolvePreferredName } from "../utils/preferredName.js";
 import {
   normalizeEmail,
   findUserByEmail,
@@ -39,6 +40,7 @@ const personFields = [
   "firstName",
   "middleName",
   "lastName",
+  "preferredName",
   "email",
   "addLine1",
   "addLine2",
@@ -339,6 +341,11 @@ exports.create = async (req, res) => {
         personData.middleName == null ? "" : String(personData.middleName).trim();
       personData.middleName = trimmed === "" ? null : trimmed;
     }
+    personData.preferredName = resolvePreferredName(
+      personData.preferredName,
+      personData.firstName,
+      personData.lastName
+    );
     const validationError = validatePersonFields(personData);
     if (validationError) return res.status(400).send({ message: validationError });
 
@@ -391,6 +398,7 @@ exports.create = async (req, res) => {
           firstName: personData.firstName,
           middleName: personData.middleName,
           lastName: personData.lastName,
+          preferredName: personData.preferredName,
           emailNorm,
           addLine1: personData.addLine1,
           addLine2: personData.addLine2,
@@ -476,6 +484,15 @@ exports.update = async (req, res) => {
     if (Object.prototype.hasOwnProperty.call(body, "middleName")) {
       const trimmed = body.middleName == null ? "" : String(body.middleName).trim();
       body.middleName = trimmed === "" ? null : trimmed;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "preferredName")) {
+      const firstName = Object.prototype.hasOwnProperty.call(body, "firstName")
+        ? body.firstName
+        : person.firstName;
+      const lastName = Object.prototype.hasOwnProperty.call(body, "lastName")
+        ? body.lastName
+        : person.lastName;
+      body.preferredName = resolvePreferredName(body.preferredName, firstName, lastName);
     }
     const validationError = validatePersonFields(body);
     if (validationError) return res.status(400).send({ message: validationError });

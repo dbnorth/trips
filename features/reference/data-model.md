@@ -82,6 +82,7 @@ Notes:
 | userId | INTEGER | optional FK → user |
 | firstName, lastName | STRING | required |
 | middleName | STRING | nullable; optional (Feature 20) |
+| preferredName | STRING | nullable; blank save stores first name + last name (Feature 33) |
 | email | STRING | |
 | addLine1, addLine2, city, state_prov, postalCode | STRING | |
 | country | STRING(2) | |

@@ -21,13 +21,13 @@ vi.mock("../src/services/authServices.js", () => ({
 
 async function fillApplyForm(wrapper, values) {
   const inputs = wrapper.findAll("input");
-  // order: first, middle, last, email, password, confirm
+  // order: first, middle, last, preferred, email, password, confirm
   await inputs[0].setValue(values.firstName);
   await inputs[1].setValue(values.middleName ?? "");
   await inputs[2].setValue(values.lastName);
-  await inputs[3].setValue(values.email);
-  await inputs[4].setValue(values.password);
-  await inputs[5].setValue(values.confirmPassword);
+  await inputs[4].setValue(values.email);
+  await inputs[5].setValue(values.password);
+  await inputs[6].setValue(values.confirmPassword);
   await flushPromises();
 }
 
@@ -102,6 +102,7 @@ describe("Feature 1 — Apply create account", () => {
         firstName: "Ann",
         middleName: null,
         lastName: "Applicant",
+        preferredName: "Ann Applicant",
         email: "applicant@example.com",
         password: "password123",
         orgIds: [2],

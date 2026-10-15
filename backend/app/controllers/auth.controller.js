@@ -18,6 +18,7 @@ import {
   normalizeSubdomainInput,
   findOrganizationBySubdomain,
 } from "../utils/organizationSubdomain.js";
+import { resolvePreferredName } from "../utils/preferredName.js";
 
 const User = db.user;
 const Session = db.session;
@@ -149,7 +150,7 @@ exports.login = async (req, res) => {
 };
 
 exports.register = async (req, res) => {
-  const { email, password, firstName, middleName, lastName, orgIds, subdomain } = req.body;
+  const { email, password, firstName, middleName, lastName, preferredName, orgIds, subdomain } = req.body;
   if (!email?.trim() || !password || !firstName?.trim() || !lastName?.trim()) {
     return res.status(400).send({ message: "First name, last name, email, and password are required." });
   }
@@ -210,6 +211,7 @@ exports.register = async (req, res) => {
       middleName: middleTrimmed,
       lastName,
       emailNorm,
+      preferredName: resolvePreferredName(preferredName, firstName, lastName),
     });
 
     for (const orgId of requestedOrgIds) {

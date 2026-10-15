@@ -8,6 +8,7 @@ import {
   personDisplayName,
 } from "../utils/personProfile.js";
 import { emergencyContactRelationshipLabel } from "../utils/emergencyContactRelationship.js";
+import { displayPreferredName } from "../utils/preferredName.js";
 import { countryName } from "../utils/locationData.js";
 import { formatCountryCode, formatPhoneForDisplay } from "../utils/phoneUtils.js";
 
@@ -57,6 +58,7 @@ const fieldRows = computed(() => {
     { key: "firstName", label: "First name", value: p.firstName },
     { key: "middleName", label: "Middle name", value: p.middleName || "—" },
     { key: "lastName", label: "Last name", value: p.lastName },
+    { key: "preferredName", label: "Preferred name", value: displayPreferredName(p) || "—" },
     { key: "email", label: "Email", value: p.email },
     { key: "addLine1", label: "Address line 1", value: p.addLine1 },
     { label: "Address line 2", value: p.addLine2 },

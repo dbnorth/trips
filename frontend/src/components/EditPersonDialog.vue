@@ -15,6 +15,7 @@ import { formatPhoneForDisplay, formatCountryCode, validatePhoneFields } from ".
 import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
 import { normalizeYesNo, otherLanguageFieldsFromPerson, otherLanguagePayload } from "../utils/personProfile.js";
+import { PREFERRED_NAME_HINT, defaultPreferredName } from "../utils/preferredName.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -39,6 +40,20 @@ const { formError, formNotice, prepareSave, onLoadStart, onLoadSuccess, handleSa
   useVersionConflictForm();
 const formRef = ref(null);
 const form = ref(emptyForm());
+const preferredNameEdited = ref(false);
+
+watch(
+  () => [form.value.firstName, form.value.lastName],
+  () => {
+    if (preferredNameEdited.value) return;
+    form.value.preferredName = defaultPreferredName(form.value.firstName, form.value.lastName);
+  }
+);
+
+const onPreferredNameInput = (value) => {
+  preferredNameEdited.value = true;
+  form.value.preferredName = value ?? "";
+};
 const showChangePasswordDialog = ref(false);
 const currentPassword = ref("");
 const newPassword = ref("");
@@ -87,6 +102,7 @@ function emptyForm() {
     firstName: "",
     middleName: "",
     lastName: "",
+    preferredName: "",
     email: "",
     addLine1: "",
     addLine2: "",
@@ -156,10 +172,13 @@ const hasDuplicateOrgRole = (orgId, roleId) =>
 
 const applyPersonData = (data) => {
   const normalized = normalizeAddressFields(data || {});
+  const storedPreferred = data?.preferredName == null ? "" : String(data.preferredName).trim();
+  preferredNameEdited.value = storedPreferred !== "";
   form.value = {
     ...emptyForm(),
     ...data,
     ...normalized,
+    preferredName: storedPreferred || defaultPreferredName(data?.firstName, data?.lastName),
     isAdmin: !!(data.isAdmin === true || data.isAdmin === 1),
     phoneNumber: formatPhoneForDisplay(data.phoneNumber),
     phoneContryCode: data.phoneContryCode ? formatCountryCode(data.phoneContryCode) : "",
@@ -407,6 +426,7 @@ const save = async () => {
       firstName: form.value.firstName.trim(),
       middleName: form.value.middleName?.trim() || null,
       lastName: form.value.lastName.trim(),
+      preferredName: form.value.preferredName?.trim() || null,
       email: form.value.email?.trim() || null,
       country: address.country || null,
       addLine1: form.value.addLine1?.trim() || null,
@@ -481,6 +501,15 @@ const save = async () => {
           <v-text-field v-model="form.firstName" label="First name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'First name is required']" />
           <v-text-field v-model="form.middleName" label="Middle name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'Middle name is required']" />
           <v-text-field v-model="form.lastName" label="Last name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'Last name is required']" />
+          <v-text-field
+            :model-value="form.preferredName"
+            label="Preferred name"
+            density="compact"
+            autocomplete="off"
+            :hint="PREFERRED_NAME_HINT"
+            persistent-hint
+            @update:model-value="onPreferredNameInput"
+          />
           <v-text-field
             v-model="form.email"
             label="Email"

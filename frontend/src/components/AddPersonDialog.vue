@@ -11,6 +11,7 @@ import Utils from "../config/utils.js";
 import { formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
 import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { normalizeYesNo, otherLanguagePayload } from "../utils/personProfile.js";
+import { PREFERRED_NAME_HINT, defaultPreferredName } from "../utils/preferredName.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -28,6 +29,7 @@ const emptyForm = () => ({
   firstName: "",
   middleName: "",
   lastName: "",
+  preferredName: "",
   email: "",
   password: "",
   addLine1: "",
@@ -60,6 +62,20 @@ const emptyForm = () => ({
 });
 
 const form = ref(emptyForm());
+const preferredNameEdited = ref(false);
+
+watch(
+  () => [form.value.firstName, form.value.lastName],
+  () => {
+    if (preferredNameEdited.value) return;
+    form.value.preferredName = defaultPreferredName(form.value.firstName, form.value.lastName);
+  }
+);
+
+const onPreferredNameInput = (value) => {
+  preferredNameEdited.value = true;
+  form.value.preferredName = value ?? "";
+};
 
 const isSystemAdmin = computed(() => Utils.isSystemAdmin(user.value));
 
@@ -86,6 +102,7 @@ const resetForm = () => {
     orgId: defaultOrgId,
     roleId: pendingRole?.id ?? roles.value[0]?.id ?? null,
   };
+  preferredNameEdited.value = false;
   formError.value = "";
 };
 
@@ -156,6 +173,7 @@ const save = () => {
     firstName: form.value.firstName.trim(),
     middleName: form.value.middleName?.trim() || null,
     lastName: form.value.lastName.trim(),
+    preferredName: form.value.preferredName?.trim() || null,
     email: form.value.email.trim(),
     country: address.country || null,
     addLine1: form.value.addLine1?.trim() || null,
@@ -239,6 +257,15 @@ const save = () => {
         <v-text-field v-model="form.firstName" label="First name" density="compact" autocomplete="off" />
         <v-text-field v-model="form.middleName" label="Middle name" density="compact" autocomplete="off" />
         <v-text-field v-model="form.lastName" label="Last name" density="compact" autocomplete="off" />
+        <v-text-field
+          :model-value="form.preferredName"
+          label="Preferred name"
+          density="compact"
+          autocomplete="off"
+          :hint="PREFERRED_NAME_HINT"
+          persistent-hint
+          @update:model-value="onPreferredNameInput"
+        />
         <v-text-field
           v-model="form.email"
           label="Email"

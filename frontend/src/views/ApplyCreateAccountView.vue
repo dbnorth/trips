@@ -1,9 +1,10 @@
 <script setup>
-import { computed, ref, onMounted } from "vue";
+import { computed, ref, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AuthServices from "../services/authServices.js";
 import { storeAuthenticatedUser } from "../utils/authSession.js";
 import { getRegistrationHostSubdomain } from "../utils/hostSubdomain.js";
+import { PREFERRED_NAME_HINT, defaultPreferredName } from "../utils/preferredName.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -12,6 +13,7 @@ const form = ref({
   firstName: "",
   middleName: "",
   lastName: "",
+  preferredName: "",
   email: "",
   password: "",
   confirmPassword: "",
@@ -19,6 +21,7 @@ const form = ref({
 const formError = ref("");
 const existingAccountEmail = ref("");
 const saving = ref(false);
+const preferredNameEdited = ref(false);
 const hostSubdomain = ref(getRegistrationHostSubdomain());
 const subdomainOrg = ref(null);
 
@@ -33,6 +36,19 @@ const organizationName = computed(
 );
 
 const signInRoute = computed(() => ({ name: "applyAuth", query: { ...route.query } }));
+
+watch(
+  () => [form.value.firstName, form.value.lastName],
+  () => {
+    if (preferredNameEdited.value) return;
+    form.value.preferredName = defaultPreferredName(form.value.firstName, form.value.lastName);
+  }
+);
+
+const onPreferredNameInput = (value) => {
+  preferredNameEdited.value = true;
+  form.value.preferredName = value ?? "";
+};
 
 const goToApply = () => {
   const tripId = applyContext.value.tripId;
@@ -62,6 +78,7 @@ const submit = () => {
     firstName: f.firstName,
     middleName: f.middleName?.trim() || null,
     lastName: f.lastName,
+    preferredName: f.preferredName?.trim() || null,
     email: f.email,
     password: f.password,
     orgIds: [],
@@ -154,6 +171,15 @@ onMounted(async () => {
               label="Last name"
               autocomplete="family-name"
               density="comfortable"
+            />
+            <v-text-field
+              :model-value="form.preferredName"
+              label="Preferred name"
+              autocomplete="off"
+              density="comfortable"
+              :hint="PREFERRED_NAME_HINT"
+              persistent-hint
+              @update:model-value="onPreferredNameInput"
             />
             <v-text-field
               v-model="form.email"

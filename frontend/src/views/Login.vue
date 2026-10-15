@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import AuthServices from "../services/authServices.js";
 import Utils from "../config/utils.js";
 import { useRouter, useRoute } from "vue-router";
 import { getRegistrationHostSubdomain } from "../utils/hostSubdomain.js";
+import { PREFERRED_NAME_HINT, defaultPreferredName } from "../utils/preferredName.js";
 
 const router = useRouter();
 const route = useRoute();
@@ -15,6 +16,8 @@ const confirmPassword = ref("");
 const firstName = ref("");
 const middleName = ref("");
 const lastName = ref("");
+const preferredName = ref("");
+const preferredNameEdited = ref(false);
 const selectedOrgIds = ref([]);
 const organizations = ref([]);
 const orgsLoading = ref(false);
@@ -25,6 +28,16 @@ const subdomainOrg = ref(null);
 const subdomainResolving = ref(false);
 
 const hideOrgPicker = computed(() => !!subdomainOrg.value);
+
+watch([firstName, lastName], () => {
+  if (preferredNameEdited.value) return;
+  preferredName.value = defaultPreferredName(firstName.value, lastName.value);
+});
+
+const onPreferredNameInput = (value) => {
+  preferredNameEdited.value = true;
+  preferredName.value = value ?? "";
+};
 
 const storeUserAndGoHome = (data, { fromRegistration = false } = {}) => {
   const scopeOrgs = Utils.getScopeOrgs(data);
@@ -70,6 +83,7 @@ const register = () => {
     firstName: firstName.value,
     middleName: middleName.value?.trim() || null,
     lastName: lastName.value,
+    preferredName: preferredName.value?.trim() || null,
     email: email.value,
     password: password.value,
     orgIds: hideOrgPicker.value ? [] : selectedOrgIds.value,
@@ -132,6 +146,8 @@ const showLogin = () => {
   firstName.value = "";
   middleName.value = "";
   lastName.value = "";
+  preferredName.value = "";
+  preferredNameEdited.value = false;
   selectedOrgIds.value = [];
 };
 
@@ -173,6 +189,14 @@ onMounted(() => {
               <v-text-field v-model="firstName" label="First name" autocomplete="given-name" />
               <v-text-field v-model="middleName" label="Middle name" autocomplete="additional-name" />
               <v-text-field v-model="lastName" label="Last name" autocomplete="family-name" />
+              <v-text-field
+                :model-value="preferredName"
+                label="Preferred name"
+                autocomplete="off"
+                :hint="PREFERRED_NAME_HINT"
+                persistent-hint
+                @update:model-value="onPreferredNameInput"
+              />
               <v-text-field v-model="email" label="Email" type="email" autocomplete="email" />
               <v-text-field v-model="password" label="Password" type="password" autocomplete="new-password" />
               <v-text-field

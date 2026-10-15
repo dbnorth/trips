@@ -50,8 +50,9 @@ These `feature-*.md` files are a **reverse-spec** of the imported Mission Trips 
 | 30 | [feature-30-participant-flights.md](./feature-30-participant-flights.md) | `feature/30-participant-flights` | 5, 7 |
 | 31 | [feature-31-person-other-languages.md](./feature-31-person-other-languages.md) | `feature/31-person-other-languages` | 2, 7 |
 | 32 | [feature-32-emergency-contact-relationship.md](./feature-32-emergency-contact-relationship.md) | `feature/32-emergency-contact-relationship` | 2 |
+| 33 | [feature-33-person-preferred-name.md](./feature-33-person-preferred-name.md) | `feature/33-person-preferred-name` | 1, 2, 20 |
 
-Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32).
+Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33).
 
 New features: follow [framework.md](./framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, Gherkin, **Agent implementation request**, **Definition of Done**.
 

@@ -188,4 +188,27 @@ describe("Feature 20 — Person Middle Name", () => {
 
     wrapper.unmount();
   });
+
+  it("Add person form shows Preferred name after Last name", async () => {
+    const { wrapper } = await mountWithPlugins(AddPersonDialog, {
+      props: { modelValue: false },
+      global: {
+        plugins: [vuetify],
+        stubs: {
+          VSelect: VSelectStub,
+          VDialog: { template: "<div><slot /></div>" },
+        },
+      },
+    });
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+
+    const labels = wrapper.findAllComponents({ name: "VTextField" }).map((c) => c.props("label"));
+    const lastIdx = labels.indexOf("Last name");
+    const preferredIdx = labels.indexOf("Preferred name");
+    expect(lastIdx).toBeGreaterThan(-1);
+    expect(preferredIdx).toBe(lastIdx + 1);
+
+    wrapper.unmount();
+  });
 });
