@@ -498,6 +498,8 @@ const save = async () => {
 
         <template v-if="!loading">
           <v-form ref="formRef" @submit.prevent="save">
+          <v-divider class="person-section-rule" />
+          <div class="text-subtitle-2 font-weight-bold mb-2">Personal details</div>
           <v-text-field v-model="form.firstName" label="First name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'First name is required']" />
           <v-text-field v-model="form.middleName" label="Middle name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'Middle name is required']" />
           <v-text-field v-model="form.lastName" label="Last name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'Last name is required']" />
@@ -569,8 +571,9 @@ const save = async () => {
           <PersonProfileFields v-model="form" :org-id="resolvedMedicalOrgId" />
           <v-textarea v-model="form.bioText" label="Bio" density="compact" rows="3" autocomplete="off" />
 
-          <div class="mt-2 mb-2">
-            <div class="text-subtitle-2 mb-2">Profile photo</div>
+          <v-divider class="person-section-rule" />
+          <div class="mb-2">
+            <div class="text-subtitle-2 font-weight-bold mb-2">Profile photo</div>
             <div class="d-flex align-center ga-3 mb-2">
               <v-avatar v-if="picturePreview || currentPictureUrl" size="72" rounded="lg">
                 <v-img :src="picturePreview || currentPictureUrl" alt="Profile photo" cover />
@@ -592,7 +595,8 @@ const save = async () => {
           </v-form>
 
           <template v-if="isSystemAdmin">
-            <div class="text-subtitle-2 mb-2 mt-2">Organizations</div>
+            <v-divider class="person-section-rule" />
+            <div class="text-subtitle-2 font-weight-bold mb-2">Organizations</div>
             <v-progress-linear v-if="orgRolesLoading" indeterminate class="mb-2" />
 
             <v-table v-else-if="orgRoles.length" density="compact" class="border rounded mb-3">
@@ -735,5 +739,10 @@ const save = async () => {
 <style scoped>
 .add-role-form {
   background-color: #f0f0f0;
+}
+
+.person-section-rule {
+  margin: 16px -16px 12px;
+  opacity: 1;
 }
 </style>
