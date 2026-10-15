@@ -45,6 +45,7 @@ const emptyForm = () => ({
   facebookPage: "",
   instagramId: "",
   participantCost: "",
+  deposit: "",
   requirePassport: false,
   orgId: null,
 });
@@ -250,6 +251,7 @@ const save = async () => {
     facebookPage: form.value.facebookPage?.trim() || null,
     instagramId: form.value.instagramId?.trim() || null,
     participantCost: parseMoneyAmount(form.value.participantCost),
+    deposit: parseMoneyAmount(form.value.deposit),
     requirePassport: !!form.value.requirePassport,
     leaderPeopleIds: leaderPeopleIds.value,
   };
@@ -354,6 +356,7 @@ const save = async () => {
         </v-row>
 
         <MoneyInput v-model="form.participantCost" label="Participant cost" class="mb-2" />
+        <MoneyInput v-model="form.deposit" label="Deposit" class="mb-2" />
 
         <v-checkbox
           v-model="form.requirePassport"

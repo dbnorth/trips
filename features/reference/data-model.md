@@ -223,6 +223,7 @@ Notes:
 | facebookPage | STRING(500) | |
 | instagramId | STRING(255) | |
 | participantCost | DECIMAL(10,2) | |
+| deposit | DECIMAL(10,2) | nullable (Feature 38) |
 | requirePassport | BOOLEAN | required, default `false` (Feature 23) |
 | version | INTEGER | required, default `0` |
 
