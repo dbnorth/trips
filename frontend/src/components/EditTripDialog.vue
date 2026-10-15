@@ -43,6 +43,7 @@ const emptyForm = () => ({
   facebookPage: "",
   instagramId: "",
   participantCost: "",
+  deposit: "",
   requirePassport: false,
   image: null,
   version: 0,
@@ -354,6 +355,7 @@ const applyTripData = (data) => {
     startDate: data.startDate || "",
     endDate: data.endDate || "",
     participantCost: data.participantCost != null ? String(data.participantCost) : "",
+    deposit: data.deposit != null ? String(data.deposit) : "",
     requirePassport: !!data.requirePassport,
   };
   clearImageSelection();
@@ -467,6 +469,7 @@ const save = async () => {
     facebookPage: form.value.facebookPage?.trim() || null,
     instagramId: form.value.instagramId?.trim() || null,
     participantCost: parseMoneyAmount(form.value.participantCost),
+    deposit: parseMoneyAmount(form.value.deposit),
     requirePassport: !!form.value.requirePassport,
     version: form.value.version,
     leaderPeopleIds: leaderPeopleIds.value,
@@ -565,6 +568,7 @@ const save = async () => {
           </v-row>
 
           <MoneyInput v-model="form.participantCost" label="Participant cost" class="mb-2" />
+          <MoneyInput v-model="form.deposit" label="Deposit" class="mb-2" />
 
           <v-checkbox
             v-model="form.requirePassport"

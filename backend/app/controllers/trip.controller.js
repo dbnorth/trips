@@ -78,6 +78,7 @@ const tripFields = [
   "facebookPage",
   "instagramId",
   "participantCost",
+  "deposit",
   "requirePassport",
 ];
 
@@ -356,6 +357,18 @@ exports.findStatus = async (req, res) => {
   }
 };
 
+const normalizeDeposit = (body) => {
+  if (!Object.prototype.hasOwnProperty.call(body, "deposit")) return body;
+  const value = body.deposit;
+  if (value == null || value === "") {
+    body.deposit = null;
+    return body;
+  }
+  const num = Number(value);
+  body.deposit = Number.isNaN(num) ? null : num;
+  return body;
+};
+
 const pickTripPayload = (body) => {
   const payload = {};
   for (const key of tripFields) {
@@ -380,7 +393,7 @@ exports.create = async (req, res) => {
       return res.status(403).send({ message: "Forbidden." });
     }
     const { leaderPeopleIds } = req.body;
-    const data = await Trip.create(pickTripPayload(req.body));
+    const data = await Trip.create(pickTripPayload(normalizeDeposit({ ...req.body })));
     if (Object.prototype.hasOwnProperty.call(req.body, "leaderPeopleIds")) {
       await syncTripLeaders(data.id, orgId, leaderPeopleIds);
     }
@@ -432,6 +445,7 @@ exports.copy = async (req, res) => {
           facebookPage: source.facebookPage,
           instagramId: source.instagramId,
           participantCost: source.participantCost,
+          deposit: source.deposit,
           requirePassport: !!source.requirePassport,
           version: 0,
         },
@@ -485,7 +499,7 @@ exports.update = async (req, res) => {
     if (!canManageOrgTrip && !isTripLeaderForTrip(req, req.params.id)) {
       return res.status(403).send({ message: "Forbidden." });
     }
-    const body = { ...req.body };
+    const body = normalizeDeposit({ ...req.body });
     if (!canManageOrgTrip) {
       delete body.orgId;
     }

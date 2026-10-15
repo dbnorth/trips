@@ -453,4 +453,48 @@ describe("Feature 5 — Trip Catalog Management", () => {
       expect(await db.trip.count()).toBe(beforeCount);
     });
   });
+
+  describe("Feature 38 — Trip Deposit", () => {
+    it("Deposit is saved on the trip", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "deposit-admin@example.com",
+      });
+
+      const created = await request(app)
+        .post("/trips/trips")
+        .set(authHeader)
+        .send(tripPayload(org.id, { name: "Deposit Trip", deposit: 500 }));
+
+      expect(created.status).toBe(200);
+      expect(Number(created.body.deposit)).toBe(500);
+
+      const loaded = await request(app)
+        .get(`/trips/trips/${created.body.id}`)
+        .set(authHeader);
+
+      expect(loaded.status).toBe(200);
+      expect(Number(loaded.body.deposit)).toBe(500);
+    });
+
+    it("A blank deposit is saved as empty", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "blank-deposit-admin@example.com",
+      });
+
+      const created = await request(app)
+        .post("/trips/trips")
+        .set(authHeader)
+        .send(tripPayload(org.id, { name: "No Deposit Trip", deposit: "" }));
+
+      expect(created.status).toBe(200);
+      expect(created.body.deposit).toBeNull();
+
+      const loaded = await request(app)
+        .get(`/trips/trips/${created.body.id}`)
+        .set(authHeader);
+
+      expect(loaded.status).toBe(200);
+      expect(loaded.body.deposit).toBeNull();
+    });
+  });
 });

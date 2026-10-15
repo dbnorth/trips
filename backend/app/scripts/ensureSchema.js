@@ -896,6 +896,23 @@ const ensureTripRequirePassport = async () => {
   logger.info("trips.requirePassport column added.");
 };
 
+const ensureTripDeposit = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'trips'
+       AND COLUMN_NAME = 'deposit'`
+  );
+  if (rows.length) return;
+
+  await db.sequelize.query(
+    `ALTER TABLE trips
+     ADD COLUMN deposit DECIMAL(10, 2) NULL
+     AFTER participantCost`
+  );
+  logger.info("trips.deposit column added.");
+};
+
 const ensureTripFlightSegmentCabinAndSeat = async () => {
   const [tables] = await db.sequelize.query(
     `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -998,6 +1015,7 @@ export const ensureSchema = async () => {
   await ensureEmailTemplateOrgNullable();
   await ensureTripPeopleRoleParticipantCost();
   await ensureTripRequirePassport();
+  await ensureTripDeposit();
   await ensureTripFlightSegmentCabinAndSeat();
   await ensureOrganizationWebsiteUrl();
   await ensureOrganizationSubdomain();

@@ -135,9 +135,9 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId` | auth | Upsert flight header (purchased, cost, comments) — Feature 30 |
 | `GET` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | List flight segments — Feature 30 |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | Replace flight segments — Feature 30 |
-| `POST` | `/trips/trips` | auth | Create (+ optional `leaderPeopleIds`, `requirePassport`) |
-| `POST` | `/trips/trips/:id/copy` | auth | Copy source trip → new trip (name required; leaders, worker roles, travel options, `requirePassport`; not participants/donations) — Features 21, 23 |
-| `PUT` | `/trips/trips/:id` | auth | Update |
+| `POST` | `/trips/trips` | auth | Create (+ optional `leaderPeopleIds`, `requirePassport`, `deposit`) |
+| `POST` | `/trips/trips/:id/copy` | auth | Copy source trip → new trip (name required; leaders, worker roles, travel options, `requirePassport`, `deposit`; not participants/donations) — Features 21, 23, 38 |
+| `PUT` | `/trips/trips/:id` | auth | Update (optional `deposit`, Feature 38) |
 | `PUT` | `/trips/trips/:id/image` | auth | Image (`multipart` field `image`) |
 | `DELETE` | `/trips/trips/:id` | auth | Delete (org admin / sysadmin) |
 | `GET` | `/trips/dashboard/org` | auth | Org metrics |
