@@ -12,6 +12,16 @@ import {
   createOrgAdminUser,
 } from "./helpers.js";
 
+/** Date-only string offset from today. Public org pages hide trips that already ended. */
+const isoDateFromToday = (offsetDays) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
 const createPublicTripFixture = async ({
   orgName = "Hope Mission",
   tripName = "Summer Outreach",
@@ -29,8 +39,8 @@ const createPublicTripFixture = async ({
       orgId: org.id,
       name: tripName,
       status: "active",
-      startDate: "2026-09-01",
-      endDate: "2026-09-20",
+      startDate: isoDateFromToday(30),
+      endDate: isoDateFromToday(50),
       participantCost: 1500,
       description: "A public outreach trip",
       city: "Nairobi",
