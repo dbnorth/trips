@@ -274,3 +274,47 @@ describe("Feature 32 — Emergency Contact Relationship", () => {
     });
   });
 });
+
+describe("Feature 36 — Allergies Description Hint", () => {
+  it("Allergies description explains what to enter", async () => {
+    const form = reactive({
+      hasAllergies: true,
+      allergiesDescription: "",
+      takesMedication: null,
+    });
+
+    const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+      props: { modelValue: form },
+    });
+    await flushPromises();
+
+    const field = wrapper
+      .findAllComponents({ name: "VTextarea" })
+      .find((c) => c.props("label") === "Allergies description");
+    expect(field).toBeTruthy();
+    expect(field.props("hint")).toBe("Enter any medicine, food, or seasonal allergies.");
+    expect(field.props("persistentHint")).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it("Allergies description stays hidden when there are no allergies", async () => {
+    const form = reactive({
+      hasAllergies: false,
+      allergiesDescription: "",
+      takesMedication: null,
+    });
+
+    const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+      props: { modelValue: form },
+    });
+    await flushPromises();
+
+    const field = wrapper
+      .findAllComponents({ name: "VTextarea" })
+      .find((c) => c.props("label") === "Allergies description");
+    expect(field).toBeFalsy();
+
+    wrapper.unmount();
+  });
+});

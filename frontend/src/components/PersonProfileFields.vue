@@ -238,6 +238,8 @@ const onTakesMedicationChange = (value) => {
     v-if="modelValue.hasAllergies === true"
     :model-value="modelValue.allergiesDescription"
     label="Allergies description"
+    hint="Enter any medicine, food, or seasonal allergies."
+    persistent-hint
     density="compact"
     rows="2"
     :disabled="disabled"
