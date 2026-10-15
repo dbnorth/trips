@@ -188,6 +188,16 @@ const onTakesMedicationChange = (value) => {
       </v-col>
     </v-row>
 
+    <v-textarea
+      :model-value="modelValue.bioText"
+      label="Bio"
+      density="compact"
+      rows="3"
+      autocomplete="off"
+      :disabled="disabled"
+      @update:model-value="update('bioText', $event)"
+    />
+
     <v-divider class="person-section-rule" />
     <div class="text-subtitle-2 font-weight-bold mb-2">Emergency contact</div>
     <v-text-field

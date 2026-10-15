@@ -353,7 +353,6 @@ const save = () => {
           </v-col>
         </v-row>
         <PersonProfileFields v-model="form" :org-id="form.orgId" />
-        <v-textarea v-model="form.bioText" label="Bio" density="compact" rows="3" autocomplete="off" />
 
         <PersonDocumentsCard />
 
