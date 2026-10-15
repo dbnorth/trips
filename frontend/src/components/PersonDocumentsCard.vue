@@ -46,10 +46,10 @@ const viewType = ref("");
 const viewName = ref("");
 const viewRow = ref(null);
 const viewSpecialization = ref(null);
+const formDialog = ref(false);
 
 const isEditing = computed(() => editingDocumentId.value != null);
 const formTitle = computed(() => (isEditing.value ? "Edit Document" : "Add Document"));
-const saveButtonLabel = computed(() => (isEditing.value ? "Save document" : "Add document"));
 
 const viewKind = computed(() => {
   const type = (viewType.value || "").toLowerCase();
@@ -70,6 +70,11 @@ const selectedDocumentType = computed(
   () =>
     documentTypes.value.find((row) => Number(row.id) === Number(form.value.documentTypeId)) || null
 );
+
+const uploadLabel = computed(() => {
+  const name = selectedDocumentType.value?.description;
+  return name ? `Upload ${name}` : "Upload document";
+});
 
 const selectedInstructions = computed(() => {
   const text = selectedDocumentType.value?.instructions;
@@ -115,6 +120,7 @@ const removeSpecialization = (index) => {
 };
 
 const resetForm = () => {
+  formDialog.value = false;
   editingDocumentId.value = null;
   form.value = {
     documentTypeId: null,
@@ -203,6 +209,11 @@ const load = async () => {
   }
 };
 
+const openAdd = () => {
+  resetForm();
+  formDialog.value = true;
+};
+
 const startEdit = (row) => {
   message.value = "";
   editingDocumentId.value = row.id;
@@ -218,9 +229,10 @@ const startEdit = (row) => {
   showFieldErrors.value = false;
   fieldErrors.value = emptyFieldErrors();
   fileInputKey.value += 1;
+  formDialog.value = true;
 };
 
-const cancelEdit = () => {
+const closeForm = () => {
   resetForm();
 };
 
@@ -348,9 +360,15 @@ onMounted(load);
 
 <template>
   <div class="mt-4 mb-2">
+    <v-divider class="person-section-rule" />
     <div class="d-flex align-center justify-space-between mb-2">
-      <div class="text-subtitle-2">Documents</div>
-      <v-progress-circular v-if="loading" indeterminate size="18" width="2" />
+      <div class="text-subtitle-2 font-weight-bold">Documents</div>
+      <div class="d-flex align-center ga-2">
+        <v-btn size="small" color="primary" :disabled="!props.personId" @click="openAdd">
+          Add Document
+        </v-btn>
+        <v-progress-circular v-if="loading" indeterminate size="18" width="2" />
+      </div>
     </div>
 
     <v-alert v-if="message" type="info" density="compact" class="mb-3">{{ message }}</v-alert>
@@ -399,12 +417,14 @@ onMounted(load);
             <div
               v-for="spec in row.specializations"
               :key="spec.id"
-              class="d-flex align-center ga-2 py-1"
+              class="d-flex align-center py-1"
             >
               <span>{{ spec.name }}</span>
-              <span>{{ spec.date }}</span>
-              <v-btn size="small" variant="text" @click="viewDocument(row, spec)">View</v-btn>
-              <v-btn size="small" variant="text" @click="downloadDocument(row, spec)">Download</v-btn>
+              <span class="ms-4">{{ spec.date }}</span>
+              <span class="ms-auto">
+                <v-btn size="small" variant="text" @click="viewDocument(row, spec)">View</v-btn>
+                <v-btn size="small" variant="text" @click="downloadDocument(row, spec)">Download</v-btn>
+              </span>
             </div>
           </td>
         </tr>
@@ -412,10 +432,16 @@ onMounted(load);
       </tbody>
     </v-table>
 
-    <p v-else class="text-body-2 text-medium-emphasis mb-3">No documents uploaded yet.</p>
+    <p v-else class="text-body-2 text-medium-emphasis mb-3">No documents</p>
 
-    <div class="add-document-form pa-4 rounded mb-2">
-      <div class="text-subtitle-2 mb-3">{{ formTitle }}</div>
+    <v-dialog
+      :model-value="formDialog"
+      max-width="720"
+      @update:model-value="(v) => !v && closeForm()"
+    >
+      <v-card v-if="formDialog">
+      <v-card-title>{{ formTitle }}</v-card-title>
+      <v-card-text>
       <v-alert
         v-if="selectedInstructions"
         type="info"
@@ -476,7 +502,7 @@ onMounted(load);
 
       <v-file-input
         :key="fileInputKey"
-        label="Upload document (optional)"
+        :label="uploadLabel"
         accept="application/pdf,image/jpeg,image/jpg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic,.heif"
         density="compact"
         prepend-icon="mdi-file-document"
@@ -507,14 +533,14 @@ onMounted(load);
             <v-col cols="12" sm="4">
               <v-text-field v-model="spec.date" label="Date" type="date" density="compact" />
             </v-col>
-            <v-col cols="12" sm="4" class="d-flex align-center">
+            <v-col cols="12" sm="4" class="d-flex align-center justify-end">
               <v-btn size="small" variant="text" color="error" @click="removeSpecialization(index)">
-                Remove
+                Delete
               </v-btn>
             </v-col>
           </v-row>
           <v-file-input
-            label="Upload document"
+            label="Upload Specialization Document"
             accept="application/pdf,image/jpeg,image/jpg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic,.heif"
             density="compact"
             prepend-icon="mdi-file-document"
@@ -528,24 +554,24 @@ onMounted(load);
         <div v-if="fieldErrors.specializations" class="text-error text-caption mb-2">
           {{ fieldErrors.specializations }}
         </div>
-        <v-btn size="small" variant="text" @click="addSpecialization">Add specialization</v-btn>
+        <v-btn size="small" color="primary" @click="addSpecialization">Add specialization</v-btn>
       </div>
 
-      <div class="d-flex ga-2">
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" :disabled="saving" @click="closeForm">Cancel</v-btn>
         <v-btn
           color="primary"
-          size="small"
           :loading="saving"
           :disabled="!props.personId || !documentTypeItems.length"
           @click="saveDocument"
         >
-          {{ saveButtonLabel }}
+          Save
         </v-btn>
-        <v-btn v-if="isEditing" variant="text" size="small" :disabled="saving" @click="cancelEdit">
-          Cancel
-        </v-btn>
-      </div>
-    </div>
+      </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <v-dialog :model-value="viewDialog" max-width="900" @update:model-value="(v) => !v && closeView()">
       <v-card>
@@ -590,7 +616,9 @@ onMounted(load);
 </template>
 
 <style scoped>
-.add-document-form {
-  background-color: #f0f0f0;
+.person-section-rule {
+  margin: 16px -16px 12px;
+  opacity: 1;
 }
 </style>
+

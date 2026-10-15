@@ -165,12 +165,12 @@ Do not implement behavior not in this spec.
 
 ## Definition of Done
 
-*   [ ] Documents section on Add person and Edit person lists documents or shows **No documents** (**FR-001**, **FR-006**)
-*   [ ] Inline form removed; **Add Document** and **Edit** open a dialog with **Save** and **Cancel** (**FR-002**–**FR-005**)
-*   [ ] Existing document field, specialization, view, download, and delete behavior unchanged (**FR-007**)
-*   [ ] Automated tests for every Gherkin scenario
-*   [ ] Living reference updated in this PR
-*   [ ] `npm test` green
+*   [x] Documents section on Add person and Edit person lists documents or shows **No documents** (**FR-001**, **FR-006**)
+*   [x] Inline form removed; **Add Document** and **Edit** open a dialog with **Save** and **Cancel** (**FR-002**–**FR-005**)
+*   [x] Existing document field, specialization, view, download, and delete behavior unchanged (**FR-007**)
+*   [x] Automated tests for every Gherkin scenario
+*   [x] Living reference updated in this PR
+*   [x] `npm test` green
 *   [ ] On `feature/35-person-document-dialog`; PR → `dev`
 
 ---

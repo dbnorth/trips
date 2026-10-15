@@ -7,6 +7,7 @@ import PhoneInput from "./PhoneInput.vue";
 import PhoneCountryCodeInput from "./PhoneCountryCodeInput.vue";
 import AddressFields from "./AddressFields.vue";
 import PersonProfileFields from "./PersonProfileFields.vue";
+import PersonDocumentsCard from "./PersonDocumentsCard.vue";
 import Utils from "../config/utils.js";
 import { formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
 import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
@@ -254,6 +255,8 @@ const save = () => {
       <v-card-title>Add person</v-card-title>
 
       <v-card-text style="max-height: 70vh">
+        <v-divider class="person-section-rule" />
+        <div class="text-subtitle-2 font-weight-bold mb-2">Personal details</div>
         <v-text-field v-model="form.firstName" label="First name" density="compact" autocomplete="off" />
         <v-text-field v-model="form.middleName" label="Middle name" density="compact" autocomplete="off" />
         <v-text-field v-model="form.lastName" label="Last name" density="compact" autocomplete="off" />
@@ -352,6 +355,8 @@ const save = () => {
         <PersonProfileFields v-model="form" :org-id="form.orgId" />
         <v-textarea v-model="form.bioText" label="Bio" density="compact" rows="3" autocomplete="off" />
 
+        <PersonDocumentsCard />
+
         <v-alert v-if="formError" type="error" density="compact" class="mt-2">{{ formError }}</v-alert>
       </v-card-text>
 
@@ -363,3 +368,10 @@ const save = () => {
     </v-card>
   </v-dialog>
 </template>
+
+<style scoped>
+.person-section-rule {
+  margin: 16px -16px 12px;
+  opacity: 1;
+}
+</style>

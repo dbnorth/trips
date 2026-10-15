@@ -166,7 +166,6 @@ const onTakesMedicationChange = (value) => {
 
 <template>
   <template v-if="!healthOnly">
-    <div class="text-subtitle-2 mb-2 mt-2">Personal details</div>
     <v-row dense>
       <v-col cols="12" sm="6">
         <v-text-field
@@ -189,7 +188,8 @@ const onTakesMedicationChange = (value) => {
       </v-col>
     </v-row>
 
-    <div class="text-subtitle-2 mb-2">Emergency contact</div>
+    <v-divider class="person-section-rule" />
+    <div class="text-subtitle-2 font-weight-bold mb-2">Emergency contact</div>
     <v-text-field
       :model-value="modelValue.emergencyContactName"
       label="Emergency contact name"
@@ -224,7 +224,8 @@ const onTakesMedicationChange = (value) => {
     </v-row>
   </template>
 
-  <div class="text-subtitle-2 mb-2" :class="healthOnly ? 'mt-2' : ''">Health information</div>
+  <v-divider v-if="!healthOnly" class="person-section-rule" />
+  <div class="text-subtitle-2 mb-2" :class="healthOnly ? 'mt-2' : 'font-weight-bold'">Health information</div>
   <v-select
     :model-value="modelValue.hasAllergies"
     :items="yesNoItems"
@@ -377,7 +378,8 @@ const onTakesMedicationChange = (value) => {
   </template>
 
   <template v-if="!healthOnly">
-    <div class="text-subtitle-2 mb-2">Current church home</div>
+    <v-divider class="person-section-rule" />
+    <div class="text-subtitle-2 font-weight-bold mb-2">Current church home</div>
     <v-text-field
       :model-value="modelValue.currentChurchHome"
       label="Church name"
@@ -407,3 +409,10 @@ const onTakesMedicationChange = (value) => {
     </v-row>
   </template>
 </template>
+
+<style scoped>
+.person-section-rule {
+  margin: 16px -16px 12px;
+  opacity: 1;
+}
+</style>

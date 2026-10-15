@@ -50,6 +50,20 @@ vi.mock("../src/components/CountrySelect.vue", () => ({
 
 const dialogStub = { template: "<div><slot /></div>" };
 
+const mountCard = (props) =>
+  mountWithPlugins(PersonDocumentsCard, {
+    props,
+    global: { stubs: { VDialog: dialogStub } },
+  });
+
+const clickButton = async (wrapper, label) => {
+  const button = wrapper.findAllComponents({ name: "VBtn" }).find((b) => b.text().trim() === label);
+  expect(button).toBeTruthy();
+  await button.trigger("click");
+  await flushPromises();
+  return button;
+};
+
 const types = [
   {
     id: 1,
@@ -142,10 +156,9 @@ describe("Feature 22 — Document number & instructions", () => {
   });
 
   it("Instructions display when adding a document", async () => {
-    const { wrapper } = await mountWithPlugins(PersonDocumentsCard, {
-      props: { personId: 5 },
-    });
+    const { wrapper } = await mountCard({ personId: 5 });
     await flushPromises();
+    await clickButton(wrapper, "Add Document");
 
     const typeSelect = wrapper.findComponent({ name: "VSelect" });
     await typeSelect.vm.$emit("update:modelValue", 1);
@@ -157,10 +170,9 @@ describe("Feature 22 — Document number & instructions", () => {
   });
 
   it("Document number field shows only when required", async () => {
-    const { wrapper } = await mountWithPlugins(PersonDocumentsCard, {
-      props: { personId: 5 },
-    });
+    const { wrapper } = await mountCard({ personId: 5 });
     await flushPromises();
+    await clickButton(wrapper, "Add Document");
 
     const typeSelect = wrapper.findComponent({ name: "VSelect" });
     await typeSelect.vm.$emit("update:modelValue", 1);
@@ -183,16 +195,10 @@ describe("Feature 22 — Document number & instructions", () => {
   });
 
   it("Add document shows field errors when required fields are empty", async () => {
-    const { wrapper } = await mountWithPlugins(PersonDocumentsCard, {
-      props: { personId: 5 },
-    });
+    const { wrapper } = await mountCard({ personId: 5 });
     await flushPromises();
-
-    const addBtn = wrapper
-      .findAllComponents({ name: "VBtn" })
-      .find((b) => b.text().trim() === "Add document");
-    await addBtn.trigger("click");
-    await flushPromises();
+    await clickButton(wrapper, "Add Document");
+    await clickButton(wrapper, "Save");
 
     expect(PersonDocumentServices.create).not.toHaveBeenCalled();
 
@@ -232,9 +238,7 @@ describe("Feature 22 — Document number & instructions", () => {
     });
     PersonDocumentServices.update.mockResolvedValue({ data: { id: 44 } });
 
-    const { wrapper } = await mountWithPlugins(PersonDocumentsCard, {
-      props: { personId: 5 },
-    });
+    const { wrapper } = await mountCard({ personId: 5 });
     await flushPromises();
 
     const editBtn = wrapper.findAllComponents({ name: "VBtn" }).find((b) => b.text().trim() === "Edit");
@@ -250,7 +254,7 @@ describe("Feature 22 — Document number & instructions", () => {
 
     const saveBtn = wrapper
       .findAllComponents({ name: "VBtn" })
-      .find((b) => b.text().trim() === "Save document");
+      .find((b) => b.text().trim() === "Save");
     await saveBtn.trigger("click");
     await flushPromises();
 
@@ -309,10 +313,9 @@ describe("Feature 34 — Document Specializations", () => {
   });
 
   it("Specializations appear only when the document type allows them", async () => {
-    const { wrapper } = await mountWithPlugins(PersonDocumentsCard, {
-      props: { personId: 5 },
-    });
+    const { wrapper } = await mountCard({ personId: 5 });
     await flushPromises();
+    await clickButton(wrapper, "Add Document");
 
     const typeSelect = wrapper.findComponent({ name: "VSelect" });
     await typeSelect.vm.$emit("update:modelValue", 1);
@@ -325,6 +328,60 @@ describe("Feature 34 — Document Specializations", () => {
     await flushPromises();
 
     expect(wrapper.text()).not.toContain("Add specialization");
+
+    wrapper.unmount();
+  });
+});
+
+describe("Feature 35 — Person Document Add Dialog", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    DocumentTypeServices.getAll.mockResolvedValue({ data: types });
+    PersonDocumentServices.getAll.mockResolvedValue({ data: [] });
+  });
+
+  it("Person documents are a list without an inline form", async () => {
+    const { wrapper } = await mountCard({ personId: 5 });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("No documents");
+    expect(wrapper.text()).toContain("Add Document");
+    const typeField = wrapper
+      .findAllComponents({ name: "VSelect" })
+      .find((c) => c.props("label") === "Document type");
+    expect(typeField).toBeFalsy();
+
+    wrapper.unmount();
+  });
+
+  it("Add Document opens a dialog with Save and Cancel", async () => {
+    const { wrapper } = await mountCard({ personId: 5 });
+    await flushPromises();
+    await clickButton(wrapper, "Add Document");
+
+    const title = wrapper.findComponent({ name: "VCardTitle" });
+    expect(title.text()).toBe("Add Document");
+    expect(wrapper.text()).toContain("Save");
+    expect(wrapper.text()).toContain("Cancel");
+    const typeField = wrapper
+      .findAllComponents({ name: "VSelect" })
+      .find((c) => c.props("label") === "Document type");
+    expect(typeField).toBeTruthy();
+
+    wrapper.unmount();
+  });
+
+  it("Cancel closes the add document dialog", async () => {
+    const { wrapper } = await mountCard({ personId: 5 });
+    await flushPromises();
+    await clickButton(wrapper, "Add Document");
+    await clickButton(wrapper, "Cancel");
+
+    const typeField = wrapper
+      .findAllComponents({ name: "VSelect" })
+      .find((c) => c.props("label") === "Document type");
+    expect(typeField).toBeFalsy();
+    expect(PersonDocumentServices.create).not.toHaveBeenCalled();
 
     wrapper.unmount();
   });

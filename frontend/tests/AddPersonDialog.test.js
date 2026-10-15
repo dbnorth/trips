@@ -212,3 +212,48 @@ describe("Feature 20 — Person Middle Name", () => {
     wrapper.unmount();
   });
 });
+
+describe("Feature 35 — Person Document Add Dialog", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    Utils.setStore("user", {
+      userId: 1,
+      personId: 1,
+      email: "admin@example.com",
+      isAdmin: true,
+      token: "t",
+      orgRoles: [],
+      tripRoles: [],
+      currentOrgId: 3,
+    });
+    RoleServices.getAll.mockResolvedValue({ data: roles });
+    OrganizationServices.getAll.mockResolvedValue({
+      data: [{ id: 3, name: "Hope Mission" }],
+    });
+  });
+
+  it("Add person shows no documents", async () => {
+    const { wrapper } = await mountWithPlugins(AddPersonDialog, {
+      props: { modelValue: false },
+      global: {
+        plugins: [vuetify],
+        stubs: {
+          VSelect: VSelectStub,
+          VDialog: { template: "<div><slot /></div>" },
+        },
+      },
+    });
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("No documents");
+    const addDocument = wrapper
+      .findAllComponents({ name: "VBtn" })
+      .find((b) => b.text().trim() === "Add Document");
+    expect(addDocument).toBeTruthy();
+    expect(addDocument.props("disabled")).toBe(true);
+
+    wrapper.unmount();
+  });
+});
