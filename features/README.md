@@ -56,8 +56,9 @@ These `feature-*.md` files are a **reverse-spec** of the imported Mission Trips 
 | 36 | [feature-36-allergies-description-hint.md](./feature-36-allergies-description-hint.md) | `feature/36-allergies-description-hint` | 2 |
 | 37 | [feature-37-person-bio-below-birthdate.md](./feature-37-person-bio-below-birthdate.md) | `feature/37-person-bio-below-birthdate` | 2 |
 | 38 | [feature-38-trip-deposit.md](./feature-38-trip-deposit.md) | `feature/38-trip-deposit` | 5, 21 |
+| 39 | [feature-39-email-types-and-templates.md](./feature-39-email-types-and-templates.md) | `feature/39-email-types-and-templates` | 3, 10 |
 
-Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37 → 38).
+Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37 → 38 → 39).
 
 New features: follow [framework.md](./framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, Gherkin, **Agent implementation request**, **Definition of Done**.
 

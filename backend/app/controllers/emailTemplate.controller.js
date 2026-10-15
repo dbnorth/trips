@@ -10,9 +10,20 @@ import {
 } from "../authorization/accessControl.js";
 
 const EmailTemplate = db.emailTemplate;
+const EmailType = db.emailType;
 const Trip = db.trip;
 const Organization = db.organization;
-const templateFields = ["tripId", "fromEmail", "functionCode", "subject", "content", "attachment"];
+const FUNCTION_CODES = ["Scheduled", "Send Now"];
+const templateFields = [
+  "tripId",
+  "fromEmail",
+  "functionCode",
+  "subject",
+  "content",
+  "attachment",
+  "emailTypeId",
+  "emailBody",
+];
 
 const getOrgAdminOrgIds = (req) => [
   ...new Set(
@@ -76,6 +87,7 @@ const loadTemplate = (id) =>
     include: [
       { model: Trip, as: "trip", attributes: ["id", "name", "orgId"] },
       { model: Organization, attributes: ["id", "name"] },
+      { model: EmailType, attributes: ["id", "typeCode", "description", "eventCode"] },
     ],
   });
 
@@ -97,8 +109,8 @@ const pickTemplatePayload = (body) => {
   for (const key of templateFields) {
     if (!Object.prototype.hasOwnProperty.call(body, key)) continue;
     const val = body[key];
-    if (key === "tripId") {
-      payload.tripId = val == null || val === "" ? null : Number(val);
+    if (key === "tripId" || key === "emailTypeId") {
+      payload[key] = val == null || val === "" ? null : Number(val);
     } else if (typeof val === "string") {
       payload[key] = val.trim() || null;
     } else {
@@ -111,7 +123,39 @@ const pickTemplatePayload = (body) => {
 const listIncludes = [
   { model: Trip, attributes: ["id", "name", "orgId"] },
   { model: Organization, attributes: ["id", "name"] },
+  { model: EmailType, attributes: ["id", "typeCode", "description", "eventCode"] },
 ];
+
+const hasFeature39Fields = (body) =>
+  Object.prototype.hasOwnProperty.call(body, "emailTypeId") ||
+  Object.prototype.hasOwnProperty.call(body, "emailBody");
+
+const trimRequired = (val) => (typeof val === "string" ? val.trim() : "");
+
+const validateOrganizationTemplateFields = async (body) => {
+  const typeRaw = body.emailTypeId;
+  if (typeRaw == null || typeRaw === "") {
+    return { error: { status: 400, message: "Email type is required." } };
+  }
+  const emailType = await EmailType.findByPk(Number(typeRaw));
+  if (!emailType) {
+    return { error: { status: 400, message: "Email type is required." } };
+  }
+  const functionCode = trimRequired(body.functionCode);
+  if (!FUNCTION_CODES.includes(functionCode)) {
+    return { error: { status: 400, message: "Function code must be Scheduled or Send Now." } };
+  }
+  if (!trimRequired(body.subject)) {
+    return { error: { status: 400, message: "Subject is required." } };
+  }
+  if (!trimRequired(body.fromEmail)) {
+    return { error: { status: 400, message: "From email is required." } };
+  }
+  if (!trimRequired(body.emailBody)) {
+    return { error: { status: 400, message: "Email body is required." } };
+  }
+  return { ok: true };
+};
 
 const copySourceAttributes = ["id", "functionCode", "fromEmail", "subject", "content", "attachment"];
 
@@ -235,6 +279,11 @@ exports.copySources = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
+    const feature39 = hasFeature39Fields(req.body);
+    if (feature39 && (req.body.orgId == null || req.body.orgId === "")) {
+      return res.status(400).send({ message: "Organization is required." });
+    }
+
     const resolved = resolveCreateOrgId(req);
     if (resolved.error) {
       return res.status(resolved.error.status).send({ message: resolved.error.message });
@@ -246,15 +295,26 @@ exports.create = async (req, res) => {
     const isOrgAdmin = orgId != null && isOrgAdminForOrg(req, orgId);
     const isLeaderCreate = tripId != null && isTripLeaderForTrip(req, tripId);
 
-    if (!isOrgAdmin && !isLeaderCreate) {
+    if (feature39) {
+      if (orgId == null) {
+        return res.status(400).send({ message: "Organization is required." });
+      }
+      if (!isSystemAdmin(req) && !isOrgAdmin && !isLeaderCreate) {
+        return res.status(403).send({ message: "Forbidden." });
+      }
+      const fields = await validateOrganizationTemplateFields(req.body);
+      if (fields.error) {
+        return res.status(fields.error.status).send({ message: fields.error.message });
+      }
+    } else if (!isOrgAdmin && !isLeaderCreate) {
       return res.status(403).send({ message: "Forbidden." });
     }
 
-    if (!req.body.subject?.trim()) {
+    if (!feature39 && !req.body.subject?.trim()) {
       return res.status(400).send({ message: "Subject is required." });
     }
 
-    if (isLeaderCreate && !isOrgAdmin) {
+    if (isLeaderCreate && !isOrgAdmin && !isSystemAdmin(req)) {
       const trip = await Trip.findByPk(tripId, { attributes: ["id", "orgId"] });
       if (!trip) return res.status(400).send({ message: "Trip not found." });
       orgId = trip.orgId;
@@ -284,18 +344,51 @@ exports.update = async (req, res) => {
     if (!canManageTemplate(req, template)) {
       return res.status(403).send({ message: "Forbidden." });
     }
-    if (Object.prototype.hasOwnProperty.call(req.body, "subject") && !req.body.subject?.trim()) {
+    const feature39 = hasFeature39Fields(req.body);
+    let orgId = template.orgId;
+    if (feature39) {
+      if (Object.prototype.hasOwnProperty.call(req.body, "orgId")) {
+        if (req.body.orgId == null || req.body.orgId === "") {
+          return res.status(400).send({ message: "Organization is required." });
+        }
+        orgId = Number(req.body.orgId);
+      }
+      if (orgId == null) {
+        return res.status(400).send({ message: "Organization is required." });
+      }
+      const orgChanged = template.orgId == null || Number(orgId) !== Number(template.orgId);
+      if (orgChanged) {
+        if (!isSystemAdmin(req) && !isOrgAdminForOrg(req, orgId)) {
+          return res.status(403).send({ message: "Forbidden." });
+        }
+        if (
+          template.orgId != null &&
+          !isSystemAdmin(req) &&
+          !isOrgAdminForOrg(req, template.orgId)
+        ) {
+          return res.status(403).send({ message: "Forbidden." });
+        }
+        if (template.orgId == null && !isSystemAdmin(req)) {
+          return res.status(403).send({ message: "Forbidden." });
+        }
+      }
+      const fields = await validateOrganizationTemplateFields(req.body);
+      if (fields.error) {
+        return res.status(fields.error.status).send({ message: fields.error.message });
+      }
+    } else if (Object.prototype.hasOwnProperty.call(req.body, "subject") && !req.body.subject?.trim()) {
       return res.status(400).send({ message: "Subject is required." });
     }
 
     const tripId = Object.prototype.hasOwnProperty.call(req.body, "tripId")
       ? req.body.tripId
       : template.tripId;
-    const tripCheck = await validateTripForOrg(tripId, template.orgId);
+    const tripCheck = await validateTripForOrg(tripId, feature39 ? orgId : template.orgId);
     if (!tripCheck.ok) return res.status(tripCheck.status).send({ message: tripCheck.message });
 
     const payload = pickTemplatePayload(req.body);
-    if (template.orgId == null) payload.tripId = null;
+    if (feature39) payload.orgId = orgId;
+    if ((feature39 ? orgId : template.orgId) == null) payload.tripId = null;
 
     await template.update(payload);
     res.send(await loadTemplate(template.id));

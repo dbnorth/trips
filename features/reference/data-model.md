@@ -41,7 +41,8 @@ Notes:
 | `tripFlightSegment` | 30 | Ordered flight segments |
 | `donor` | 8, 9 | Donor contacts |
 | `tripDonation` | 8, 9 | Donations |
-| `emailTemplate` | 10 | Email templates |
+| `emailTemplate` | 10, 39 | Email templates |
+| `emailType` | 39 | Email type catalog |
 | `emailLog` | 1 | Login / email audit (no associations) |
 
 ---
@@ -536,7 +537,7 @@ Seeded global catalog. No org column.
 
 ---
 
-## `emailTemplate` — Feature 10
+## `emailTemplate` — Features 10, 39
 
 | Field | Type | Rules |
 |-------|------|--------|
@@ -548,8 +549,25 @@ Seeded global catalog. No org column.
 | subject | STRING(500) | |
 | content | TEXT | |
 | attachment | STRING(500) | |
+| emailTypeId | INTEGER | optional FK → emailType; required when the template form saves (Feature 39) |
+| emailBody | TEXT | optional in the table; required when the template form saves (Feature 39) |
 
-**Associations:** `belongsTo` organization, trip.
+**Associations:** `belongsTo` organization, trip, emailType.
+
+`functionCode` stays a string. Saves from the template form store `Scheduled` or `Send Now`.
+
+---
+
+## `emailType` — Feature 39
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| typeCode | STRING | required, unique |
+| description | STRING | required |
+| eventCode | STRING | required |
+
+**Associations:** `hasMany` emailTemplate (`emailTypeId`, RESTRICT).
 
 ---
 
@@ -587,4 +605,5 @@ tripPeopleRole ──1:N── tripPeopleRoleOption ──N:1── tripTravelOp
 person ──1:N── personDocument ──N:1── documentType
 workerRole ──N:1── documentType (optional)
 organization ──1:N── emailTemplate ──N:1── trip (optional)
+emailType ──1:N── emailTemplate
 ```

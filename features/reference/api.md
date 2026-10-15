@@ -35,7 +35,8 @@
 | `/trips/browse/*`, `/trip-people-roles`, participants CSV | 7, **28** |
 | `/donations`, `/donors`, donation/donor CSVs | 8 |
 | `/public/*` | 9 |
-| `/email-templates` | 10 |
+| `/email-templates` | 10, **39** |
+| `/email-types` | **39** |
 
 ---
 
@@ -269,12 +270,26 @@ No auth. Slugs: spaces → `_`.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/email-templates` | auth | List (org / trip-leader scoped) |
+| `GET` | `/trips/email-templates` | auth | List (org / trip-leader scoped). Includes `emailTypeId`, `functionCode`, `subject`, `fromEmail`, and `emailBody` when present |
 | `GET` | `/trips/email-templates/copy-sources` | auth | Copy sources (`?tripId=` optional) |
 | `GET` | `/trips/email-templates/:id` | auth | Get |
-| `POST` | `/trips/email-templates` | auth | Create |
-| `PUT` | `/trips/email-templates/:id` | auth | Update |
+| `POST` | `/trips/email-templates` | auth | Create. Feature 39 body adds `emailTypeId`, `functionCode` (`Scheduled` or `Send Now`), and `emailBody` |
+| `PUT` | `/trips/email-templates/:id` | auth | Update. Same Feature 39 fields when present |
 | `DELETE` | `/trips/email-templates/:id` | auth | Delete |
+
+---
+
+## Email types — Feature 39
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/trips/email-types` | System Admin, Org Admin, or Trip Leader | List (`id`, `typeCode`, `description`, `eventCode`) |
+| `GET` | `/trips/email-types/:id` | System Admin | Get one |
+| `POST` | `/trips/email-types` | System Admin | Create `{ typeCode, description, eventCode }` |
+| `PUT` | `/trips/email-types/:id` | System Admin | Update |
+| `DELETE` | `/trips/email-types/:id` | System Admin | Delete when no template uses it |
+
+Duplicate `typeCode`, a blank required field, or deleting a type a template still uses → `400`. A caller who is not a System Admin writing a type → `403`. Template save with a function code other than `Scheduled` or `Send Now` → `400`.
 
 ---
 

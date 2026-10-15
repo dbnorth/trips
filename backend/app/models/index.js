@@ -12,6 +12,7 @@ import TripPeopleRole from "./tripPeopleRole.model.js";
 import Donor from "./donor.model.js";
 import TripDonation from "./tripDonation.model.js";
 import EmailTemplate from "./emailTemplate.model.js";
+import EmailType from "./emailType.model.js";
 import EmailLog from "./emailLog.model.js";
 import WorkerRole from "./workerRole.model.js";
 import TripWorkerRole from "./tripWorkerRole.model.js";
@@ -48,6 +49,7 @@ db.tripPeopleRole = TripPeopleRole;
 db.donor = Donor;
 db.tripDonation = TripDonation;
 db.emailTemplate = EmailTemplate;
+db.emailType = EmailType;
 db.emailLog = EmailLog;
 db.workerRole = WorkerRole;
 db.tripWorkerRole = TripWorkerRole;
@@ -112,6 +114,8 @@ db.organization.hasMany(db.emailTemplate, { foreignKey: "orgId", onDelete: "CASC
 db.emailTemplate.belongsTo(db.organization, { foreignKey: "orgId", onDelete: "CASCADE" });
 db.trip.hasMany(db.emailTemplate, { foreignKey: "tripId", onDelete: "CASCADE" });
 db.emailTemplate.belongsTo(db.trip, { foreignKey: "tripId", onDelete: "CASCADE" });
+db.emailType.hasMany(db.emailTemplate, { foreignKey: "emailTypeId", onDelete: "RESTRICT" });
+db.emailTemplate.belongsTo(db.emailType, { foreignKey: "emailTypeId", onDelete: "RESTRICT" });
 
 db.organization.hasMany(db.workerRole, { foreignKey: "orgId", onDelete: "CASCADE" });
 db.workerRole.belongsTo(db.organization, {

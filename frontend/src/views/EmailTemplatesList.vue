@@ -215,6 +215,7 @@ onUnmounted(() => {
       :loading="loading"
       :headers="[
         { title: 'Function code', key: 'functionCode' },
+        { title: 'Email type', key: 'emailType' },
         { title: 'Subject', key: 'subject' },
         ...(isTripLeaderOnly ? [] : [{ title: 'Scope', key: 'scope' }]),
         ...(isTripLeaderOnly ? [] : [{ title: 'Trip', key: 'trip' }]),
@@ -224,6 +225,7 @@ onUnmounted(() => {
       density="compact"
     >
       <template #item.functionCode="{ item }">{{ item.functionCode || "—" }}</template>
+      <template #item.emailType="{ item }">{{ item.emailType?.description || "—" }}</template>
       <template #item.subject="{ item }">{{ item.subject || "—" }}</template>
       <template #item.scope="{ item }">{{ scopeLabel(item) }}</template>
       <template #item.trip="{ item }">{{ tripLabel(item) }}</template>
