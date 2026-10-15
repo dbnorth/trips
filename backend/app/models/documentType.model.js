@@ -14,6 +14,11 @@ const DocumentType = SequelizeInstance.define("documentType", {
     defaultValue: false,
   },
   instructions: { type: Sequelize.TEXT, allowNull: true },
+  allowSpecialization: {
+    type: Sequelize.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
 });
 
 export default DocumentType;

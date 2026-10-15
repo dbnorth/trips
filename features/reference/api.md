@@ -106,17 +106,19 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/document-types` | auth | Catalog (any auth user); includes `documentNumberRequired`, `instructions`; `type` may be `medical_licence`, `passport`, `certification`, or `diploma` |
+| `GET` | `/trips/document-types` | auth | Catalog (any auth user); includes `documentNumberRequired`, `instructions`, `allowSpecialization` (Feature 34); `type` may be `medical_licence`, `passport`, `certification`, or `diploma` |
 | `GET` | `/trips/document-types/:id` | auth | Get (sysadmin gate in controller) |
-| `POST` | `/trips/document-types` | auth | Create (sysadmin); optional `documentNumberRequired`, `instructions`; `type` includes `diploma` (Feature 24) |
+| `POST` | `/trips/document-types` | auth | Create (sysadmin); optional `documentNumberRequired`, `instructions`, `allowSpecialization`; `type` includes `diploma` (Feature 24) |
 | `PUT` | `/trips/document-types/:id` | auth | Update (sysadmin) |
 | `DELETE` | `/trips/document-types/:id` | auth | Delete (sysadmin) |
-| `GET` | `/trips/people/:id/documents` | auth | List |
-| `POST` | `/trips/people/:id/documents` | auth | Upload (`multipart` field `document`); optional `documentNumber` (required when type says so) |
-| `PUT` | `/trips/people/:id/documents/:documentId` | auth | Update/replace |
+| `GET` | `/trips/people/:id/documents` | auth | List; includes `specializations` (`id`, `name`, `date`, `documentFileName`) when present |
+| `POST` | `/trips/people/:id/documents` | auth | Upload (`multipart` field `document`); optional `documentNumber` (required when type says so); `specializations` JSON plus `specializationFiles` when the type allows them (Feature 34) |
+| `PUT` | `/trips/people/:id/documents/:documentId` | auth | Update/replace; specialization list replaces stored rows when sent and the type allows them |
 | `DELETE` | `/trips/people/:id/documents/:documentId` | auth | Delete |
 | `GET` | `/trips/people/:id/documents/:documentId/view` | auth | Inline view |
 | `GET` | `/trips/people/:id/documents/:documentId/download` | auth | Download |
+| `GET` | `/trips/people/:id/documents/:documentId/specializations/:specializationId/view` | auth | Inline view of one specialization file |
+| `GET` | `/trips/people/:id/documents/:documentId/specializations/:specializationId/download` | auth | Download one specialization file |
 
 ---
 

@@ -24,6 +24,7 @@ const form = ref({
   issueDate: "",
   expirationDate: "",
   file: null,
+  specializations: [],
 });
 
 const emptyFieldErrors = () => ({
@@ -33,6 +34,7 @@ const emptyFieldErrors = () => ({
   issueDate: "",
   expirationDate: "",
   file: "",
+  specializations: "",
 });
 
 const fieldErrors = ref(emptyFieldErrors());
@@ -43,6 +45,7 @@ const viewUrl = ref(null);
 const viewType = ref("");
 const viewName = ref("");
 const viewRow = ref(null);
+const viewSpecialization = ref(null);
 
 const isEditing = computed(() => editingDocumentId.value != null);
 const formTitle = computed(() => (isEditing.value ? "Edit Document" : "Add Document"));
@@ -77,12 +80,37 @@ const documentNumberRequired = computed(
   () => !!selectedDocumentType.value?.documentNumberRequired
 );
 
+const allowSpecialization = computed(() => !!selectedDocumentType.value?.allowSpecialization);
+
+let specializationKey = 0;
+const newSpecialization = (row = {}) => ({
+  key: row.id || `new-${++specializationKey}`,
+  id: row.id || null,
+  name: row.name || "",
+  date: row.date || "",
+  file: null,
+});
+
 const fileName = (row) => String(row.documentFileName || "").split("/").pop() || "Document";
 
 const countryLabel = (code) => countryName(code) || code || "—";
 
 const onFileSelected = (files) => {
   form.value.file = Array.isArray(files) ? files[0] : files || null;
+  if (showFieldErrors.value) validateForm();
+};
+
+const onSpecializationFile = (index, files) => {
+  form.value.specializations[index].file = Array.isArray(files) ? files[0] : files || null;
+  if (showFieldErrors.value) validateForm();
+};
+
+const addSpecialization = () => {
+  form.value.specializations.push(newSpecialization());
+};
+
+const removeSpecialization = (index) => {
+  form.value.specializations.splice(index, 1);
   if (showFieldErrors.value) validateForm();
 };
 
@@ -95,6 +123,7 @@ const resetForm = () => {
     issueDate: "",
     expirationDate: "",
     file: null,
+    specializations: [],
   };
   showFieldErrors.value = false;
   fieldErrors.value = emptyFieldErrors();
@@ -117,6 +146,14 @@ const validateForm = () => {
   }
   if (!form.value.expirationDate) {
     errors.expirationDate = "Expiration date is required.";
+  }
+  if (allowSpecialization.value) {
+    const incomplete = form.value.specializations.some(
+      (row) => !String(row.name || "").trim() || !row.date || (!row.file && !row.id)
+    );
+    if (incomplete) {
+      errors.specializations = "Each specialization needs a name, a date, and a file.";
+    }
   }
   fieldErrors.value = errors;
   return !Object.values(errors).some(Boolean);
@@ -176,6 +213,7 @@ const startEdit = (row) => {
     issueDate: row.issueDate || "",
     expirationDate: row.expirationDate || "",
     file: null,
+    specializations: (row.specializations || []).map((item) => newSpecialization(item)),
   };
   showFieldErrors.value = false;
   fieldErrors.value = emptyFieldErrors();
@@ -201,6 +239,17 @@ const saveDocument = async () => {
     expirationDate: form.value.expirationDate,
     file: form.value.file || undefined,
   };
+  if (allowSpecialization.value) {
+    payload.specializations = form.value.specializations.map((row) => ({
+      id: row.id || undefined,
+      name: String(row.name || "").trim(),
+      date: row.date,
+      replaceFile: !!row.file,
+    }));
+    payload.specializationFiles = form.value.specializations
+      .filter((row) => row.file)
+      .map((row) => row.file);
+  }
 
   saving.value = true;
   try {
@@ -223,10 +272,10 @@ const saveDocument = async () => {
   }
 };
 
-const downloadDocument = async (row) => {
+const downloadDocument = async (row, specialization = null) => {
   message.value = "";
   try {
-    await PersonDocumentServices.download(props.personId, row);
+    await PersonDocumentServices.download(props.personId, row, specialization);
   } catch (e) {
     message.value = e.response?.data?.message || "Unable to download document.";
   }
@@ -237,16 +286,17 @@ const revokeViewUrl = () => {
   viewUrl.value = null;
 };
 
-const viewDocument = async (row) => {
+const viewDocument = async (row, specialization = null) => {
   message.value = "";
   revokeViewUrl();
   viewRow.value = row;
-  viewName.value = fileName(row);
+  viewSpecialization.value = specialization;
+  viewName.value = specialization?.name || fileName(row);
   viewType.value = "";
   viewDialog.value = true;
   viewLoading.value = true;
   try {
-    const { url, type } = await PersonDocumentServices.view(props.personId, row);
+    const { url, type } = await PersonDocumentServices.view(props.personId, row, specialization);
     viewUrl.value = url;
     viewType.value = type;
   } catch (e) {
@@ -266,10 +316,11 @@ const closeView = () => {
   viewDialog.value = false;
   revokeViewUrl();
   viewRow.value = null;
+  viewSpecialization.value = null;
 };
 
 const downloadFromView = () => {
-  if (viewRow.value) downloadDocument(viewRow.value);
+  if (viewRow.value) downloadDocument(viewRow.value, viewSpecialization.value);
 };
 
 const removeDocument = async (row) => {
@@ -317,7 +368,8 @@ onMounted(load);
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in documents" :key="row.id">
+        <template v-for="row in documents" :key="row.id">
+        <tr>
           <td>{{ row.documentType?.description || row.documentTypeId }}</td>
           <td>{{ row.documentNumber || "—" }}</td>
           <td>{{ countryLabel(row.countryIssued) }}</td>
@@ -342,6 +394,21 @@ onMounted(load);
             </v-btn>
           </td>
         </tr>
+        <tr v-if="row.specializations?.length">
+          <td colspan="7">
+            <div
+              v-for="spec in row.specializations"
+              :key="spec.id"
+              class="d-flex align-center ga-2 py-1"
+            >
+              <span>{{ spec.name }}</span>
+              <span>{{ spec.date }}</span>
+              <v-btn size="small" variant="text" @click="viewDocument(row, spec)">View</v-btn>
+              <v-btn size="small" variant="text" @click="downloadDocument(row, spec)">Download</v-btn>
+            </div>
+          </td>
+        </tr>
+        </template>
       </tbody>
     </v-table>
 
@@ -425,6 +492,44 @@ onMounted(load);
         :error-messages="fieldErrors.file"
         @update:model-value="onFileSelected"
       />
+
+      <div v-if="allowSpecialization" class="mb-3">
+        <div class="text-subtitle-2 mb-2">Specializations</div>
+        <div
+          v-for="(spec, index) in form.specializations"
+          :key="spec.key"
+          class="mb-3"
+        >
+          <v-row dense>
+            <v-col cols="12" sm="4">
+              <v-text-field v-model="spec.name" label="Name" density="compact" />
+            </v-col>
+            <v-col cols="12" sm="4">
+              <v-text-field v-model="spec.date" label="Date" type="date" density="compact" />
+            </v-col>
+            <v-col cols="12" sm="4" class="d-flex align-center">
+              <v-btn size="small" variant="text" color="error" @click="removeSpecialization(index)">
+                Remove
+              </v-btn>
+            </v-col>
+          </v-row>
+          <v-file-input
+            label="Upload document"
+            accept="application/pdf,image/jpeg,image/jpg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic,.heif"
+            density="compact"
+            prepend-icon="mdi-file-document"
+            show-size
+            clearable
+            :hint="spec.id ? 'Leave empty to keep the current file' : 'PDF, JPG, PNG, or HEIC'"
+            persistent-hint
+            @update:model-value="(files) => onSpecializationFile(index, files)"
+          />
+        </div>
+        <div v-if="fieldErrors.specializations" class="text-error text-caption mb-2">
+          {{ fieldErrors.specializations }}
+        </div>
+        <v-btn size="small" variant="text" @click="addSpecialization">Add specialization</v-btn>
+      </div>
 
       <div class="d-flex ga-2">
         <v-btn

@@ -169,6 +169,7 @@ Notes:
 | type | ENUM(`medical_licence`,`passport`,`certification`,`diploma`) | required (`certification` — Feature 22; `diploma` — Feature 24) |
 | documentNumberRequired | BOOLEAN | required, default `false` (Feature 22) |
 | instructions | TEXT | nullable (Feature 22) |
+| allowSpecialization | BOOLEAN | required, default `false` (Feature 34) |
 
 **Associations:** `hasMany` workerRole (SET NULL); `hasMany` personDocument (RESTRICT).
 
@@ -187,7 +188,21 @@ Notes:
 | expirationDate | DATEONLY | required |
 | documentFileName | STRING(500) | nullable; optional upload (Feature 22) |
 
-**Associations:** `belongsTo` person, documentType.
+**Associations:** `belongsTo` person, documentType; `hasMany` personDocumentSpecialization (CASCADE).
+
+---
+
+## `personDocumentSpecialization` — Feature 34
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| personDocumentId | INTEGER | required FK → personDocument; CASCADE on delete |
+| name | STRING | required |
+| specializationDate | DATEONLY | required; API field `date` |
+| documentFileName | STRING(500) | required relative path; same storage as person document files |
+
+**Associations:** `belongsTo` personDocument.
 
 ---
 

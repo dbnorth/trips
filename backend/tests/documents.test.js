@@ -341,4 +341,123 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       });
     });
   });
+
+  describe("Feature 34 — Document Specializations", () => {
+    describe("US-34.1 — Allow specializations on a document type", () => {
+      it("Allow Specialization is saved on the document type", async () => {
+        const { authHeader } = await createSystemAdminUser({
+          email: "spec-admin@example.com",
+        });
+
+        const create = await request(app)
+          .post("/trips/document-types")
+          .set(authHeader)
+          .send({
+            type: "certification",
+            description: "Board certification",
+            allowSpecialization: true,
+          });
+
+        expect(create.status).toBe(200);
+        expect(create.body.allowSpecialization).toBe(true);
+
+        const get = await request(app)
+          .get(`/trips/document-types/${create.body.id}`)
+          .set(authHeader);
+
+        expect(get.status).toBe(200);
+        expect(get.body.allowSpecialization).toBe(true);
+      });
+    });
+
+    describe("US-34.2 — Add specializations while entering a document", () => {
+      it("Two specializations are saved on the document", async () => {
+        const { authHeader, user } = await registerUser({
+          email: "spec-docs@example.com",
+        });
+        const docType = await db.documentType.create({
+          type: "certification",
+          description: "Medical specialty",
+          allowSpecialization: true,
+        });
+
+        const upload = await request(app)
+          .post(`/trips/people/${user.personId}/documents`)
+          .set(authHeader)
+          .field("documentTypeId", String(docType.id))
+          .field("countryIssued", "US")
+          .field("issueDate", "2020-01-15")
+          .field("expirationDate", "2030-01-15")
+          .field(
+            "specializations",
+            JSON.stringify([
+              { name: "Cardiology", date: "2024-03-01" },
+              { name: "Pediatrics", date: "2024-06-15" },
+            ])
+          )
+          .attach("specializationFiles", TINY_PNG, {
+            filename: "cardiology.png",
+            contentType: "image/png",
+          })
+          .attach("specializationFiles", TINY_PNG, {
+            filename: "pediatrics.png",
+            contentType: "image/png",
+          });
+
+        expect(upload.status).toBe(200);
+        expect(upload.body.specializations).toEqual([
+          expect.objectContaining({
+            name: "Cardiology",
+            date: "2024-03-01",
+          }),
+          expect.objectContaining({
+            name: "Pediatrics",
+            date: "2024-06-15",
+          }),
+        ]);
+        expect(upload.body.specializations[0].documentFileName).toMatch(/^people\//);
+        expect(upload.body.specializations[1].documentFileName).toMatch(/^people\//);
+
+        const list = await request(app)
+          .get(`/trips/people/${user.personId}/documents`)
+          .set(authHeader);
+        expect(list.status).toBe(200);
+        expect(list.body[0].specializations.map((row) => row.name)).toEqual([
+          "Cardiology",
+          "Pediatrics",
+        ]);
+
+        const download = await request(app)
+          .get(
+            `/trips/people/${user.personId}/documents/${upload.body.id}/specializations/${upload.body.specializations[0].id}/download`
+          )
+          .set(authHeader);
+        expect(download.status).toBe(200);
+      });
+
+      it("A specialization without a file is rejected", async () => {
+        const { authHeader, user } = await registerUser({
+          email: "spec-nofile@example.com",
+        });
+        const docType = await db.documentType.create({
+          type: "certification",
+          description: "Specialty without file",
+          allowSpecialization: true,
+        });
+
+        const upload = await request(app)
+          .post(`/trips/people/${user.personId}/documents`)
+          .set(authHeader)
+          .field("documentTypeId", String(docType.id))
+          .field("expirationDate", "2030-01-15")
+          .field(
+            "specializations",
+            JSON.stringify([{ name: "Cardiology", date: "2024-03-01" }])
+          );
+
+        expect(upload.status).toBe(400);
+        expect(upload.body.message).toMatch(/file/i);
+      });
+    });
+  });
 });

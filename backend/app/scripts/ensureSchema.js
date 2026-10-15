@@ -509,6 +509,21 @@ const ensureDocumentTypesTable = async () => {
     logger.info("documentTypes.instructions column added.");
   }
 
+  const [specializationCols] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'documentTypes'
+       AND COLUMN_NAME = 'allowSpecialization'`
+  );
+  if (!specializationCols.length) {
+    await db.sequelize.query(
+      `ALTER TABLE documentTypes
+       ADD COLUMN allowSpecialization TINYINT(1) NOT NULL DEFAULT 0
+       AFTER instructions`
+    );
+    logger.info("documentTypes.allowSpecialization column added.");
+  }
+
   const seeds = [
     ["Medical Licence", "medical_licence"],
     ["Passport", "passport"],
@@ -606,6 +621,33 @@ const ensurePersonDocumentsTable = async () => {
       logger.info("personDocuments.documentFileName made nullable.");
     }
   }
+};
+
+const ensurePersonDocumentSpecializationsTable = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'personDocumentSpecializations'`
+  );
+  if (tables.length) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE personDocumentSpecializations (
+      id INT NOT NULL AUTO_INCREMENT,
+      personDocumentId INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      specializationDate DATE NOT NULL,
+      documentFileName VARCHAR(500) NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      KEY personDocumentSpecializations_personDocumentId_idx (personDocumentId),
+      CONSTRAINT personDocumentSpecializations_personDocumentId_fk
+        FOREIGN KEY (personDocumentId) REFERENCES personDocuments(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("personDocumentSpecializations table created.");
 };
 
 const ensureWorkerRoleDocumentType = async () => {
@@ -968,6 +1010,7 @@ export const ensureSchema = async () => {
   await ensureTripApplicantRoleRemoved();
   await ensureDocumentTypesTable();
   await ensurePersonDocumentsTable();
+  await ensurePersonDocumentSpecializationsTable();
   await ensureWorkerRoleDocumentType();
   await ensureWorkerRoleRequiredDocuments();
   await ensureTripTravelOptionsTable();
