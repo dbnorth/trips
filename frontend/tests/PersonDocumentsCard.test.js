@@ -116,6 +116,7 @@ describe("Feature 22 — Document number & instructions", () => {
       description: "Passport",
       type: "passport",
       documentNumberRequired: true,
+      allowSpecialization: false,
       instructions: "Bring original.",
     });
 
@@ -264,6 +265,66 @@ describe("Feature 22 — Document number & instructions", () => {
         expirationDate: "2030-01-01",
       })
     );
+
+    wrapper.unmount();
+  });
+});
+
+describe("Feature 34 — Document Specializations", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    DocumentTypeServices.getAll.mockResolvedValue({
+      data: [
+        {
+          id: 1,
+          description: "Board certification",
+          type: "certification",
+          allowSpecialization: true,
+        },
+        {
+          id: 2,
+          description: "Passport",
+          type: "passport",
+          allowSpecialization: false,
+        },
+      ],
+    });
+    PersonDocumentServices.getAll.mockResolvedValue({ data: [] });
+  });
+
+  it("Document type form shows Allow Specialization", async () => {
+    const { wrapper } = await mountWithPlugins(DocumentTypeFormDialog, {
+      props: { modelValue: true },
+      global: { stubs: { VDialog: dialogStub } },
+    });
+    await flushPromises();
+
+    const checkbox = wrapper
+      .findAllComponents({ name: "VCheckbox" })
+      .find((c) => c.props("label") === "Allow Specialization");
+    expect(checkbox).toBeTruthy();
+    expect(checkbox.props("modelValue")).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it("Specializations appear only when the document type allows them", async () => {
+    const { wrapper } = await mountWithPlugins(PersonDocumentsCard, {
+      props: { personId: 5 },
+    });
+    await flushPromises();
+
+    const typeSelect = wrapper.findComponent({ name: "VSelect" });
+    await typeSelect.vm.$emit("update:modelValue", 1);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Specializations");
+    expect(wrapper.text()).toContain("Add specialization");
+
+    await typeSelect.vm.$emit("update:modelValue", 2);
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain("Add specialization");
 
     wrapper.unmount();
   });

@@ -19,6 +19,7 @@ import TripTravelOption from "./tripTravelOption.model.js";
 import TripPeopleRoleOption from "./tripPeopleRoleOption.model.js";
 import DocumentType from "./documentType.model.js";
 import PersonDocument from "./personDocument.model.js";
+import PersonDocumentSpecialization from "./personDocumentSpecialization.model.js";
 import MedicalCondition from "./medicalCondition.model.js";
 import PersonMedicalCondition from "./personMedicalCondition.model.js";
 import WorkerRoleDocumentType from "./workerRoleDocumentType.model.js";
@@ -54,6 +55,7 @@ db.tripTravelOption = TripTravelOption;
 db.tripPeopleRoleOption = TripPeopleRoleOption;
 db.documentType = DocumentType;
 db.personDocument = PersonDocument;
+db.personDocumentSpecialization = PersonDocumentSpecialization;
 db.medicalCondition = MedicalCondition;
 db.personMedicalCondition = PersonMedicalCondition;
 db.workerRoleDocumentType = WorkerRoleDocumentType;
@@ -173,6 +175,17 @@ db.personDocument.belongsTo(db.documentType, {
   foreignKey: "documentTypeId",
   as: "documentType",
   onDelete: "RESTRICT",
+});
+
+db.personDocument.hasMany(db.personDocumentSpecialization, {
+  foreignKey: "personDocumentId",
+  as: "specializations",
+  onDelete: "CASCADE",
+});
+db.personDocumentSpecialization.belongsTo(db.personDocument, {
+  foreignKey: "personDocumentId",
+  as: "personDocument",
+  onDelete: "CASCADE",
 });
 
 db.trip.hasMany(db.tripWorkerRole, { foreignKey: "tripId", onDelete: "CASCADE" });

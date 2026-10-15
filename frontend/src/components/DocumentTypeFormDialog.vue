@@ -17,6 +17,7 @@ const emptyForm = () => ({
   description: "",
   type: null,
   documentNumberRequired: false,
+  allowSpecialization: false,
   instructions: "",
 });
 
@@ -42,6 +43,7 @@ const loadRow = async () => {
       description: row.description || "",
       type: row.type || null,
       documentNumberRequired: !!row.documentNumberRequired,
+      allowSpecialization: !!row.allowSpecialization,
       instructions: row.instructions || "",
     };
   } catch (e) {
@@ -76,6 +78,7 @@ const save = async () => {
     description: form.value.description.trim(),
     type: form.value.type,
     documentNumberRequired: !!form.value.documentNumberRequired,
+    allowSpecialization: !!form.value.allowSpecialization,
     instructions: form.value.instructions?.trim() || null,
   };
 
@@ -119,6 +122,13 @@ const save = async () => {
         <v-checkbox
           v-model="form.documentNumberRequired"
           label="Document number required"
+          density="compact"
+          hide-details
+          class="mb-2"
+        />
+        <v-checkbox
+          v-model="form.allowSpecialization"
+          label="Allow Specialization"
           density="compact"
           hide-details
           class="mb-2"
