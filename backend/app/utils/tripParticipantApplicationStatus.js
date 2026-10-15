@@ -68,6 +68,16 @@ export const isProfileComplete = (person, options = {}) => {
           : person.medicalConditionIds || [];
     if (!selected.length) return false;
   }
+  if (person.speaksOtherLanguage === true || person.speaksOtherLanguage === 1) {
+    const languages = person.languages || [];
+    const complete = languages.filter(
+      (row) =>
+        row?.languageId &&
+        (row.fluency === "basic" || row.fluency === "conversational") &&
+        (row.knowsMedicalTerminology === true || row.knowsMedicalTerminology === false)
+    );
+    if (!complete.length) return false;
+  }
   return true;
 };
 
@@ -298,11 +308,31 @@ export const loadPersonForCompleteness = async (peopleId) => {
         attributes: ["id", "name", "orgId"],
         through: { attributes: [] },
       },
+      {
+        model: db.personLanguage,
+        as: "personLanguages",
+        include: [
+          {
+            model: db.language,
+            as: "language",
+            attributes: ["id", "code", "name"],
+          },
+        ],
+      },
     ],
   });
   if (!person) return null;
   const payload = person.toJSON();
   payload.medicalConditionIds = (payload.medicalConditions || []).map((c) => c.id);
+  payload.languages = (payload.personLanguages || [])
+    .filter((row) => row.language)
+    .map((row) => ({
+      languageId: row.language.id,
+      code: row.language.code,
+      name: row.language.name,
+      fluency: row.fluency,
+      knowsMedicalTerminology: !!row.knowsMedicalTerminology,
+    }));
   return payload;
 };
 

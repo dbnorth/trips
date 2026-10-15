@@ -10,7 +10,7 @@ import PersonProfileFields from "./PersonProfileFields.vue";
 import Utils from "../config/utils.js";
 import { formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
 import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
-import { normalizeYesNo } from "../utils/personProfile.js";
+import { normalizeYesNo, otherLanguagePayload } from "../utils/personProfile.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -47,6 +47,8 @@ const emptyForm = () => ({
   allergiesDescription: "",
   takesMedication: null,
   medicalConditionIds: [],
+  speaksOtherLanguage: null,
+  languages: [],
   currentChurchHome: "",
   currentChurchHomeCity: "",
   currentChurchHomeStateProv: "",
@@ -194,17 +196,25 @@ const save = () => {
       const created = res.data?.person;
       if (
         created?.id &&
-        form.value.orgId &&
-        (form.value.takesMedication === true || (form.value.medicalConditionIds || []).length)
+        (form.value.orgId &&
+          (form.value.takesMedication === true || (form.value.medicalConditionIds || []).length) ||
+          form.value.speaksOtherLanguage === true ||
+          form.value.speaksOtherLanguage === false)
       ) {
-        await PersonServices.update(created.id, {
-          takesMedication: normalizeYesNo(form.value.takesMedication),
-          medicalConditionIds: form.value.takesMedication === true
-            ? form.value.medicalConditionIds || []
-            : [],
-          orgId: form.value.orgId,
-          version: created.version,
-        });
+        const payload = { version: created.version };
+        if (
+          form.value.orgId &&
+          (form.value.takesMedication === true || (form.value.medicalConditionIds || []).length)
+        ) {
+          payload.takesMedication = normalizeYesNo(form.value.takesMedication);
+          payload.medicalConditionIds =
+            form.value.takesMedication === true ? form.value.medicalConditionIds || [] : [];
+          payload.orgId = form.value.orgId;
+        }
+        if (form.value.speaksOtherLanguage === true || form.value.speaksOtherLanguage === false) {
+          Object.assign(payload, otherLanguagePayload(form.value));
+        }
+        await PersonServices.update(created.id, payload);
       }
       emit("saved", res.data);
       close();

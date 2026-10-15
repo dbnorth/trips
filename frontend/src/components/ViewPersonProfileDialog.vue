@@ -102,6 +102,30 @@ const fieldRows = computed(() => {
     });
   }
 
+  rows.push({
+    label: "Do you speak a language other than English?",
+    value: formatYesNo(p.speaksOtherLanguage),
+  });
+
+  if (p.speaksOtherLanguage === true) {
+    const fluencyLabel = (fluency) =>
+      fluency === "conversational" ? "Conversational" : fluency === "basic" ? "Basic" : "";
+    const lines = (p.languages || []).map((row) => {
+      const fluency = fluencyLabel(row.fluency);
+      const medical =
+        row.knowsMedicalTerminology === true
+          ? "Medical terminology: Yes"
+          : row.knowsMedicalTerminology === false
+            ? "Medical terminology: No"
+            : "";
+      return [row.name, fluency, medical].filter(Boolean).join(" — ");
+    });
+    rows.push({
+      label: "Other languages",
+      value: lines.length ? lines.join("; ") : "",
+    });
+  }
+
   rows.push(
     { key: "currentChurchHome", label: "Current church home", value: p.currentChurchHome },
     { key: "currentChurchHomeCity", label: "Church city", value: p.currentChurchHomeCity },

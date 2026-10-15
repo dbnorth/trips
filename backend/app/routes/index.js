@@ -21,6 +21,7 @@ import PublicRoutes from "./public.routes.js";
 import MedicalConditionRoutes from "./medicalCondition.routes.js";
 import AirportRoutes from "./airport.routes.js";
 import AirlineRoutes from "./airline.routes.js";
+import LanguageRoutes from "./language.routes.js";
 
 const router = Router();
 
@@ -44,6 +45,7 @@ router.use("/document-types", DocumentTypeRoutes);
 router.use("/medical-conditions", MedicalConditionRoutes);
 router.use("/airports", AirportRoutes);
 router.use("/airlines", AirlineRoutes);
+router.use("/languages", LanguageRoutes);
 router.use("/public", PublicRoutes);
 
 export default router;
