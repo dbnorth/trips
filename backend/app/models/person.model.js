@@ -21,6 +21,19 @@ const Person = SequelizeInstance.define("person", {
   emergencyContactName: { type: Sequelize.STRING(255) },
   emergencyContactPhoneCountryCode: { type: Sequelize.STRING(10) },
   emergencyContactPhoneNumber: { type: Sequelize.STRING(30) },
+  emergencyContactRelationship: {
+    type: Sequelize.ENUM(
+      "spouse",
+      "father",
+      "mother",
+      "child",
+      "grandmother",
+      "grandfather",
+      "other"
+    ),
+    allowNull: true,
+    defaultValue: null,
+  },
   hasAllergies: { type: Sequelize.BOOLEAN, allowNull: true, defaultValue: null },
   allergiesDescription: { type: Sequelize.TEXT },
   takesMedication: { type: Sequelize.BOOLEAN, allowNull: true, defaultValue: null },

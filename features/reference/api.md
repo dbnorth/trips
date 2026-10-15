@@ -73,7 +73,7 @@
 | `GET` | `/trips/people/org-trip-leaders` | auth | People with Trip Leader org role for `?orgId=` |
 | `GET` | `/trips/people/:id` | auth | Person detail |
 | `POST` | `/trips/people` | auth | Create person (+ optional org/role) |
-| `PUT` | `/trips/people/:id` | auth | Update person (`version`) |
+| `PUT` | `/trips/people/:id` | auth | Update person (`version`); accepts `emergencyContactRelationship` (`spouse`, `father`, `mother`, `child`, `grandmother`, `grandfather`, `other`) |
 | `PUT` | `/trips/people/:id/picture` | auth | Upload picture (`multipart` field `picture`) |
 | `DELETE` | `/trips/people/:id` | sysadmin | Delete person |
 | `GET` | `/trips/org-people-roles` | auth | List org memberships |

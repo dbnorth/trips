@@ -40,6 +40,7 @@ const PROFILE_FIELD_CHECKS = [
   { key: "emergencyContactName" },
   { key: "emergencyContactPhoneCountryCode" },
   { key: "emergencyContactPhoneNumber" },
+  { key: "emergencyContactRelationship" },
   {
     key: "allergiesDescription",
     required: (person) => person?.hasAllergies === true,

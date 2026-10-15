@@ -92,6 +92,7 @@ Notes:
 | emergencyContactName | STRING(255) | |
 | emergencyContactPhoneCountryCode | STRING(10) | |
 | emergencyContactPhoneNumber | STRING(30) | |
+| emergencyContactRelationship | ENUM(`spouse`,`father`,`mother`,`child`,`grandmother`,`grandfather`,`other`) | nullable; labels Spouse, Father, Mother, Child, Grand Mother, Grand Father, Other (Feature 32) |
 | hasAllergies | BOOLEAN | nullable; `null` = unanswered |
 | allergiesDescription | TEXT | |
 | takesMedication | BOOLEAN | nullable; `null` = unanswered |

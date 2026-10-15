@@ -167,6 +167,10 @@ const ensurePersonProfileFields = async () => {
     ["emergencyContactName", "VARCHAR(255) NULL"],
     ["emergencyContactPhoneCountryCode", "VARCHAR(10) NULL"],
     ["emergencyContactPhoneNumber", "VARCHAR(30) NULL"],
+    [
+      "emergencyContactRelationship",
+      "ENUM('spouse','father','mother','child','grandmother','grandfather','other') NULL",
+    ],
     ["hasAllergies", "TINYINT(1) NULL"],
     ["allergiesDescription", "TEXT NULL"],
     ["takesMedication", "TINYINT(1) NULL"],

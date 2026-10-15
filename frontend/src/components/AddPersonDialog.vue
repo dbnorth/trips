@@ -43,6 +43,7 @@ const emptyForm = () => ({
   emergencyContactName: "",
   emergencyContactPhoneCountryCode: "",
   emergencyContactPhoneNumber: "",
+  emergencyContactRelationship: null,
   hasAllergies: null,
   allergiesDescription: "",
   takesMedication: null,
@@ -171,6 +172,7 @@ const save = () => {
       ? formatCountryCode(form.value.emergencyContactPhoneCountryCode)
       : null,
     emergencyContactPhoneNumber: form.value.emergencyContactPhoneNumber?.trim() || null,
+    emergencyContactRelationship: form.value.emergencyContactRelationship || null,
     hasAllergies: normalizeYesNo(form.value.hasAllergies),
     allergiesDescription: form.value.hasAllergies === true
       ? form.value.allergiesDescription?.trim() || null
