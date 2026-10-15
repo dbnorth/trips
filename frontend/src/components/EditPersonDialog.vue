@@ -569,7 +569,6 @@ const save = async () => {
             </v-col>
           </v-row>
           <PersonProfileFields v-model="form" :org-id="resolvedMedicalOrgId" />
-          <v-textarea v-model="form.bioText" label="Bio" density="compact" rows="3" autocomplete="off" />
 
           <v-divider class="person-section-rule" />
           <div class="mb-2">

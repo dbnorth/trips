@@ -33,10 +33,6 @@ vi.mock("../src/components/AddressFields.vue", () => ({
   default: { name: "AddressFields", template: "<div />", props: ["modelValue"] },
 }));
 
-vi.mock("../src/components/PersonProfileFields.vue", () => ({
-  default: { name: "PersonProfileFields", template: "<div />", props: ["modelValue"] },
-}));
-
 vi.mock("../src/components/PhoneInput.vue", () => ({
   default: { name: "PhoneInput", template: "<div />", props: ["modelValue", "label"] },
 }));
@@ -63,6 +59,12 @@ const roles = [
 ];
 
 /** Stub matches Vuetify 4 `#item` shape: `item` is the raw object (not `item.raw`). */
+const profileFieldsStub = {
+  name: "PersonProfileFields",
+  template: "<div />",
+  props: ["modelValue", "orgId"],
+};
+
 const VSelectStub = {
   name: "VSelect",
   props: {
@@ -115,6 +117,7 @@ describe("Feature 14 — Add Person Role select", () => {
           plugins: [vuetify],
           stubs: {
             VSelect: VSelectStub,
+            PersonProfileFields: profileFieldsStub,
             VDialog: { template: "<div><slot /></div>" },
           },
         },
@@ -171,6 +174,7 @@ describe("Feature 20 — Person Middle Name", () => {
         plugins: [vuetify],
         stubs: {
           VSelect: VSelectStub,
+          PersonProfileFields: profileFieldsStub,
           VDialog: { template: "<div><slot /></div>" },
         },
       },
@@ -196,6 +200,7 @@ describe("Feature 20 — Person Middle Name", () => {
         plugins: [vuetify],
         stubs: {
           VSelect: VSelectStub,
+          PersonProfileFields: profileFieldsStub,
           VDialog: { template: "<div><slot /></div>" },
         },
       },
@@ -240,6 +245,7 @@ describe("Feature 35 — Person Document Add Dialog", () => {
         plugins: [vuetify],
         stubs: {
           VSelect: VSelectStub,
+          PersonProfileFields: profileFieldsStub,
           VDialog: { template: "<div><slot /></div>" },
         },
       },
@@ -253,6 +259,59 @@ describe("Feature 35 — Person Document Add Dialog", () => {
       .find((b) => b.text().trim() === "Add Document");
     expect(addDocument).toBeTruthy();
     expect(addDocument.props("disabled")).toBe(true);
+
+    wrapper.unmount();
+  });
+});
+
+describe("Feature 37 — Person Bio Below Birthdate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    Utils.setStore("user", {
+      userId: 1,
+      personId: 1,
+      email: "admin@example.com",
+      isAdmin: true,
+      token: "t",
+      orgRoles: [],
+      tripRoles: [],
+      currentOrgId: 3,
+    });
+    RoleServices.getAll.mockResolvedValue({ data: roles });
+    OrganizationServices.getAll.mockResolvedValue({
+      data: [{ id: 3, name: "Hope Mission" }],
+    });
+  });
+
+  it("Add person shows Bio below Birthdate", async () => {
+    const { wrapper } = await mountWithPlugins(AddPersonDialog, {
+      props: { modelValue: false },
+      global: {
+        plugins: [vuetify],
+        stubs: {
+          VSelect: VSelectStub,
+          VDialog: { template: "<div><slot /></div>" },
+        },
+      },
+    });
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+
+    const profile = wrapper.findComponent({ name: "PersonProfileFields" });
+    const fields = [
+      ...profile.findAllComponents({ name: "VTextField" }),
+      ...profile.findAllComponents({ name: "VTextarea" }),
+    ].sort((a, b) =>
+      a.element.compareDocumentPosition(b.element) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
+    );
+    const labels = fields.map((c) => c.props("label"));
+    const birth = labels.indexOf("Birthdate");
+    const bio = labels.indexOf("Bio");
+    const emergency = labels.indexOf("Emergency contact name");
+    expect(birth).toBeGreaterThan(-1);
+    expect(bio).toBeGreaterThan(birth);
+    expect(emergency).toBeGreaterThan(bio);
 
     wrapper.unmount();
   });

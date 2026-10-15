@@ -48,6 +48,7 @@ They do **not** authorize new scope — implement only from `features/feature-*.
 | **Allow Specialization** on a document type shows a Specializations section when entering that person document. Each specialization has a name, a date, and its own file. The section is hidden when the box is unchecked. A specialization file does not replace the person document file or change application submit rules | `documentType.allowSpecialization`, `personDocumentSpecialization`, `DocumentTypeFormDialog`, `PersonDocumentsCard` | Feature 34 |
 | Add person and Edit person list documents or show **No documents**. **Add Document** (and row **Edit**) opens the document form in a dialog with **Save** and **Cancel**. On Add person the button stays disabled until the person is saved | `PersonDocumentsCard`, `AddPersonDialog`, `EditPersonDialog` | Feature 35 |
 | When **Have allergies?** is Yes, **Allergies description** shows the hint **Enter any medicine, food, or seasonal allergies.** The field stays hidden when the answer is No or unanswered | `PersonProfileFields` | Feature 36 |
+| On Add person and Edit person, **Bio** is the row under **Birthdate** and **Gender**, and it comes before **Emergency contact** | `PersonProfileFields`, `AddPersonDialog`, `EditPersonDialog` | Feature 37 |
 | Optimistic concurrency via `version` on key entities | `optimisticUpdate.js` | Features 2–8 |
 
 Expand rows as deltas ship.
