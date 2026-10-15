@@ -312,4 +312,27 @@ describe("Feature 1 — User Authentication & Sessions", () => {
       expect(get.body.middleName).toBe("Marie");
     });
   });
+
+  describe("Feature 33 — Person Preferred Name", () => {
+    it("Registration saves a preferred name with a suffix", async () => {
+      const response = await request(app).post("/trips/register").send({
+        firstName: "Ada",
+        lastName: "Applicant",
+        preferredName: "Ada Applicant, M.D.",
+        email: "ada.preferred@example.com",
+        password: "password123",
+      });
+
+      expect(response.status).toBe(200);
+
+      const person = await db.person.findByPk(response.body.personId);
+      expect(person.preferredName).toBe("Ada Applicant, M.D.");
+
+      const get = await request(app)
+        .get(`/trips/people/${response.body.personId}`)
+        .set({ Authorization: `Bearer ${response.body.token}` });
+      expect(get.status).toBe(200);
+      expect(get.body.preferredName).toBe("Ada Applicant, M.D.");
+    });
+  });
 });

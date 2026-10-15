@@ -2,6 +2,7 @@ import db from "../models/index.js";
 import { canAccessTrip } from "../authorization/accessControl.js";
 import { toCsv, sendCsv } from "../utils/csvExport.js";
 import { emergencyContactRelationshipLabel } from "../utils/emergencyContactRelationship.js";
+import { displayPreferredName } from "../utils/preferredName.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const TripDonation = db.tripDonation;
@@ -43,6 +44,7 @@ const PARTICIPANT_COLUMNS = [
   { key: "firstName", label: "First Name" },
   { key: "middleName", label: "Middle Name" },
   { key: "lastName", label: "Last Name" },
+  { key: "preferredName", label: "Preferred Name" },
   { key: "email", label: "Email" },
   { key: "addLine1", label: "Address Line 1" },
   { key: "addLine2", label: "Address Line 2" },
@@ -194,6 +196,7 @@ exports.participantsCsv = async (req, res) => {
         firstName: person.firstName || "",
         middleName: person.middleName || "",
         lastName: person.lastName || "",
+        preferredName: displayPreferredName(person),
         email: person.email || "",
         addLine1: person.addLine1 || "",
         addLine2: person.addLine2 || "",

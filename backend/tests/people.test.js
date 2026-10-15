@@ -420,5 +420,56 @@ describe("People — Features 2 & 11", () => {
         });
       });
     });
+
+    describe("Feature 33 — Person Preferred Name", () => {
+      describe("US-33.2 — Enter a preferred name when adding or editing a person", () => {
+        it("Custom preferred name is saved on the person", async () => {
+          const { authHeader, user } = await registerUser({
+            email: "preferred.save@example.com",
+            firstName: "Ada",
+            lastName: "Applicant",
+          });
+
+          const response = await request(app)
+            .put(`/trips/people/${user.personId}`)
+            .set(authHeader)
+            .send({
+              version: 0,
+              preferredName: "Ada Applicant, R.N.",
+            });
+
+          expect(response.status).toBe(200);
+          expect(response.body.preferredName).toBe("Ada Applicant, R.N.");
+
+          const get = await request(app).get(`/trips/people/${user.personId}`).set(authHeader);
+          expect(get.status).toBe(200);
+          expect(get.body.preferredName).toBe("Ada Applicant, R.N.");
+        });
+
+        it("Blank preferred name saves the default", async () => {
+          const { authHeader, user } = await registerUser({
+            email: "preferred.clear@example.com",
+            firstName: "Ada",
+            lastName: "Applicant",
+          });
+
+          await request(app)
+            .put(`/trips/people/${user.personId}`)
+            .set(authHeader)
+            .send({ version: 0, preferredName: "Ada Applicant, M.D." });
+
+          const cleared = await request(app)
+            .put(`/trips/people/${user.personId}`)
+            .set(authHeader)
+            .send({ version: 1, preferredName: "" });
+
+          expect(cleared.status).toBe(200);
+          expect(cleared.body.preferredName).toBe("Ada Applicant");
+
+          const stored = await db.person.findByPk(user.personId);
+          expect(stored.preferredName).toBe("Ada Applicant");
+        });
+      });
+    });
   });
 });

@@ -7,6 +7,7 @@ const Person = SequelizeInstance.define("person", {
   firstName: { type: Sequelize.STRING, allowNull: false },
   middleName: { type: Sequelize.STRING, allowNull: true },
   lastName: { type: Sequelize.STRING, allowNull: false },
+  preferredName: { type: Sequelize.STRING, allowNull: true },
   email: { type: Sequelize.STRING },
   addLine1: { type: Sequelize.STRING },
   addLine2: { type: Sequelize.STRING },
