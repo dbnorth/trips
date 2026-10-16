@@ -454,6 +454,45 @@ describe("Feature 5 — Trip Catalog Management", () => {
     });
   });
 
+  describe("Feature 40 — Primary trip leader", () => {
+    it("Primary trip leader is saved", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "primary-leader-admin@example.com",
+      });
+      const leaderA = await registerUser({
+        email: "primary-a@example.com",
+        firstName: "Ann",
+        lastName: "Leader",
+        orgIds: [org.id],
+      });
+      const leaderB = await registerUser({
+        email: "primary-b@example.com",
+        firstName: "Bob",
+        lastName: "Leader",
+        orgIds: [org.id],
+      });
+      await assignOrgRole(org.id, leaderA.user.personId, "Trip Leader");
+      await assignOrgRole(org.id, leaderB.user.personId, "Trip Leader");
+
+      const created = await request(app)
+        .post("/trips/trips")
+        .set(authHeader)
+        .send(
+          tripPayload(org.id, {
+            name: "Primary Leader Trip",
+            leaderPeopleIds: [leaderA.user.personId, leaderB.user.personId],
+            primaryLeaderPeopleId: leaderB.user.personId,
+          })
+        );
+      expect(created.status).toBe(200);
+
+      const loaded = await request(app).get(`/trips/trips/${created.body.id}`).set(authHeader);
+
+      expect(loaded.status).toBe(200);
+      expect(loaded.body.primaryLeaderPeopleId).toBe(leaderB.user.personId);
+    });
+  });
+
   describe("Feature 38 — Trip Deposit", () => {
     it("Deposit is saved on the trip", async () => {
       const { authHeader, org } = await createOrgAdminUser({

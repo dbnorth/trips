@@ -185,6 +185,41 @@ export const getDonationTotalsByTripIds = async (tripIds) => {
   return map;
 };
 
+export const getTripPrimaryLeaderPeopleId = async (tripId, options = {}) => {
+  const roleId = await getTripLeaderRoleId();
+  const row = await db.tripPeopleRole.findOne({
+    where: { tripId, roleId, isPrimaryLeader: true },
+    attributes: ["peopleId"],
+    transaction: options.transaction,
+  });
+  return row ? Number(row.peopleId) : null;
+};
+
+export const setTripPrimaryLeader = async (tripId, peopleId, options = {}) => {
+  const { transaction } = options;
+  const roleId = await getTripLeaderRoleId();
+  await db.tripPeopleRole.update(
+    { isPrimaryLeader: false },
+    { where: { tripId, roleId }, transaction }
+  );
+  if (peopleId == null) return;
+  await db.tripPeopleRole.update(
+    { isPrimaryLeader: true },
+    { where: { tripId, roleId, peopleId }, transaction }
+  );
+};
+
+/** Returns a 400 message when `primaryLeaderPeopleId` is not among the leaders, else null. */
+export const primaryLeaderError = (primaryLeaderPeopleId, leaderPeopleIds) => {
+  if (primaryLeaderPeopleId == null || primaryLeaderPeopleId === "") return null;
+  const id = parseInt(primaryLeaderPeopleId, 10);
+  const leaders = (Array.isArray(leaderPeopleIds) ? leaderPeopleIds : []).map((v) => parseInt(v, 10));
+  if (Number.isNaN(id) || !leaders.includes(id)) {
+    return "Primary trip leader must be one of the trip leaders.";
+  }
+  return null;
+};
+
 export const syncTripLeaders = async (tripId, orgId, leaderPeopleIds = [], options = {}) => {
   const { transaction } = options;
   const roleId = await getTripLeaderRoleId();
@@ -231,4 +266,11 @@ export const syncTripLeaders = async (tripId, orgId, leaderPeopleIds = [], optio
       );
     }
   }
+
+  const requested =
+    options.primaryLeaderPeopleId != null && options.primaryLeaderPeopleId !== ""
+      ? parseInt(options.primaryLeaderPeopleId, 10)
+      : null;
+  const primary = normalized.includes(requested) ? requested : normalized[0] ?? null;
+  await setTripPrimaryLeader(tripId, primary, { transaction });
 };

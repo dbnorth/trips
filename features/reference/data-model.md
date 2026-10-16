@@ -43,6 +43,7 @@ Notes:
 | `tripDonation` | 8, 9 | Donations |
 | `emailTemplate` | 10, 39 | Email templates |
 | `emailType` | 39 | Email type catalog |
+| `emailToken` | 40 | Email template token catalog |
 | `emailLog` | 1 | Login / email audit (no associations) |
 
 ---
@@ -267,6 +268,7 @@ Notes:
 | assiginmentDateTime | DATE | |
 | medicalAgreementDate | DATE | |
 | assiginmentDateTime | DATE | |
+| isPrimaryLeader | BOOLEAN | required, default `false`; exactly one Trip Leader row per trip with leaders is `true` (Feature 40) |
 | version | INTEGER | required, default `0` |
 
 **Associations:** `belongsTo` trip, person, role, tripWorkerRole; `hasMany` tripPeopleRoleOption; `hasOne` tripRoomAssignment (Feature 29); `hasOne` tripFlight (Feature 30).
@@ -568,6 +570,19 @@ Seeded global catalog. No org column.
 | eventCode | STRING | required |
 
 **Associations:** `hasMany` emailTemplate (`emailTypeId`, RESTRICT).
+
+---
+
+## `emailToken` — Feature 40
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tokenCode | STRING(100) | required, unique; capital letters, digits, and underscores, starting with a letter |
+| description | STRING | required |
+| valueSource | STRING(100) | required; one of the fixed value sources in `backend/app/utils/emailTokenValues.js` |
+
+**Associations:** none. Templates write tokens as `{{TOKEN_CODE}}` text.
 
 ---
 

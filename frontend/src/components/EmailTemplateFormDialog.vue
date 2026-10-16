@@ -1,7 +1,9 @@
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 import EmailTemplateServices from "../services/emailTemplateServices.js";
+import EmailTemplatePreviewDialog from "./EmailTemplatePreviewDialog.vue";
 import EmailTypeServices from "../services/emailTypeServices.js";
+import EmailTokenServices from "../services/emailTokenServices.js";
 import OrganizationServices from "../services/organizationServices.js";
 import TripServices from "../services/tripServices.js";
 import Utils from "../config/utils.js";
@@ -34,6 +36,11 @@ const organizations = ref([]);
 const orgsLoading = ref(false);
 const emailTypes = ref([]);
 const emailTypesLoading = ref(false);
+const emailTokens = ref([]);
+const insertSubjectToken = ref(null);
+const insertBodyToken = ref(null);
+const cursorPositions = ref({ subject: null, emailBody: null });
+const showPreview = ref(false);
 
 const emptyForm = () => ({
   orgId: null,
@@ -146,6 +153,40 @@ const loadEmailTypes = async () => {
   }
 };
 
+const tokenItems = computed(() =>
+  emailTokens.value.map((token) => ({
+    title: `{{${token.tokenCode}}} — ${token.description}`,
+    value: token.tokenCode,
+  }))
+);
+
+const loadEmailTokens = async () => {
+  try {
+    const res = await EmailTokenServices.getAll();
+    emailTokens.value = res.data || [];
+  } catch (e) {
+    emailTokens.value = [];
+  }
+};
+
+const rememberCursor = (field, event) => {
+  const position = event?.target?.selectionStart;
+  cursorPositions.value[field] = typeof position === "number" ? position : null;
+};
+
+const insertToken = async (field, tokenCode) => {
+  if (!tokenCode) return;
+  const symbol = `{{${tokenCode}}}`;
+  const current = form.value[field] || "";
+  const position = cursorPositions.value[field];
+  const at = position == null || position > current.length ? current.length : position;
+  form.value[field] = current.slice(0, at) + symbol + current.slice(at);
+  cursorPositions.value[field] = at + symbol.length;
+  await nextTick();
+  if (field === "subject") insertSubjectToken.value = null;
+  else insertBodyToken.value = null;
+};
+
 const loadTrips = async () => {
   const orgId = form.value.orgId;
   if (!orgId) {
@@ -247,6 +288,9 @@ watch(
       copySources.value = [];
       copyFromCode.value = null;
       emailTypes.value = [];
+      emailTokens.value = [];
+      cursorPositions.value = { subject: null, emailBody: null };
+      showPreview.value = false;
       organizations.value = [];
       formError.value = "";
       return;
@@ -254,6 +298,7 @@ watch(
     user.value = Utils.getStore("user");
     await loadOrganizations();
     await loadEmailTypes();
+    await loadEmailTokens();
     await loadTemplate();
     await loadTrips();
     if (showCopyFromPicker.value) {
@@ -420,15 +465,46 @@ const save = async () => {
           class="mb-2"
           @update:model-value="applyCopySource"
         />
-        <v-text-field
-          v-model="form.subject"
-          label="Subject"
-          density="compact"
-          autocomplete="off"
-          :rules="[(v) => !!v?.trim() || 'Subject is required']"
-        />
+        <div class="d-flex align-start ga-2">
+          <v-text-field
+            v-model="form.subject"
+            label="Subject"
+            density="compact"
+            autocomplete="off"
+            class="flex-grow-1"
+            :rules="[(v) => !!v?.trim() || 'Subject is required']"
+            @blur="rememberCursor('subject', $event)"
+          />
+          <v-select
+            v-model="insertSubjectToken"
+            :items="tokenItems"
+            label="Insert token"
+            density="compact"
+            class="token-select"
+            hide-details
+            @update:model-value="(code) => insertToken('subject', code)"
+          />
+        </div>
         <v-text-field v-model="form.fromEmail" label="From email" type="email" density="compact" autocomplete="off" />
-        <v-textarea v-model="form.emailBody" label="Email body" density="compact" rows="8" />
+        <div class="d-flex align-start ga-2">
+          <v-textarea
+            v-model="form.emailBody"
+            label="Email body"
+            density="compact"
+            rows="8"
+            class="flex-grow-1"
+            @blur="rememberCursor('emailBody', $event)"
+          />
+          <v-select
+            v-model="insertBodyToken"
+            :items="tokenItems"
+            label="Insert token"
+            density="compact"
+            class="token-select"
+            hide-details
+            @update:model-value="(code) => insertToken('emailBody', code)"
+          />
+        </div>
         <v-textarea v-model="form.content" label="Content" density="compact" rows="4" />
         <v-text-field
           v-model="form.attachment"
@@ -441,10 +517,26 @@ const save = async () => {
         <v-alert v-if="formError" type="error" density="compact" class="mt-2">{{ formError }}</v-alert>
       </v-card-text>
       <v-card-actions>
+        <v-btn variant="text" :disabled="!form.orgId" @click="showPreview = true">Preview</v-btn>
         <v-spacer />
         <v-btn variant="text" @click="close">Cancel</v-btn>
         <v-btn color="primary" :loading="saving" @click="save">Save</v-btn>
       </v-card-actions>
     </v-card>
+    <EmailTemplatePreviewDialog
+      v-model="showPreview"
+      :org-id="form.orgId"
+      :trip-id="isTripLeaderAdd ? fixedTripId : form.tripId"
+      :from-email="form.fromEmail"
+      :subject="form.subject"
+      :email-body="form.emailBody"
+    />
   </v-dialog>
 </template>
+
+<style scoped>
+.token-select {
+  max-width: 220px;
+  min-width: 180px;
+}
+</style>

@@ -9,7 +9,17 @@ import {
   tripListFilter,
 } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
-import { getTripLeaderPeopleIds, getTripLeaderNamesByTripIds, getActiveParticipantCountsByTripIds, getActiveParticipantTotalCostsByTripIds, getDonationTotalsByTripIds, syncTripLeaders } from "../utils/tripLeaders.js";
+import {
+  getTripLeaderPeopleIds,
+  getTripLeaderNamesByTripIds,
+  getActiveParticipantCountsByTripIds,
+  getActiveParticipantTotalCostsByTripIds,
+  getDonationTotalsByTripIds,
+  getTripPrimaryLeaderPeopleId,
+  primaryLeaderError,
+  setTripPrimaryLeader,
+  syncTripLeaders,
+} from "../utils/tripLeaders.js";
 import { withCapacityFields } from "../utils/tripRoleCapacity.js";
 import {
   arePersonDocumentsUploaded,
@@ -123,6 +133,7 @@ exports.findOne = async (req, res) => {
     res.send({
       ...data.toJSON(),
       leaderPeopleIds,
+      primaryLeaderPeopleId: await getTripPrimaryLeaderPeopleId(data.id),
       leaderNames: leadersByTripId.get(data.id) || [],
     });
   } catch (err) {
@@ -392,13 +403,19 @@ exports.create = async (req, res) => {
     if (!isSystemAdmin(req) && !isOrgAdminForOrg(req, orgId)) {
       return res.status(403).send({ message: "Forbidden." });
     }
-    const { leaderPeopleIds } = req.body;
+    const { leaderPeopleIds, primaryLeaderPeopleId } = req.body;
+    const primaryError = primaryLeaderError(primaryLeaderPeopleId, leaderPeopleIds);
+    if (primaryError) return res.status(400).send({ message: primaryError });
     const data = await Trip.create(pickTripPayload(normalizeDeposit({ ...req.body })));
     if (Object.prototype.hasOwnProperty.call(req.body, "leaderPeopleIds")) {
-      await syncTripLeaders(data.id, orgId, leaderPeopleIds);
+      await syncTripLeaders(data.id, orgId, leaderPeopleIds, { primaryLeaderPeopleId });
     }
     const leaders = await getTripLeaderPeopleIds(data.id);
-    res.send({ ...data.toJSON(), leaderPeopleIds: leaders });
+    res.send({
+      ...data.toJSON(),
+      leaderPeopleIds: leaders,
+      primaryLeaderPeopleId: await getTripPrimaryLeaderPeopleId(data.id),
+    });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
@@ -420,6 +437,7 @@ exports.copy = async (req, res) => {
     }
 
     const leaderPeopleIds = await getTripLeaderPeopleIds(source.id);
+    const sourcePrimaryLeaderPeopleId = await getTripPrimaryLeaderPeopleId(source.id);
     const sourceWorkerRoles = await db.tripWorkerRole.findAll({
       where: { tripId: source.id },
     });
@@ -452,7 +470,10 @@ exports.copy = async (req, res) => {
         { transaction }
       );
 
-      await syncTripLeaders(data.id, source.orgId, leaderPeopleIds, { transaction });
+      await syncTripLeaders(data.id, source.orgId, leaderPeopleIds, {
+        transaction,
+        primaryLeaderPeopleId: sourcePrimaryLeaderPeopleId,
+      });
 
       for (const row of sourceWorkerRoles) {
         await db.tripWorkerRole.create(
@@ -484,7 +505,11 @@ exports.copy = async (req, res) => {
     }
 
     const leaders = await getTripLeaderPeopleIds(data.id);
-    res.status(201).send({ ...data.toJSON(), leaderPeopleIds: leaders });
+    res.status(201).send({
+      ...data.toJSON(),
+      leaderPeopleIds: leaders,
+      primaryLeaderPeopleId: await getTripPrimaryLeaderPeopleId(data.id),
+    });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
@@ -503,15 +528,30 @@ exports.update = async (req, res) => {
     if (!canManageOrgTrip) {
       delete body.orgId;
     }
-    const { leaderPeopleIds } = body;
+    const { leaderPeopleIds, primaryLeaderPeopleId } = body;
+    const sendsLeaders = Object.prototype.hasOwnProperty.call(body, "leaderPeopleIds");
+    const sendsPrimary = Object.prototype.hasOwnProperty.call(body, "primaryLeaderPeopleId");
+    if (sendsLeaders || sendsPrimary) {
+      const leadersForCheck = sendsLeaders
+        ? leaderPeopleIds
+        : await getTripLeaderPeopleIds(req.params.id);
+      const primaryError = primaryLeaderError(primaryLeaderPeopleId, leadersForCheck);
+      if (primaryError) return res.status(400).send({ message: primaryError });
+    }
     const result = await optimisticUpdate(Trip, req.params.id, body, tripFields);
     if (!result.ok) return res.status(result.status).send({ message: result.message });
-    if (Object.prototype.hasOwnProperty.call(body, "leaderPeopleIds")) {
+    if (sendsLeaders) {
       const orgId = result.data.orgId;
-      await syncTripLeaders(req.params.id, orgId, leaderPeopleIds);
+      await syncTripLeaders(req.params.id, orgId, leaderPeopleIds, { primaryLeaderPeopleId });
+    } else if (sendsPrimary && primaryLeaderPeopleId != null && primaryLeaderPeopleId !== "") {
+      await setTripPrimaryLeader(req.params.id, parseInt(primaryLeaderPeopleId, 10));
     }
     const leaders = await getTripLeaderPeopleIds(req.params.id);
-    res.send({ ...result.data.toJSON(), leaderPeopleIds: leaders });
+    res.send({
+      ...result.data.toJSON(),
+      leaderPeopleIds: leaders,
+      primaryLeaderPeopleId: await getTripPrimaryLeaderPeopleId(req.params.id),
+    });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

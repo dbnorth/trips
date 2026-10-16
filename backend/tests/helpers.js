@@ -9,7 +9,18 @@ const CATALOG_ROLES = [
   { roleName: "Pending User", roleDescription: "Awaiting organization approval" },
 ];
 
+// Tests drop and empty tables; refuse unless connected to a database named *-test.
+const assertTestDatabase = () => {
+  const name = db.sequelize.config.database;
+  if (!name?.endsWith("-test")) {
+    throw new Error(
+      `Refusing to reset database "${name}": tests only run against a database whose name ends in "-test". Run tests from backend/ (npm test) so tests/setup.js loads .env.test.`
+    );
+  }
+};
+
 export const syncTestDatabase = async () => {
+  assertTestDatabase();
   await db.sequelize.sync({ force: true });
   await seedRoles();
 };
@@ -22,6 +33,7 @@ export const seedRoles = async () => {
 };
 
 export const resetTestDatabase = async () => {
+  assertTestDatabase();
   const ordered = [
     db.tripFlightSegment,
     db.tripFlight,
@@ -39,6 +51,7 @@ export const resetTestDatabase = async () => {
     db.tripTravelOption,
     db.emailTemplate,
     db.emailType,
+    db.emailToken,
     db.emailLog,
     db.orgPeopleRole,
     db.trip,

@@ -52,6 +52,7 @@ const TripPeopleRole = SequelizeInstance.define("tripPeopleRole", {
   isPregnant: { type: Sequelize.BOOLEAN, allowNull: true, defaultValue: null },
   pregnancyDueDate: { type: Sequelize.DATEONLY, allowNull: true },
   assiginmentDateTime: { type: Sequelize.DATE },
+  isPrimaryLeader: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
   version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
 });
 

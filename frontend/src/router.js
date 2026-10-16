@@ -13,6 +13,7 @@ import TripPeopleRolesList from "./views/TripPeopleRolesList.vue";
 import DonationsList from "./views/DonationsList.vue";
 import EmailTemplatesList from "./views/EmailTemplatesList.vue";
 import EmailTypesList from "./views/EmailTypesList.vue";
+import EmailTokensList from "./views/EmailTokensList.vue";
 import WorkerRolesList from "./views/WorkerRolesList.vue";
 import MedicalConditionsList from "./views/MedicalConditionsList.vue";
 import DocumentTypesList from "./views/DocumentTypesList.vue";
@@ -65,6 +66,7 @@ const router = createRouter({
     { path: "/donations", name: "donations", component: DonationsList },
     { path: "/templates", name: "templates", component: EmailTemplatesList },
     { path: "/email-types", name: "emailTypes", component: EmailTypesList },
+    { path: "/email-tokens", name: "emailTokens", component: EmailTokensList },
     { path: "/worker-roles", name: "workerRoles", component: WorkerRolesList },
     { path: "/medical-conditions", name: "medicalConditions", component: MedicalConditionsList },
     { path: "/document-types", name: "documentTypes", component: DocumentTypesList },
@@ -141,7 +143,7 @@ export function applyAuthGuards(router) {
       next({ name: "home" });
       return;
     }
-    if (to.name === "emailTypes" && !user.isAdmin) {
+    if ((to.name === "emailTypes" || to.name === "emailTokens") && !user.isAdmin) {
       next({ name: "home" });
       return;
     }

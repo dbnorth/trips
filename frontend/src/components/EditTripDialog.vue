@@ -87,6 +87,8 @@ const onImageSelected = (files) => {
 
 const {
   leaderPeopleIds,
+  primaryLeaderPeopleId,
+  primaryLeaderItems,
   leaderOptions,
   leadersLoading,
   leadersError,
@@ -376,7 +378,7 @@ const loadTrip = async ({ afterConflict = false } = {}) => {
     }
     const res = await TripServices.get(props.tripId);
     applyTripData(res.data || {});
-    setLeadersFromTrip(res.data?.leaderPeopleIds || []);
+    setLeadersFromTrip(res.data?.leaderPeopleIds || [], res.data?.primaryLeaderPeopleId ?? null);
     await Promise.all([
       loadLeaderOptions(form.value.orgId),
       loadWorkerRoles(form.value.orgId),
@@ -473,6 +475,7 @@ const save = async () => {
     requirePassport: !!form.value.requirePassport,
     version: form.value.version,
     leaderPeopleIds: leaderPeopleIds.value,
+    primaryLeaderPeopleId: primaryLeaderPeopleId.value,
   };
 
   try {
@@ -646,6 +649,15 @@ const save = async () => {
             "
             persistent-hint
             class="mt-2"
+          />
+          <v-select
+            v-if="leaderPeopleIds.length"
+            v-model="primaryLeaderPeopleId"
+            :items="primaryLeaderItems"
+            label="Primary trip leader"
+            density="compact"
+            class="mt-2"
+            hide-details
           />
 
           <div class="mt-4">
