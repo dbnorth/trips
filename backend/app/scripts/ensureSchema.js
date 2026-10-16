@@ -949,6 +949,67 @@ const ensureEmailTypes = async () => {
   }
 };
 
+const ensureEmailTokens = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailTokens'`
+  );
+  if (tables.length) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE emailTokens (
+      id INT NOT NULL AUTO_INCREMENT,
+      tokenCode VARCHAR(100) NOT NULL,
+      description VARCHAR(255) NOT NULL,
+      valueSource VARCHAR(100) NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY emailTokens_tokenCode_unique (tokenCode)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("emailTokens table created.");
+};
+
+const ensureTripPrimaryLeader = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tripPeopleRoles'
+       AND COLUMN_NAME = 'isPrimaryLeader'`
+  );
+  if (!rows.length) {
+    await db.sequelize.query(
+      "ALTER TABLE tripPeopleRoles ADD COLUMN isPrimaryLeader TINYINT(1) NOT NULL DEFAULT 0"
+    );
+    logger.info("tripPeopleRoles.isPrimaryLeader column added.");
+  }
+
+  const leaderRole = await db.role.findOne({ where: { roleName: "Trip Leader" } });
+  if (!leaderRole) return;
+
+  const [updated] = await db.sequelize.query(
+    `UPDATE tripPeopleRoles t
+     JOIN (
+       SELECT l.tripId, MIN(l.id) AS firstId
+       FROM tripPeopleRoles l
+       WHERE l.roleId = :roleId
+         AND l.tripId NOT IN (
+           SELECT p.tripId FROM (
+             SELECT tripId FROM tripPeopleRoles WHERE roleId = :roleId AND isPrimaryLeader = 1
+           ) p
+         )
+       GROUP BY l.tripId
+     ) firsts ON firsts.firstId = t.id
+     SET t.isPrimaryLeader = 1`,
+    { replacements: { roleId: leaderRole.id } }
+  );
+  if (updated?.affectedRows) {
+    logger.info(`Marked primary trip leader on ${updated.affectedRows} trip(s).`);
+  }
+};
+
 const ensureTripDeposit = async () => {
   const [rows] = await db.sequelize.query(
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -1070,6 +1131,8 @@ export const ensureSchema = async () => {
   await ensureTripRequirePassport();
   await ensureTripDeposit();
   await ensureEmailTypes();
+  await ensureEmailTokens();
+  await ensureTripPrimaryLeader();
   await ensureTripFlightSegmentCabinAndSeat();
   await ensureOrganizationWebsiteUrl();
   await ensureOrganizationSubdomain();

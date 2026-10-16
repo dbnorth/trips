@@ -136,9 +136,9 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId` | auth | Upsert flight header (purchased, cost, comments) — Feature 30 |
 | `GET` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | List flight segments — Feature 30 |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | Replace flight segments — Feature 30 |
-| `POST` | `/trips/trips` | auth | Create (+ optional `leaderPeopleIds`, `requirePassport`, `deposit`) |
-| `POST` | `/trips/trips/:id/copy` | auth | Copy source trip → new trip (name required; leaders, worker roles, travel options, `requirePassport`, `deposit`; not participants/donations) — Features 21, 23, 38 |
-| `PUT` | `/trips/trips/:id` | auth | Update (optional `deposit`, Feature 38) |
+| `POST` | `/trips/trips` | auth | Create (+ optional `leaderPeopleIds`, `primaryLeaderPeopleId`, `requirePassport`, `deposit`). `primaryLeaderPeopleId` must be in `leaderPeopleIds` (`400`); omitted → first leader (Feature 40) |
+| `POST` | `/trips/trips/:id/copy` | auth | Copy source trip → new trip (name required; leaders and primary trip leader, worker roles, travel options, `requirePassport`, `deposit`; not participants/donations) — Features 21, 23, 38, 40 |
+| `PUT` | `/trips/trips/:id` | auth | Update (optional `deposit`, Feature 38; optional `leaderPeopleIds` / `primaryLeaderPeopleId`, Feature 40) |
 | `PUT` | `/trips/trips/:id/image` | auth | Image (`multipart` field `image`) |
 | `DELETE` | `/trips/trips/:id` | auth | Delete (org admin / sysadmin) |
 | `GET` | `/trips/dashboard/org` | auth | Org metrics |
@@ -272,6 +272,7 @@ No auth. Slugs: spaces → `_`.
 |--------|------|------|---------|
 | `GET` | `/trips/email-templates` | auth | List (org / trip-leader scoped). Includes `emailTypeId`, `functionCode`, `subject`, `fromEmail`, and `emailBody` when present |
 | `GET` | `/trips/email-templates/copy-sources` | auth | Copy sources (`?tripId=` optional) |
+| `POST` | `/trips/email-templates/preview` | System Admin, Org Admin, or Trip Leader of the trip | Body `{ orgId, tripId, personId?, subject, emailBody }` → `{ subject, emailBody }` with `{{TOKEN_CODE}}` tokens replaced. Trip not in the organization or person without a participant application on the trip → `400`. Sends no email — Feature 40 |
 | `GET` | `/trips/email-templates/:id` | auth | Get |
 | `POST` | `/trips/email-templates` | auth | Create. Feature 39 body adds `emailTypeId`, `functionCode` (`Scheduled` or `Send Now`), and `emailBody` |
 | `PUT` | `/trips/email-templates/:id` | auth | Update. Same Feature 39 fields when present |
@@ -290,6 +291,21 @@ No auth. Slugs: spaces → `_`.
 | `DELETE` | `/trips/email-types/:id` | System Admin | Delete when no template uses it |
 
 Duplicate `typeCode`, a blank required field, or deleting a type a template still uses → `400`. A caller who is not a System Admin writing a type → `403`. Template save with a function code other than `Scheduled` or `Send Now` → `400`.
+
+---
+
+## Email tokens — Feature 40
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/trips/email-tokens` | System Admin, Org Admin, or Trip Leader | List (`id`, `tokenCode`, `description`, `valueSource`) ordered by token code |
+| `GET` | `/trips/email-tokens/value-sources` | System Admin | Fixed value sources `[{ valueSource, label }]` |
+| `GET` | `/trips/email-tokens/:id` | System Admin | Get one |
+| `POST` | `/trips/email-tokens` | System Admin | Create `{ tokenCode, description, valueSource }` |
+| `PUT` | `/trips/email-tokens/:id` | System Admin | Update |
+| `DELETE` | `/trips/email-tokens/:id` | System Admin | Delete |
+
+Duplicate `tokenCode`, a token code outside capital letters / digits / underscores, a blank required field, or an unknown `valueSource` → `400`. A caller who is not a System Admin writing a token → `403`.
 
 ---
 

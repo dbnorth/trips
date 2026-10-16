@@ -54,6 +54,8 @@ const form = ref(emptyForm());
 
 const {
   leaderPeopleIds,
+  primaryLeaderPeopleId,
+  primaryLeaderItems,
   leaderOptions,
   leadersLoading,
   leadersError,
@@ -254,6 +256,7 @@ const save = async () => {
     deposit: parseMoneyAmount(form.value.deposit),
     requirePassport: !!form.value.requirePassport,
     leaderPeopleIds: leaderPeopleIds.value,
+    primaryLeaderPeopleId: primaryLeaderPeopleId.value,
   };
 
   try {
@@ -434,6 +437,15 @@ const save = async () => {
           "
           persistent-hint
           class="mt-2"
+        />
+        <v-select
+          v-if="leaderPeopleIds.length"
+          v-model="primaryLeaderPeopleId"
+          :items="primaryLeaderItems"
+          label="Primary trip leader"
+          density="compact"
+          class="mt-2"
+          hide-details
         />
 
         <div class="mt-4">

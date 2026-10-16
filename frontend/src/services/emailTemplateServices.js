@@ -7,6 +7,9 @@ export default {
   getCopySources(params = {}) {
     return apiClient.get("/email-templates/copy-sources", { params });
   },
+  preview(data) {
+    return apiClient.post("/email-templates/preview", data);
+  },
   get(id) {
     return apiClient.get(`/email-templates/${id}`);
   },

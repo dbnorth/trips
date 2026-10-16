@@ -7,7 +7,9 @@ import {
   parseOrganizationScopeHeader,
   ROLE_ORG_ADMIN,
   ROLE_TRIP_LEADER,
+  ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
+import { buildTokenValues, substituteTokens } from "../utils/emailTokenValues.js";
 
 const EmailTemplate = db.emailTemplate;
 const EmailType = db.emailType;
@@ -392,6 +394,55 @@ exports.update = async (req, res) => {
 
     await template.update(payload);
     res.send(await loadTemplate(template.id));
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.preview = async (req, res) => {
+  try {
+    const { orgId, tripId, personId, subject, emailBody } = req.body || {};
+    if (orgId == null || orgId === "") {
+      return res.status(400).send({ message: "Organization is required." });
+    }
+    if (tripId == null || tripId === "") {
+      return res.status(400).send({ message: "Trip is required." });
+    }
+    const trip = await Trip.findByPk(Number(tripId), { attributes: ["id", "orgId"] });
+    if (!trip || Number(trip.orgId) !== Number(orgId)) {
+      return res.status(400).send({ message: "Trip must belong to the selected organization." });
+    }
+    const canPreview =
+      isSystemAdmin(req) ||
+      isOrgAdminForOrg(req, Number(orgId)) ||
+      isTripLeaderForTrip(req, trip.id);
+    if (!canPreview) return res.status(403).send({ message: "Forbidden." });
+
+    let previewPersonId = null;
+    if (personId != null && personId !== "") {
+      const participantRole = await db.role.findOne({
+        where: { roleName: ROLE_TRIP_PARTICIPANT },
+      });
+      const application = participantRole
+        ? await db.tripPeopleRole.findOne({
+            where: { tripId: trip.id, peopleId: Number(personId), roleId: participantRole.id },
+          })
+        : null;
+      if (!application) {
+        return res.status(400).send({ message: "Participant must have an application on this trip." });
+      }
+      previewPersonId = Number(personId);
+    }
+
+    const values = await buildTokenValues({
+      orgId: Number(orgId),
+      tripId: trip.id,
+      personId: previewPersonId,
+    });
+    res.send({
+      subject: substituteTokens(subject, values),
+      emailBody: substituteTokens(emailBody, values),
+    });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
