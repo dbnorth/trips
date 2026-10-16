@@ -1,0 +1,9 @@
+[Unit]
+Description=Trips App scheduled emails
+After=network.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/nodeapps/trips/
+ExecStart=npm run send-scheduled-emails

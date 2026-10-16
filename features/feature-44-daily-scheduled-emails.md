@@ -286,14 +286,14 @@ Do not implement behavior not in this spec.
 
 ## Definition of Done
 
-*   [ ] `npm run send-scheduled-emails` with `--date` and `--dry-run` (**FR-001**, **FR-010**, **FR-011**)
-*   [ ] Template, trip, and due-date selection (**FR-002** to **FR-005**)
-*   [ ] Recipient rules per event code (**FR-006**, **FR-007**)
-*   [ ] `scheduledEmailSend` records, no duplicates, failed sends retried (**FR-008**, **FR-009**, **FR-013**)
-*   [ ] `systemd` service and timer bundled and enabled on deploy (**FR-012**)
-*   [ ] Automated tests for every Gherkin scenario
-*   [ ] Living reference updated in this PR
-*   [ ] `npm test` green
+*   [x] `npm run send-scheduled-emails` with `--date` and `--dry-run` (**FR-001**, **FR-010**, **FR-011**)
+*   [x] Template, trip, and due-date selection (**FR-002** to **FR-005**)
+*   [x] Recipient rules per event code (**FR-006**, **FR-007**)
+*   [x] `scheduledEmailSend` records, no duplicates, failed sends retried (**FR-008**, **FR-009**, **FR-013**)
+*   [x] `systemd` service and timer bundled and enabled on deploy (**FR-012**)
+*   [x] Automated tests for every Gherkin scenario
+*   [x] Living reference updated in this PR
+*   [x] `npm test` green
 *   [ ] On `feature/44-daily-scheduled-emails`; PR → `dev`
 
 ---

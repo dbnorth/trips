@@ -11,7 +11,8 @@
     "seed:catalogs": "node app/scripts/seedAirportsAirlines.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
-    "bundle": "node scripts/make-deploy.mjs"
+    "bundle": "node scripts/make-deploy.mjs",
+    "send-scheduled-emails": "node app/scripts/sendScheduledEmails.js"
   },
   "keywords": ["node.js", "express", "sequelize"],
   "license": "ISC",

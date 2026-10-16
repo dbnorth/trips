@@ -45,6 +45,7 @@ Notes:
 | `emailType` | 39 | Email type catalog |
 | `emailToken` | 40 | Email template token catalog |
 | `emailLog` | 1, 43 | Login / email audit (no associations) |
+| `scheduledEmailSend` | 44 | One row per scheduled template, trip, participant, and job date handled |
 
 ---
 
@@ -605,6 +606,23 @@ Seeded global catalog. No org column.
 
 ---
 
+## `scheduledEmailSend` — Feature 44
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| emailTemplateId | INTEGER | required; FK → emailTemplate (CASCADE) |
+| tripId | INTEGER | required; FK → trip (CASCADE) |
+| personId | INTEGER | required; FK → person (CASCADE) |
+| sendDate | DATEONLY | required; the job date |
+| status | ENUM(`sent`, `skipped`, `failed`) | required |
+| reason | STRING(1000) | skip reason or error message |
+| emailLogId | INTEGER | optional; FK → emailLog (SET NULL) when sent |
+
+**Unique:** (`emailTemplateId`, `tripId`, `personId`, `sendDate`). **Associations:** `belongsTo` emailTemplate, trip, person, emailLog. No CRUD API; written only by the daily scheduled email job.
+
+---
+
 ## Association diagram (high level)
 
 ```text
@@ -624,4 +642,5 @@ person ──1:N── personDocument ──N:1── documentType
 workerRole ──N:1── documentType (optional)
 organization ──1:N── emailTemplate ──N:1── trip (optional)
 emailType ──1:N── emailTemplate
+emailTemplate ──1:N── scheduledEmailSend ──N:1── trip / person / emailLog (optional)
 ```

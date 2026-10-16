@@ -975,6 +975,48 @@ const ensureEmailLogToEmailLength = async () => {
   }
 };
 
+const ensureScheduledEmailSendsTable = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'scheduledEmailSends'`
+  );
+  if (tables.length) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE scheduledEmailSends (
+      id INT NOT NULL AUTO_INCREMENT,
+      emailTemplateId INT NOT NULL,
+      tripId INT NOT NULL,
+      personId INT NOT NULL,
+      sendDate DATE NOT NULL,
+      status ENUM('sent','skipped','failed') NOT NULL,
+      reason VARCHAR(1000) NULL,
+      emailLogId INT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY scheduledEmailSends_template_trip_person_date_unique (emailTemplateId, tripId, personId, sendDate),
+      KEY scheduledEmailSends_tripId_idx (tripId),
+      KEY scheduledEmailSends_personId_idx (personId),
+      KEY scheduledEmailSends_emailLogId_idx (emailLogId),
+      CONSTRAINT scheduledEmailSends_emailTemplateId_fk
+        FOREIGN KEY (emailTemplateId) REFERENCES emailTemplates (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT scheduledEmailSends_tripId_fk
+        FOREIGN KEY (tripId) REFERENCES trips (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT scheduledEmailSends_personId_fk
+        FOREIGN KEY (personId) REFERENCES people (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT scheduledEmailSends_emailLogId_fk
+        FOREIGN KEY (emailLogId) REFERENCES emailLogs (id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("scheduledEmailSends table created.");
+};
+
 const ensureEmailTemplateSchedule = async () => {
   const columns = [
     ["scheduleRule", "VARCHAR(20) NULL"],
@@ -1181,6 +1223,7 @@ export const ensureSchema = async () => {
   await ensureEmailTemplateToAddress();
   await ensureEmailTemplateSchedule();
   await ensureEmailLogToEmailLength();
+  await ensureScheduledEmailSendsTable();
   await ensureTripPrimaryLeader();
   await ensureTripFlightSegmentCabinAndSeat();
   await ensureOrganizationWebsiteUrl();
