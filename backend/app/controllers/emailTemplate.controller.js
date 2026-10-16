@@ -22,6 +22,7 @@ const EmailType = db.emailType;
 const Trip = db.trip;
 const Organization = db.organization;
 const FUNCTION_CODES = ["Scheduled", "Send Now"];
+const SCHEDULE_RULES = ["daily", "weekly", "before-start"];
 const templateFields = [
   "tripId",
   "fromEmail",
@@ -141,6 +142,27 @@ const hasFeature39Fields = (body) =>
 
 const trimRequired = (val) => (typeof val === "string" ? val.trim() : "");
 
+const validateSchedule = (body, functionCode) => {
+  if (functionCode !== "Scheduled") {
+    return { schedule: { scheduleRule: null, scheduleDaysBefore: null } };
+  }
+  const scheduleRule = trimRequired(body.scheduleRule);
+  if (!SCHEDULE_RULES.includes(scheduleRule)) {
+    return { error: { status: 400, message: "Schedule is required for scheduled templates." } };
+  }
+  if (scheduleRule !== "before-start") {
+    return { schedule: { scheduleRule, scheduleDaysBefore: null } };
+  }
+  const raw = body.scheduleDaysBefore;
+  const days = Number(raw);
+  if (raw == null || String(raw).trim() === "" || !Number.isInteger(days) || days < 1 || days > 365) {
+    return {
+      error: { status: 400, message: "Days before trip start must be a whole number from 1 to 365." },
+    };
+  }
+  return { schedule: { scheduleRule, scheduleDaysBefore: days } };
+};
+
 const validateOrganizationTemplateFields = async (body) => {
   const typeRaw = body.emailTypeId;
   if (typeRaw == null || typeRaw === "") {
@@ -154,6 +176,8 @@ const validateOrganizationTemplateFields = async (body) => {
   if (!FUNCTION_CODES.includes(functionCode)) {
     return { error: { status: 400, message: "Function code must be Scheduled or Send Now." } };
   }
+  const { schedule, error: scheduleError } = validateSchedule(body, functionCode);
+  if (scheduleError) return { error: scheduleError };
   if (!trimRequired(body.subject)) {
     return { error: { status: 400, message: "Subject is required." } };
   }
@@ -180,7 +204,7 @@ const validateOrganizationTemplateFields = async (body) => {
   if (!trimRequired(body.emailBody)) {
     return { error: { status: 400, message: "Email body is required." } };
   }
-  return { ok: true };
+  return { ok: true, schedule };
 };
 
 const copySourceAttributes = [
@@ -191,6 +215,8 @@ const copySourceAttributes = [
   "subject",
   "content",
   "attachment",
+  "scheduleRule",
+  "scheduleDaysBefore",
 ];
 
 const hasFunctionCode = {
@@ -329,6 +355,7 @@ exports.create = async (req, res) => {
     const isOrgAdmin = orgId != null && isOrgAdminForOrg(req, orgId);
     const isLeaderCreate = tripId != null && isTripLeaderForTrip(req, tripId);
 
+    let schedule = {};
     if (feature39) {
       if (orgId == null) {
         return res.status(400).send({ message: "Organization is required." });
@@ -340,6 +367,7 @@ exports.create = async (req, res) => {
       if (fields.error) {
         return res.status(fields.error.status).send({ message: fields.error.message });
       }
+      schedule = fields.schedule;
     } else if (!isOrgAdmin && !isLeaderCreate) {
       return res.status(403).send({ message: "Forbidden." });
     }
@@ -360,7 +388,7 @@ exports.create = async (req, res) => {
     );
     if (!tripCheck.ok) return res.status(tripCheck.status).send({ message: tripCheck.message });
 
-    const payload = pickTemplatePayload(req.body);
+    const payload = { ...pickTemplatePayload(req.body), ...schedule };
     if (orgId == null) payload.tripId = null;
     if (isLeaderCreate && !isOrgAdmin) payload.tripId = tripId;
 
@@ -380,6 +408,7 @@ exports.update = async (req, res) => {
     }
     const feature39 = hasFeature39Fields(req.body);
     let orgId = template.orgId;
+    let schedule = {};
     if (feature39) {
       if (Object.prototype.hasOwnProperty.call(req.body, "orgId")) {
         if (req.body.orgId == null || req.body.orgId === "") {
@@ -410,6 +439,7 @@ exports.update = async (req, res) => {
       if (fields.error) {
         return res.status(fields.error.status).send({ message: fields.error.message });
       }
+      schedule = fields.schedule;
     } else if (Object.prototype.hasOwnProperty.call(req.body, "subject") && !req.body.subject?.trim()) {
       return res.status(400).send({ message: "Subject is required." });
     }
@@ -420,7 +450,7 @@ exports.update = async (req, res) => {
     const tripCheck = await validateTripForOrg(tripId, feature39 ? orgId : template.orgId);
     if (!tripCheck.ok) return res.status(tripCheck.status).send({ message: tripCheck.message });
 
-    const payload = pickTemplatePayload(req.body);
+    const payload = { ...pickTemplatePayload(req.body), ...schedule };
     if (feature39) payload.orgId = orgId;
     if ((feature39 ? orgId : template.orgId) == null) payload.tripId = null;
 

@@ -197,15 +197,15 @@ Do not implement behavior not in this spec.
 
 ## Definition of Done
 
-*   [ ] `emailTemplate.scheduleRule`, `emailTemplate.scheduleDaysBefore`, and schema ensure (**FR-001**, **FR-009**)
-*   [ ] **Schedule** and **Days before trip start** on the template form, required and validated (**FR-002** to **FR-006**)
-*   [ ] API returns and accepts the schedule; **Copy from** copies it (**FR-007**)
-*   [ ] **Schedule** column in the template list (**FR-008**)
-*   [ ] Seeded scheduled templates have schedules (**FR-010**)
-*   [ ] No email sent (**FR-011**)
-*   [ ] Automated tests for every Gherkin scenario
-*   [ ] Living reference updated in this PR
-*   [ ] `npm test` green
+*   [x] `emailTemplate.scheduleRule`, `emailTemplate.scheduleDaysBefore`, and schema ensure (**FR-001**, **FR-009**)
+*   [x] **Schedule** and **Days before trip start** on the template form, required and validated (**FR-002** to **FR-006**)
+*   [x] API returns and accepts the schedule; **Copy from** copies it (**FR-007**)
+*   [x] **Schedule** column in the template list (**FR-008**)
+*   [x] Seeded scheduled templates have schedules (**FR-010**)
+*   [x] No email sent (**FR-011**)
+*   [x] Automated tests for every Gherkin scenario
+*   [x] Living reference updated in this PR
+*   [x] `npm test` green
 *   [ ] On `feature/42-email-template-schedule`; PR → `dev`
 
 ---

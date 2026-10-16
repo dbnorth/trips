@@ -13,6 +13,12 @@ const FUNCTION_CODE_ITEMS = [
   { title: "Send Now", value: "Send Now" },
 ];
 
+const SCHEDULE_ITEMS = [
+  { title: "Daily", value: "daily" },
+  { title: "Weekly (Tuesday)", value: "weekly" },
+  { title: "Days before trip start", value: "before-start" },
+];
+
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   templateId: { type: [Number, String], default: null },
@@ -51,6 +57,8 @@ const emptyForm = () => ({
   fromEmail: "",
   toAddress: "",
   functionCode: null,
+  scheduleRule: null,
+  scheduleDaysBefore: null,
   subject: "",
   content: "",
   emailBody: "",
@@ -65,6 +73,8 @@ const isTripLeaderAdd = computed(
   () => !isEdit.value && props.fixedTripId != null && props.fixedTripId !== ""
 );
 const showCopyFromPicker = computed(() => !isEdit.value && form.value.orgId != null);
+const isScheduled = computed(() => form.value.functionCode === "Scheduled");
+const showDaysBefore = computed(() => isScheduled.value && form.value.scheduleRule === "before-start");
 const title = computed(() => (isEdit.value ? "Edit template" : "Add template"));
 
 const adminOrgOptions = computed(() => {
@@ -266,6 +276,8 @@ const applyTemplate = (row) => {
     fromEmail: row?.fromEmail || "",
     toAddress: row?.toAddress || "",
     functionCode: normalizeFunctionCode(row?.functionCode),
+    scheduleRule: row?.scheduleRule ?? null,
+    scheduleDaysBefore: row?.scheduleDaysBefore ?? null,
     subject: row?.subject || "",
     content: row?.content || "",
     emailBody: row?.emailBody || "",
@@ -280,6 +292,8 @@ const applyCopySource = (functionCode) => {
   if (!source) return;
   form.value.fromEmail = source.fromEmail || "";
   form.value.toAddress = source.toAddress || "";
+  form.value.scheduleRule = source.scheduleRule ?? null;
+  form.value.scheduleDaysBefore = source.scheduleDaysBefore ?? null;
   form.value.subject = source.subject || "";
   form.value.content = source.content || "";
   form.value.attachment = source.attachment || "";
@@ -371,6 +385,15 @@ const save = async () => {
     formError.value = "Function code is required.";
     return;
   }
+  if (isScheduled.value && !form.value.scheduleRule) {
+    formError.value = "Schedule is required for scheduled templates.";
+    return;
+  }
+  const daysBefore = Number(form.value.scheduleDaysBefore);
+  if (showDaysBefore.value && (!Number.isInteger(daysBefore) || daysBefore < 1 || daysBefore > 365)) {
+    formError.value = "Days before trip start must be a whole number from 1 to 365.";
+    return;
+  }
   if (!form.value.subject?.trim()) {
     formError.value = "Subject is required.";
     return;
@@ -403,6 +426,8 @@ const save = async () => {
     fromEmail: form.value.fromEmail.trim(),
     toAddress: form.value.toAddress.trim(),
     functionCode: form.value.functionCode,
+    scheduleRule: isScheduled.value ? form.value.scheduleRule : null,
+    scheduleDaysBefore: showDaysBefore.value ? daysBefore : null,
     subject: form.value.subject.trim(),
     content: form.value.content?.trim() || null,
     emailBody: form.value.emailBody.trim(),
@@ -465,6 +490,24 @@ const save = async () => {
           v-model="form.functionCode"
           :items="FUNCTION_CODE_ITEMS"
           label="Function code"
+          density="compact"
+          class="mb-2"
+        />
+        <v-select
+          v-if="isScheduled"
+          v-model="form.scheduleRule"
+          :items="SCHEDULE_ITEMS"
+          label="Schedule"
+          density="compact"
+          class="mb-2"
+        />
+        <v-text-field
+          v-if="showDaysBefore"
+          v-model="form.scheduleDaysBefore"
+          label="Days before trip start"
+          type="number"
+          min="1"
+          max="365"
           density="compact"
           class="mb-2"
         />

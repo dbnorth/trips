@@ -5,6 +5,8 @@
  * Spec: features/feature-40-email-template-tokens.md
  * Feature 41 — Email Template To Address
  * Spec: features/feature-41-email-template-to-address.md
+ * Feature 42 — Email Template Schedule
+ * Spec: features/feature-42-email-template-schedule.md
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -233,6 +235,71 @@ describe("Feature 41 — Email Template To Address", () => {
 
     expect(fromField.find("input").element.value).toBe("{{ORG_EMAIL}}");
     expect(fromInsert.props("modelValue")).toBeNull();
+
+    wrapper.unmount();
+  });
+});
+
+describe("Feature 42 — Email Template Schedule", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    setOrgAdminUser();
+    EmailTypeServices.getAll.mockResolvedValue({ data: [] });
+    EmailTokenServices.getAll.mockResolvedValue({ data: [] });
+    TripServices.getAll.mockResolvedValue({ data: [] });
+    EmailTemplateServices.getCopySources.mockResolvedValue({ data: [] });
+  });
+
+  const mountForm = () =>
+    mountWithPlugins(EmailTemplateFormDialog, {
+      props: { modelValue: true, orgId: 3 },
+      global: {
+        plugins: [vuetify],
+        stubs: { VDialog: { template: "<div><slot /></div>" } },
+      },
+    });
+
+  const selectByLabel = (wrapper, label) =>
+    wrapper.findAllComponents({ name: "VSelect" }).find((select) => select.props("label") === label);
+
+  const choose = async (wrapper, label, value) => {
+    selectByLabel(wrapper, label).vm.$emit("update:modelValue", value);
+    await flushPromises();
+  };
+
+  it("Schedule shows only for scheduled templates", async () => {
+    const { wrapper } = await mountForm();
+    await flushPromises();
+
+    await choose(wrapper, "Function code", "Scheduled");
+    const labels = wrapper.findAllComponents({ name: "VSelect" }).map((select) => select.props("label"));
+    expect(labels[labels.indexOf("Function code") + 1]).toBe("Schedule");
+    expect(selectByLabel(wrapper, "Schedule").props("items").map((item) => item.title)).toEqual([
+      "Daily",
+      "Weekly (Tuesday)",
+      "Days before trip start",
+    ]);
+
+    await choose(wrapper, "Function code", "Send Now");
+    expect(selectByLabel(wrapper, "Schedule")).toBeUndefined();
+
+    wrapper.unmount();
+  });
+
+  it("Days before trip start shows for that schedule", async () => {
+    const { wrapper } = await mountForm();
+    await flushPromises();
+
+    await choose(wrapper, "Function code", "Scheduled");
+    const daysField = () =>
+      wrapper
+        .findAllComponents({ name: "VTextField" })
+        .find((field) => field.props("label") === "Days before trip start");
+    expect(daysField()).toBeUndefined();
+
+    await choose(wrapper, "Schedule", "before-start");
+    expect(daysField()).toBeTruthy();
 
     wrapper.unmount();
   });

@@ -21,6 +21,7 @@ const run = async () => {
 
     let inserted = 0;
     let toAddressSet = 0;
+    let scheduleSet = 0;
     for (const template of templates) {
       const emailType = await db.emailType.findOne({ where: { typeCode: template.typeCode } });
       if (!emailType) throw new Error(`Email type ${template.typeCode} not found. Run seedEmailTypes.js first.`);
@@ -39,18 +40,29 @@ const run = async () => {
           toAddress: template.toAddress,
           subject: template.subject,
           emailBody: template.emailBody,
+          scheduleRule: template.scheduleRule ?? null,
+          scheduleDaysBefore: template.scheduleDaysBefore ?? null,
         },
       });
       if (created) {
         inserted += 1;
-      } else if (!row.toAddress?.trim()) {
+        continue;
+      }
+      if (!row.toAddress?.trim()) {
         await row.update({ toAddress: template.toAddress });
         toAddressSet += 1;
+      }
+      if (template.scheduleRule && row.functionCode === "Scheduled" && !row.scheduleRule) {
+        await row.update({
+          scheduleRule: template.scheduleRule,
+          scheduleDaysBefore: template.scheduleDaysBefore ?? null,
+        });
+        scheduleSet += 1;
       }
     }
 
     console.log(
-      `Email templates for ${organizationName}: ${templates.length} in seed file, ${inserted} inserted, ${toAddressSet} existing given a To address.`
+      `Email templates for ${organizationName}: ${templates.length} in seed file, ${inserted} inserted, ${toAddressSet} existing given a To address, ${scheduleSet} existing given a schedule.`
     );
     process.exit(0);
   } catch (err) {
