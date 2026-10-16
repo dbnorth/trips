@@ -4,17 +4,21 @@ import {
   isOrgAdminForOrg,
   isSystemAdmin,
   isTripLeaderForTrip,
+  ROLE_TRIP_LEADER,
   ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
 import { buildTemplateMessage, sendTemplateEmail } from "../utils/emailDelivery.js";
 
 const Op = db.Sequelize.Op;
 const FUNCTION_CODE = "Trip Participant";
-const POTENTIAL_STATUSES = ["incomplete", "applied", "approved"];
-const SEND_TO_STATUSES = {
-  potential: POTENTIAL_STATUSES,
-  accepted: ["approved"],
-  selected: POTENTIAL_STATUSES,
+const POTENTIAL = {
+  roleNames: [ROLE_TRIP_PARTICIPANT, ROLE_TRIP_LEADER],
+  statuses: ["incomplete", "applied", "approved"],
+};
+const SEND_TO = {
+  potential: POTENTIAL,
+  accepted: { roleNames: [ROLE_TRIP_PARTICIPANT], statuses: ["approved"] },
+  selected: POTENTIAL,
 };
 
 const exports = {};
@@ -60,16 +64,20 @@ const readTeamEmailRequest = async (trip, body) => {
   if (!subject.trim()) return badRequest("Subject is required.");
   if (!emailBody.trim()) return badRequest("Email body is required.");
 
-  const statuses = SEND_TO_STATUSES[body.sendTo];
-  if (!statuses) return badRequest("Send to must be potential, accepted, or selected.");
+  const sendTo = SEND_TO[body.sendTo];
+  if (!sendTo) return badRequest("Send to must be potential, accepted, or selected.");
 
-  const role = await db.role.findOne({ where: { roleName: ROLE_TRIP_PARTICIPANT } });
+  const roles = await db.role.findAll({ where: { roleName: sendTo.roleNames } });
   const assignments = await db.tripPeopleRole.findAll({
-    where: { tripId: trip.id, roleId: role?.id ?? null, status: statuses },
+    where: { tripId: trip.id, roleId: roles.map((r) => r.id), status: sendTo.statuses },
     include: [{ model: db.person, as: "person", attributes: ["id", "firstName", "lastName", "email"] }],
     order: [["id", "ASC"]],
   });
-  let people = assignments.map((a) => a.person).filter(Boolean);
+  const byId = new Map();
+  for (const { person } of assignments) {
+    if (person && !byId.has(person.id)) byId.set(person.id, person);
+  }
+  let people = [...byId.values()];
 
   if (body.sendTo === "selected") {
     const ids = Array.isArray(body.personIds) ? body.personIds.map(Number) : [];

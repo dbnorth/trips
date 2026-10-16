@@ -104,7 +104,10 @@ describe("Feature 46 — Email Trip Team", () => {
   it("Selected participants shows the participant picker", async () => {
     const wrapper = await mountDialog();
     expect(component(wrapper, "VAutocomplete", "Participants")).toBeUndefined();
-    expect(wrapper.text()).toContain("Recipients: 3 participants");
+    expect(wrapper.text()).toContain("Recipients: 4 participants");
+
+    await setValue(wrapper, "VRadioGroup", "Send to", "accepted");
+    expect(wrapper.text()).toContain("Recipients: 1 participant");
 
     await setValue(wrapper, "VRadioGroup", "Send to", "selected");
 
@@ -113,10 +116,11 @@ describe("Feature 46 — Email Trip Team", () => {
       "Ana Lopez",
       "Ben Lopez",
       "Cy Lopez",
+      "Lee Lopez (Trip Leader)",
     ]);
     expect(wrapper.text()).toContain("Recipients: 0 participants");
 
-    await setValue(wrapper, "VAutocomplete", "Participants", [1, 3]);
+    await setValue(wrapper, "VAutocomplete", "Participants", [1, 5]);
     expect(wrapper.text()).toContain("Recipients: 2 participants");
 
     wrapper.unmount();
@@ -155,7 +159,7 @@ describe("Feature 46 — Email Trip Team", () => {
     const confirm = wrapper.findComponent(ConfirmDialog);
     expect(confirm.props("modelValue")).toBe(true);
     expect(confirm.props("title")).toBe("Are you sure?");
-    expect(confirm.text()).toContain("Send this email to 3 participants?");
+    expect(confirm.text()).toContain("Send this email to 4 participants?");
     expect(TripServices.sendTeamEmail).not.toHaveBeenCalled();
 
     wrapper.unmount();
