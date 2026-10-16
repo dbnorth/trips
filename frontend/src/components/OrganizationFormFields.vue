@@ -23,6 +23,14 @@ defineProps({
     class="mb-2"
   />
   <v-text-field v-model="modelValue.email" label="Email" type="email" density="compact" autocomplete="off" />
+  <v-checkbox
+    v-model="modelValue.testMode"
+    label="Test mode"
+    hint="Send every email for this organization to the organization email instead of the real recipients."
+    persistent-hint
+    density="compact"
+    class="mb-2"
+  />
   <v-select
     v-model="modelValue.colorFamily"
     :items="COLOR_OPTIONS"

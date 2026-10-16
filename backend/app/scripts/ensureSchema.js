@@ -127,6 +127,21 @@ const ensureOrganizationMedicalAgreementFileName = async () => {
   logger.info("organizations.medicalAgreementFileName column added.");
 };
 
+const ensureOrganizationTestMode = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'organizations'
+       AND COLUMN_NAME = 'testMode'`
+  );
+  if (rows.length) return;
+
+  await db.sequelize.query(
+    "ALTER TABLE organizations ADD COLUMN testMode TINYINT(1) NOT NULL DEFAULT 0 AFTER subdomain"
+  );
+  logger.info("organizations.testMode column added.");
+};
+
 const ensureTripPeopleRoleTripWorkerRoleId = async () => {
   const [rows] = await db.sequelize.query(
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -1257,6 +1272,7 @@ export const ensureSchema = async () => {
   await ensureOrganizationSubdomain();
   await ensureOrganizationAgreementFileName();
   await ensureOrganizationMedicalAgreementFileName();
+  await ensureOrganizationTestMode();
   await ensureTripPeopleRoleTripWorkerRoleId();
   await ensurePersonProfileFields();
   await ensureTripPeopleRoleApplicationFields();

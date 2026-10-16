@@ -101,6 +101,8 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `PUT` | `/trips/organizations/:id/medical-agreement` | auth | Save medical agreement `{ content }` |
 | `DELETE` | `/trips/organizations/:id` | sysadmin | Delete |
 
+Create, update, and detail include `testMode` (boolean, default `false`) — Feature 49.
+
 ---
 
 ## Document types & person documents — Features 4, 22, 24

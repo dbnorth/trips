@@ -88,13 +88,37 @@ export const buildTemplateMessage = async ({
 };
 
 /**
+ * When the trip's organization is in test mode, send to the organization email instead,
+ * naming the real recipients on the first line. Returns `{ message }` or `{ reason }`.
+ */
+const applyOrganizationTestMode = async (tripId, message) => {
+  const trip = await db.trip.findByPk(tripId, { attributes: ["orgId"] });
+  const org = trip?.orgId
+    ? await db.organization.findByPk(trip.orgId, { attributes: ["testMode", "email"] })
+    : null;
+  if (!org?.testMode) return { message };
+  const orgEmail = (org.email || "").trim();
+  if (!orgEmail) return { reason: "Test mode: the organization has no email." };
+  return {
+    message: {
+      ...message,
+      to: orgEmail,
+      subject: `[Test] ${message.subject}`,
+      text: `TEST MODE - intended for: ${message.to}\n\n${message.text}`,
+    },
+  };
+};
+
+/**
  * Send one template to one trip participant with tokens filled in, and record it in `emailLog`.
  * Takes the same options as `buildTemplateMessage`.
  * Returns `{ status: "sent", emailLogId }`, `{ status: "skipped", reason }`, or `{ status: "failed", reason }`.
  */
 export const sendTemplateEmail = async (options) => {
   const { template, tripId, personId } = options;
-  const { message, reason } = await buildTemplateMessage(options);
+  const built = await buildTemplateMessage(options);
+  if (!built.message) return { status: "skipped", reason: built.reason };
+  const { message, reason } = await applyOrganizationTestMode(tripId, built.message);
   if (!message) return { status: "skipped", reason };
   const { to } = message;
   const settings = readSettings();

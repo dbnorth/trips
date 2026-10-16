@@ -143,6 +143,7 @@ Notes:
 | medicalAgreementFileName | STRING(500) | Medical agreement Markdown path under `agreements/` |
 | colorFamily | STRING(50) | UI theme |
 | subdomain | STRING(63) | optional, unique (lowercase); org branded host label — Feature 15 |
+| testMode | BOOLEAN | required, default `false`; emails for the org's trips go to the org email — Feature 49 |
 | version | INTEGER | required, default `0` |
 
 **Associations:** `hasMany` orgPeopleRole, trip, emailTemplate, workerRole (CASCADE).
