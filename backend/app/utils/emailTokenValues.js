@@ -1,3 +1,4 @@
+import { Op } from "sequelize";
 import db from "../models/index.js";
 import { ROLE_TRIP_LEADER } from "../authorization/accessControl.js";
 
@@ -18,6 +19,7 @@ export const VALUE_SOURCES = [
   { valueSource: "participant.email", label: "Participant email" },
   { valueSource: "participant.amountRaised", label: "Participant amount raised" },
   { valueSource: "participant.amountOwed", label: "Participant amount owed" },
+  { valueSource: "participant.tripRole", label: "Participant trip role" },
   { valueSource: "primaryLeader.firstName", label: "Primary trip leader first name" },
   { valueSource: "primaryLeader.lastName", label: "Primary trip leader last name" },
   { valueSource: "primaryLeader.preferredName", label: "Primary trip leader preferred name" },
@@ -102,6 +104,22 @@ const loadPrimaryLeader = async (tripId) => {
   return row?.person || null;
 };
 
+/** Worker role name on the person's earliest assignment on the trip that has a trip role. */
+const loadParticipantTripRole = async (tripId, personId) => {
+  const row = await db.tripPeopleRole.findOne({
+    where: { tripId, peopleId: personId, tripWorkerRoleId: { [Op.ne]: null } },
+    include: [
+      {
+        model: db.tripWorkerRole,
+        as: "tripWorkerRole",
+        include: [{ model: db.workerRole, as: "workerRole" }],
+      },
+    ],
+    order: [["id", "ASC"]],
+  });
+  return row?.tripWorkerRole?.workerRole?.name || "";
+};
+
 /** A participant's trip cost (`null` when unknown). The assignment's participant cost overrides the trip's. */
 export const participantCost = (trip, assignment) => {
   const costRaw =
@@ -132,7 +150,9 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
 
   let amountRaised = "";
   let amountOwed = "";
+  let tripRole = "";
   if (trip && person) {
+    tripRole = await loadParticipantTripRole(trip.id, person.id);
     const assignment = await db.tripPeopleRole.findOne({
       where: { tripId: trip.id, peopleId: person.id },
       order: [["id", "ASC"]],
@@ -159,6 +179,7 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
     "participant.email": text(person?.email),
     "participant.amountRaised": amountRaised,
     "participant.amountOwed": amountOwed,
+    "participant.tripRole": tripRole,
     "primaryLeader.firstName": text(leader?.firstName),
     "primaryLeader.lastName": text(leader?.lastName),
     "primaryLeader.preferredName": preferredName(leader),
