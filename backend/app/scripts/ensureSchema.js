@@ -962,6 +962,19 @@ const ensureEmailTemplateToAddress = async () => {
   }
 };
 
+const ensureEmailLogToEmailLength = async () => {
+  const [cols] = await db.sequelize.query(
+    `SELECT CHARACTER_MAXIMUM_LENGTH AS maxLength FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailLogs'
+       AND COLUMN_NAME = 'toEmail'`
+  );
+  if (cols.length && Number(cols[0].maxLength) < 1000) {
+    await db.sequelize.query("ALTER TABLE emailLogs MODIFY COLUMN toEmail VARCHAR(1000) NOT NULL");
+    logger.info("emailLogs.toEmail widened to 1000 characters.");
+  }
+};
+
 const ensureEmailTemplateSchedule = async () => {
   const columns = [
     ["scheduleRule", "VARCHAR(20) NULL"],
@@ -1167,6 +1180,7 @@ export const ensureSchema = async () => {
   await ensureEmailTokens();
   await ensureEmailTemplateToAddress();
   await ensureEmailTemplateSchedule();
+  await ensureEmailLogToEmailLength();
   await ensureTripPrimaryLeader();
   await ensureTripFlightSegmentCabinAndSeat();
   await ensureOrganizationWebsiteUrl();
