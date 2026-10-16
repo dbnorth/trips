@@ -237,16 +237,16 @@ Do not implement behavior not in this spec.
 
 ## Definition of Done
 
-*   [ ] `nodemailer` added; one email service for template sends (**FR-001**, **FR-002**, **FR-003**)
-*   [ ] Skips with no recipients or no sender (**FR-004**, **FR-005**)
-*   [ ] `.env` settings, file mode, and smtp mode (**FR-006** to **FR-010**)
-*   [ ] Email log row per email sent; failures logged, not recorded (**FR-011**, **FR-012**)
-*   [ ] `emailLog.toEmail` widened (**FR-013**)
-*   [ ] `.env.example`, `.gitignore`, and deploy workflow updated (**FR-014**, **FR-015**)
-*   [ ] Tests send no real email (**FR-016**)
-*   [ ] Automated tests for every Gherkin scenario
-*   [ ] Living reference updated in this PR
-*   [ ] `npm test` green
+*   [x] `nodemailer` added; one email service for template sends (**FR-001**, **FR-002**, **FR-003**)
+*   [x] Skips with no recipients or no sender (**FR-004**, **FR-005**)
+*   [x] `.env` settings, file mode, and smtp mode (**FR-006** to **FR-010**)
+*   [x] Email log row per email sent; failures logged, not recorded (**FR-011**, **FR-012**)
+*   [x] `emailLog.toEmail` widened (**FR-013**)
+*   [x] `.env.example`, `.gitignore`, and deploy workflow updated (**FR-014**, **FR-015**)
+*   [x] Tests send no real email (**FR-016**)
+*   [x] Automated tests for every Gherkin scenario
+*   [x] Living reference updated in this PR
+*   [x] `npm test` green
 *   [ ] On `feature/43-email-delivery`; PR → `dev`
 
 ---
