@@ -21,7 +21,7 @@ const EmailTemplate = db.emailTemplate;
 const EmailType = db.emailType;
 const Trip = db.trip;
 const Organization = db.organization;
-const FUNCTION_CODES = ["Scheduled", "Send Now"];
+const FUNCTION_CODES = ["Scheduled", "Send Now", "Trip Participant"];
 const SCHEDULE_RULES = ["daily", "weekly", "before-start"];
 const templateFields = [
   "tripId",
@@ -174,7 +174,7 @@ const validateOrganizationTemplateFields = async (body) => {
   }
   const functionCode = trimRequired(body.functionCode);
   if (!FUNCTION_CODES.includes(functionCode)) {
-    return { error: { status: 400, message: "Function code must be Scheduled or Send Now." } };
+    return { error: { status: 400, message: "Function code must be Scheduled, Send Now, or Trip Participant." } };
   }
   const { schedule, error: scheduleError } = validateSchedule(body, functionCode);
   if (scheduleError) return { error: scheduleError };

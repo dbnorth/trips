@@ -7,6 +7,8 @@
  * Spec: features/feature-41-email-template-to-address.md
  * Feature 42 — Email Template Schedule
  * Spec: features/feature-42-email-template-schedule.md
+ * Feature 46 — Email Trip Team
+ * Spec: features/feature-46-email-trip-team.md
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -94,7 +96,11 @@ describe("Feature 39 — Email Types and Organization Email Templates", () => {
     expect(emailType).toBeTruthy();
     expect(emailType.props("items").map((item) => item.title)).toContain("Application received");
     expect(functionCode).toBeTruthy();
-    expect(functionCode.props("items").map((item) => item.title)).toEqual(["Scheduled", "Send Now"]);
+    expect(functionCode.props("items").map((item) => item.title)).toEqual([
+      "Scheduled",
+      "Send Now",
+      "Trip Participant",
+    ]);
 
     wrapper.unmount();
   });
@@ -302,5 +308,21 @@ describe("Feature 42 — Email Template Schedule", () => {
     expect(daysField()).toBeTruthy();
 
     wrapper.unmount();
+  });
+
+  describe("Feature 46 — Email Trip Team", () => {
+    it("Template form offers Trip Participant function code", async () => {
+      const { wrapper } = await mountForm();
+      await flushPromises();
+
+      expect(
+        selectByLabel(wrapper, "Function code").props("items").map((item) => item.title)
+      ).toEqual(["Scheduled", "Send Now", "Trip Participant"]);
+
+      await choose(wrapper, "Function code", "Trip Participant");
+      expect(selectByLabel(wrapper, "Schedule")).toBeUndefined();
+
+      wrapper.unmount();
+    });
   });
 });

@@ -12,6 +12,7 @@ import ViewPersonProfileDialog from "../components/ViewPersonProfileDialog.vue";
 import ViewTripApplicationDialog from "../components/ViewTripApplicationDialog.vue";
 import TripWorkerRolesCard from "../components/TripWorkerRolesCard.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import TripTeamEmailDialog from "../components/TripTeamEmailDialog.vue";
 import ExportServices from "../services/exportServices.js";
 import TripTravelOptionServices from "../services/tripTravelOptionServices.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
@@ -40,6 +41,7 @@ const showAddParticipant = ref(false);
 const showEditParticipant = ref(false);
 const editParticipant = ref(null);
 const showEditTrip = ref(false);
+const showTeamEmail = ref(false);
 const showViewProfile = ref(false);
 const viewPersonId = ref(null);
 const showViewApplication = ref(false);
@@ -308,6 +310,7 @@ onMounted(refresh);
       <div class="d-flex align-center ga-2">
         <v-btn v-if="trip" variant="tonal" @click="openTripStatus">Trip Status</v-btn>
         <v-btn v-if="trip" variant="tonal" @click="showEditTrip = true">Edit trip</v-btn>
+        <v-btn v-if="trip" variant="tonal" @click="showTeamEmail = true">Email team</v-btn>
       </div>
     </div>
 
@@ -538,6 +541,11 @@ onMounted(refresh);
       confirm-text="Uncancel"
       :loading="uncancelParticipantSaving"
       @confirm="confirmUncancelParticipant"
+    />
+    <TripTeamEmailDialog
+      v-model="showTeamEmail"
+      :trip-id="tripId"
+      :participants="participants"
     />
   </v-container>
 </template>
