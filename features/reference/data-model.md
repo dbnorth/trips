@@ -44,7 +44,7 @@ Notes:
 | `emailTemplate` | 10, 39, 41, 42 | Email templates |
 | `emailType` | 39 | Email type catalog |
 | `emailToken` | 40 | Email template token catalog |
-| `emailLog` | 1 | Login / email audit (no associations) |
+| `emailLog` | 1, 43 | Login / email audit (no associations) |
 
 ---
 
@@ -589,19 +589,19 @@ Seeded global catalog. No org column.
 
 ---
 
-## `emailLog` — Feature 1
+## `emailLog` — Features 1, 43
 
 | Field | Type | Rules |
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
-| toEmail | STRING | required |
-| fromEmail | STRING | |
+| toEmail | STRING(1000) | required. For template sends, the filled **To** list (Feature 43) |
+| fromEmail | STRING | For template sends, the address the email was sent From |
 | dateTime | DATE | required, default NOW |
 | subject | STRING(500) | |
-| content | TEXT | |
-| emailId | STRING(255) | |
+| content | TEXT | For template sends, the plain-text body |
+| emailId | STRING(255) | For template sends, the mail server message ID (smtp mode) or the file name (file mode) |
 
-**Associations:** none. No CRUD API.
+**Associations:** none. No CRUD API. Feature 43 adds one row per template email sent; failed and skipped sends add no row.
 
 ---
 
