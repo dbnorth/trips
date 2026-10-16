@@ -9,6 +9,7 @@ import {
   ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
 import { withCapacityFields } from "../utils/tripRoleCapacity.js";
+import { sendDonationEventEmails } from "../utils/eventEmails.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
@@ -229,6 +230,7 @@ exports.createPublicDonation = async (req, res) => {
       dateTime: new Date(),
       paymentInfo: paymentInfo || null,
     });
+    await sendDonationEventEmails(donation);
     res.send({ message: "Thank you for your donation!", donation, donor: donorRecord });
   } catch (err) {
     res.status(500).send({ message: err.message });

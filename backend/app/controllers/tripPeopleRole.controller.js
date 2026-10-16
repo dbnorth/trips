@@ -26,6 +26,7 @@ import {
   uncancelApplicationAssignment,
 } from "../utils/applicationCancel.js";
 import { flightPurchaseInclude } from "../utils/flightPurchaseFields.js";
+import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -326,6 +327,7 @@ exports.create = async (req, res) => {
     }
 
     const data = await TripPeopleRole.create(payload);
+    await sendApplicationEventEmails(data, null);
     const full = await TripPeopleRole.findByPk(data.id, { include: listIncludes });
     res.send(full);
   } catch (err) {
@@ -458,8 +460,10 @@ exports.update = async (req, res) => {
       }
     }
 
+    const previousStatus = row.status;
     const result = await optimisticUpdate(TripPeopleRole, req.params.id, body, fields);
     if (!result.ok) return res.status(result.status).send({ message: result.message });
+    await sendApplicationEventEmails(result.data, previousStatus);
     const full = await TripPeopleRole.findByPk(req.params.id, { include: listIncludes });
     res.send(full);
   } catch (err) {

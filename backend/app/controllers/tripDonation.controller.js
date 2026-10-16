@@ -8,6 +8,7 @@ import {
 } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import { normalizeEmail } from "../utils/userPerson.js";
+import { sendDonationEventEmails } from "../utils/eventEmails.js";
 
 const TripDonation = db.tripDonation;
 const TripPeopleRole = db.tripPeopleRole;
@@ -143,6 +144,7 @@ exports.create = async (req, res) => {
       ...donationBody,
       donorId: donorRecord?.id ?? null,
     });
+    await sendDonationEventEmails(data);
     res.send(await loadDonation(data.id));
   } catch (err) {
     res.status(500).send({ message: err.message });

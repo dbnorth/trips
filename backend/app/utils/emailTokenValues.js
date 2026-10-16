@@ -102,23 +102,22 @@ const loadPrimaryLeader = async (tripId) => {
   return row?.person || null;
 };
 
-/**
- * Amount a participant has raised for a trip, and what they still owe (`null` when the cost is unknown).
- * The assignment's participant cost overrides the trip's.
- */
-export const participantAmounts = async (trip, personId, assignment) => {
-  const raised = Number(
-    (await db.tripDonation.sum("amount", { where: { tripId: trip.id, personId } })) || 0
-  );
+/** A participant's trip cost (`null` when unknown). The assignment's participant cost overrides the trip's. */
+export const participantCost = (trip, assignment) => {
   const costRaw =
     assignment?.participantCost != null && assignment.participantCost !== ""
       ? assignment.participantCost
       : trip.participantCost;
-  const owed =
-    costRaw != null && costRaw !== "" && !Number.isNaN(Number(costRaw))
-      ? Math.max(0, Number(costRaw) - raised)
-      : null;
-  return { raised, owed };
+  return costRaw != null && costRaw !== "" && !Number.isNaN(Number(costRaw)) ? Number(costRaw) : null;
+};
+
+/** Amount a participant has raised for a trip, and what they still owe (`null` when the cost is unknown). */
+export const participantAmounts = async (trip, personId, assignment) => {
+  const raised = Number(
+    (await db.tripDonation.sum("amount", { where: { tripId: trip.id, personId } })) || 0
+  );
+  const cost = participantCost(trip, assignment);
+  return { raised, owed: cost == null ? null : Math.max(0, cost - raised) };
 };
 
 /**

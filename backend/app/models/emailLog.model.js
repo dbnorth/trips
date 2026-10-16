@@ -9,6 +9,9 @@ const EmailLog = SequelizeInstance.define("emailLog", {
   subject: { type: Sequelize.STRING(500) },
   content: { type: Sequelize.TEXT },
   emailId: { type: Sequelize.STRING(255) },
+  emailTemplateId: { type: Sequelize.INTEGER, allowNull: true },
+  tripId: { type: Sequelize.INTEGER, allowNull: true },
+  personId: { type: Sequelize.INTEGER, allowNull: true },
 });
 
 export default EmailLog;
