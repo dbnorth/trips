@@ -63,6 +63,15 @@ For multi-step work, a brief plan with verify steps:
 
 Prefer strong criteria (mapped scenarios, commands) over “make it work.”
 
+## 5. Read only what the task needs
+
+**The reference is the current state; specs are history.**
+
+- For current behavior, API, and schema, read `features/reference/` (`behavior.md`, `api.md`, `data-model.md`) first. It reflects every shipped feature, including later changes to earlier ones.
+- Open feature specs only for the active feature and the features it lists under **Depends on**. Find other features through the **Summary** column of the catalog in `features/README.md`; don't open older specs to learn current behavior, because a later feature may have changed them.
+- Search for the specific endpoint, model, component, or FR before reading whole files, and read large files in ranges.
+- If a spec and the reference disagree, name the conflict before coding (constitution Principle 6).
+
 ---
 
 **Working if:** smaller diffs, fewer speculative abstractions, clarifying questions before wrong implementation.

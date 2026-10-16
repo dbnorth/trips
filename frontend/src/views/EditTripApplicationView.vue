@@ -17,7 +17,7 @@ import {
   tripParticipantStatusLabel,
   tripParticipantStatusColor,
 } from "../utils/tripParticipantStatus.js";
-import { isProfileComplete, isUnder18, normalizeYesNo, otherLanguageFieldsFromPerson, otherLanguagePayload } from "../utils/personProfile.js";
+import { isProfileComplete, isUnder18, normalizeYesNo, otherLanguageFieldsFromPerson } from "../utils/personProfile.js";
 import {
   arePersonDocumentsUploaded,
   isApplicationFormComplete,
@@ -390,25 +390,6 @@ const loadPerson = async () => {
   }
 };
 
-const saveHealthProfile = async () => {
-  if (!personId.value || !trip.value?.orgId) return;
-  const res = await PersonServices.update(personId.value, {
-    hasAllergies: normalizeYesNo(healthForm.value.hasAllergies),
-    allergiesDescription: healthForm.value.hasAllergies === true
-      ? healthForm.value.allergiesDescription?.trim() || null
-      : null,
-    takesMedication: normalizeYesNo(healthForm.value.takesMedication),
-    medicalConditionIds: healthForm.value.takesMedication === true
-      ? healthForm.value.medicalConditionIds || []
-      : [],
-    ...otherLanguagePayload(healthForm.value),
-    orgId: trip.value.orgId,
-    version: healthForm.value.version,
-  });
-  person.value = { ...(person.value || {}), ...(res.data || {}) };
-  applyHealthFromPerson(res.data || person.value);
-};
-
 const applyFormFromApplication = (row) => {
   form.value = {
     tripWorkerRoleId: row?.tripWorkerRoleId ?? null,
@@ -560,7 +541,6 @@ const save = async () => {
 
   saving.value = true;
   try {
-    await saveHealthProfile();
     const res = await TripServices.updateApplication(props.tripId, {
       tripWorkerRoleId: Number(form.value.tripWorkerRoleId),
       willSelfFund: !!form.value.willSelfFund,
@@ -796,6 +776,7 @@ onMounted(load);
           :org-id="trip?.orgId"
           health-only
           :disabled="!canEdit"
+          @update-profile="showProfileDialog = true"
         />
 
         <div class="text-subtitle-2 mb-1 mt-2">Funding</div>

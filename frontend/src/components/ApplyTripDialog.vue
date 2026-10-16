@@ -13,12 +13,10 @@ import PersonProfileFields from "./PersonProfileFields.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import ApplicationSubmitUnavailableAlert from "./ApplicationSubmitUnavailableAlert.vue";
 import {
-  getMissingProfileFields,
   isProfileComplete,
   isUnder18,
   normalizeYesNo,
   otherLanguageFieldsFromPerson,
-  otherLanguagePayload,
 } from "../utils/personProfile.js";
 import {
   arePersonDocumentsUploaded,
@@ -209,13 +207,6 @@ const profileComplete = computed(() =>
   )
 );
 
-const missingProfileFields = computed(() =>
-  getMissingProfileFields(
-    { ...(person.value || {}), ...healthForm.value },
-    { orgId: trip.value?.orgId }
-  )
-);
-
 const onProfileSaved = async () => {
   showProfileDialog.value = false;
   await Promise.all([loadPerson(), loadPersonDocuments()]);
@@ -297,6 +288,7 @@ const structuralSubmitBlockers = computed(() =>
 
 const submitUnavailableReasons = computed(() => {
   if (structuralSubmitBlockers.value.length) return structuralSubmitBlockers.value;
+  if (!editingApplication.value) return [];
   if (!showPrimarySubmitButton.value || readyToSubmit.value) return [];
 
   const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
@@ -478,25 +470,6 @@ const loadPerson = async () => {
     person.value = null;
     applyHealthFromPerson(null);
   }
-};
-
-const saveHealthProfile = async () => {
-  if (!personId.value || !trip.value?.orgId) return;
-  const res = await PersonServices.update(personId.value, {
-    hasAllergies: normalizeYesNo(healthForm.value.hasAllergies),
-    allergiesDescription: healthForm.value.hasAllergies === true
-      ? healthForm.value.allergiesDescription?.trim() || null
-      : null,
-    takesMedication: normalizeYesNo(healthForm.value.takesMedication),
-    medicalConditionIds: healthForm.value.takesMedication === true
-      ? healthForm.value.medicalConditionIds || []
-      : [],
-    ...otherLanguagePayload(healthForm.value),
-    orgId: trip.value.orgId,
-    version: healthForm.value.version,
-  });
-  person.value = { ...(person.value || {}), ...(res.data || {}) };
-  applyHealthFromPerson(res.data || person.value);
 };
 
 const loadExistingApplication = async () => {
@@ -738,7 +711,6 @@ const save = async () => {
 
   saving.value = true;
   try {
-    await saveHealthProfile();
     const payload = buildPayload();
     if (editingApplication.value) {
       await TripServices.updateApplication(props.tripId, payload);
@@ -820,9 +792,6 @@ const confirmUncancelApplication = async () => {
             class="mb-3"
           >
             Your profile needs to be completed before this application can be submitted.
-            <ul v-if="missingProfileFields.length" class="mt-2 mb-0 pl-4">
-              <li v-for="field in missingProfileFields" :key="field">{{ field }}</li>
-            </ul>
             <div class="mt-3">
               <v-btn
                 size="small"
@@ -881,6 +850,7 @@ const confirmUncancelApplication = async () => {
             :org-id="trip?.orgId"
             health-only
             :disabled="!canEdit"
+            @update-profile="showProfileDialog = true"
           />
 
           <div class="text-subtitle-2 mb-1 mt-2">Funding</div>
