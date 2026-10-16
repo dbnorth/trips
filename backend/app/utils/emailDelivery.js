@@ -24,8 +24,37 @@ const readSettings = () => {
     secure: env.SMTP_SECURE === "true",
     user: env.SMTP_USER || "",
     password: env.SMTP_PASSWORD || "",
+    passwordSecretId: (env.SMTP_PASSWORD_SECRET_ID || "").trim(),
+    secretsTokenFile: (env.SECRETS_AGENT_TOKEN_FILE || "").trim() || "/var/run/awssmatoken",
     sender: (env.EMAIL_SENDER || "").trim(),
   };
+};
+
+const SECRETS_AGENT_URL = "http://localhost:2773/secretsmanager/get";
+const SECRET_READ_FAILED = "Could not read the SMTP password from AWS Secrets Manager.";
+
+/** Read a plain-text secret from the AWS Secrets Manager Agent running on this server. */
+const readSecret = async (secretId, tokenFile) => {
+  const token = (await fs.readFile(tokenFile, "utf8")).trim();
+  const response = await fetch(`${SECRETS_AGENT_URL}?secretId=${encodeURIComponent(secretId)}`, {
+    headers: { "X-Aws-Parameters-Secrets-Token": token },
+  });
+  if (!response.ok) throw new Error(`Secrets Manager Agent returned status ${response.status}.`);
+  const { SecretString } = await response.json();
+  if (typeof SecretString !== "string" || !SecretString) {
+    throw new Error("Secret has no SecretString.");
+  }
+  return SecretString;
+};
+
+const smtpPassword = async (settings) => {
+  if (!settings.passwordSecretId) return settings.password;
+  try {
+    return await readSecret(settings.passwordSecretId, settings.secretsTokenFile);
+  } catch (err) {
+    logger.error(`Reading secret ${settings.passwordSecretId} failed: ${err.message}`);
+    throw new Error(SECRET_READ_FAILED);
+  }
 };
 
 const fileStamp = (date) =>
@@ -44,11 +73,12 @@ const writeMessageFile = async (dir, message) => {
 
 const deliver = async (settings, message) => {
   if (settings.mode === "file") return writeMessageFile(settings.fileDir, message);
+  const auth = settings.user ? { user: settings.user, pass: await smtpPassword(settings) } : null;
   const transport = emailTransport.create({
     host: settings.host,
     port: settings.port,
     secure: settings.secure,
-    ...(settings.user ? { auth: { user: settings.user, pass: settings.password } } : {}),
+    ...(auth ? { auth } : {}),
   });
   const info = await transport.sendMail(message);
   return info.messageId;
