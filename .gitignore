@@ -7,12 +7,15 @@ frontend/dist/
 backend/deploy/
 backend/logs/
 backend/uploads/
+backend/test-mail/
+backend/test-mail-test/
 backend/images/**
 !backend/images/**/
 !backend/images/**/.gitkeep
 backend/agreements/**
 !backend/agreements/**/
 !backend/agreements/**/.gitkeep
+backend/agreements-test/
 backend/documents/**
 !backend/documents/**/
 !backend/documents/**/.gitkeep

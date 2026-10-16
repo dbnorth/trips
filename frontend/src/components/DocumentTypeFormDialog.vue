@@ -16,6 +16,9 @@ const formError = ref("");
 const emptyForm = () => ({
   description: "",
   type: null,
+  documentNumberRequired: false,
+  allowSpecialization: false,
+  instructions: "",
 });
 
 const form = ref(emptyForm());
@@ -39,6 +42,9 @@ const loadRow = async () => {
     form.value = {
       description: row.description || "",
       type: row.type || null,
+      documentNumberRequired: !!row.documentNumberRequired,
+      allowSpecialization: !!row.allowSpecialization,
+      instructions: row.instructions || "",
     };
   } catch (e) {
     formError.value = e.response?.data?.message || "Unable to load document type.";
@@ -71,6 +77,9 @@ const save = async () => {
   const payload = {
     description: form.value.description.trim(),
     type: form.value.type,
+    documentNumberRequired: !!form.value.documentNumberRequired,
+    allowSpecialization: !!form.value.allowSpecialization,
+    instructions: form.value.instructions?.trim() || null,
   };
 
   try {
@@ -107,7 +116,29 @@ const save = async () => {
           :items="DOCUMENT_TYPE_OPTIONS"
           label="Type"
           density="compact"
+          class="mb-2"
           hide-details
+        />
+        <v-checkbox
+          v-model="form.documentNumberRequired"
+          label="Document number required"
+          density="compact"
+          hide-details
+          class="mb-2"
+        />
+        <v-checkbox
+          v-model="form.allowSpecialization"
+          label="Allow Specialization"
+          density="compact"
+          hide-details
+          class="mb-2"
+        />
+        <v-textarea
+          v-model="form.instructions"
+          label="Instructions"
+          density="compact"
+          rows="4"
+          auto-grow
         />
       </v-card-text>
       <v-card-actions>

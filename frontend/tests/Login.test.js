@@ -8,6 +8,7 @@ import { flushPromises } from "@vue/test-utils";
 import Login from "../src/views/Login.vue";
 import authServices from "../src/services/authServices.js";
 import Utils from "../src/config/utils.js";
+import { getRegistrationHostSubdomain } from "../src/utils/hostSubdomain.js";
 import { mountWithPlugins } from "./testUtils.js";
 
 vi.mock("../src/services/authServices.js", () => ({
@@ -15,10 +16,15 @@ vi.mock("../src/services/authServices.js", () => ({
     loginUser: vi.fn(),
     registerUser: vi.fn(),
     getRegisterOrganizations: vi.fn().mockResolvedValue({ data: [] }),
+    getRegisterOrganizationBySubdomain: vi.fn().mockRejectedValue({ response: { status: 404 } }),
     logoutUser: vi.fn(),
     changePassword: vi.fn(),
     me: vi.fn(),
   },
+}));
+
+vi.mock("../src/utils/hostSubdomain.js", () => ({
+  getRegistrationHostSubdomain: vi.fn(() => null),
 }));
 
 const authPayload = {
@@ -44,7 +50,11 @@ describe("Feature 1 — Login", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    getRegistrationHostSubdomain.mockReturnValue(null);
     authServices.getRegisterOrganizations.mockResolvedValue({ data: [] });
+    authServices.getRegisterOrganizationBySubdomain.mockRejectedValue({
+      response: { status: 404 },
+    });
   });
 
   describe("US-1.1 — Register an account", () => {
@@ -56,19 +66,22 @@ describe("Feature 1 — Login", () => {
       await clickByText(wrapper, "Add person / create account");
 
       const fields = wrapper.findAllComponents({ name: "VTextField" });
-      expect(fields.length).toBeGreaterThanOrEqual(5);
+      expect(fields.length).toBeGreaterThanOrEqual(6);
       await fields[0].vm.$emit("update:modelValue", "Jane");
-      await fields[1].vm.$emit("update:modelValue", "Doe");
-      await fields[2].vm.$emit("update:modelValue", "jane@example.com");
-      await fields[3].vm.$emit("update:modelValue", "password123");
-      await fields[4].vm.$emit("update:modelValue", "password123");
+      await fields[1].vm.$emit("update:modelValue", "");
+      await fields[2].vm.$emit("update:modelValue", "Doe");
+      await fields[4].vm.$emit("update:modelValue", "jane@example.com");
+      await fields[5].vm.$emit("update:modelValue", "password123");
+      await fields[6].vm.$emit("update:modelValue", "password123");
       await flushPromises();
 
       await clickByText(wrapper, "Create account");
 
       expect(authServices.registerUser).toHaveBeenCalledWith({
         firstName: "Jane",
+        middleName: null,
         lastName: "Doe",
+        preferredName: "Jane Doe",
         email: "jane@example.com",
         password: "password123",
         orgIds: [],
@@ -83,10 +96,11 @@ describe("Feature 1 — Login", () => {
 
       const fields = wrapper.findAllComponents({ name: "VTextField" });
       await fields[0].vm.$emit("update:modelValue", "Jane");
-      await fields[1].vm.$emit("update:modelValue", "Doe");
-      await fields[2].vm.$emit("update:modelValue", "jane@example.com");
-      await fields[3].vm.$emit("update:modelValue", "password123");
-      await fields[4].vm.$emit("update:modelValue", "different");
+      await fields[1].vm.$emit("update:modelValue", "");
+      await fields[2].vm.$emit("update:modelValue", "Doe");
+      await fields[4].vm.$emit("update:modelValue", "jane@example.com");
+      await fields[5].vm.$emit("update:modelValue", "password123");
+      await fields[6].vm.$emit("update:modelValue", "different");
       await flushPromises();
 
       await clickByText(wrapper, "Create account");
@@ -145,5 +159,104 @@ describe("Feature 1 — Login", () => {
       expect(authServices.logoutUser).toHaveBeenCalledWith(authPayload);
       expect(Utils.getStore("user")).toBeNull();
     });
+  });
+
+  describe("US-15.2 — Subdomain registration UI", () => {
+    it("Create-account hides organization picker when subdomain resolves", async () => {
+      getRegistrationHostSubdomain.mockReturnValue("hope");
+      authServices.getRegisterOrganizationBySubdomain.mockResolvedValue({
+        data: { id: 9, name: "Hope Mission", subdomain: "hope" },
+      });
+
+      const { wrapper } = await mountWithPlugins(Login);
+      await clickByText(wrapper, "Add person / create account");
+      await flushPromises();
+
+      expect(wrapper.text()).toContain("Joining Hope Mission");
+      expect(wrapper.text()).not.toContain("Organizations (optional)");
+      expect(authServices.getRegisterOrganizations).not.toHaveBeenCalled();
+    });
+
+    it("Apex host still shows optional organizations", async () => {
+      getRegistrationHostSubdomain.mockReturnValue(null);
+      authServices.getRegisterOrganizations.mockResolvedValue({
+        data: [{ id: 1, name: "Alpha Org" }],
+      });
+
+      const { wrapper } = await mountWithPlugins(Login);
+      await clickByText(wrapper, "Add person / create account");
+      await flushPromises();
+
+      expect(wrapper.text()).toContain("Organizations (optional)");
+      expect(wrapper.text()).not.toContain("Joining");
+      expect(authServices.getRegisterOrganizations).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("Feature 20 — Person Middle Name", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    getRegistrationHostSubdomain.mockReturnValue(null);
+    authServices.getRegisterOrganizations.mockResolvedValue({ data: [] });
+  });
+
+  it("Create-account form shows Middle name after First name", async () => {
+    const { wrapper } = await mountWithPlugins(Login);
+    await clickByText(wrapper, "Add person / create account");
+    await flushPromises();
+
+    const fields = wrapper.findAllComponents({ name: "VTextField" });
+    const labels = fields.map((c) => c.props("label"));
+    const firstIdx = labels.indexOf("First name");
+    const middleIdx = labels.indexOf("Middle name");
+    const lastIdx = labels.indexOf("Last name");
+    expect(firstIdx).toBeGreaterThan(-1);
+    expect(middleIdx).toBe(firstIdx + 1);
+    expect(lastIdx).toBe(middleIdx + 1);
+  });
+});
+
+describe("Feature 33 — Person Preferred Name", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    getRegistrationHostSubdomain.mockReturnValue(null);
+    authServices.getRegisterOrganizations.mockResolvedValue({ data: [] });
+  });
+
+  it("Create-account form shows Preferred name after Last name", async () => {
+    const { wrapper } = await mountWithPlugins(Login);
+    await clickByText(wrapper, "Add person / create account");
+    await flushPromises();
+
+    const fields = wrapper.findAllComponents({ name: "VTextField" });
+    const labels = fields.map((c) => c.props("label"));
+    const lastIdx = labels.indexOf("Last name");
+    const preferredIdx = labels.indexOf("Preferred name");
+    const emailIdx = labels.indexOf("Email");
+    expect(lastIdx).toBeGreaterThan(-1);
+    expect(preferredIdx).toBe(lastIdx + 1);
+    expect(emailIdx).toBe(preferredIdx + 1);
+    expect(fields[preferredIdx].props("hint")).toBe("Include a suffix such as M.D. or R.N. if appropriate.");
+  });
+
+  it("Preferred name defaults to first and last name", async () => {
+    const { wrapper } = await mountWithPlugins(Login);
+    await clickByText(wrapper, "Add person / create account");
+    await flushPromises();
+
+    const field = (label) =>
+      wrapper.findAllComponents({ name: "VTextField" }).find((c) => c.props("label") === label);
+
+    await field("First name").vm.$emit("update:modelValue", "Ada");
+    await field("Last name").vm.$emit("update:modelValue", "Applicant");
+    await flushPromises();
+    expect(field("Preferred name").props("modelValue")).toBe("Ada Applicant");
+
+    await field("Last name").vm.$emit("update:modelValue", "Lopez");
+    await flushPromises();
+    expect(field("Preferred name").props("modelValue")).toBe("Ada Lopez");
   });
 });

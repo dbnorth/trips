@@ -8,13 +8,25 @@ import {
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import { TRIP_PARTICIPANT_STATUSES } from "../models/tripPeopleRole.model.js";
 import {
-  loadLicenseRequired,
+  arePersonDocumentsUploaded,
+  isRequiredPassportUploaded,
+  isRequiredRoleDocumentUploaded,
+  loadPersonDocumentsForCompleteness,
+  loadWorkerRoleDocumentRequirements,
   loadPersonForCompleteness,
   MANUAL_TRIP_PARTICIPANT_STATUSES,
   resolveAppliedOrIncompleteStatus,
   shouldAutoSetApplicationStatus,
+  tripDocumentCompareDate,
 } from "../utils/tripParticipantApplicationStatus.js";
-import { loadOrganizationAgreement } from "../utils/organizationAgreement.js";
+import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
+import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
+import {
+  cancelApplicationAssignment,
+  uncancelApplicationAssignment,
+} from "../utils/applicationCancel.js";
+import { flightPurchaseInclude } from "../utils/flightPurchaseFields.js";
+import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -36,6 +48,12 @@ const fields = [
   "licenseStatus",
   "hasPreferredRoommate",
   "preferredRoommateNames",
+  "flightPurchaseOption",
+  "preferredDepartureAirportId",
+  "preferredReturnAirportId",
+  "preferredCabinClass",
+  "preferredAirlineId",
+  "preferredRefundableTicket",
   "agreementAccepted",
   "agreementSignatureName",
   "agreementDate",
@@ -43,6 +61,10 @@ const fields = [
   "agreementAdultLastName",
   "agreementAdultEmail",
   "agreementAdultRelationship",
+  "medicalAgreementAccepted",
+  "medicalAgreementDate",
+  "isPregnant",
+  "pregnancyDueDate",
   "assiginmentDateTime",
 ];
 
@@ -59,10 +81,17 @@ const listIncludes = [
         attributes: ["id", "name", "description", "licenseRequired", "documentTypeId", "status"],
         include: [
           { model: db.documentType, as: "documentType", attributes: ["id", "description", "type"] },
+          {
+            model: db.documentType,
+            as: "requiredDocumentTypes",
+            attributes: ["id", "description", "type"],
+            through: { attributes: [] },
+          },
         ],
       },
     ],
   },
+  ...flightPurchaseInclude,
 ];
 
 const exports = {};
@@ -100,9 +129,25 @@ const normalizeManualStatus = (value) => {
 
 const computeStatusForPayload = async (payload, orgId) => {
   const person = await loadPersonForCompleteness(payload.peopleId);
-  const licenseRequired = await loadLicenseRequired(payload.tripWorkerRoleId);
+  const personDocuments = await loadPersonDocumentsForCompleteness(payload.peopleId);
+  const { licenseRequired, requiredDocumentTypeIds } = await loadWorkerRoleDocumentRequirements(
+    payload.tripWorkerRoleId
+  );
+  const trip =
+    payload.tripId != null
+      ? await Trip.findByPk(payload.tripId, {
+          attributes: ["id", "startDate", "endDate", "requirePassport"],
+        })
+      : null;
   const agreement = orgId != null ? await loadOrganizationAgreement(orgId) : null;
   const agreementRequired = !!agreement?.exists && !!agreement?.content?.trim();
+  const medicalAgreement = orgId != null ? await loadOrganizationMedicalAgreement(orgId) : null;
+  const medicalAgreementRequired =
+    !!medicalAgreement?.exists &&
+    !!medicalAgreement?.content?.trim() &&
+    (person?.takesMedication === true || person?.takesMedication === 1);
+  const pregnancy = normalizeApplicationPregnancy(payload, { gender: person?.gender ?? null });
+  const documentCompareDate = tripDocumentCompareDate(trip);
   return resolveAppliedOrIncompleteStatus({
     person,
     tripWorkerRoleId: payload.tripWorkerRoleId,
@@ -111,6 +156,15 @@ const computeStatusForPayload = async (payload, orgId) => {
     licenseStatus: payload.licenseStatus || null,
     hasPreferredRoommate: !!payload.hasPreferredRoommate,
     preferredRoommateNames: payload.preferredRoommateNames || null,
+    flightPurchaseOption: payload.flightPurchaseOption || null,
+    preferredDepartureAirportId: payload.preferredDepartureAirportId ?? null,
+    preferredReturnAirportId: payload.preferredReturnAirportId ?? null,
+    preferredCabinClass: payload.preferredCabinClass || null,
+    preferredAirlineId: payload.preferredAirlineId ?? null,
+    preferredRefundableTicket:
+      payload.preferredRefundableTicket === true || payload.preferredRefundableTicket === false
+        ? payload.preferredRefundableTicket
+        : null,
     licenseRequired,
     agreementRequired,
     agreementAccepted: !!payload.agreementAccepted,
@@ -119,6 +173,22 @@ const computeStatusForPayload = async (payload, orgId) => {
     agreementAdultLastName: payload.agreementAdultLastName || null,
     agreementAdultEmail: payload.agreementAdultEmail || null,
     agreementAdultRelationship: payload.agreementAdultRelationship || null,
+    medicalAgreementRequired,
+    medicalAgreementAccepted: !!payload.medicalAgreementAccepted,
+    isPregnant: pregnancy.ok ? pregnancy.isPregnant : null,
+    pregnancyDueDate: pregnancy.ok ? pregnancy.pregnancyDueDate : null,
+    personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
+    requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
+      documents: personDocuments,
+      documentTypeIds: requiredDocumentTypeIds,
+      compareDate: documentCompareDate,
+    }),
+    requiredPassportUploaded: isRequiredPassportUploaded({
+      documents: personDocuments,
+      requirePassport: !!trip?.requirePassport,
+      compareDate: documentCompareDate,
+    }),
+    orgId,
   });
 };
 
@@ -248,7 +318,16 @@ exports.create = async (req, res) => {
       payload.agreementAdultRelationship = null;
     }
 
+    payload.medicalAgreementAccepted = !!payload.medicalAgreementAccepted;
+    if (payload.medicalAgreementAccepted) {
+      payload.medicalAgreementDate = payload.medicalAgreementDate || new Date();
+    } else {
+      payload.medicalAgreementAccepted = false;
+      payload.medicalAgreementDate = null;
+    }
+
     const data = await TripPeopleRole.create(payload);
+    await sendApplicationEventEmails(data, null);
     const full = await TripPeopleRole.findByPk(data.id, { include: listIncludes });
     res.send(full);
   } catch (err) {
@@ -324,6 +403,18 @@ exports.update = async (req, res) => {
         )
           ? body.agreementAdultRelationship
           : row.agreementAdultRelationship,
+        medicalAgreementAccepted: Object.prototype.hasOwnProperty.call(
+          body,
+          "medicalAgreementAccepted"
+        )
+          ? !!body.medicalAgreementAccepted
+          : !!row.medicalAgreementAccepted,
+        isPregnant: Object.prototype.hasOwnProperty.call(body, "isPregnant")
+          ? body.isPregnant
+          : row.isPregnant,
+        pregnancyDueDate: Object.prototype.hasOwnProperty.call(body, "pregnancyDueDate")
+          ? body.pregnancyDueDate
+          : row.pregnancyDueDate,
       };
       body.status = await computeStatusForPayload(merged, trip?.orgId);
     }
@@ -358,8 +449,21 @@ exports.update = async (req, res) => {
       }
     }
 
+    if (Object.prototype.hasOwnProperty.call(body, "medicalAgreementAccepted")) {
+      body.medicalAgreementAccepted = !!body.medicalAgreementAccepted;
+      if (!body.medicalAgreementAccepted) {
+        body.medicalAgreementDate = null;
+      } else if (!row.medicalAgreementAccepted) {
+        body.medicalAgreementDate = new Date();
+      } else {
+        body.medicalAgreementDate = row.medicalAgreementDate || new Date();
+      }
+    }
+
+    const previousStatus = row.status;
     const result = await optimisticUpdate(TripPeopleRole, req.params.id, body, fields);
     if (!result.ok) return res.status(result.status).send({ message: result.message });
+    await sendApplicationEventEmails(result.data, previousStatus);
     const full = await TripPeopleRole.findByPk(req.params.id, { include: listIncludes });
     res.send(full);
   } catch (err) {
@@ -376,6 +480,39 @@ exports.delete = async (req, res) => {
     }
     await TripPeopleRole.destroy({ where: { id: req.params.id } });
     res.send({ message: "Deleted." });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.cancel = async (req, res) => {
+  try {
+    const row = await TripPeopleRole.findByPk(req.params.id);
+    if (!row) return res.status(404).send({ message: "Record not found." });
+    if (!(await canManageTripPeople(req, row.tripId))) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+    const result = await cancelApplicationAssignment(row);
+    if (!result.ok) return res.status(result.status).send({ message: result.message });
+    const full = await TripPeopleRole.findByPk(req.params.id, { include: listIncludes });
+    res.send(full);
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.uncancel = async (req, res) => {
+  try {
+    const row = await TripPeopleRole.findByPk(req.params.id);
+    if (!row) return res.status(404).send({ message: "Record not found." });
+    if (!(await canManageTripPeople(req, row.tripId))) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+    const trip = await Trip.findByPk(row.tripId, { attributes: ["id", "orgId"] });
+    const result = await uncancelApplicationAssignment(row, { orgId: trip?.orgId });
+    if (!result.ok) return res.status(result.status).send({ message: result.message });
+    const full = await TripPeopleRole.findByPk(req.params.id, { include: listIncludes });
+    res.send(full);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

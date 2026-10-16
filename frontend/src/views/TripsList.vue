@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import OrganizationServices from "../services/organizationServices.js";
 import AddTripDialog from "../components/AddTripDialog.vue";
+import CopyTripDialog from "../components/CopyTripDialog.vue";
 import EditTripDialog from "../components/EditTripDialog.vue";
 import Utils from "../config/utils.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
@@ -13,6 +14,7 @@ const router = useRouter();
 const trips = ref([]);
 const message = ref("");
 const showAddDialog = ref(false);
+const showCopyDialog = ref(false);
 const showEditDialog = ref(false);
 const editTripId = ref(null);
 const user = ref(null);
@@ -73,6 +75,11 @@ const onTripSaved = () => {
   load();
 };
 
+const onTripCopied = () => {
+  message.value = "Trip copied.";
+  load();
+};
+
 const onTripUpdated = () => {
   message.value = "Trip updated.";
   load();
@@ -85,6 +92,18 @@ const openEdit = (trip) => {
 
 const openView = (trip) => {
   router.push({ name: "tripView", params: { tripId: trip.id } });
+};
+
+const openStatus = (trip) => {
+  router.push({ name: "tripStatus", params: { tripId: trip.id } });
+};
+
+const openRooming = (trip) => {
+  router.push({ name: "tripRooming", params: { tripId: trip.id } });
+};
+
+const openFlights = (trip) => {
+  router.push({ name: "tripFlights", params: { tripId: trip.id } });
 };
 
 const donorLink = (trip) => donorTripPath(trip);
@@ -116,7 +135,12 @@ onUnmounted(() => {
   <v-container>
     <div class="d-flex align-center justify-space-between mb-4">
       <h1 class="text-h5">Trips</h1>
-      <v-btn color="primary" :disabled="needsOrgSelection" @click="showAddDialog = true">Add trip</v-btn>
+      <div class="d-flex ga-2">
+        <v-btn color="primary" variant="tonal" :disabled="needsOrgSelection" @click="showCopyDialog = true">
+          Copy
+        </v-btn>
+        <v-btn color="primary" :disabled="needsOrgSelection" @click="showAddDialog = true">Add trip</v-btn>
+      </div>
     </div>
 
     <v-alert v-if="showOrgScopeNotice && isAllOrgsView" type="info" variant="tonal" density="compact" class="mb-4">
@@ -153,11 +177,15 @@ onUnmounted(() => {
       </template>
       <template #item.actions="{ item }">
         <v-btn size="small" variant="text" @click="openView(item)">View</v-btn>
+        <v-btn size="small" variant="text" @click="openStatus(item)">Status</v-btn>
+        <v-btn size="small" variant="text" @click="openRooming(item)">Room list</v-btn>
+        <v-btn size="small" variant="text" @click="openFlights(item)">Flights</v-btn>
         <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
       </template>
     </v-data-table>
 
     <AddTripDialog v-model="showAddDialog" @saved="onTripSaved" />
+    <CopyTripDialog v-model="showCopyDialog" :trips="trips" @saved="onTripCopied" />
     <EditTripDialog v-model="showEditDialog" :trip-id="editTripId" @saved="onTripUpdated" />
   </v-container>
 </template>

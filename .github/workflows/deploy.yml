@@ -53,6 +53,15 @@ jobs:
       PORT: ${{ secrets.PORT }}
       NODE_ENV: production
       SEQUELIZE_SYNC_ALTER: ${{ secrets.SEQUELIZE_SYNC_ALTER }}
+      EMAIL_MODE: ${{ vars.EMAIL_MODE }}
+      EMAIL_FILE_DIR: ${{ vars.EMAIL_FILE_DIR }}
+      SMTP_HOST: ${{ vars.SMTP_HOST }}
+      SMTP_PORT: ${{ vars.SMTP_PORT }}
+      SMTP_SECURE: ${{ vars.SMTP_SECURE }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
+      SCHEDULED_EMAIL_TIMEZONE: ${{ vars.SCHEDULED_EMAIL_TIMEZONE }}
 
     defaults:
       run:
@@ -84,6 +93,15 @@ jobs:
           printf 'PORT=%s\n' "$PORT" >> .env
           printf 'NODE_ENV=%s\n' "$NODE_ENV" >> .env
           printf 'SEQUELIZE_SYNC_ALTER=%s\n' "$SEQUELIZE_SYNC_ALTER" >> .env
+          printf 'EMAIL_MODE=%s\n' "$EMAIL_MODE" >> .env
+          printf 'EMAIL_FILE_DIR=%s\n' "$EMAIL_FILE_DIR" >> .env
+          printf 'SMTP_HOST=%s\n' "$SMTP_HOST" >> .env
+          printf 'SMTP_PORT=%s\n' "$SMTP_PORT" >> .env
+          printf 'SMTP_SECURE=%s\n' "$SMTP_SECURE" >> .env
+          printf 'SMTP_USER=%s\n' "$SMTP_USER" >> .env
+          printf 'SMTP_PASSWORD=%s\n' "$SMTP_PASSWORD" >> .env
+          printf 'EMAIL_SENDER=%s\n' "$EMAIL_SENDER" >> .env
+          printf 'SCHEDULED_EMAIL_TIMEZONE=%s\n' "$SCHEDULED_EMAIL_TIMEZONE" >> .env
           # Confirm key is present without printing the secret value
           grep -q '^DB_PW=.\+' .env || { echo "::error::DB_PW line missing or empty in .env"; exit 1; }
 
@@ -116,5 +134,8 @@ jobs:
             npm install --omit=dev
             sudo systemctl stop trips-backend
             sudo cp trips-backend.service /lib/systemd/system/trips-backend.service
+            sudo cp trips-scheduled-emails.service /lib/systemd/system/trips-scheduled-emails.service
+            sudo cp trips-scheduled-emails.timer /lib/systemd/system/trips-scheduled-emails.timer
             sudo systemctl daemon-reload
             sudo systemctl start trips-backend
+            sudo systemctl enable --now trips-scheduled-emails.timer

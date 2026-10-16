@@ -25,6 +25,7 @@ const feature1Routes = [
   { path: "/document-types", name: "documentTypes", component: Stub },
   { path: "/templates", name: "templates", component: Stub },
   { path: "/worker-roles", name: "workerRoles", component: Stub },
+  { path: "/medical-conditions", name: "medicalConditions", component: Stub },
 ];
 
 export async function createFeature1Router(initialPath = "/") {

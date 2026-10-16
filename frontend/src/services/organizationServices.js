@@ -30,6 +30,12 @@ export default {
   saveAgreement(id, content) {
     return apiClient.put(`/organizations/${id}/agreement`, { content });
   },
+  getMedicalAgreement(id) {
+    return apiClient.get(`/organizations/${id}/medical-agreement`);
+  },
+  saveMedicalAgreement(id, content) {
+    return apiClient.put(`/organizations/${id}/medical-agreement`, { content });
+  },
   getLogoUrl(logo) {
     if (!logo) return null;
     // Legacy path: uploads/org-logos/...

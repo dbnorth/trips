@@ -21,7 +21,7 @@ const editingDonation = ref(null);
 
 const participantName = computed(() => {
   const p = props.participant?.person;
-  const name = p ? `${p.firstName || ""} ${p.lastName || ""}`.trim() : "";
+  const name = p ? [p.firstName, p.middleName, p.lastName].filter(Boolean).join(" ").trim() : "";
   if (name) return name;
   return props.readOnly ? "you" : "";
 });

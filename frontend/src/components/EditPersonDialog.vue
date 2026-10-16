@@ -12,12 +12,16 @@ import PersonProfileFields from "./PersonProfileFields.vue";
 import PersonDocumentsCard from "./PersonDocumentsCard.vue";
 import Utils from "../config/utils.js";
 import { formatPhoneForDisplay, formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
-import { normalizeAddressFields } from "../utils/locationData.js";
+import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
+import { normalizeYesNo, otherLanguageFieldsFromPerson, otherLanguagePayload } from "../utils/personProfile.js";
+import { PREFERRED_NAME_HINT, defaultPreferredName } from "../utils/preferredName.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   personId: { type: [Number, String], default: null },
+  /** Org context for medical-condition catalog/selections (trip org or acting org). */
+  medicalConditionOrgId: { type: [Number, String], default: null },
 });
 
 const emit = defineEmits(["update:modelValue", "saved", "orgs-changed"]);
@@ -36,6 +40,20 @@ const { formError, formNotice, prepareSave, onLoadStart, onLoadSuccess, handleSa
   useVersionConflictForm();
 const formRef = ref(null);
 const form = ref(emptyForm());
+const preferredNameEdited = ref(false);
+
+watch(
+  () => [form.value.firstName, form.value.lastName],
+  () => {
+    if (preferredNameEdited.value) return;
+    form.value.preferredName = defaultPreferredName(form.value.firstName, form.value.lastName);
+  }
+);
+
+const onPreferredNameInput = (value) => {
+  preferredNameEdited.value = true;
+  form.value.preferredName = value ?? "";
+};
 const showChangePasswordDialog = ref(false);
 const currentPassword = ref("");
 const newPassword = ref("");
@@ -82,12 +100,14 @@ function emptyForm() {
     id: null,
     userId: null,
     firstName: "",
+    middleName: "",
     lastName: "",
+    preferredName: "",
     email: "",
     addLine1: "",
     addLine2: "",
     city: "",
-    country: "",
+    country: US_COUNTRY_CODE,
     state_prov: "",
     postalCode: "",
     phoneContryCode: "",
@@ -97,9 +117,14 @@ function emptyForm() {
     emergencyContactName: "",
     emergencyContactPhoneCountryCode: "",
     emergencyContactPhoneNumber: "",
-    hasAllergies: false,
+    emergencyContactRelationship: null,
+    hasAllergies: null,
     allergiesDescription: "",
-    takesMedication: false,
+    takesMedication: null,
+    medicalConditionIds: [],
+    medicalConditions: [],
+    speaksOtherLanguage: null,
+    languages: [],
     currentChurchHome: "",
     currentChurchHomeCity: "",
     currentChurchHomeStateProv: "",
@@ -111,6 +136,13 @@ function emptyForm() {
 }
 
 const isSystemAdmin = computed(() => Utils.isSystemAdmin(Utils.getStore("user")));
+
+const resolvedMedicalOrgId = computed(() => {
+  if (props.medicalConditionOrgId != null && props.medicalConditionOrgId !== "") {
+    return Number(props.medicalConditionOrgId);
+  }
+  return Utils.effectiveOrgId(Utils.getStore("user"));
+});
 
 const isSelfProfile = computed(() => {
   const currentUser = Utils.getStore("user");
@@ -140,10 +172,13 @@ const hasDuplicateOrgRole = (orgId, roleId) =>
 
 const applyPersonData = (data) => {
   const normalized = normalizeAddressFields(data || {});
+  const storedPreferred = data?.preferredName == null ? "" : String(data.preferredName).trim();
+  preferredNameEdited.value = storedPreferred !== "";
   form.value = {
     ...emptyForm(),
     ...data,
     ...normalized,
+    preferredName: storedPreferred || defaultPreferredName(data?.firstName, data?.lastName),
     isAdmin: !!(data.isAdmin === true || data.isAdmin === 1),
     phoneNumber: formatPhoneForDisplay(data.phoneNumber),
     phoneContryCode: data.phoneContryCode ? formatCountryCode(data.phoneContryCode) : "",
@@ -151,6 +186,16 @@ const applyPersonData = (data) => {
     emergencyContactPhoneCountryCode: data.emergencyContactPhoneCountryCode
       ? formatCountryCode(data.emergencyContactPhoneCountryCode)
       : "",
+    medicalConditionIds: Array.isArray(data.medicalConditionIds)
+      ? data.medicalConditionIds.map((id) => Number(id))
+      : Array.isArray(data.medicalConditions)
+        ? data.medicalConditions.map((c) => Number(c.id))
+        : [],
+    medicalConditions: Array.isArray(data.medicalConditions) ? data.medicalConditions : [],
+    hasAllergies: normalizeYesNo(data.hasAllergies),
+    allergiesDescription: data.allergiesDescription || "",
+    takesMedication: normalizeYesNo(data.takesMedication),
+    ...otherLanguageFieldsFromPerson(data),
   };
   clearPictureSelection();
 };
@@ -200,7 +245,9 @@ const loadPerson = async ({ afterConflict = false } = {}) => {
   loading.value = true;
   onLoadStart({ afterConflict });
   try {
-    const r = await PersonServices.get(props.personId);
+    const params = {};
+    if (resolvedMedicalOrgId.value != null) params.orgId = resolvedMedicalOrgId.value;
+    const r = await PersonServices.get(props.personId, params);
     applyPersonData(r.data || {});
     if (isSystemAdmin.value) {
       await Promise.all([loadOrgRoleOptions(), loadOrgRoles()]);
@@ -377,7 +424,9 @@ const save = async () => {
 
     const payload = {
       firstName: form.value.firstName.trim(),
+      middleName: form.value.middleName?.trim() || null,
       lastName: form.value.lastName.trim(),
+      preferredName: form.value.preferredName?.trim() || null,
       email: form.value.email?.trim() || null,
       country: address.country || null,
       addLine1: form.value.addLine1?.trim() || null,
@@ -394,17 +443,27 @@ const save = async () => {
         ? formatCountryCode(form.value.emergencyContactPhoneCountryCode)
         : null,
       emergencyContactPhoneNumber: form.value.emergencyContactPhoneNumber?.trim() || null,
-      hasAllergies: !!form.value.hasAllergies,
-      allergiesDescription: form.value.hasAllergies
+      emergencyContactRelationship: form.value.emergencyContactRelationship || null,
+      hasAllergies: normalizeYesNo(form.value.hasAllergies),
+      allergiesDescription: form.value.hasAllergies === true
         ? form.value.allergiesDescription?.trim() || null
         : null,
-      takesMedication: !!form.value.takesMedication,
+      takesMedication: normalizeYesNo(form.value.takesMedication),
+      ...otherLanguagePayload(form.value),
       currentChurchHome: form.value.currentChurchHome?.trim() || null,
       currentChurchHomeCity: form.value.currentChurchHomeCity?.trim() || null,
       currentChurchHomeStateProv: form.value.currentChurchHomeStateProv?.trim() || null,
       bioText: form.value.bioText?.trim() || null,
       version: form.value.version,
     };
+
+    if (resolvedMedicalOrgId.value != null) {
+      payload.medicalConditionIds =
+        form.value.takesMedication === true
+          ? form.value.medicalConditionIds || []
+          : [];
+      payload.orgId = resolvedMedicalOrgId.value;
+    }
 
     if (isSystemAdmin.value && form.value.email?.trim()) {
       payload.isAdmin = !!form.value.isAdmin;
@@ -439,8 +498,20 @@ const save = async () => {
 
         <template v-if="!loading">
           <v-form ref="formRef" @submit.prevent="save">
+          <v-divider class="person-section-rule" />
+          <div class="text-subtitle-2 font-weight-bold mb-2">Personal details</div>
           <v-text-field v-model="form.firstName" label="First name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'First name is required']" />
+          <v-text-field v-model="form.middleName" label="Middle name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'Middle name is required']" />
           <v-text-field v-model="form.lastName" label="Last name" density="compact" autocomplete="off" :rules="[(v) => !!v?.trim() || 'Last name is required']" />
+          <v-text-field
+            :model-value="form.preferredName"
+            label="Preferred name"
+            density="compact"
+            autocomplete="off"
+            :hint="PREFERRED_NAME_HINT"
+            persistent-hint
+            @update:model-value="onPreferredNameInput"
+          />
           <v-text-field
             v-model="form.email"
             label="Email"
@@ -497,11 +568,11 @@ const save = async () => {
               <PhoneInput v-model="form.phoneNumber" label="Phone number" />
             </v-col>
           </v-row>
-          <PersonProfileFields v-model="form" />
-          <v-textarea v-model="form.bioText" label="Bio" density="compact" rows="3" autocomplete="off" />
+          <PersonProfileFields v-model="form" :org-id="resolvedMedicalOrgId" />
 
-          <div class="mt-2 mb-2">
-            <div class="text-subtitle-2 mb-2">Profile photo</div>
+          <v-divider class="person-section-rule" />
+          <div class="mb-2">
+            <div class="text-subtitle-2 font-weight-bold mb-2">Profile photo</div>
             <div class="d-flex align-center ga-3 mb-2">
               <v-avatar v-if="picturePreview || currentPictureUrl" size="72" rounded="lg">
                 <v-img :src="picturePreview || currentPictureUrl" alt="Profile photo" cover />
@@ -523,7 +594,8 @@ const save = async () => {
           </v-form>
 
           <template v-if="isSystemAdmin">
-            <div class="text-subtitle-2 mb-2 mt-2">Organizations</div>
+            <v-divider class="person-section-rule" />
+            <div class="text-subtitle-2 font-weight-bold mb-2">Organizations</div>
             <v-progress-linear v-if="orgRolesLoading" indeterminate class="mb-2" />
 
             <v-table v-else-if="orgRoles.length" density="compact" class="border rounded mb-3">
@@ -666,5 +738,10 @@ const save = async () => {
 <style scoped>
 .add-role-form {
   background-color: #f0f0f0;
+}
+
+.person-section-rule {
+  margin: 16px -16px 12px;
+  opacity: 1;
 }
 </style>

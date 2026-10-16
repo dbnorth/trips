@@ -25,7 +25,8 @@ export const getTripLeaderPeopleIds = async (tripId) => {
   return rows.map((r) => Number(r.peopleId));
 };
 
-const formatPersonName = (person) => `${person.firstName || ""} ${person.lastName || ""}`.trim();
+const formatPersonName = (person) =>
+  [person?.firstName, person?.middleName, person?.lastName].filter(Boolean).join(" ").trim();
 
 const getTripMemberRoleIds = async () => {
   const roles = await db.role.findAll({
@@ -60,7 +61,7 @@ export const getTripLeadersForDisplay = async (tripId) => {
       {
         model: db.person,
         as: "person",
-        attributes: ["id", "firstName", "lastName", "email", "picture"],
+        attributes: ["id", "firstName", "middleName", "lastName", "email", "picture"],
       },
     ],
     order: [["id", "ASC"]],
@@ -73,6 +74,7 @@ export const getTripLeadersForDisplay = async (tripId) => {
       return {
         id: person.id,
         firstName: person.firstName || "",
+        middleName: person.middleName || "",
         lastName: person.lastName || "",
         name: formatPersonName(person) || "Trip Leader",
         email: person.email || null,
@@ -90,7 +92,7 @@ export const getTripLeaderNamesByTripIds = async (tripIds) => {
   const roleId = await getTripLeaderRoleId();
   const rows = await db.tripPeopleRole.findAll({
     where: { tripId: ids, roleId },
-    include: [{ model: db.person, as: "person", attributes: ["firstName", "lastName"] }],
+    include: [{ model: db.person, as: "person", attributes: ["firstName", "middleName", "lastName"] }],
     order: [["tripId", "ASC"], ["id", "ASC"]],
   });
 
@@ -183,7 +185,43 @@ export const getDonationTotalsByTripIds = async (tripIds) => {
   return map;
 };
 
-export const syncTripLeaders = async (tripId, orgId, leaderPeopleIds = []) => {
+export const getTripPrimaryLeaderPeopleId = async (tripId, options = {}) => {
+  const roleId = await getTripLeaderRoleId();
+  const row = await db.tripPeopleRole.findOne({
+    where: { tripId, roleId, isPrimaryLeader: true },
+    attributes: ["peopleId"],
+    transaction: options.transaction,
+  });
+  return row ? Number(row.peopleId) : null;
+};
+
+export const setTripPrimaryLeader = async (tripId, peopleId, options = {}) => {
+  const { transaction } = options;
+  const roleId = await getTripLeaderRoleId();
+  await db.tripPeopleRole.update(
+    { isPrimaryLeader: false },
+    { where: { tripId, roleId }, transaction }
+  );
+  if (peopleId == null) return;
+  await db.tripPeopleRole.update(
+    { isPrimaryLeader: true },
+    { where: { tripId, roleId, peopleId }, transaction }
+  );
+};
+
+/** Returns a 400 message when `primaryLeaderPeopleId` is not among the leaders, else null. */
+export const primaryLeaderError = (primaryLeaderPeopleId, leaderPeopleIds) => {
+  if (primaryLeaderPeopleId == null || primaryLeaderPeopleId === "") return null;
+  const id = parseInt(primaryLeaderPeopleId, 10);
+  const leaders = (Array.isArray(leaderPeopleIds) ? leaderPeopleIds : []).map((v) => parseInt(v, 10));
+  if (Number.isNaN(id) || !leaders.includes(id)) {
+    return "Primary trip leader must be one of the trip leaders.";
+  }
+  return null;
+};
+
+export const syncTripLeaders = async (tripId, orgId, leaderPeopleIds = [], options = {}) => {
+  const { transaction } = options;
   const roleId = await getTripLeaderRoleId();
   const allowedIds = await getOrgTripLeaderPeopleIds(orgId);
 
@@ -201,25 +239,38 @@ export const syncTripLeaders = async (tripId, orgId, leaderPeopleIds = []) => {
     }
   }
 
-  const existing = await db.tripPeopleRole.findAll({ where: { tripId, roleId } });
+  const existing = await db.tripPeopleRole.findAll({
+    where: { tripId, roleId },
+    transaction,
+  });
   const existingIds = new Set(existing.map((r) => Number(r.peopleId)));
   const desiredIds = new Set(normalized);
 
   for (const row of existing) {
     if (!desiredIds.has(Number(row.peopleId))) {
-      await row.destroy();
+      await row.destroy({ transaction });
     }
   }
 
   for (const peopleId of normalized) {
     if (!existingIds.has(peopleId)) {
-      await db.tripPeopleRole.create({
-        tripId,
-        peopleId,
-        roleId,
-        status: "approved",
-        assiginmentDateTime: new Date(),
-      });
+      await db.tripPeopleRole.create(
+        {
+          tripId,
+          peopleId,
+          roleId,
+          status: "approved",
+          assiginmentDateTime: new Date(),
+        },
+        { transaction }
+      );
     }
   }
+
+  const requested =
+    options.primaryLeaderPeopleId != null && options.primaryLeaderPeopleId !== ""
+      ? parseInt(options.primaryLeaderPeopleId, 10)
+      : null;
+  const primary = normalized.includes(requested) ? requested : normalized[0] ?? null;
+  await setTripPrimaryLeader(tripId, primary, { transaction });
 };

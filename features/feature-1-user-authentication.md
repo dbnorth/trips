@@ -343,3 +343,5 @@ Do not implement behavior not in this spec.
 - Org CRUD, people management, trip applications — Features 2–7
 - Public donate pages — Feature 9
 - System user admin CRUD (`/users`) — Feature 2
+- Apply-funnel post-auth destination is the trip **application** page (`editTripApplication`), not `tripBrowse` — [Feature 13](feature-13-public-apply-to-application-page.md)
+- Host subdomain auto-assigning organization on register (hide org picker) — [Feature 15](feature-15-organization-subdomain-registration.md)

@@ -10,6 +10,11 @@ const EmailTemplate = SequelizeInstance.define("emailTemplate", {
   subject: { type: Sequelize.STRING(500) },
   content: { type: Sequelize.TEXT },
   attachment: { type: Sequelize.STRING(500) },
+  emailTypeId: { type: Sequelize.INTEGER, allowNull: true },
+  emailBody: { type: Sequelize.TEXT, allowNull: true },
+  toAddress: { type: Sequelize.STRING(1000), allowNull: true },
+  scheduleRule: { type: Sequelize.STRING(20), allowNull: true },
+  scheduleDaysBefore: { type: Sequelize.INTEGER, allowNull: true },
 });
 
 export default EmailTemplate;

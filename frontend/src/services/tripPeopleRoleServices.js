@@ -13,6 +13,12 @@ export default {
   update(id, data) {
     return apiClient.put(`/trip-people-roles/${id}`, data);
   },
+  cancel(id) {
+    return apiClient.post(`/trip-people-roles/${id}/cancel`);
+  },
+  uncancel(id) {
+    return apiClient.post(`/trip-people-roles/${id}/uncancel`);
+  },
   delete(id) {
     return apiClient.delete(`/trip-people-roles/${id}`);
   },

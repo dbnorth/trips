@@ -7,9 +7,30 @@ import Utils from "../config/utils.js";
 import DonorTripHeading from "./DonorTripHeading.vue";
 import ParticipantAgreementSection from "./ParticipantAgreementSection.vue";
 import TripApplicationTravelOptions from "./TripApplicationTravelOptions.vue";
+import TripApplicationFlightPurchase from "./TripApplicationFlightPurchase.vue";
 import EditPersonDialog from "./EditPersonDialog.vue";
-import { isProfileComplete, isUnder18 } from "../utils/personProfile.js";
-import { isApplicationFormComplete, validateTravelOptionSelections } from "../utils/tripApplicationForm.js";
+import PersonProfileFields from "./PersonProfileFields.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
+import ApplicationSubmitUnavailableAlert from "./ApplicationSubmitUnavailableAlert.vue";
+import {
+  isProfileComplete,
+  isUnder18,
+  normalizeYesNo,
+  otherLanguageFieldsFromPerson,
+} from "../utils/personProfile.js";
+import {
+  arePersonDocumentsUploaded,
+  isApplicationFormComplete,
+  isRequiredPassportUploaded,
+  isRequiredRoleDocumentUploaded,
+  missingRequiredRoleDocuments,
+  validateTravelOptionSelections,
+} from "../utils/tripApplicationForm.js";
+import {
+  canShowPrimarySubmitButton,
+  getIncompleteSubmitReasons,
+  getSubmitUnavailableReasons,
+} from "../utils/applicationSubmitAvailability.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -25,7 +46,21 @@ const trip = ref(null);
 const rolesNeeded = ref([]);
 const personDocuments = ref([]);
 const person = ref(null);
+const healthForm = ref({
+  gender: null,
+  hasAllergies: null,
+  allergiesDescription: "",
+  isPregnant: null,
+  pregnancyDueDate: "",
+  takesMedication: null,
+  medicalConditionIds: [],
+  medicalConditions: [],
+  speaksOtherLanguage: null,
+  languages: [],
+  version: 0,
+});
 const agreementContent = ref("");
+const medicalAgreementContent = ref("");
 const travelOptions = ref([]);
 const selectedTravelOptionIds = ref([]);
 const travelOptionsRef = ref(null);
@@ -37,22 +72,43 @@ const form = ref({
   tripWorkerRoleId: null,
   willSelfFund: false,
   willRaiseFunds: false,
-  licenseStatus: null,
   hasPreferredRoommate: false,
   preferredRoommateNames: "",
+  flightPurchaseOption: null,
+  preferredDepartureAirportCode: null,
+  preferredReturnAirportCode: null,
+  preferredCabinClass: "",
+  preferredAirlineCode: null,
+  preferredRefundableTicket: null,
   agreementAccepted: false,
   agreementSignatureName: "",
   agreementAdultFirstName: "",
   agreementAdultLastName: "",
   agreementAdultEmail: "",
   agreementAdultRelationship: "",
+  medicalAgreementAccepted: false,
+  medicalAgreementDate: null,
   version: 0,
 });
 
 const editingApplication = ref(false);
 const canEdit = ref(true);
+const applicationStatus = ref(null);
+const showConfirmCancel = ref(false);
+const showConfirmUncancel = ref(false);
+
+const canCancelApplication = computed(() =>
+  ["incomplete", "applied", "approved"].includes(String(applicationStatus.value || "").toLowerCase())
+);
+const canUncancelApplication = computed(
+  () => String(applicationStatus.value || "").toLowerCase() === "cancelled"
+);
 
 const agreementRequired = computed(() => !!agreementContent.value?.trim());
+const takesMedicationYes = computed(() => healthForm.value.takesMedication === true);
+const medicalAgreementRequired = computed(
+  () => takesMedicationYes.value && !!medicalAgreementContent.value?.trim()
+);
 const participantUnder18 = computed(() => isUnder18(person.value?.birthDate));
 
 const availableRoles = computed(() => {
@@ -63,34 +119,29 @@ const availableRoles = computed(() => {
 });
 
 const roleItems = computed(() =>
-  availableRoles.value.map((r) => ({
-    title: `${r.workerRole?.name || "Role"} (${r.availableCount} available)`,
-    value: r.id,
-    raw: r,
-  }))
+  availableRoles.value.map((r) => {
+    const name = r.workerRole?.name || "Role";
+    const available = `${r.availableCount} available`;
+    const license = r.workerRole?.licenseRequired ? " — License required" : "";
+    return {
+      title: `${name} (${available})${license}`,
+      value: r.id,
+      raw: r,
+    };
+  })
 );
 
 const selectedRole = computed(() =>
   availableRoles.value.find((r) => Number(r.id) === Number(form.value.tripWorkerRoleId)) || null
 );
 
-const licenseRequired = computed(() => !!selectedRole.value?.workerRole?.licenseRequired);
-const requiredDocumentType = computed(
-  () => selectedRole.value?.workerRole?.documentType || null
-);
-const licenseType = computed(() => requiredDocumentType.value?.description || "");
-
-const licenseItems = [
-  { title: "Yes", value: "yes" },
-  { title: "Yes, retired", value: "yes_retired" },
-  { title: "No", value: "no" },
-];
-
-const licenseLabel = computed(() =>
-  licenseType.value
-    ? `Do you have a ${licenseType.value} license for this role?`
-    : "Do you have a license for this role?"
-);
+const requiredDocumentTypes = computed(() => {
+  const role = selectedRole.value?.workerRole;
+  if (!role) return [];
+  if (role.requiredDocumentTypes?.length) return role.requiredDocumentTypes;
+  if (role.documentType) return [role.documentType];
+  return [];
+});
 
 const dateOnly = (value) => {
   if (!value) return null;
@@ -98,36 +149,67 @@ const dateOnly = (value) => {
 };
 
 const hasRequiredDocumentForTrip = computed(() => {
-  const docTypeId = selectedRole.value?.workerRole?.documentTypeId;
-  if (!docTypeId) return true;
-
-  // Prefer trip end date (approval requirement); fall back to start date.
   const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
-  if (!compareDate) return true;
-
-  return personDocuments.value.some((doc) => {
-    if (Number(doc.documentTypeId) !== Number(docTypeId)) return false;
-    const expirationDate = dateOnly(doc.expirationDate);
-    // Must expire after the trip ends (past the end of the trip).
-    return expirationDate && expirationDate > compareDate;
+  return isRequiredRoleDocumentUploaded({
+    documents: personDocuments.value,
+    documentTypeIds: requiredDocumentTypes.value.map((d) => d.id),
+    compareDate,
   });
 });
 
-const documentRequirementWarning = computed(() => {
-  if (!licenseRequired.value || !requiredDocumentType.value) return "";
-  if (hasRequiredDocumentForTrip.value) return "";
-
-  const docName = requiredDocumentType.value.description || "required document";
-  const endDate = dateOnly(trip.value?.endDate);
-  const endPart = endDate ? ` (${endDate})` : "";
-  return `For your application to be approved, you will need to upload a ${docName} with an expiration date past the end of the trip${endPart}.`;
+const hasRequiredPassportForTrip = computed(() => {
+  const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
+  return isRequiredPassportUploaded({
+    documents: personDocuments.value,
+    requirePassport: !!trip.value?.requirePassport,
+    compareDate,
+  });
 });
 
-const profileComplete = computed(() => isProfileComplete(person.value));
+const personDocumentsUploaded = computed(() =>
+  arePersonDocumentsUploaded(personDocuments.value)
+);
+
+const documentsCompleteForSubmit = computed(
+  () =>
+    personDocumentsUploaded.value &&
+    hasRequiredDocumentForTrip.value &&
+    hasRequiredPassportForTrip.value
+);
+
+const documentRequirementWarning = computed(() => {
+  if (!personDocumentsUploaded.value) {
+    return "Upload a file for every document on your profile before submitting your application.";
+  }
+  if (trip.value?.requirePassport && !hasRequiredPassportForTrip.value) {
+    const endDate = dateOnly(trip.value?.endDate);
+    const endPart = endDate ? ` (${endDate})` : "";
+    return `Upload a passport with an expiration date past the end of the trip${endPart} before submitting your application.`;
+  }
+  const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
+  const missing = missingRequiredRoleDocuments({
+    documents: personDocuments.value,
+    requiredDocumentTypes: requiredDocumentTypes.value,
+    compareDate,
+  });
+  if (!missing.length) return "";
+
+  const names = missing.map((d) => d.description || "required document").join(", ");
+  const endDate = dateOnly(trip.value?.endDate);
+  const endPart = endDate ? ` (${endDate})` : "";
+  return `Upload the following required documents with an expiration date past the end of the trip${endPart} before submitting your application: ${names}.`;
+});
+
+const profileComplete = computed(() =>
+  isProfileComplete(
+    { ...(person.value || {}), ...healthForm.value },
+    { orgId: trip.value?.orgId }
+  )
+);
 
 const onProfileSaved = async () => {
   showProfileDialog.value = false;
-  await loadPerson();
+  await Promise.all([loadPerson(), loadPersonDocuments()]);
 };
 
 const applicationFormComplete = computed(() =>
@@ -135,15 +217,15 @@ const applicationFormComplete = computed(() =>
     tripWorkerRoleId: form.value.tripWorkerRoleId,
     willSelfFund: form.value.willSelfFund,
     willRaiseFunds: form.value.willRaiseFunds,
-    licenseRequired: licenseRequired.value,
-    licenseStatus: form.value.licenseStatus,
     hasPreferredRoommate: form.value.hasPreferredRoommate,
     preferredRoommateNames: form.value.preferredRoommateNames,
+    flightPurchaseOption: form.value.flightPurchaseOption,
+    preferredDepartureAirportCode: form.value.preferredDepartureAirportCode,
+    preferredReturnAirportCode: form.value.preferredReturnAirportCode,
+    preferredCabinClass: form.value.preferredCabinClass,
+    preferredAirlineCode: form.value.preferredAirlineCode,
+    preferredRefundableTicket: form.value.preferredRefundableTicket,
   })
-);
-
-const canAgreeToAgreement = computed(
-  () => profileComplete.value && applicationFormComplete.value
 );
 
 const agreementComplete = computed(() => {
@@ -159,21 +241,107 @@ const agreementComplete = computed(() => {
   return true;
 });
 
+const medicalAgreementComplete = computed(() => {
+  if (!medicalAgreementRequired.value) return true;
+  if (!form.value.medicalAgreementAccepted) return false;
+  if (!form.value.agreementSignatureName?.trim()) return false;
+  return true;
+});
+
 const travelOptionsComplete = computed(
   () => !validateTravelOptionSelections(travelOptions.value, selectedTravelOptionIds.value)
 );
 
-/** Matches the backend "applied" status: profile + form + agreement + travel options. */
+/** Matches the backend "applied" status: profile + form + agreement + travel options + documents. */
 const readyToSubmit = computed(
   () =>
     profileComplete.value &&
     applicationFormComplete.value &&
     agreementComplete.value &&
-    travelOptionsComplete.value
+    medicalAgreementComplete.value &&
+    travelOptionsComplete.value &&
+    documentsCompleteForSubmit.value
 );
 
 const primaryActionLabel = computed(() =>
   readyToSubmit.value ? "Submit Application" : "Save Incomplete Application"
+);
+
+const showPrimarySubmitButton = computed(() =>
+  canShowPrimarySubmitButton({
+    loading: loading.value,
+    tripReady: !!trip.value,
+    canEdit: canEdit.value,
+    availableRolesCount: availableRoles.value.length,
+  })
+);
+
+const structuralSubmitBlockers = computed(() =>
+  getSubmitUnavailableReasons({
+    loading: loading.value,
+    tripReady: !!trip.value,
+    canEdit: canEdit.value,
+    applicationStatus: applicationStatus.value,
+    availableRolesCount: availableRoles.value.length,
+  })
+);
+
+const submitUnavailableReasons = computed(() => {
+  if (structuralSubmitBlockers.value.length) return structuralSubmitBlockers.value;
+  if (!editingApplication.value) return [];
+  if (!showPrimarySubmitButton.value || readyToSubmit.value) return [];
+
+  const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
+  const missingRoleDocs = missingRequiredRoleDocuments({
+    documents: personDocuments.value,
+    requiredDocumentTypes: requiredDocumentTypes.value,
+    compareDate,
+  });
+  const travelError = validateTravelOptionSelections(
+    travelOptions.value,
+    selectedTravelOptionIds.value
+  );
+
+  return getIncompleteSubmitReasons({
+    profileComplete: profileComplete.value,
+    tripWorkerRoleId: form.value.tripWorkerRoleId,
+    willSelfFund: form.value.willSelfFund,
+    willRaiseFunds: form.value.willRaiseFunds,
+    hasPreferredRoommate: form.value.hasPreferredRoommate,
+    preferredRoommateNames: form.value.preferredRoommateNames,
+    flightPurchaseOption: form.value.flightPurchaseOption,
+    preferredDepartureAirportCode: form.value.preferredDepartureAirportCode,
+    preferredReturnAirportCode: form.value.preferredReturnAirportCode,
+    preferredCabinClass: form.value.preferredCabinClass,
+    preferredAirlineCode: form.value.preferredAirlineCode,
+    preferredRefundableTicket: form.value.preferredRefundableTicket,
+    gender: healthForm.value.gender ?? person.value?.gender,
+    isPregnant: normalizeYesNo(healthForm.value.isPregnant),
+    pregnancyDueDate: healthForm.value.pregnancyDueDate,
+    agreementRequired: agreementRequired.value,
+    agreementAccepted: form.value.agreementAccepted,
+    agreementSignatureName: form.value.agreementSignatureName,
+    under18: participantUnder18.value,
+    agreementAdultFirstName: form.value.agreementAdultFirstName,
+    agreementAdultLastName: form.value.agreementAdultLastName,
+    agreementAdultEmail: form.value.agreementAdultEmail,
+    agreementAdultRelationship: form.value.agreementAdultRelationship,
+    medicalAgreementRequired: medicalAgreementRequired.value,
+    medicalAgreementAccepted: form.value.medicalAgreementAccepted,
+    travelOptionsComplete: travelOptionsComplete.value,
+    travelOptionsMessage: travelError,
+    personDocumentsUploaded: personDocumentsUploaded.value,
+    requiredRoleDocumentUploaded: hasRequiredDocumentForTrip.value,
+    missingRoleDocumentNames: missingRoleDocs.map((d) => d.description || "required document"),
+    requiredPassportUploaded: hasRequiredPassportForTrip.value,
+    requirePassport: !!trip.value?.requirePassport,
+  });
+});
+
+const submitUnavailableIntro = computed(() =>
+  structuralSubmitBlockers.value.length
+    ? "This application cannot be saved or submitted yet:"
+    : "Complete the following to submit your application:"
 );
 
 const dialogTitle = computed(() =>
@@ -190,21 +358,29 @@ const resetForm = () => {
     tripWorkerRoleId: null,
     willSelfFund: false,
     willRaiseFunds: false,
-    licenseStatus: null,
     hasPreferredRoommate: false,
     preferredRoommateNames: "",
+    flightPurchaseOption: null,
+    preferredDepartureAirportCode: null,
+    preferredReturnAirportCode: null,
+    preferredCabinClass: "",
+    preferredAirlineCode: null,
+    preferredRefundableTicket: null,
     agreementAccepted: false,
     agreementSignatureName: "",
     agreementAdultFirstName: "",
     agreementAdultLastName: "",
     agreementAdultEmail: "",
     agreementAdultRelationship: "",
+    medicalAgreementAccepted: false,
+    medicalAgreementDate: null,
     version: 0,
   };
   selectedTravelOptionIds.value = [];
   formError.value = "";
   editingApplication.value = false;
   canEdit.value = true;
+  applicationStatus.value = null;
 };
 
 const applyFormFromApplication = (row) => {
@@ -212,16 +388,35 @@ const applyFormFromApplication = (row) => {
     tripWorkerRoleId: row?.tripWorkerRoleId ?? null,
     willSelfFund: !!row?.willSelfFund,
     willRaiseFunds: !!row?.willRaiseFunds,
-    licenseStatus: row?.licenseStatus || null,
     hasPreferredRoommate: !!row?.hasPreferredRoommate,
     preferredRoommateNames: row?.preferredRoommateNames || "",
+    flightPurchaseOption: row?.flightPurchaseOption || null,
+    preferredDepartureAirportCode:
+      row?.preferredDepartureAirport?.code || row?.preferredDepartureAirportCode || null,
+    preferredReturnAirportCode:
+      row?.preferredReturnAirport?.code || row?.preferredReturnAirportCode || null,
+    preferredCabinClass: row?.preferredCabinClass || "",
+    preferredAirlineCode: row?.preferredAirline?.code || row?.preferredAirlineCode || null,
+    preferredRefundableTicket:
+      row?.preferredRefundableTicket === true || row?.preferredRefundableTicket === false
+        ? !!row.preferredRefundableTicket
+        : null,
     agreementAccepted: !!row?.agreementAccepted,
     agreementSignatureName: row?.agreementSignatureName || "",
     agreementAdultFirstName: row?.agreementAdultFirstName || "",
     agreementAdultLastName: row?.agreementAdultLastName || "",
     agreementAdultEmail: row?.agreementAdultEmail || "",
     agreementAdultRelationship: row?.agreementAdultRelationship || "",
+    medicalAgreementAccepted: !!row?.medicalAgreementAccepted,
+    medicalAgreementDate: row?.medicalAgreementDate || null,
     version: row?.version ?? 0,
+  };
+  healthForm.value = {
+    ...healthForm.value,
+    isPregnant: normalizeYesNo(row?.isPregnant),
+    pregnancyDueDate: row?.pregnancyDueDate
+      ? String(row.pregnancyDueDate).slice(0, 10)
+      : "",
   };
 };
 
@@ -239,17 +434,41 @@ const loadPersonDocuments = async () => {
   }
 };
 
+const applyHealthFromPerson = (data) => {
+  healthForm.value = {
+    gender: data?.gender || null,
+    hasAllergies: normalizeYesNo(data?.hasAllergies),
+    allergiesDescription: data?.allergiesDescription || "",
+    isPregnant: healthForm.value.isPregnant ?? null,
+    pregnancyDueDate: healthForm.value.pregnancyDueDate || "",
+    takesMedication: normalizeYesNo(data?.takesMedication),
+    medicalConditionIds: Array.isArray(data?.medicalConditionIds)
+      ? data.medicalConditionIds.map((id) => Number(id))
+      : Array.isArray(data?.medicalConditions)
+        ? data.medicalConditions.map((c) => Number(c.id))
+        : [],
+    medicalConditions: Array.isArray(data?.medicalConditions) ? data.medicalConditions : [],
+    ...otherLanguageFieldsFromPerson(data),
+    version: data?.version ?? 0,
+  };
+};
+
 const loadPerson = async () => {
   const personId = Utils.getStore("user")?.personId;
   if (!personId) {
     person.value = null;
+    applyHealthFromPerson(null);
     return;
   }
   try {
-    const res = await PersonServices.get(personId);
+    const params = {};
+    if (trip.value?.orgId) params.orgId = trip.value.orgId;
+    const res = await PersonServices.get(personId, params);
     person.value = res.data || null;
+    applyHealthFromPerson(person.value);
   } catch {
     person.value = null;
+    applyHealthFromPerson(null);
   }
 };
 
@@ -264,13 +483,22 @@ const loadExistingApplication = async () => {
   agreementContent.value = res.data?.participantAgreement?.exists
     ? res.data.participantAgreement.content || ""
     : "";
+  medicalAgreementContent.value = res.data?.medicalAgreement?.exists
+    ? res.data.medicalAgreement.content || ""
+    : "";
   editingApplication.value = true;
   canEdit.value = !!res.data?.canEdit;
+  applicationStatus.value = res.data?.applicationStatus || res.data?.application?.status || null;
   applyFormFromApplication(res.data?.application);
   if (!canEdit.value) {
-    formError.value = `This application cannot be edited while its status is ${
-      res.data?.applicationStatus || "unknown"
-    }.`;
+    const status = applicationStatus.value || "unknown";
+    if (status === "cancelled") {
+      formError.value = "This application is cancelled. You can Uncancel it if a role slot is available.";
+    } else if (status === "approved") {
+      formError.value = "You are approved for this trip. You can Cancel the application if needed.";
+    } else {
+      formError.value = `This application cannot be edited while its status is ${status}.`;
+    }
   }
 };
 
@@ -285,22 +513,26 @@ const loadNewApplication = async () => {
   agreementContent.value = res.data?.participantAgreement?.exists
     ? res.data.participantAgreement.content || ""
     : "";
+  medicalAgreementContent.value = res.data?.medicalAgreement?.exists
+    ? res.data.medicalAgreement.content || ""
+    : "";
 
   if (!res.data?.alreadyApplied) return;
 
   const status = res.data?.applicationStatus;
-  if (status === "incomplete" || status === "applied") {
+  if (["incomplete", "applied", "approved", "cancelled"].includes(status)) {
     await loadExistingApplication();
     return;
   }
 
   formError.value =
-    status === "approved"
-      ? "You are already on this trip."
+    status === "declined"
+      ? "Your previous application for this trip was declined."
       : status
         ? `Your previous application for this trip is ${status}.`
         : "You have already applied to this trip.";
   canEdit.value = false;
+  applicationStatus.value = status || null;
 };
 
 const load = async () => {
@@ -309,8 +541,10 @@ const load = async () => {
   formError.value = "";
   resetForm();
   try {
-    await Promise.all([loadPersonDocuments(), loadPerson()]);
+    await loadPersonDocuments();
     await loadNewApplication();
+    // Load person after trip so medical-condition org context is known (Feature 17).
+    await loadPerson();
   } catch (e) {
     formError.value = e.response?.data?.message || "Unable to load trip.";
     trip.value = null;
@@ -319,6 +553,7 @@ const load = async () => {
     travelOptions.value = [];
     selectedTravelOptionIds.value = [];
     agreementContent.value = "";
+    medicalAgreementContent.value = "";
     editingApplication.value = false;
     canEdit.value = false;
   } finally {
@@ -338,15 +573,9 @@ watch(
       travelOptions.value = [];
       selectedTravelOptionIds.value = [];
       agreementContent.value = "";
+      medicalAgreementContent.value = "";
       resetForm();
     }
-  }
-);
-
-watch(
-  () => form.value.tripWorkerRoleId,
-  () => {
-    if (!licenseRequired.value) form.value.licenseStatus = null;
   }
 );
 
@@ -365,15 +594,40 @@ const buildPayload = () => ({
   tripWorkerRoleId: Number(form.value.tripWorkerRoleId),
   willSelfFund: !!form.value.willSelfFund,
   willRaiseFunds: !!form.value.willRaiseFunds,
-  licenseStatus: licenseRequired.value ? form.value.licenseStatus : null,
+  licenseStatus: null,
   hasPreferredRoommate: !!form.value.hasPreferredRoommate,
   preferredRoommateNames: form.value.hasPreferredRoommate
     ? form.value.preferredRoommateNames.trim()
     : null,
+  flightPurchaseOption: form.value.flightPurchaseOption || null,
+  preferredDepartureAirportCode:
+    form.value.flightPurchaseOption === "organization"
+      ? form.value.preferredDepartureAirportCode || null
+      : null,
+  preferredReturnAirportCode:
+    form.value.flightPurchaseOption === "organization"
+      ? form.value.preferredReturnAirportCode || null
+      : null,
+  preferredCabinClass:
+    form.value.flightPurchaseOption === "organization"
+      ? form.value.preferredCabinClass?.trim() || null
+      : null,
+  preferredAirlineCode:
+    form.value.flightPurchaseOption === "organization"
+      ? form.value.preferredAirlineCode || null
+      : null,
+  preferredRefundableTicket:
+    form.value.flightPurchaseOption === "organization"
+      ? form.value.preferredRefundableTicket === true ||
+        form.value.preferredRefundableTicket === false
+        ? form.value.preferredRefundableTicket
+        : null
+      : null,
   agreementAccepted: agreementRequired.value ? !!form.value.agreementAccepted : false,
-  agreementSignatureName: agreementRequired.value
-    ? form.value.agreementSignatureName.trim() || null
-    : null,
+  agreementSignatureName:
+    agreementRequired.value || medicalAgreementRequired.value
+      ? form.value.agreementSignatureName.trim() || null
+      : null,
   agreementAdultFirstName:
     agreementRequired.value && participantUnder18.value
       ? form.value.agreementAdultFirstName.trim() || null
@@ -389,6 +643,14 @@ const buildPayload = () => ({
   agreementAdultRelationship:
     agreementRequired.value && participantUnder18.value
       ? form.value.agreementAdultRelationship.trim() || null
+      : null,
+  medicalAgreementAccepted: medicalAgreementRequired.value
+    ? !!form.value.medicalAgreementAccepted
+    : false,
+  isPregnant: normalizeYesNo(healthForm.value.isPregnant),
+  pregnancyDueDate:
+    healthForm.value.isPregnant === true && healthForm.value.pregnancyDueDate
+      ? String(healthForm.value.pregnancyDueDate).slice(0, 10)
       : null,
   selectedTravelOptionIds: selectedTravelOptionIds.value,
   ...(editingApplication.value ? { version: form.value.version } : {}),
@@ -438,6 +700,14 @@ const save = async () => {
       }
     }
   }
+  if (medicalAgreementRequired.value && form.value.medicalAgreementAccepted) {
+    if (!form.value.agreementSignatureName?.trim()) {
+      formError.value = participantUnder18.value
+        ? "Enter the adult's name as the electronic signature."
+        : "Enter your name as your electronic signature.";
+      return;
+    }
+  }
 
   saving.value = true;
   try {
@@ -455,13 +725,61 @@ const save = async () => {
     saving.value = false;
   }
 };
+
+const cancelApplication = () => {
+  if (!canCancelApplication.value || !props.tripId) return;
+  showConfirmCancel.value = true;
+};
+
+const confirmCancelApplication = async () => {
+  if (!props.tripId) return;
+  saving.value = true;
+  formError.value = "";
+  try {
+    await TripServices.cancelApplication(props.tripId);
+    showConfirmCancel.value = false;
+    emit("saved");
+    close();
+  } catch (e) {
+    formError.value = e.response?.data?.message || "Unable to cancel application.";
+    showConfirmCancel.value = false;
+  } finally {
+    saving.value = false;
+  }
+};
+
+const uncancelApplication = () => {
+  if (!canUncancelApplication.value || !props.tripId) return;
+  showConfirmUncancel.value = true;
+};
+
+const confirmUncancelApplication = async () => {
+  if (!props.tripId) return;
+  saving.value = true;
+  formError.value = "";
+  try {
+    const res = await TripServices.uncancelApplication(props.tripId);
+    applicationStatus.value = res.data?.applicationStatus || null;
+    canEdit.value = !!res.data?.canEdit;
+    if (res.data?.application) applyFormFromApplication(res.data.application);
+    formError.value = "";
+    showConfirmUncancel.value = false;
+    emit("saved");
+    if (!canEdit.value) close();
+  } catch (e) {
+    formError.value = e.response?.data?.message || "Unable to uncancel application.";
+    showConfirmUncancel.value = false;
+  } finally {
+    saving.value = false;
+  }
+};
 </script>
 
 <template>
-  <v-dialog v-model="open" max-width="640" scrollable persistent>
-    <v-card>
-      <v-card-title>{{ dialogTitle }}</v-card-title>
-      <v-card-text style="max-height: 75vh">
+  <v-dialog v-model="open" max-width="640" max-height="90vh" scrollable persistent>
+    <v-card class="d-flex flex-column" style="max-height: min(90vh, 900px)">
+      <v-card-title class="flex-shrink-0">{{ dialogTitle }}</v-card-title>
+      <v-card-text class="overflow-y-auto flex-grow-1">
         <v-progress-linear v-if="loading" indeterminate class="mb-4" />
 
         <template v-if="!loading && trip">
@@ -514,7 +832,26 @@ const save = async () => {
             class="mb-3"
           >
             {{ documentRequirementWarning }}
+            <div class="mt-3">
+              <v-btn
+                size="small"
+                color="primary"
+                variant="flat"
+                :disabled="!personId"
+                @click="showProfileDialog = true"
+              >
+                Update profile
+              </v-btn>
+            </div>
           </v-alert>
+
+          <PersonProfileFields
+            v-model="healthForm"
+            :org-id="trip?.orgId"
+            health-only
+            :disabled="!canEdit"
+            @update-profile="showProfileDialog = true"
+          />
 
           <div class="text-subtitle-2 mb-1 mt-2">Funding</div>
           <v-checkbox
@@ -530,16 +867,6 @@ const save = async () => {
             label="I will raise funds"
             density="compact"
             hide-details
-            class="mb-2"
-            :disabled="!canEdit"
-          />
-
-          <v-select
-            v-if="licenseRequired"
-            v-model="form.licenseStatus"
-            :items="licenseItems"
-            :label="licenseLabel"
-            density="compact"
             class="mb-2"
             :disabled="!canEdit"
           />
@@ -562,6 +889,17 @@ const save = async () => {
             :disabled="!canEdit"
           />
 
+          <TripApplicationFlightPurchase
+            v-model:flight-purchase-option="form.flightPurchaseOption"
+            v-model:preferred-departure-airport-code="form.preferredDepartureAirportCode"
+            v-model:preferred-return-airport-code="form.preferredReturnAirportCode"
+            v-model:preferred-cabin-class="form.preferredCabinClass"
+            v-model:preferred-airline-code="form.preferredAirlineCode"
+            v-model:preferred-refundable-ticket="form.preferredRefundableTicket"
+            :organization-name="trip?.organization?.name"
+            :disabled="!canEdit"
+          />
+
           <TripApplicationTravelOptions
             ref="travelOptionsRef"
             v-model:selected-ids="selectedTravelOptionIds"
@@ -577,22 +915,48 @@ const save = async () => {
             v-model:agreement-adult-last-name="form.agreementAdultLastName"
             v-model:agreement-adult-email="form.agreementAdultEmail"
             v-model:agreement-adult-relationship="form.agreementAdultRelationship"
+            v-model:medical-agreement-accepted="form.medicalAgreementAccepted"
             :under18="participantUnder18"
-            :can-agree="canAgreeToAgreement"
             :content="agreementContent"
+            :show-medical-agreement="takesMedicationYes"
+            :medical-agreement-content="medicalAgreementContent"
+            :medical-agreement-date="form.medicalAgreementDate"
             :disabled="!canEdit"
           />
         </template>
 
         <v-alert v-if="formError" type="error" density="compact" class="mt-3">{{ formError }}</v-alert>
       </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" :disabled="saving" @click="close">Cancel</v-btn>
+      <ApplicationSubmitUnavailableAlert
+        class="mx-4 flex-shrink-0"
+        :reasons="submitUnavailableReasons"
+        :intro="submitUnavailableIntro"
+      />
+      <v-card-actions class="flex-shrink-0">
         <v-btn
+          v-if="canCancelApplication"
+          color="error"
+          variant="tonal"
+          :disabled="saving"
+          @click="cancelApplication"
+        >
+          Cancel
+        </v-btn>
+        <v-btn
+          v-if="canUncancelApplication"
+          color="primary"
+          variant="tonal"
+          :disabled="saving"
+          @click="uncancelApplication"
+        >
+          Uncancel
+        </v-btn>
+        <v-spacer />
+        <v-btn variant="text" :disabled="saving" @click="close">Close</v-btn>
+        <v-btn
+          v-if="showPrimarySubmitButton"
           color="primary"
           :loading="saving"
-          :disabled="loading || !trip || !canEdit || !availableRoles.length"
           @click="save"
         >
           {{ primaryActionLabel }}
@@ -605,6 +969,24 @@ const save = async () => {
     v-if="personId"
     v-model="showProfileDialog"
     :person-id="personId"
+    :medical-condition-org-id="trip?.orgId"
     @saved="onProfileSaved"
+  />
+  <ConfirmDialog
+    v-model="showConfirmCancel"
+    title="Are you sure?"
+    message="Cancel this application? Your role slot will be freed."
+    confirm-text="Cancel App"
+    confirm-color="error"
+    :loading="saving"
+    @confirm="confirmCancelApplication"
+  />
+  <ConfirmDialog
+    v-model="showConfirmUncancel"
+    title="Are you sure?"
+    message="Uncancel this application? It will return to incomplete or applied based on completeness."
+    confirm-text="Uncancel"
+    :loading="saving"
+    @confirm="confirmUncancelApplication"
   />
 </template>

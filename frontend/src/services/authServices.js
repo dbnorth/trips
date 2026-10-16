@@ -10,6 +10,9 @@ export default {
   getRegisterOrganizations() {
     return apiClient.get("/register/organizations");
   },
+  getRegisterOrganizationBySubdomain(subdomain) {
+    return apiClient.get(`/register/organizations/by-subdomain/${encodeURIComponent(subdomain)}`);
+  },
   logoutUser(user) {
     return apiClient.post("/logout", { token: user?.token });
   },

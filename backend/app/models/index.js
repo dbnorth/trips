@@ -12,13 +12,29 @@ import TripPeopleRole from "./tripPeopleRole.model.js";
 import Donor from "./donor.model.js";
 import TripDonation from "./tripDonation.model.js";
 import EmailTemplate from "./emailTemplate.model.js";
+import EmailType from "./emailType.model.js";
+import EmailToken from "./emailToken.model.js";
 import EmailLog from "./emailLog.model.js";
+import ScheduledEmailSend from "./scheduledEmailSend.model.js";
 import WorkerRole from "./workerRole.model.js";
 import TripWorkerRole from "./tripWorkerRole.model.js";
 import TripTravelOption from "./tripTravelOption.model.js";
 import TripPeopleRoleOption from "./tripPeopleRoleOption.model.js";
 import DocumentType from "./documentType.model.js";
 import PersonDocument from "./personDocument.model.js";
+import PersonDocumentSpecialization from "./personDocumentSpecialization.model.js";
+import MedicalCondition from "./medicalCondition.model.js";
+import PersonMedicalCondition from "./personMedicalCondition.model.js";
+import WorkerRoleDocumentType from "./workerRoleDocumentType.model.js";
+import TripRoomingList from "./tripRoomingList.model.js";
+import TripRoom from "./tripRoom.model.js";
+import TripRoomAssignment from "./tripRoomAssignment.model.js";
+import Airport from "./airport.model.js";
+import Airline from "./airline.model.js";
+import TripFlight from "./tripFlight.model.js";
+import TripFlightSegment from "./tripFlightSegment.model.js";
+import Language from "./language.model.js";
+import PersonLanguage from "./personLanguage.model.js";
 
 const db = {};
 db.Sequelize = Sequelize;
@@ -35,13 +51,29 @@ db.tripPeopleRole = TripPeopleRole;
 db.donor = Donor;
 db.tripDonation = TripDonation;
 db.emailTemplate = EmailTemplate;
+db.emailType = EmailType;
+db.emailToken = EmailToken;
 db.emailLog = EmailLog;
+db.scheduledEmailSend = ScheduledEmailSend;
 db.workerRole = WorkerRole;
 db.tripWorkerRole = TripWorkerRole;
 db.tripTravelOption = TripTravelOption;
 db.tripPeopleRoleOption = TripPeopleRoleOption;
 db.documentType = DocumentType;
 db.personDocument = PersonDocument;
+db.personDocumentSpecialization = PersonDocumentSpecialization;
+db.medicalCondition = MedicalCondition;
+db.personMedicalCondition = PersonMedicalCondition;
+db.workerRoleDocumentType = WorkerRoleDocumentType;
+db.tripRoomingList = TripRoomingList;
+db.tripRoom = TripRoom;
+db.tripRoomAssignment = TripRoomAssignment;
+db.airport = Airport;
+db.airline = Airline;
+db.tripFlight = TripFlight;
+db.tripFlightSegment = TripFlightSegment;
+db.language = Language;
+db.personLanguage = PersonLanguage;
 
 db.user.hasMany(db.session, { foreignKey: "userId", onDelete: "CASCADE" });
 db.session.belongsTo(db.user, { foreignKey: "userId", onDelete: "CASCADE" });
@@ -86,6 +118,23 @@ db.organization.hasMany(db.emailTemplate, { foreignKey: "orgId", onDelete: "CASC
 db.emailTemplate.belongsTo(db.organization, { foreignKey: "orgId", onDelete: "CASCADE" });
 db.trip.hasMany(db.emailTemplate, { foreignKey: "tripId", onDelete: "CASCADE" });
 db.emailTemplate.belongsTo(db.trip, { foreignKey: "tripId", onDelete: "CASCADE" });
+db.emailType.hasMany(db.emailTemplate, { foreignKey: "emailTypeId", onDelete: "RESTRICT" });
+db.emailTemplate.belongsTo(db.emailType, { foreignKey: "emailTypeId", onDelete: "RESTRICT" });
+
+db.emailTemplate.hasMany(db.scheduledEmailSend, { foreignKey: "emailTemplateId", onDelete: "CASCADE" });
+db.scheduledEmailSend.belongsTo(db.emailTemplate, { foreignKey: "emailTemplateId", onDelete: "CASCADE" });
+db.trip.hasMany(db.scheduledEmailSend, { foreignKey: "tripId", onDelete: "CASCADE" });
+db.scheduledEmailSend.belongsTo(db.trip, { foreignKey: "tripId", onDelete: "CASCADE" });
+db.person.hasMany(db.scheduledEmailSend, { foreignKey: "personId", onDelete: "CASCADE" });
+db.scheduledEmailSend.belongsTo(db.person, { foreignKey: "personId", onDelete: "CASCADE" });
+db.emailLog.hasMany(db.scheduledEmailSend, { foreignKey: "emailLogId", onDelete: "SET NULL" });
+db.scheduledEmailSend.belongsTo(db.emailLog, { foreignKey: "emailLogId", onDelete: "SET NULL" });
+db.emailTemplate.hasMany(db.emailLog, { foreignKey: "emailTemplateId", onDelete: "SET NULL" });
+db.emailLog.belongsTo(db.emailTemplate, { foreignKey: "emailTemplateId", onDelete: "SET NULL" });
+db.trip.hasMany(db.emailLog, { foreignKey: "tripId", onDelete: "SET NULL" });
+db.emailLog.belongsTo(db.trip, { foreignKey: "tripId", onDelete: "SET NULL" });
+db.person.hasMany(db.emailLog, { foreignKey: "personId", onDelete: "SET NULL" });
+db.emailLog.belongsTo(db.person, { foreignKey: "personId", onDelete: "SET NULL" });
 
 db.organization.hasMany(db.workerRole, { foreignKey: "orgId", onDelete: "CASCADE" });
 db.workerRole.belongsTo(db.organization, {
@@ -110,6 +159,37 @@ db.workerRole.belongsTo(db.documentType, {
   onDelete: "SET NULL",
 });
 
+db.workerRole.belongsToMany(db.documentType, {
+  through: db.workerRoleDocumentType,
+  foreignKey: "workerRoleId",
+  otherKey: "documentTypeId",
+  as: "requiredDocumentTypes",
+});
+db.documentType.belongsToMany(db.workerRole, {
+  through: db.workerRoleDocumentType,
+  foreignKey: "documentTypeId",
+  otherKey: "workerRoleId",
+  as: "workerRolesRequiring",
+});
+db.workerRole.hasMany(db.workerRoleDocumentType, {
+  foreignKey: "workerRoleId",
+  onDelete: "CASCADE",
+});
+db.workerRoleDocumentType.belongsTo(db.workerRole, {
+  foreignKey: "workerRoleId",
+  as: "workerRole",
+  onDelete: "CASCADE",
+});
+db.documentType.hasMany(db.workerRoleDocumentType, {
+  foreignKey: "documentTypeId",
+  onDelete: "RESTRICT",
+});
+db.workerRoleDocumentType.belongsTo(db.documentType, {
+  foreignKey: "documentTypeId",
+  as: "documentType",
+  onDelete: "RESTRICT",
+});
+
 db.documentType.hasMany(db.personDocument, {
   foreignKey: "documentTypeId",
   onDelete: "RESTRICT",
@@ -118,6 +198,17 @@ db.personDocument.belongsTo(db.documentType, {
   foreignKey: "documentTypeId",
   as: "documentType",
   onDelete: "RESTRICT",
+});
+
+db.personDocument.hasMany(db.personDocumentSpecialization, {
+  foreignKey: "personDocumentId",
+  as: "specializations",
+  onDelete: "CASCADE",
+});
+db.personDocumentSpecialization.belongsTo(db.personDocument, {
+  foreignKey: "personDocumentId",
+  as: "personDocument",
+  onDelete: "CASCADE",
 });
 
 db.trip.hasMany(db.tripWorkerRole, { foreignKey: "tripId", onDelete: "CASCADE" });
@@ -154,5 +245,129 @@ db.tripPeopleRoleOption.belongsTo(db.tripTravelOption, {
   as: "tripTravelOption",
   onDelete: "CASCADE",
 });
+
+db.organization.hasMany(db.medicalCondition, { foreignKey: "orgId", onDelete: "CASCADE" });
+db.medicalCondition.belongsTo(db.organization, {
+  foreignKey: "orgId",
+  as: "organization",
+  onDelete: "CASCADE",
+});
+
+db.person.belongsToMany(db.medicalCondition, {
+  through: db.personMedicalCondition,
+  foreignKey: "personId",
+  otherKey: "medicalConditionId",
+  as: "medicalConditions",
+});
+db.medicalCondition.belongsToMany(db.person, {
+  through: db.personMedicalCondition,
+  foreignKey: "medicalConditionId",
+  otherKey: "personId",
+  as: "people",
+});
+db.person.hasMany(db.personMedicalCondition, { foreignKey: "personId", onDelete: "CASCADE" });
+db.personMedicalCondition.belongsTo(db.person, {
+  foreignKey: "personId",
+  as: "person",
+  onDelete: "CASCADE",
+});
+db.medicalCondition.hasMany(db.personMedicalCondition, {
+  foreignKey: "medicalConditionId",
+  onDelete: "CASCADE",
+});
+db.personMedicalCondition.belongsTo(db.medicalCondition, {
+  foreignKey: "medicalConditionId",
+  as: "medicalCondition",
+  onDelete: "CASCADE",
+});
+
+db.trip.hasOne(db.tripRoomingList, { foreignKey: "tripId", as: "roomingList", onDelete: "CASCADE" });
+db.tripRoomingList.belongsTo(db.trip, { foreignKey: "tripId", as: "trip", onDelete: "CASCADE" });
+db.tripRoomingList.hasMany(db.tripRoom, {
+  foreignKey: "tripRoomingListId",
+  as: "rooms",
+  onDelete: "CASCADE",
+});
+db.tripRoom.belongsTo(db.tripRoomingList, {
+  foreignKey: "tripRoomingListId",
+  as: "roomingList",
+  onDelete: "CASCADE",
+});
+db.tripRoom.hasMany(db.tripRoomAssignment, {
+  foreignKey: "tripRoomId",
+  as: "assignments",
+  onDelete: "CASCADE",
+});
+db.tripRoomAssignment.belongsTo(db.tripRoom, {
+  foreignKey: "tripRoomId",
+  as: "room",
+  onDelete: "CASCADE",
+});
+db.tripPeopleRole.hasOne(db.tripRoomAssignment, {
+  foreignKey: "tripPeopleRoleId",
+  as: "roomAssignment",
+  onDelete: "CASCADE",
+});
+db.tripRoomAssignment.belongsTo(db.tripPeopleRole, {
+  foreignKey: "tripPeopleRoleId",
+  as: "tripPeopleRole",
+  onDelete: "CASCADE",
+});
+
+db.tripPeopleRole.hasOne(db.tripFlight, {
+  foreignKey: "tripPeopleRoleId",
+  as: "flight",
+  onDelete: "CASCADE",
+});
+db.tripFlight.belongsTo(db.tripPeopleRole, {
+  foreignKey: "tripPeopleRoleId",
+  as: "tripPeopleRole",
+  onDelete: "CASCADE",
+});
+db.tripPeopleRole.belongsTo(db.airport, {
+  foreignKey: "preferredDepartureAirportId",
+  as: "preferredDepartureAirport",
+});
+db.tripPeopleRole.belongsTo(db.airport, {
+  foreignKey: "preferredReturnAirportId",
+  as: "preferredReturnAirport",
+});
+db.tripPeopleRole.belongsTo(db.airline, {
+  foreignKey: "preferredAirlineId",
+  as: "preferredAirline",
+});
+db.tripFlight.hasMany(db.tripFlightSegment, {
+  foreignKey: "tripFlightId",
+  as: "segments",
+  onDelete: "CASCADE",
+});
+db.tripFlightSegment.belongsTo(db.tripFlight, {
+  foreignKey: "tripFlightId",
+  as: "flight",
+  onDelete: "CASCADE",
+});
+db.airport.hasMany(db.tripFlightSegment, {
+  foreignKey: "departureAirportId",
+  as: "departureSegments",
+});
+db.airport.hasMany(db.tripFlightSegment, {
+  foreignKey: "arrivalAirportId",
+  as: "arrivalSegments",
+});
+db.tripFlightSegment.belongsTo(db.airport, {
+  foreignKey: "departureAirportId",
+  as: "departureAirport",
+});
+db.tripFlightSegment.belongsTo(db.airport, {
+  foreignKey: "arrivalAirportId",
+  as: "arrivalAirport",
+});
+db.airline.hasMany(db.tripFlightSegment, { foreignKey: "airlineId", as: "segments" });
+db.tripFlightSegment.belongsTo(db.airline, { foreignKey: "airlineId", as: "airline" });
+
+db.person.hasMany(db.personLanguage, { foreignKey: "personId", as: "personLanguages", onDelete: "CASCADE" });
+db.personLanguage.belongsTo(db.person, { foreignKey: "personId", as: "person", onDelete: "CASCADE" });
+db.language.hasMany(db.personLanguage, { foreignKey: "languageId", as: "personLanguages", onDelete: "RESTRICT" });
+db.personLanguage.belongsTo(db.language, { foreignKey: "languageId", as: "language", onDelete: "RESTRICT" });
 
 export default db;

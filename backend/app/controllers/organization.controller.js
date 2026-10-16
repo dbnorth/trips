@@ -9,12 +9,19 @@ import {
 } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import {
-  AGREEMENTS_DIR_NAME,
+  getAgreementsDir,
+  AGREEMENT_KIND_MEDICAL,
   agreementVersionRelativePath,
   agreementAbsolutePath,
   loadOrganizationAgreement,
-  removeAllAgreementVersions,
+  loadOrganizationMedicalAgreement,
+  removeAllOrgAgreementFiles,
 } from "../utils/organizationAgreement.js";
+
+import {
+  validateSubdomainValue,
+  isSubdomainTaken,
+} from "../utils/organizationSubdomain.js";
 
 const Organization = db.organization;
 const orgFields = [
@@ -32,7 +39,31 @@ const orgFields = [
   "facebookPage",
   "instagram",
   "colorFamily",
+  "subdomain",
+  "testMode",
 ];
+
+const pickOrgPayload = (body, { includeSubdomain }) => {
+  const payload = {};
+  for (const key of orgFields) {
+    if (key === "subdomain" && !includeSubdomain) continue;
+    if (Object.prototype.hasOwnProperty.call(body, key)) payload[key] = body[key];
+  }
+  return payload;
+};
+
+const applySubdomainToPayload = async (payload, { excludeOrgId = null } = {}) => {
+  if (!Object.prototype.hasOwnProperty.call(payload, "subdomain")) {
+    return { ok: true, payload };
+  }
+  const validated = validateSubdomainValue(payload.subdomain);
+  if (!validated.ok) return { ok: false, status: 400, message: validated.message };
+  if (validated.subdomain && (await isSubdomainTaken(validated.subdomain, { excludeOrgId }))) {
+    return { ok: false, status: 409, message: "That subdomain is already in use." };
+  }
+  payload.subdomain = validated.subdomain;
+  return { ok: true, payload };
+};
 
 const canManageOrg = (req, orgId) =>
   isOrgAdminForOrg(req, orgId) || isSystemAdmin(req);
@@ -83,7 +114,14 @@ exports.findOne = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     if (!isSystemAdmin(req)) return res.status(403).send({ message: "Forbidden." });
-    const data = await Organization.create(req.body);
+    const payload = pickOrgPayload(req.body, { includeSubdomain: true });
+    if (!payload.name?.trim()) {
+      return res.status(400).send({ message: "Name is required." });
+    }
+    payload.name = payload.name.trim();
+    const withSub = await applySubdomainToPayload(payload);
+    if (!withSub.ok) return res.status(withSub.status).send({ message: withSub.message });
+    const data = await Organization.create(withSub.payload);
     res.send(data);
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -95,7 +133,18 @@ exports.update = async (req, res) => {
     if (!canManageOrg(req, req.params.id)) {
       return res.status(403).send({ message: "Forbidden." });
     }
-    const result = await optimisticUpdate(Organization, req.params.id, req.body, orgFields);
+    const includeSubdomain = isSystemAdmin(req);
+    const allowed = includeSubdomain ? orgFields : orgFields.filter((f) => f !== "subdomain");
+    const body = { ...req.body };
+    if (includeSubdomain && Object.prototype.hasOwnProperty.call(body, "subdomain")) {
+      const withSub = await applySubdomainToPayload(
+        { subdomain: body.subdomain },
+        { excludeOrgId: Number(req.params.id) }
+      );
+      if (!withSub.ok) return res.status(withSub.status).send({ message: withSub.message });
+      body.subdomain = withSub.payload.subdomain;
+    }
+    const result = await optimisticUpdate(Organization, req.params.id, body, allowed);
     if (!result.ok) return res.status(result.status).send({ message: result.message });
     res.send(result.data);
   } catch (err) {
@@ -157,7 +206,7 @@ exports.saveAgreement = async (req, res) => {
       return res.status(400).send({ message: "Agreement content is required." });
     }
 
-    fs.mkdirSync(AGREEMENTS_DIR_NAME, { recursive: true });
+    fs.mkdirSync(getAgreementsDir(), { recursive: true });
     const relativePath = agreementVersionRelativePath(org.id);
     const filePath = agreementAbsolutePath(relativePath);
 
@@ -167,6 +216,55 @@ exports.saveAgreement = async (req, res) => {
     res.send({
       message: "Participant agreement saved.",
       agreementFileName: relativePath,
+      exists: true,
+      content,
+    });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.getMedicalAgreement = async (req, res) => {
+  try {
+    if (!canManageOrg(req, req.params.id)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+    const org = await Organization.findByPk(req.params.id);
+    if (!org) return res.status(404).send({ message: "Organization not found." });
+    const loaded = await loadOrganizationMedicalAgreement(org.id);
+    res.send({
+      medicalAgreementFileName: loaded.agreementFileName,
+      exists: loaded.exists,
+      content: loaded.content,
+    });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.saveMedicalAgreement = async (req, res) => {
+  try {
+    if (!canManageOrg(req, req.params.id)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+    const org = await Organization.findByPk(req.params.id);
+    if (!org) return res.status(404).send({ message: "Organization not found." });
+
+    const content = typeof req.body?.content === "string" ? req.body.content : null;
+    if (content == null) {
+      return res.status(400).send({ message: "Agreement content is required." });
+    }
+
+    fs.mkdirSync(getAgreementsDir(), { recursive: true });
+    const relativePath = agreementVersionRelativePath(org.id, new Date(), AGREEMENT_KIND_MEDICAL);
+    const filePath = agreementAbsolutePath(relativePath);
+
+    fs.writeFileSync(filePath, content, "utf8");
+    await org.update({ medicalAgreementFileName: relativePath });
+
+    res.send({
+      message: "Medical agreement saved.",
+      medicalAgreementFileName: relativePath,
       exists: true,
       content,
     });
@@ -186,7 +284,7 @@ exports.delete = async (req, res) => {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       }
     }
-    removeAllAgreementVersions(org.id);
+    removeAllOrgAgreementFiles(org.id);
     await Organization.destroy({ where: { id: req.params.id } });
     res.send({ message: "Organization deleted." });
   } catch (err) {

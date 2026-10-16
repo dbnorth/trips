@@ -23,7 +23,10 @@ const amount = ref("");
 
 const participantName = computed(() =>
   participant.value
-    ? `${participant.value.firstName || ""} ${participant.value.lastName || ""}`.trim()
+    ? [participant.value.firstName, participant.value.middleName, participant.value.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim()
     : ""
 );
 

@@ -7,6 +7,8 @@ const router = Router();
 router.get("/", [authenticate], tpr.findAll);
 router.get("/:id", [authenticate], tpr.findOne);
 router.post("/", [authenticate], tpr.create);
+router.post("/:id/cancel", [authenticate], tpr.cancel);
+router.post("/:id/uncancel", [authenticate], tpr.uncancel);
 router.put("/:id", [authenticate], tpr.update);
 router.delete("/:id", [authenticate], tpr.delete);
 

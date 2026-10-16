@@ -66,7 +66,11 @@ const tripItems = computed(() => [
 ]);
 
 const personDisplayName = (person) =>
-  `${person.firstName || ""} ${person.lastName || ""}`.trim().toLowerCase();
+  [person.firstName, person.middleName, person.lastName]
+    .filter((part) => part != null && String(part).trim() !== "")
+    .map((part) => String(part).trim())
+    .join(" ")
+    .toLowerCase();
 
 const filteredPeople = computed(() => {
   const q = filterName.value.trim().toLowerCase();

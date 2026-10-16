@@ -5,12 +5,28 @@ import {
   isSystemAdmin,
 } from "../authorization/accessControl.js";
 import {
+  arePersonDocumentsUploaded,
+  isRequiredPassportUploaded,
+  isRequiredRoleDocumentUploaded,
+  loadPersonDocumentsForCompleteness,
   loadPersonForCompleteness,
   resolveAppliedOrIncompleteStatus,
   isUnder18,
+  tripDocumentCompareDate,
 } from "../utils/tripParticipantApplicationStatus.js";
-import { loadOrganizationAgreement } from "../utils/organizationAgreement.js";
+import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
+import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
+import { withCapacityFields } from "../utils/tripRoleCapacity.js";
+import { sendApplicationEventEmails } from "../utils/eventEmails.js";
+import {
+  cancelApplicationAssignment,
+  uncancelApplicationAssignment,
+} from "../utils/applicationCancel.js";
+import {
+  parseFlightPurchaseFields,
+  flightPurchaseInclude,
+} from "../utils/flightPurchaseFields.js";
 
 const Trip = db.trip;
 const TripWorkerRole = db.tripWorkerRole;
@@ -210,6 +226,30 @@ const parseAgreementSignature = (body, { agreementRequired, participantUnder18 }
     agreementAdultRelationship: participantUnder18 ? agreementAdultRelationship : null,
   };
 };
+
+const parseMedicalAgreementAcceptance = (body, { medicalAgreementRequired }) => {
+  const medicalAgreementAccepted = parseBool(body?.medicalAgreementAccepted);
+  if (!medicalAgreementRequired || !medicalAgreementAccepted) {
+    return {
+      ok: true,
+      medicalAgreementAccepted: false,
+      medicalAgreementDate: null,
+    };
+  }
+  return {
+    ok: true,
+    medicalAgreementAccepted: true,
+    medicalAgreementDate: new Date(),
+  };
+};
+
+const parsePregnancyFields = (body, person) =>
+  normalizeApplicationPregnancy(body || {}, { gender: person?.gender ?? null });
+
+const medicalAgreementRequiredForPerson = (medicalAgreement, person) =>
+  !!medicalAgreement?.exists &&
+  !!medicalAgreement?.content?.trim() &&
+  (person?.takesMedication === true || person?.takesMedication === 1);
 const orgInclude = {
   model: db.organization,
   as: "organization",
@@ -222,6 +262,12 @@ const workerRoleInclude = {
   attributes: ["id", "name", "description", "licenseRequired", "documentTypeId", "status"],
   include: [
     { model: db.documentType, as: "documentType", attributes: ["id", "description", "type"] },
+    {
+      model: db.documentType,
+      as: "requiredDocumentTypes",
+      attributes: ["id", "description", "type"],
+      through: { attributes: [] },
+    },
   ],
 };
 
@@ -250,40 +296,13 @@ const canBrowseOrg = (req, orgId) => {
 const canViewTrip = (req, trip) =>
   !!req.user && !!trip && (trip.status === "active" || canBrowseOrg(req, trip.orgId));
 
-const signedUpCountsByTripWorkerRoleId = async (tripId) => {
-  const rows = await TripPeopleRole.findAll({
-    attributes: [
-      "tripWorkerRoleId",
-      [db.sequelize.fn("COUNT", db.sequelize.col("id")), "signedUpCount"],
-    ],
-    where: {
-      tripId,
-      status: { [Op.in]: ["incomplete", "applied", "approved"] },
-      tripWorkerRoleId: { [Op.ne]: null },
-    },
-    group: ["tripWorkerRoleId"],
-    raw: true,
-  });
-  return new Map(rows.map((r) => [Number(r.tripWorkerRoleId), Number(r.signedUpCount) || 0]));
-};
-
 const loadTripRolesNeeded = async (tripId) => {
   const rows = await TripWorkerRole.findAll({
     where: { tripId },
     include: [workerRoleInclude],
     order: [[{ model: WorkerRole, as: "workerRole" }, "name", "ASC"]],
   });
-  const counts = await signedUpCountsByTripWorkerRoleId(tripId);
-  return rows.map((row) => {
-    const json = row.toJSON();
-    const signedUpCount = counts.get(Number(json.id)) || 0;
-    const quantity = Number(json.quantity) || 0;
-    return {
-      ...json,
-      signedUpCount,
-      availableCount: Math.max(0, quantity - signedUpCount),
-    };
-  });
+  return withCapacityFields(tripId, rows);
 };
 
 const getPersonAssignment = async (tripId, peopleId) => {
@@ -373,7 +392,7 @@ exports.listMyTrips = async (req, res) => {
     const links = await TripPeopleRole.findAll({
       where: {
         peopleId,
-        status: { [Op.in]: ["incomplete", "applied", "approved"] },
+        status: { [Op.in]: ["incomplete", "applied", "approved", "cancelled"] },
       },
       attributes: ["id", "tripId", "status"],
       include: [
@@ -466,6 +485,7 @@ exports.getBrowseTrip = async (req, res) => {
 
     const rolesNeeded = await loadTripRolesNeeded(trip.id);
     const participantAgreement = await loadOrganizationAgreement(trip.orgId);
+    const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const travelOptions = await loadTravelOptionsForApplication(trip.id, assignment?.id);
     const tripLeaders = await getTripLeadersForDisplay(trip.id);
 
@@ -496,6 +516,7 @@ exports.getBrowseTrip = async (req, res) => {
       myTripInfo,
       tripLeaders,
       participantAgreement,
+      medicalAgreement,
       travelOptions,
     });
   } catch (err) {
@@ -564,12 +585,23 @@ exports.applyToTrip = async (req, res) => {
       ? String(req.body?.preferredRoommateNames || "").trim() || null
       : null;
 
+    const flightPurchase = await parseFlightPurchaseFields(req.body);
+    if (!flightPurchase.ok) {
+      return res.status(400).send({ message: flightPurchase.message });
+    }
+
     const participantAgreement = await loadOrganizationAgreement(trip.orgId);
+    const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const agreementRequired = !!participantAgreement.exists && !!participantAgreement.content?.trim();
     const person = await loadPersonForCompleteness(peopleId);
+    const personDocuments = await loadPersonDocumentsForCompleteness(peopleId);
+    const medicalAgreementRequired = medicalAgreementRequiredForPerson(medicalAgreement, person);
     const participantUnder18 = isUnder18(person?.birthDate);
     const agreement = parseAgreementSignature(req.body, { agreementRequired, participantUnder18 });
     if (!agreement.ok) return res.status(400).send({ message: agreement.message });
+    const medical = parseMedicalAgreementAcceptance(req.body, { medicalAgreementRequired });
+    const pregnancy = parsePregnancyFields(req.body, person);
+    if (!pregnancy.ok) return res.status(400).send({ message: pregnancy.message });
 
     const travelOptions = await loadTripTravelOptions(trip.id);
     const selectedTravelOptionIds = parseSelectedTravelOptionIds(req.body);
@@ -589,6 +621,7 @@ exports.applyToTrip = async (req, res) => {
       });
     }
 
+    const documentCompareDate = tripDocumentCompareDate(trip);
     const status = resolveAppliedOrIncompleteStatus({
       person,
       tripWorkerRoleId,
@@ -597,6 +630,12 @@ exports.applyToTrip = async (req, res) => {
       licenseStatus,
       hasPreferredRoommate,
       preferredRoommateNames,
+      flightPurchaseOption: flightPurchase.flightPurchaseOption,
+      preferredDepartureAirportId: flightPurchase.preferredDepartureAirportId,
+      preferredReturnAirportId: flightPurchase.preferredReturnAirportId,
+      preferredCabinClass: flightPurchase.preferredCabinClass,
+      preferredAirlineId: flightPurchase.preferredAirlineId,
+      preferredRefundableTicket: flightPurchase.preferredRefundableTicket,
       licenseRequired,
       agreementRequired,
       agreementAccepted: agreement.agreementAccepted,
@@ -605,7 +644,27 @@ exports.applyToTrip = async (req, res) => {
       agreementAdultLastName: agreement.agreementAdultLastName,
       agreementAdultEmail: agreement.agreementAdultEmail,
       agreementAdultRelationship: agreement.agreementAdultRelationship,
+      medicalAgreementRequired,
+      medicalAgreementAccepted: medical.medicalAgreementAccepted,
+      isPregnant: pregnancy.isPregnant,
+      pregnancyDueDate: pregnancy.pregnancyDueDate,
       travelOptionsComplete: !selectionCheck.missingSelection,
+      personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
+      requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
+        documents: personDocuments,
+        documentTypeIds:
+          selectedRole.workerRole?.requiredDocumentTypes?.map((d) => d.id) ||
+          (selectedRole.workerRole?.documentTypeId != null
+            ? [selectedRole.workerRole.documentTypeId]
+            : []),
+        compareDate: documentCompareDate,
+      }),
+      requiredPassportUploaded: isRequiredPassportUploaded({
+        documents: personDocuments,
+        requirePassport: !!trip.requirePassport,
+        compareDate: documentCompareDate,
+      }),
+      orgId: trip.orgId,
     });
 
     const link = await TripPeopleRole.create({
@@ -620,6 +679,12 @@ exports.applyToTrip = async (req, res) => {
       licenseStatus,
       hasPreferredRoommate,
       preferredRoommateNames,
+      flightPurchaseOption: flightPurchase.flightPurchaseOption,
+      preferredDepartureAirportId: flightPurchase.preferredDepartureAirportId,
+      preferredReturnAirportId: flightPurchase.preferredReturnAirportId,
+      preferredCabinClass: flightPurchase.preferredCabinClass,
+      preferredAirlineId: flightPurchase.preferredAirlineId,
+      preferredRefundableTicket: flightPurchase.preferredRefundableTicket,
       agreementAccepted: agreement.agreementAccepted,
       agreementSignatureName: agreement.agreementSignatureName,
       agreementDate: agreement.agreementDate,
@@ -627,10 +692,15 @@ exports.applyToTrip = async (req, res) => {
       agreementAdultLastName: agreement.agreementAdultLastName,
       agreementAdultEmail: agreement.agreementAdultEmail,
       agreementAdultRelationship: agreement.agreementAdultRelationship,
+      medicalAgreementAccepted: medical.medicalAgreementAccepted,
+      medicalAgreementDate: medical.medicalAgreementDate,
+      isPregnant: pregnancy.isPregnant,
+      pregnancyDueDate: pregnancy.pregnancyDueDate,
       assiginmentDateTime: new Date(),
     });
 
     await syncTripPeopleRoleOptions(link.id, travelOptions, selectedTravelOptionIds);
+    await sendApplicationEventEmails(link, null);
 
     const participantOrgRole = await Role.findOne({ where: { roleName: ROLE_TRIP_PARTICIPANT } });
     if (participantOrgRole) {
@@ -670,6 +740,7 @@ const loadApplicationAssignment = async (tripId, peopleId) => {
         include: [workerRoleInclude],
       },
       { model: Role, as: "role", attributes: ["id", "roleName"] },
+      ...flightPurchaseInclude,
     ],
   });
 };
@@ -696,6 +767,7 @@ exports.getApplication = async (req, res) => {
 
     const rolesNeeded = await loadTripRolesNeeded(trip.id);
     const participantAgreement = await loadOrganizationAgreement(trip.orgId);
+    const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const travelOptions = await loadTravelOptionsForApplication(trip.id, assignment.id);
     res.send({
       trip,
@@ -704,6 +776,7 @@ exports.getApplication = async (req, res) => {
       applicationStatus: assignment.status,
       canEdit: EDITABLE_APPLICATION_STATUSES.includes(assignment.status),
       participantAgreement,
+      medicalAgreement,
       travelOptions,
     });
   } catch (err) {
@@ -769,12 +842,23 @@ exports.updateApplication = async (req, res) => {
       ? String(req.body?.preferredRoommateNames || "").trim() || null
       : null;
 
+    const flightPurchase = await parseFlightPurchaseFields(req.body);
+    if (!flightPurchase.ok) {
+      return res.status(400).send({ message: flightPurchase.message });
+    }
+
     const participantAgreement = await loadOrganizationAgreement(trip.orgId);
+    const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const agreementRequired = !!participantAgreement.exists && !!participantAgreement.content?.trim();
     const person = await loadPersonForCompleteness(peopleId);
+    const personDocuments = await loadPersonDocumentsForCompleteness(peopleId);
+    const medicalAgreementRequired = medicalAgreementRequiredForPerson(medicalAgreement, person);
     const participantUnder18 = isUnder18(person?.birthDate);
     const agreement = parseAgreementSignature(req.body, { agreementRequired, participantUnder18 });
     if (!agreement.ok) return res.status(400).send({ message: agreement.message });
+    const medical = parseMedicalAgreementAcceptance(req.body, { medicalAgreementRequired });
+    const pregnancy = parsePregnancyFields(req.body, person);
+    if (!pregnancy.ok) return res.status(400).send({ message: pregnancy.message });
 
     const travelOptions = await loadTripTravelOptions(trip.id);
     const selectedTravelOptionIds = parseSelectedTravelOptionIds(req.body);
@@ -786,6 +870,7 @@ exports.updateApplication = async (req, res) => {
       selectedTravelOptionIds
     );
 
+    const documentCompareDate = tripDocumentCompareDate(trip);
     const status = resolveAppliedOrIncompleteStatus({
       person,
       tripWorkerRoleId,
@@ -794,6 +879,12 @@ exports.updateApplication = async (req, res) => {
       licenseStatus,
       hasPreferredRoommate,
       preferredRoommateNames,
+      flightPurchaseOption: flightPurchase.flightPurchaseOption,
+      preferredDepartureAirportId: flightPurchase.preferredDepartureAirportId,
+      preferredReturnAirportId: flightPurchase.preferredReturnAirportId,
+      preferredCabinClass: flightPurchase.preferredCabinClass,
+      preferredAirlineId: flightPurchase.preferredAirlineId,
+      preferredRefundableTicket: flightPurchase.preferredRefundableTicket,
       licenseRequired,
       agreementRequired,
       agreementAccepted: agreement.agreementAccepted,
@@ -802,7 +893,27 @@ exports.updateApplication = async (req, res) => {
       agreementAdultLastName: agreement.agreementAdultLastName,
       agreementAdultEmail: agreement.agreementAdultEmail,
       agreementAdultRelationship: agreement.agreementAdultRelationship,
+      medicalAgreementRequired,
+      medicalAgreementAccepted: medical.medicalAgreementAccepted,
+      isPregnant: pregnancy.isPregnant,
+      pregnancyDueDate: pregnancy.pregnancyDueDate,
       travelOptionsComplete: !selectionCheck.missingSelection,
+      personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
+      requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
+        documents: personDocuments,
+        documentTypeIds:
+          selectedRole.workerRole?.requiredDocumentTypes?.map((d) => d.id) ||
+          (selectedRole.workerRole?.documentTypeId != null
+            ? [selectedRole.workerRole.documentTypeId]
+            : []),
+        compareDate: documentCompareDate,
+      }),
+      requiredPassportUploaded: isRequiredPassportUploaded({
+        documents: personDocuments,
+        requirePassport: !!trip.requirePassport,
+        compareDate: documentCompareDate,
+      }),
+      orgId: trip.orgId,
     });
 
     if (req.body?.version != null && Number(req.body.version) !== Number(assignment.version)) {
@@ -827,6 +938,15 @@ exports.updateApplication = async (req, res) => {
           ? assignment.agreementDate || agreement.agreementDate
           : null;
 
+    const medicalAgreementDate =
+      medical.medicalAgreementAccepted &&
+      (!assignment.medicalAgreementAccepted)
+        ? medical.medicalAgreementDate
+        : medical.medicalAgreementAccepted
+          ? assignment.medicalAgreementDate || medical.medicalAgreementDate
+          : null;
+
+    const previousStatus = assignment.status;
     await assignment.update({
       tripWorkerRoleId,
       willSelfFund,
@@ -834,6 +954,12 @@ exports.updateApplication = async (req, res) => {
       licenseStatus,
       hasPreferredRoommate,
       preferredRoommateNames,
+      flightPurchaseOption: flightPurchase.flightPurchaseOption,
+      preferredDepartureAirportId: flightPurchase.preferredDepartureAirportId,
+      preferredReturnAirportId: flightPurchase.preferredReturnAirportId,
+      preferredCabinClass: flightPurchase.preferredCabinClass,
+      preferredAirlineId: flightPurchase.preferredAirlineId,
+      preferredRefundableTicket: flightPurchase.preferredRefundableTicket,
       participantCost,
       agreementAccepted: agreement.agreementAccepted,
       agreementSignatureName: agreement.agreementSignatureName,
@@ -842,11 +968,16 @@ exports.updateApplication = async (req, res) => {
       agreementAdultLastName: agreement.agreementAdultLastName,
       agreementAdultEmail: agreement.agreementAdultEmail,
       agreementAdultRelationship: agreement.agreementAdultRelationship,
+      medicalAgreementAccepted: medical.medicalAgreementAccepted,
+      medicalAgreementDate,
+      isPregnant: pregnancy.isPregnant,
+      pregnancyDueDate: pregnancy.pregnancyDueDate,
       status,
       version: Number(assignment.version) + 1,
     });
 
     await syncTripPeopleRoleOptions(assignment.id, travelOptions, selectedTravelOptionIds);
+    await sendApplicationEventEmails(assignment, previousStatus);
 
     const full = await loadApplicationAssignment(trip.id, peopleId);
     const travelOptionsWithSelection = await loadTravelOptionsForApplication(trip.id, assignment.id);
@@ -856,7 +987,83 @@ exports.updateApplication = async (req, res) => {
       applicationStatus: status,
       alreadyApplied: true,
       participantAgreement,
+      medicalAgreement,
       travelOptions: travelOptionsWithSelection,
+    });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.cancelApplication = async (req, res) => {
+  try {
+    const peopleId = req.user?.personId;
+    if (!peopleId) {
+      return res.status(400).send({ message: "Your account is not linked to a person profile." });
+    }
+
+    const trip = await Trip.findByPk(req.params.id, { include: [orgInclude] });
+    if (!trip || trip.status !== "active") {
+      return res.status(404).send({ message: "Trip not found." });
+    }
+    if (!canBrowseOrg(req, trip.orgId)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+
+    const assignment = await loadApplicationAssignment(trip.id, peopleId);
+    if (!assignment) {
+      return res.status(404).send({ message: "Application not found." });
+    }
+
+    const result = await cancelApplicationAssignment(assignment);
+    if (!result.ok) {
+      return res.status(result.status).send({ message: result.message });
+    }
+
+    const full = await loadApplicationAssignment(trip.id, peopleId);
+    res.send({
+      message: "Application cancelled.",
+      application: full,
+      applicationStatus: "cancelled",
+      alreadyApplied: true,
+    });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.uncancelApplication = async (req, res) => {
+  try {
+    const peopleId = req.user?.personId;
+    if (!peopleId) {
+      return res.status(400).send({ message: "Your account is not linked to a person profile." });
+    }
+
+    const trip = await Trip.findByPk(req.params.id, { include: [orgInclude] });
+    if (!trip || trip.status !== "active") {
+      return res.status(404).send({ message: "Trip not found." });
+    }
+    if (!canBrowseOrg(req, trip.orgId)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+
+    const assignment = await loadApplicationAssignment(trip.id, peopleId);
+    if (!assignment) {
+      return res.status(404).send({ message: "Application not found." });
+    }
+
+    const result = await uncancelApplicationAssignment(assignment, { orgId: trip.orgId });
+    if (!result.ok) {
+      return res.status(result.status).send({ message: result.message });
+    }
+
+    const full = await loadApplicationAssignment(trip.id, peopleId);
+    res.send({
+      message: "Application uncancelled.",
+      application: full,
+      applicationStatus: result.status,
+      alreadyApplied: true,
+      canEdit: EDITABLE_APPLICATION_STATUSES.includes(result.status),
     });
   } catch (err) {
     res.status(500).send({ message: err.message });

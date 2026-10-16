@@ -7,8 +7,8 @@ export default {
   getOrgTripLeaders(orgId) {
     return apiClient.get("/people/org-trip-leaders", { params: { orgId } });
   },
-  get(id) {
-    return apiClient.get(`/people/${id}`);
+  get(id, params = {}) {
+    return apiClient.get(`/people/${id}`, { params });
   },
   create(data) {
     return apiClient.post("/people", data);

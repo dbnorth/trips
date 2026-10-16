@@ -18,7 +18,7 @@ const emptyForm = () => ({
   name: "",
   description: "",
   licenseRequired: false,
-  documentTypeId: null,
+  requiredDocumentTypeIds: [],
   status: "active",
 });
 
@@ -61,11 +61,15 @@ const loadRole = async () => {
   try {
     const res = await WorkerRoleServices.get(props.roleId);
     const row = res.data;
+    const requiredIds =
+      row.requiredDocumentTypeIds ||
+      (row.requiredDocumentTypes || []).map((d) => d.id) ||
+      (row.documentTypeId != null ? [row.documentTypeId] : []);
     form.value = {
       name: row.name || "",
       description: row.description || "",
       licenseRequired: !!row.licenseRequired,
-      documentTypeId: row.documentTypeId ?? null,
+      requiredDocumentTypeIds: requiredIds.map(Number),
       status: row.status || "active",
     };
   } catch (e) {
@@ -77,13 +81,6 @@ watch(
   () => [props.modelValue, props.roleId],
   ([visible]) => {
     if (visible) loadRole();
-  }
-);
-
-watch(
-  () => form.value.licenseRequired,
-  (required) => {
-    if (!required) form.value.documentTypeId = null;
   }
 );
 
@@ -101,17 +98,13 @@ const save = async () => {
     formError.value = "Organization is required.";
     return;
   }
-  if (form.value.licenseRequired && !form.value.documentTypeId) {
-    formError.value = "Document type is required when a license is required.";
-    return;
-  }
 
   saving.value = true;
   const payload = {
     name: form.value.name.trim(),
     description: form.value.description?.trim() || null,
     licenseRequired: !!form.value.licenseRequired,
-    documentTypeId: form.value.licenseRequired ? form.value.documentTypeId : null,
+    requiredDocumentTypeIds: (form.value.requiredDocumentTypeIds || []).map(Number),
     status: form.value.status,
   };
   if (!isEdit.value) payload.orgId = Number(props.orgId);
@@ -155,16 +148,17 @@ const save = async () => {
           class="mb-2"
         />
         <v-select
-          v-if="form.licenseRequired"
-          v-model="form.documentTypeId"
+          v-model="form.requiredDocumentTypeIds"
           :items="documentTypeItems"
-          label="Document type"
+          label="Required documents"
           density="compact"
-          hint="Document required for this role"
+          multiple
+          chips
+          closable-chips
+          hint="Document types applicants must upload for this role"
           persistent-hint
           class="mb-2"
           :no-data-text="'No document types available'"
-          required
         />
         <v-select
           v-model="form.status"

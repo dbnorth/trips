@@ -1,0 +1,10 @@
+[Unit]
+Description=Send Trips App scheduled emails every morning
+
+[Timer]
+OnCalendar=*-*-* 07:00:00 America/Chicago
+Persistent=true
+Unit=trips-scheduled-emails.service
+
+[Install]
+WantedBy=timers.target

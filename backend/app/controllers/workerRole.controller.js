@@ -10,11 +10,20 @@ import {
 const WorkerRole = db.workerRole;
 const Organization = db.organization;
 const DocumentType = db.documentType;
+const WorkerRoleDocumentType = db.workerRoleDocumentType;
 const STATUSES = ["active", "inactive"];
+
+const requiredDocumentTypeInclude = {
+  model: DocumentType,
+  as: "requiredDocumentTypes",
+  attributes: ["id", "description", "type"],
+  through: { attributes: [] },
+};
 
 const roleIncludes = [
   { model: Organization, as: "organization", attributes: ["id", "name"] },
   { model: DocumentType, as: "documentType", attributes: ["id", "description", "type"] },
+  requiredDocumentTypeInclude,
 ];
 
 const getOrgAdminOrgIds = (req) => [
@@ -39,10 +48,20 @@ const resolveOrgId = (req, bodyOrgId) => {
 
 const canManageOrg = (req, orgId) => isOrgAdminForOrg(req, orgId);
 
-const loadRole = (id) =>
-  WorkerRole.findByPk(id, {
+const formatRole = (role) => {
+  if (!role) return role;
+  const json = typeof role.toJSON === "function" ? role.toJSON() : { ...role };
+  const required = json.requiredDocumentTypes || [];
+  json.requiredDocumentTypeIds = required.map((d) => d.id);
+  return json;
+};
+
+const loadRole = async (id) => {
+  const role = await WorkerRole.findByPk(id, {
     include: roleIncludes,
   });
+  return role ? formatRole(role) : null;
+};
 
 const pickPayload = (body) => {
   const payload = {};
@@ -56,14 +75,61 @@ const pickPayload = (body) => {
   if (Object.prototype.hasOwnProperty.call(body, "licenseRequired")) {
     payload.licenseRequired = !!body.licenseRequired;
   }
-  if (Object.prototype.hasOwnProperty.call(body, "documentTypeId")) {
-    const val = body.documentTypeId;
-    payload.documentTypeId = val === "" || val == null ? null : Number(val);
-  }
   if (Object.prototype.hasOwnProperty.call(body, "status")) {
     payload.status = body.status;
   }
   return payload;
+};
+
+const parseRequiredDocumentTypeIds = (body) => {
+  if (Object.prototype.hasOwnProperty.call(body, "requiredDocumentTypeIds")) {
+    const raw = body.requiredDocumentTypeIds;
+    if (raw == null) return { provided: true, ids: [] };
+    if (!Array.isArray(raw)) {
+      return { error: "requiredDocumentTypeIds must be an array." };
+    }
+    const ids = [
+      ...new Set(
+        raw
+          .map((v) => Number(v))
+          .filter((n) => Number.isInteger(n) && n > 0)
+      ),
+    ];
+    return { provided: true, ids };
+  }
+  // Backward-compatible: single legacy documentTypeId when list omitted.
+  if (
+    Object.prototype.hasOwnProperty.call(body, "documentTypeId") &&
+    body.documentTypeId != null &&
+    body.documentTypeId !== ""
+  ) {
+    const id = Number(body.documentTypeId);
+    if (!Number.isInteger(id) || id < 1) {
+      return { error: "Document type not found." };
+    }
+    return { provided: true, ids: [id] };
+  }
+  return { provided: false, ids: [] };
+};
+
+const validateDocumentTypeIds = async (ids) => {
+  if (!ids.length) return { ok: true };
+  const found = await DocumentType.findAll({
+    where: { id: ids },
+    attributes: ["id"],
+  });
+  if (found.length !== ids.length) {
+    return { ok: false, message: "Document type not found." };
+  }
+  return { ok: true };
+};
+
+const syncRequiredDocumentTypes = async (workerRoleId, ids) => {
+  await WorkerRoleDocumentType.destroy({ where: { workerRoleId } });
+  if (!ids.length) return;
+  await WorkerRoleDocumentType.bulkCreate(
+    ids.map((documentTypeId) => ({ workerRoleId, documentTypeId }))
+  );
 };
 
 const exports = {};
@@ -75,8 +141,6 @@ exports.findAll = async (req, res) => {
       if (isSystemAdmin(req)) return res.send([]);
       return res.status(400).send({ message: "Organization is required." });
     }
-    // Reading the list is open to anyone with org access (e.g. trip leaders
-    // picking roles for a trip); managing stays limited to org admins.
     if (!canAccessOrg(req, orgId)) {
       return res.status(403).send({ message: "Forbidden." });
     }
@@ -94,7 +158,7 @@ exports.findAll = async (req, res) => {
         ["name", "ASC"],
       ],
     });
-    res.send(data);
+    res.send(data.map(formatRole));
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
@@ -130,21 +194,22 @@ exports.create = async (req, res) => {
     if (payload.status != null && !STATUSES.includes(payload.status)) {
       return res.status(400).send({ message: "Status must be active or inactive." });
     }
-    const licenseRequired = payload.licenseRequired ?? false;
-    const documentTypeId = licenseRequired ? payload.documentTypeId ?? null : null;
-    if (documentTypeId != null) {
-      const docType = await DocumentType.findByPk(documentTypeId);
-      if (!docType) return res.status(400).send({ message: "Document type not found." });
-    }
+
+    const required = parseRequiredDocumentTypeIds(req.body);
+    if (required.error) return res.status(400).send({ message: required.error });
+    const requiredIds = required.provided ? required.ids : [];
+    const docCheck = await validateDocumentTypeIds(requiredIds);
+    if (!docCheck.ok) return res.status(400).send({ message: docCheck.message });
 
     const data = await WorkerRole.create({
       orgId,
       name: payload.name,
       description: payload.description ?? null,
-      licenseRequired,
-      documentTypeId,
+      licenseRequired: payload.licenseRequired ?? false,
+      documentTypeId: null,
       status: payload.status ?? "active",
     });
+    await syncRequiredDocumentTypes(data.id, requiredIds);
     res.send(await loadRole(data.id));
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -166,20 +231,21 @@ exports.update = async (req, res) => {
     if (payload.status != null && !STATUSES.includes(payload.status)) {
       return res.status(400).send({ message: "Status must be active or inactive." });
     }
-    const licenseRequired = Object.prototype.hasOwnProperty.call(payload, "licenseRequired")
-      ? payload.licenseRequired
-      : role.licenseRequired;
-    if (!licenseRequired) {
-      payload.documentTypeId = null;
-    } else if (
-      Object.prototype.hasOwnProperty.call(payload, "documentTypeId") &&
-      payload.documentTypeId != null
-    ) {
-      const docType = await DocumentType.findByPk(payload.documentTypeId);
-      if (!docType) return res.status(400).send({ message: "Document type not found." });
+
+    // Stop writing legacy documentTypeId on updates.
+    payload.documentTypeId = null;
+
+    const required = parseRequiredDocumentTypeIds(req.body);
+    if (required.error) return res.status(400).send({ message: required.error });
+    if (required.provided) {
+      const docCheck = await validateDocumentTypeIds(required.ids);
+      if (!docCheck.ok) return res.status(400).send({ message: docCheck.message });
     }
 
     await role.update(payload);
+    if (required.provided) {
+      await syncRequiredDocumentTypes(role.id, required.ids);
+    }
     res.send(await loadRole(role.id));
   } catch (err) {
     res.status(500).send({ message: err.message });

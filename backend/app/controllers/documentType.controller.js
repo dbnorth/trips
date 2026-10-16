@@ -2,7 +2,9 @@ import db from "../models/index.js";
 import { isSystemAdmin } from "../authorization/accessControl.js";
 
 const DocumentType = db.documentType;
-const DOCUMENT_TYPES = ["medical_licence", "passport"];
+const DOCUMENT_TYPES = ["medical_licence", "passport", "certification", "diploma"];
+const DOCUMENT_TYPE_MESSAGE =
+  "Type must be medical_licence, passport, certification, or diploma.";
 
 const requireSystemAdmin = (req, res) => {
   if (!isSystemAdmin(req)) {
@@ -20,6 +22,30 @@ const pickPayload = (body) => {
   }
   if (Object.prototype.hasOwnProperty.call(body, "type")) {
     payload.type = body.type;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "documentNumberRequired")) {
+    payload.documentNumberRequired =
+      body.documentNumberRequired === true ||
+      body.documentNumberRequired === "true" ||
+      body.documentNumberRequired === 1 ||
+      body.documentNumberRequired === "1";
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "allowSpecialization")) {
+    payload.allowSpecialization =
+      body.allowSpecialization === true ||
+      body.allowSpecialization === "true" ||
+      body.allowSpecialization === 1 ||
+      body.allowSpecialization === "1";
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "instructions")) {
+    const val = body.instructions;
+    if (val == null) payload.instructions = null;
+    else if (typeof val === "string") {
+      const trimmed = val.trim();
+      payload.instructions = trimmed || null;
+    } else {
+      payload.instructions = null;
+    }
   }
   return payload;
 };
@@ -67,13 +93,18 @@ exports.create = async (req, res) => {
     }
     if (!payload.type || !DOCUMENT_TYPES.includes(payload.type)) {
       return res.status(400).send({
-        message: "Type must be medical_licence or passport.",
+        message: DOCUMENT_TYPE_MESSAGE,
       });
     }
 
     const data = await DocumentType.create({
       description: payload.description,
       type: payload.type,
+      documentNumberRequired: payload.documentNumberRequired ?? false,
+      allowSpecialization: payload.allowSpecialization ?? false,
+      instructions: Object.prototype.hasOwnProperty.call(payload, "instructions")
+        ? payload.instructions
+        : null,
     });
     res.send(data);
   } catch (err) {
@@ -97,7 +128,7 @@ exports.update = async (req, res) => {
       !DOCUMENT_TYPES.includes(payload.type)
     ) {
       return res.status(400).send({
-        message: "Type must be medical_licence or passport.",
+        message: DOCUMENT_TYPE_MESSAGE,
       });
     }
 

@@ -7,12 +7,33 @@ import {
   parseOrganizationScopeHeader,
   ROLE_ORG_ADMIN,
   ROLE_TRIP_LEADER,
+  ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
+import {
+  buildTokenValues,
+  recipientsAreValid,
+  senderIsValid,
+  substituteRecipients,
+  substituteTokens,
+} from "../utils/emailTokenValues.js";
 
 const EmailTemplate = db.emailTemplate;
+const EmailType = db.emailType;
 const Trip = db.trip;
 const Organization = db.organization;
-const templateFields = ["tripId", "fromEmail", "functionCode", "subject", "content", "attachment"];
+const FUNCTION_CODES = ["Scheduled", "Send Now", "Trip Participant"];
+const SCHEDULE_RULES = ["daily", "weekly", "before-start"];
+const templateFields = [
+  "tripId",
+  "fromEmail",
+  "functionCode",
+  "subject",
+  "content",
+  "attachment",
+  "emailTypeId",
+  "emailBody",
+  "toAddress",
+];
 
 const getOrgAdminOrgIds = (req) => [
   ...new Set(
@@ -76,6 +97,7 @@ const loadTemplate = (id) =>
     include: [
       { model: Trip, as: "trip", attributes: ["id", "name", "orgId"] },
       { model: Organization, attributes: ["id", "name"] },
+      { model: EmailType, attributes: ["id", "typeCode", "description", "eventCode"] },
     ],
   });
 
@@ -97,8 +119,8 @@ const pickTemplatePayload = (body) => {
   for (const key of templateFields) {
     if (!Object.prototype.hasOwnProperty.call(body, key)) continue;
     const val = body[key];
-    if (key === "tripId") {
-      payload.tripId = val == null || val === "" ? null : Number(val);
+    if (key === "tripId" || key === "emailTypeId") {
+      payload[key] = val == null || val === "" ? null : Number(val);
     } else if (typeof val === "string") {
       payload[key] = val.trim() || null;
     } else {
@@ -111,9 +133,91 @@ const pickTemplatePayload = (body) => {
 const listIncludes = [
   { model: Trip, attributes: ["id", "name", "orgId"] },
   { model: Organization, attributes: ["id", "name"] },
+  { model: EmailType, attributes: ["id", "typeCode", "description", "eventCode"] },
 ];
 
-const copySourceAttributes = ["id", "functionCode", "fromEmail", "subject", "content", "attachment"];
+const hasFeature39Fields = (body) =>
+  Object.prototype.hasOwnProperty.call(body, "emailTypeId") ||
+  Object.prototype.hasOwnProperty.call(body, "emailBody");
+
+const trimRequired = (val) => (typeof val === "string" ? val.trim() : "");
+
+const validateSchedule = (body, functionCode) => {
+  if (functionCode !== "Scheduled") {
+    return { schedule: { scheduleRule: null, scheduleDaysBefore: null } };
+  }
+  const scheduleRule = trimRequired(body.scheduleRule);
+  if (!SCHEDULE_RULES.includes(scheduleRule)) {
+    return { error: { status: 400, message: "Schedule is required for scheduled templates." } };
+  }
+  if (scheduleRule !== "before-start") {
+    return { schedule: { scheduleRule, scheduleDaysBefore: null } };
+  }
+  const raw = body.scheduleDaysBefore;
+  const days = Number(raw);
+  if (raw == null || String(raw).trim() === "" || !Number.isInteger(days) || days < 1 || days > 365) {
+    return {
+      error: { status: 400, message: "Days before trip start must be a whole number from 1 to 365." },
+    };
+  }
+  return { schedule: { scheduleRule, scheduleDaysBefore: days } };
+};
+
+const validateOrganizationTemplateFields = async (body) => {
+  const typeRaw = body.emailTypeId;
+  if (typeRaw == null || typeRaw === "") {
+    return { error: { status: 400, message: "Email type is required." } };
+  }
+  const emailType = await EmailType.findByPk(Number(typeRaw));
+  if (!emailType) {
+    return { error: { status: 400, message: "Email type is required." } };
+  }
+  const functionCode = trimRequired(body.functionCode);
+  if (!FUNCTION_CODES.includes(functionCode)) {
+    return { error: { status: 400, message: "Function code must be Scheduled, Send Now, or Trip Participant." } };
+  }
+  const { schedule, error: scheduleError } = validateSchedule(body, functionCode);
+  if (scheduleError) return { error: scheduleError };
+  if (!trimRequired(body.subject)) {
+    return { error: { status: 400, message: "Subject is required." } };
+  }
+  if (!trimRequired(body.fromEmail)) {
+    return { error: { status: 400, message: "From email is required." } };
+  }
+  if (!(await senderIsValid(body.fromEmail))) {
+    return {
+      error: { status: 400, message: "From email must be an email address or an email token." },
+    };
+  }
+  const toAddress = trimRequired(body.toAddress);
+  if (!toAddress) {
+    return { error: { status: 400, message: "To is required." } };
+  }
+  if (!(await recipientsAreValid(toAddress))) {
+    return {
+      error: {
+        status: 400,
+        message: "To must list email addresses or email tokens, separated by commas.",
+      },
+    };
+  }
+  if (!trimRequired(body.emailBody)) {
+    return { error: { status: 400, message: "Email body is required." } };
+  }
+  return { ok: true, schedule };
+};
+
+const copySourceAttributes = [
+  "id",
+  "functionCode",
+  "fromEmail",
+  "toAddress",
+  "subject",
+  "content",
+  "attachment",
+  "scheduleRule",
+  "scheduleDaysBefore",
+];
 
 const hasFunctionCode = {
   functionCode: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: "" }] },
@@ -235,6 +339,11 @@ exports.copySources = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
+    const feature39 = hasFeature39Fields(req.body);
+    if (feature39 && (req.body.orgId == null || req.body.orgId === "")) {
+      return res.status(400).send({ message: "Organization is required." });
+    }
+
     const resolved = resolveCreateOrgId(req);
     if (resolved.error) {
       return res.status(resolved.error.status).send({ message: resolved.error.message });
@@ -246,15 +355,28 @@ exports.create = async (req, res) => {
     const isOrgAdmin = orgId != null && isOrgAdminForOrg(req, orgId);
     const isLeaderCreate = tripId != null && isTripLeaderForTrip(req, tripId);
 
-    if (!isOrgAdmin && !isLeaderCreate) {
+    let schedule = {};
+    if (feature39) {
+      if (orgId == null) {
+        return res.status(400).send({ message: "Organization is required." });
+      }
+      if (!isSystemAdmin(req) && !isOrgAdmin && !isLeaderCreate) {
+        return res.status(403).send({ message: "Forbidden." });
+      }
+      const fields = await validateOrganizationTemplateFields(req.body);
+      if (fields.error) {
+        return res.status(fields.error.status).send({ message: fields.error.message });
+      }
+      schedule = fields.schedule;
+    } else if (!isOrgAdmin && !isLeaderCreate) {
       return res.status(403).send({ message: "Forbidden." });
     }
 
-    if (!req.body.subject?.trim()) {
+    if (!feature39 && !req.body.subject?.trim()) {
       return res.status(400).send({ message: "Subject is required." });
     }
 
-    if (isLeaderCreate && !isOrgAdmin) {
+    if (isLeaderCreate && !isOrgAdmin && !isSystemAdmin(req)) {
       const trip = await Trip.findByPk(tripId, { attributes: ["id", "orgId"] });
       if (!trip) return res.status(400).send({ message: "Trip not found." });
       orgId = trip.orgId;
@@ -266,7 +388,7 @@ exports.create = async (req, res) => {
     );
     if (!tripCheck.ok) return res.status(tripCheck.status).send({ message: tripCheck.message });
 
-    const payload = pickTemplatePayload(req.body);
+    const payload = { ...pickTemplatePayload(req.body), ...schedule };
     if (orgId == null) payload.tripId = null;
     if (isLeaderCreate && !isOrgAdmin) payload.tripId = tripId;
 
@@ -284,21 +406,107 @@ exports.update = async (req, res) => {
     if (!canManageTemplate(req, template)) {
       return res.status(403).send({ message: "Forbidden." });
     }
-    if (Object.prototype.hasOwnProperty.call(req.body, "subject") && !req.body.subject?.trim()) {
+    const feature39 = hasFeature39Fields(req.body);
+    let orgId = template.orgId;
+    let schedule = {};
+    if (feature39) {
+      if (Object.prototype.hasOwnProperty.call(req.body, "orgId")) {
+        if (req.body.orgId == null || req.body.orgId === "") {
+          return res.status(400).send({ message: "Organization is required." });
+        }
+        orgId = Number(req.body.orgId);
+      }
+      if (orgId == null) {
+        return res.status(400).send({ message: "Organization is required." });
+      }
+      const orgChanged = template.orgId == null || Number(orgId) !== Number(template.orgId);
+      if (orgChanged) {
+        if (!isSystemAdmin(req) && !isOrgAdminForOrg(req, orgId)) {
+          return res.status(403).send({ message: "Forbidden." });
+        }
+        if (
+          template.orgId != null &&
+          !isSystemAdmin(req) &&
+          !isOrgAdminForOrg(req, template.orgId)
+        ) {
+          return res.status(403).send({ message: "Forbidden." });
+        }
+        if (template.orgId == null && !isSystemAdmin(req)) {
+          return res.status(403).send({ message: "Forbidden." });
+        }
+      }
+      const fields = await validateOrganizationTemplateFields(req.body);
+      if (fields.error) {
+        return res.status(fields.error.status).send({ message: fields.error.message });
+      }
+      schedule = fields.schedule;
+    } else if (Object.prototype.hasOwnProperty.call(req.body, "subject") && !req.body.subject?.trim()) {
       return res.status(400).send({ message: "Subject is required." });
     }
 
     const tripId = Object.prototype.hasOwnProperty.call(req.body, "tripId")
       ? req.body.tripId
       : template.tripId;
-    const tripCheck = await validateTripForOrg(tripId, template.orgId);
+    const tripCheck = await validateTripForOrg(tripId, feature39 ? orgId : template.orgId);
     if (!tripCheck.ok) return res.status(tripCheck.status).send({ message: tripCheck.message });
 
-    const payload = pickTemplatePayload(req.body);
-    if (template.orgId == null) payload.tripId = null;
+    const payload = { ...pickTemplatePayload(req.body), ...schedule };
+    if (feature39) payload.orgId = orgId;
+    if ((feature39 ? orgId : template.orgId) == null) payload.tripId = null;
 
     await template.update(payload);
     res.send(await loadTemplate(template.id));
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.preview = async (req, res) => {
+  try {
+    const { orgId, tripId, personId, fromEmail, toAddress, subject, emailBody } = req.body || {};
+    if (orgId == null || orgId === "") {
+      return res.status(400).send({ message: "Organization is required." });
+    }
+    if (tripId == null || tripId === "") {
+      return res.status(400).send({ message: "Trip is required." });
+    }
+    const trip = await Trip.findByPk(Number(tripId), { attributes: ["id", "orgId"] });
+    if (!trip || Number(trip.orgId) !== Number(orgId)) {
+      return res.status(400).send({ message: "Trip must belong to the selected organization." });
+    }
+    const canPreview =
+      isSystemAdmin(req) ||
+      isOrgAdminForOrg(req, Number(orgId)) ||
+      isTripLeaderForTrip(req, trip.id);
+    if (!canPreview) return res.status(403).send({ message: "Forbidden." });
+
+    let previewPersonId = null;
+    if (personId != null && personId !== "") {
+      const participantRole = await db.role.findOne({
+        where: { roleName: ROLE_TRIP_PARTICIPANT },
+      });
+      const application = participantRole
+        ? await db.tripPeopleRole.findOne({
+            where: { tripId: trip.id, peopleId: Number(personId), roleId: participantRole.id },
+          })
+        : null;
+      if (!application) {
+        return res.status(400).send({ message: "Participant must have an application on this trip." });
+      }
+      previewPersonId = Number(personId);
+    }
+
+    const values = await buildTokenValues({
+      orgId: Number(orgId),
+      tripId: trip.id,
+      personId: previewPersonId,
+    });
+    res.send({
+      fromEmail: substituteTokens(fromEmail, values).trim(),
+      toAddress: substituteRecipients(toAddress, values),
+      subject: substituteTokens(subject, values),
+      emailBody: substituteTokens(emailBody, values),
+    });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

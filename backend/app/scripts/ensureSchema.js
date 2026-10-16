@@ -1,6 +1,7 @@
 import db from "../models/index.js";
 import logger from "../config/logger.js";
 import fs from "fs";
+import { LANGUAGE_SEED } from "../data/languages.js";
 
 const ensureEmailTemplateOrgNullable = async () => {
   const [rows] = await db.sequelize.query(
@@ -53,6 +54,30 @@ const ensureTripPeopleRoleParticipantCost = async () => {
   logger.info("tripPeopleRoles.participantCost column added.");
 };
 
+const ensureOrganizationSubdomain = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'organizations'
+       AND COLUMN_NAME = 'subdomain'`
+  );
+  if (!rows.length) {
+    await db.sequelize.query(
+      "ALTER TABLE organizations ADD COLUMN subdomain VARCHAR(63) NULL AFTER colorFamily"
+    );
+    logger.info("organizations.subdomain column added.");
+  }
+
+  const [indexes] = await db.sequelize.query("SHOW INDEX FROM `organizations`");
+  const names = new Set(indexes.map((i) => i.Key_name));
+  if (!names.has("organizations_subdomain_unique")) {
+    await db.sequelize.query(
+      "ALTER TABLE organizations ADD UNIQUE INDEX organizations_subdomain_unique (subdomain)"
+    );
+    logger.info("organizations.subdomain unique index added.");
+  }
+};
+
 const ensureOrganizationWebsiteUrl = async () => {
   const [rows] = await db.sequelize.query(
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -83,6 +108,38 @@ const ensureOrganizationAgreementFileName = async () => {
     "ALTER TABLE organizations ADD COLUMN agreementFileName VARCHAR(500) NULL AFTER logo"
   );
   logger.info("organizations.agreementFileName column added.");
+};
+
+const ensureOrganizationMedicalAgreementFileName = async () => {
+  fs.mkdirSync("agreements", { recursive: true });
+
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'organizations'
+       AND COLUMN_NAME = 'medicalAgreementFileName'`
+  );
+  if (rows.length) return;
+
+  await db.sequelize.query(
+    "ALTER TABLE organizations ADD COLUMN medicalAgreementFileName VARCHAR(500) NULL AFTER agreementFileName"
+  );
+  logger.info("organizations.medicalAgreementFileName column added.");
+};
+
+const ensureOrganizationTestMode = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'organizations'
+       AND COLUMN_NAME = 'testMode'`
+  );
+  if (rows.length) return;
+
+  await db.sequelize.query(
+    "ALTER TABLE organizations ADD COLUMN testMode TINYINT(1) NOT NULL DEFAULT 0 AFTER subdomain"
+  );
+  logger.info("organizations.testMode column added.");
 };
 
 const ensureTripPeopleRoleTripWorkerRoleId = async () => {
@@ -119,14 +176,21 @@ const ensureTripPeopleRoleTripWorkerRoleId = async () => {
 
 const ensurePersonProfileFields = async () => {
   const columns = [
+    ["middleName", "VARCHAR(255) NULL AFTER firstName"],
+    ["preferredName", "VARCHAR(255) NULL AFTER lastName"],
     ["birthDate", "DATE NULL"],
     ["gender", "ENUM('male', 'female') NULL"],
     ["emergencyContactName", "VARCHAR(255) NULL"],
     ["emergencyContactPhoneCountryCode", "VARCHAR(10) NULL"],
     ["emergencyContactPhoneNumber", "VARCHAR(30) NULL"],
-    ["hasAllergies", "TINYINT(1) NOT NULL DEFAULT 0"],
+    [
+      "emergencyContactRelationship",
+      "ENUM('spouse','father','mother','child','grandmother','grandfather','other') NULL",
+    ],
+    ["hasAllergies", "TINYINT(1) NULL"],
     ["allergiesDescription", "TEXT NULL"],
-    ["takesMedication", "TINYINT(1) NOT NULL DEFAULT 0"],
+    ["takesMedication", "TINYINT(1) NULL"],
+    ["speaksOtherLanguage", "TINYINT(1) NULL"],
     ["currentChurchHome", "VARCHAR(255) NULL"],
     ["currentChurchHomeCity", "VARCHAR(100) NULL"],
     ["currentChurchHomeStateProv", "VARCHAR(100) NULL"],
@@ -148,7 +212,49 @@ const ensurePersonProfileFields = async () => {
     logger.info(`people.${columnName} column added.`);
   }
 
-  for (const columnName of ["passportCountry", "passportIssueDate", "passportExpireDate"]) {
+  // Allow unset (null) for Yes/No health questions so UI does not default to No.
+  for (const columnName of ["hasAllergies", "takesMedication"]) {
+    const [rows] = await db.sequelize.query(
+      `SELECT IS_NULLABLE, COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'people'
+         AND COLUMN_NAME = :columnName`,
+      { replacements: { columnName } }
+    );
+    if (!rows.length) continue;
+    if (rows[0].IS_NULLABLE === "YES") continue;
+    await db.sequelize.query(
+      `ALTER TABLE people MODIFY COLUMN \`${columnName}\` TINYINT(1) NULL`
+    );
+    logger.info(`people.${columnName} column made nullable.`);
+
+    // One-time: treat prior DB default No as unanswered (only when first opening nullability).
+    if (columnName === "hasAllergies") {
+      const [result] = await db.sequelize.query(
+        `UPDATE people
+         SET hasAllergies = NULL
+         WHERE hasAllergies = 0
+           AND (allergiesDescription IS NULL OR TRIM(allergiesDescription) = '')`
+      );
+      if (result?.affectedRows) {
+        logger.info(`people.hasAllergies default No→unset for ${result.affectedRows} row(s).`);
+      }
+    } else {
+      const [result] = await db.sequelize.query(
+        `UPDATE people p
+         SET p.takesMedication = NULL
+         WHERE p.takesMedication = 0
+           AND NOT EXISTS (
+             SELECT 1 FROM personMedicalConditions pmc WHERE pmc.personId = p.id
+           )`
+      );
+      if (result?.affectedRows) {
+        logger.info(`people.takesMedication default No→unset for ${result.affectedRows} row(s).`);
+      }
+    }
+  }
+
+  for (const columnName of ["passportCountry", "passportIssueDate", "passportExpireDate", "isPregnant", "pregnancyDueDate"]) {
     const [rows] = await db.sequelize.query(
       `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE()
@@ -176,6 +282,16 @@ const ensureTripPeopleRoleApplicationFields = async () => {
     ["agreementAdultLastName", "VARCHAR(100) NULL"],
     ["agreementAdultEmail", "VARCHAR(255) NULL"],
     ["agreementAdultRelationship", "VARCHAR(100) NULL"],
+    ["medicalAgreementAccepted", "TINYINT(1) NOT NULL DEFAULT 0"],
+    ["medicalAgreementDate", "DATETIME NULL"],
+    ["isPregnant", "TINYINT(1) NULL"],
+    ["pregnancyDueDate", "DATE NULL"],
+    ["flightPurchaseOption", "ENUM('self', 'organization') NULL"],
+    ["preferredDepartureAirportId", "INT NULL"],
+    ["preferredReturnAirportId", "INT NULL"],
+    ["preferredCabinClass", "VARCHAR(50) NULL"],
+    ["preferredAirlineId", "INT NULL"],
+    ["preferredRefundableTicket", "TINYINT(1) NULL"],
   ];
 
   for (const [columnName, definition] of columns) {
@@ -312,7 +428,9 @@ const ensureDocumentTypesTable = async () => {
       CREATE TABLE documentTypes (
         id INT NOT NULL AUTO_INCREMENT,
         description VARCHAR(255) NOT NULL,
-        type ENUM('medical_licence', 'passport') NOT NULL,
+        type ENUM('medical_licence', 'passport', 'certification', 'diploma') NOT NULL,
+        documentNumberRequired TINYINT(1) NOT NULL DEFAULT 0,
+        instructions TEXT NULL,
         createdAt DATETIME NOT NULL,
         updatedAt DATETIME NOT NULL,
         PRIMARY KEY (id)
@@ -330,7 +448,7 @@ const ensureDocumentTypesTable = async () => {
     if (!columnType.includes("medical_licence") || columnType.includes("'medical'")) {
       await db.sequelize.query(`
         ALTER TABLE documentTypes
-        MODIFY COLUMN type ENUM('medical', 'licences', 'passport', 'medical_licence') NOT NULL
+        MODIFY COLUMN type ENUM('medical', 'licences', 'passport', 'medical_licence', 'certification', 'diploma') NOT NULL
       `);
       await db.sequelize.query(`
         UPDATE documentTypes
@@ -339,9 +457,17 @@ const ensureDocumentTypesTable = async () => {
       `);
       await db.sequelize.query(`
         ALTER TABLE documentTypes
-        MODIFY COLUMN type ENUM('medical_licence', 'passport') NOT NULL
+        MODIFY COLUMN type ENUM('medical_licence', 'passport', 'certification', 'diploma') NOT NULL
       `);
-      logger.info("documentTypes.type enum updated to medical_licence and passport.");
+      logger.info(
+        "documentTypes.type enum updated to medical_licence, passport, certification, and diploma."
+      );
+    } else if (!columnType.includes("diploma")) {
+      await db.sequelize.query(`
+        ALTER TABLE documentTypes
+        MODIFY COLUMN type ENUM('medical_licence', 'passport', 'certification', 'diploma') NOT NULL
+      `);
+      logger.info("documentTypes.type enum added diploma.");
     }
   }
 
@@ -368,9 +494,56 @@ const ensureDocumentTypesTable = async () => {
     logger.info("documentTypes.orgId column removed (now system-wide).");
   }
 
+  const [numberRequiredCols] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'documentTypes'
+       AND COLUMN_NAME = 'documentNumberRequired'`
+  );
+  if (!numberRequiredCols.length) {
+    await db.sequelize.query(
+      `ALTER TABLE documentTypes
+       ADD COLUMN documentNumberRequired TINYINT(1) NOT NULL DEFAULT 0
+       AFTER type`
+    );
+    logger.info("documentTypes.documentNumberRequired column added.");
+  }
+
+  const [instructionsCols] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'documentTypes'
+       AND COLUMN_NAME = 'instructions'`
+  );
+  if (!instructionsCols.length) {
+    await db.sequelize.query(
+      `ALTER TABLE documentTypes
+       ADD COLUMN instructions TEXT NULL
+       AFTER documentNumberRequired`
+    );
+    logger.info("documentTypes.instructions column added.");
+  }
+
+  const [specializationCols] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'documentTypes'
+       AND COLUMN_NAME = 'allowSpecialization'`
+  );
+  if (!specializationCols.length) {
+    await db.sequelize.query(
+      `ALTER TABLE documentTypes
+       ADD COLUMN allowSpecialization TINYINT(1) NOT NULL DEFAULT 0
+       AFTER instructions`
+    );
+    logger.info("documentTypes.allowSpecialization column added.");
+  }
+
   const seeds = [
     ["Medical Licence", "medical_licence"],
     ["Passport", "passport"],
+    ["Certification", "certification"],
+    ["Diploma", "diploma"],
   ];
   for (const [description, type] of seeds) {
     const [rows] = await db.sequelize.query(
@@ -402,9 +575,10 @@ const ensurePersonDocumentsTable = async () => {
         personId INT NOT NULL,
         documentTypeId INT NOT NULL,
         countryIssued VARCHAR(2) NULL,
+        documentNumber VARCHAR(100) NULL,
         issueDate DATE NULL,
         expirationDate DATE NOT NULL,
-        documentFileName VARCHAR(500) NOT NULL,
+        documentFileName VARCHAR(500) NULL,
         createdAt DATETIME NOT NULL,
         updatedAt DATETIME NOT NULL,
         PRIMARY KEY (id),
@@ -419,21 +593,76 @@ const ensurePersonDocumentsTable = async () => {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
     logger.info("personDocuments table created.");
-    return;
+  } else {
+    const [cols] = await db.sequelize.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'personDocuments'
+         AND COLUMN_NAME = 'countryIssued'`
+    );
+    if (!cols.length) {
+      await db.sequelize.query(
+        `ALTER TABLE personDocuments ADD COLUMN countryIssued VARCHAR(2) NULL AFTER documentTypeId`
+      );
+      logger.info("personDocuments.countryIssued column added.");
+    }
+
+    const [numberCols] = await db.sequelize.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'personDocuments'
+         AND COLUMN_NAME = 'documentNumber'`
+    );
+    if (!numberCols.length) {
+      await db.sequelize.query(
+        `ALTER TABLE personDocuments
+         ADD COLUMN documentNumber VARCHAR(100) NULL
+         AFTER countryIssued`
+      );
+      logger.info("personDocuments.documentNumber column added.");
+    }
+
+    const [fileCols] = await db.sequelize.query(
+      `SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'personDocuments'
+         AND COLUMN_NAME = 'documentFileName'`
+    );
+    if (fileCols.length && fileCols[0].IS_NULLABLE === "NO") {
+      await db.sequelize.query(
+        `ALTER TABLE personDocuments
+         MODIFY COLUMN documentFileName VARCHAR(500) NULL`
+      );
+      logger.info("personDocuments.documentFileName made nullable.");
+    }
   }
+};
 
-  const [cols] = await db.sequelize.query(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+const ensurePersonDocumentSpecializationsTable = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
      WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = 'personDocuments'
-       AND COLUMN_NAME = 'countryIssued'`
+       AND TABLE_NAME = 'personDocumentSpecializations'`
   );
-  if (cols.length) return;
+  if (tables.length) return;
 
-  await db.sequelize.query(
-    `ALTER TABLE personDocuments ADD COLUMN countryIssued VARCHAR(2) NULL AFTER documentTypeId`
-  );
-  logger.info("personDocuments.countryIssued column added.");
+  await db.sequelize.query(`
+    CREATE TABLE personDocumentSpecializations (
+      id INT NOT NULL AUTO_INCREMENT,
+      personDocumentId INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      specializationDate DATE NOT NULL,
+      documentFileName VARCHAR(500) NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      KEY personDocumentSpecializations_personDocumentId_idx (personDocumentId),
+      CONSTRAINT personDocumentSpecializations_personDocumentId_fk
+        FOREIGN KEY (personDocumentId) REFERENCES personDocuments(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("personDocumentSpecializations table created.");
 };
 
 const ensureWorkerRoleDocumentType = async () => {
@@ -466,6 +695,47 @@ const ensureWorkerRoleDocumentType = async () => {
     await db.sequelize.query(`ALTER TABLE workerRoles DROP COLUMN licenseType`);
     logger.info("workerRoles.licenseType column removed.");
   }
+};
+
+const ensureWorkerRoleRequiredDocuments = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'workerRoleDocumentTypes'`
+  );
+  if (!tables.length) {
+    await db.sequelize.query(`
+      CREATE TABLE workerRoleDocumentTypes (
+        id INT NOT NULL AUTO_INCREMENT,
+        workerRoleId INT NOT NULL,
+        documentTypeId INT NOT NULL,
+        createdAt DATETIME NOT NULL,
+        updatedAt DATETIME NOT NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY workerRoleDocumentTypes_role_type_unique (workerRoleId, documentTypeId),
+        KEY workerRoleDocumentTypes_workerRoleId_idx (workerRoleId),
+        KEY workerRoleDocumentTypes_documentTypeId_idx (documentTypeId),
+        CONSTRAINT workerRoleDocumentTypes_workerRoleId_fk
+          FOREIGN KEY (workerRoleId) REFERENCES workerRoles (id)
+          ON DELETE CASCADE ON UPDATE CASCADE,
+        CONSTRAINT workerRoleDocumentTypes_documentTypeId_fk
+          FOREIGN KEY (documentTypeId) REFERENCES documentTypes (id)
+          ON DELETE RESTRICT ON UPDATE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    logger.info("workerRoleDocumentTypes table created.");
+  }
+
+  await db.sequelize.query(`
+    INSERT INTO workerRoleDocumentTypes (workerRoleId, documentTypeId, createdAt, updatedAt)
+    SELECT wr.id, wr.documentTypeId, NOW(), NOW()
+    FROM workerRoles wr
+    WHERE wr.documentTypeId IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM workerRoleDocumentTypes j
+        WHERE j.workerRoleId = wr.id AND j.documentTypeId = wr.documentTypeId
+      )
+  `);
 };
 
 const ensureNamedUniqueIndexes = async () => {
@@ -568,12 +838,441 @@ const ensureTripPeopleRoleOptionsTable = async () => {
   logger.info("tripPeopleRoleOptions table created.");
 };
 
+const ensureMedicalConditionsTable = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'medicalConditions'`
+  );
+  if (tables.length) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE medicalConditions (
+      id INT NOT NULL AUTO_INCREMENT,
+      orgId INT NOT NULL,
+      name VARCHAR(50) NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY medicalConditions_org_name_unique (orgId, name),
+      KEY medicalConditions_orgId_idx (orgId),
+      CONSTRAINT medicalConditions_orgId_fk
+        FOREIGN KEY (orgId) REFERENCES organizations (id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("medicalConditions table created.");
+};
+
+const ensurePersonMedicalConditionsTable = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'personMedicalConditions'`
+  );
+  if (tables.length) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE personMedicalConditions (
+      id INT NOT NULL AUTO_INCREMENT,
+      personId INT NOT NULL,
+      medicalConditionId INT NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY personMedicalConditions_person_condition_unique (personId, medicalConditionId),
+      KEY personMedicalConditions_personId_idx (personId),
+      KEY personMedicalConditions_medicalConditionId_idx (medicalConditionId),
+      CONSTRAINT personMedicalConditions_personId_fk
+        FOREIGN KEY (personId) REFERENCES people (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT personMedicalConditions_medicalConditionId_fk
+        FOREIGN KEY (medicalConditionId) REFERENCES medicalConditions (id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("personMedicalConditions table created.");
+};
+
+const ensureTripRequirePassport = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'trips'
+       AND COLUMN_NAME = 'requirePassport'`
+  );
+  if (rows.length) return;
+
+  await db.sequelize.query(
+    `ALTER TABLE trips
+     ADD COLUMN requirePassport TINYINT(1) NOT NULL DEFAULT 0
+     AFTER participantCost`
+  );
+  logger.info("trips.requirePassport column added.");
+};
+
+const ensureEmailTypes = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailTypes'`
+  );
+  if (!tables.length) {
+    await db.sequelize.query(`
+      CREATE TABLE emailTypes (
+        id INT NOT NULL AUTO_INCREMENT,
+        typeCode VARCHAR(255) NOT NULL,
+        description VARCHAR(255) NOT NULL,
+        eventCode VARCHAR(255) NOT NULL,
+        createdAt DATETIME NOT NULL,
+        updatedAt DATETIME NOT NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY emailTypes_typeCode_unique (typeCode)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+    logger.info("emailTypes table created.");
+  }
+
+  const [typeCol] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailTemplates'
+       AND COLUMN_NAME = 'emailTypeId'`
+  );
+  if (!typeCol.length) {
+    await db.sequelize.query(
+      "ALTER TABLE emailTemplates ADD COLUMN emailTypeId INT NULL"
+    );
+    await db.sequelize.query(
+      `ALTER TABLE emailTemplates
+       ADD CONSTRAINT emailtemplates_emailTypeId_fk
+       FOREIGN KEY (emailTypeId) REFERENCES emailTypes(id)
+       ON DELETE RESTRICT ON UPDATE CASCADE`
+    );
+    logger.info("emailTemplates.emailTypeId column added.");
+  }
+
+  const [bodyCol] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailTemplates'
+       AND COLUMN_NAME = 'emailBody'`
+  );
+  if (!bodyCol.length) {
+    await db.sequelize.query("ALTER TABLE emailTemplates ADD COLUMN emailBody TEXT NULL");
+    logger.info("emailTemplates.emailBody column added.");
+  }
+};
+
+const ensureEmailTemplateToAddress = async () => {
+  const [cols] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailTemplates'
+       AND COLUMN_NAME = 'toAddress'`
+  );
+  if (!cols.length) {
+    await db.sequelize.query("ALTER TABLE emailTemplates ADD COLUMN toAddress VARCHAR(1000) NULL");
+    logger.info("emailTemplates.toAddress column added.");
+  }
+};
+
+const ensureEmailLogToEmailLength = async () => {
+  const [cols] = await db.sequelize.query(
+    `SELECT CHARACTER_MAXIMUM_LENGTH AS maxLength FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailLogs'
+       AND COLUMN_NAME = 'toEmail'`
+  );
+  if (cols.length && Number(cols[0].maxLength) < 1000) {
+    await db.sequelize.query("ALTER TABLE emailLogs MODIFY COLUMN toEmail VARCHAR(1000) NOT NULL");
+    logger.info("emailLogs.toEmail widened to 1000 characters.");
+  }
+};
+
+const ensureEmailLogSource = async () => {
+  const columns = [
+    ["emailTemplateId", "emailTemplates"],
+    ["tripId", "trips"],
+    ["personId", "people"],
+  ];
+  for (const [name, table] of columns) {
+    const [cols] = await db.sequelize.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'emailLogs'
+         AND COLUMN_NAME = :name`,
+      { replacements: { name } }
+    );
+    if (cols.length) continue;
+    await db.sequelize.query(`ALTER TABLE emailLogs ADD COLUMN ${name} INT NULL`);
+    await db.sequelize.query(
+      `ALTER TABLE emailLogs
+       ADD CONSTRAINT emailLogs_${name}_fk
+       FOREIGN KEY (${name}) REFERENCES ${table}(id)
+       ON DELETE SET NULL ON UPDATE CASCADE`
+    );
+    logger.info(`emailLogs.${name} column added.`);
+  }
+};
+
+const ensureScheduledEmailSendsTable = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'scheduledEmailSends'`
+  );
+  if (tables.length) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE scheduledEmailSends (
+      id INT NOT NULL AUTO_INCREMENT,
+      emailTemplateId INT NOT NULL,
+      tripId INT NOT NULL,
+      personId INT NOT NULL,
+      sendDate DATE NOT NULL,
+      status ENUM('sent','skipped','failed') NOT NULL,
+      reason VARCHAR(1000) NULL,
+      emailLogId INT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY scheduledEmailSends_template_trip_person_date_unique (emailTemplateId, tripId, personId, sendDate),
+      KEY scheduledEmailSends_tripId_idx (tripId),
+      KEY scheduledEmailSends_personId_idx (personId),
+      KEY scheduledEmailSends_emailLogId_idx (emailLogId),
+      CONSTRAINT scheduledEmailSends_emailTemplateId_fk
+        FOREIGN KEY (emailTemplateId) REFERENCES emailTemplates (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT scheduledEmailSends_tripId_fk
+        FOREIGN KEY (tripId) REFERENCES trips (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT scheduledEmailSends_personId_fk
+        FOREIGN KEY (personId) REFERENCES people (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT scheduledEmailSends_emailLogId_fk
+        FOREIGN KEY (emailLogId) REFERENCES emailLogs (id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("scheduledEmailSends table created.");
+};
+
+const ensureEmailTemplateSchedule = async () => {
+  const columns = [
+    ["scheduleRule", "VARCHAR(20) NULL"],
+    ["scheduleDaysBefore", "INT NULL"],
+  ];
+  for (const [name, definition] of columns) {
+    const [cols] = await db.sequelize.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'emailTemplates'
+         AND COLUMN_NAME = :name`,
+      { replacements: { name } }
+    );
+    if (!cols.length) {
+      await db.sequelize.query(`ALTER TABLE emailTemplates ADD COLUMN ${name} ${definition}`);
+      logger.info(`emailTemplates.${name} column added.`);
+    }
+  }
+};
+
+const ensureEmailTokens = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailTokens'`
+  );
+  if (tables.length) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE emailTokens (
+      id INT NOT NULL AUTO_INCREMENT,
+      tokenCode VARCHAR(100) NOT NULL,
+      description VARCHAR(255) NOT NULL,
+      valueSource VARCHAR(100) NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY emailTokens_tokenCode_unique (tokenCode)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("emailTokens table created.");
+};
+
+const ensureTripPrimaryLeader = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tripPeopleRoles'
+       AND COLUMN_NAME = 'isPrimaryLeader'`
+  );
+  if (!rows.length) {
+    await db.sequelize.query(
+      "ALTER TABLE tripPeopleRoles ADD COLUMN isPrimaryLeader TINYINT(1) NOT NULL DEFAULT 0"
+    );
+    logger.info("tripPeopleRoles.isPrimaryLeader column added.");
+  }
+
+  const leaderRole = await db.role.findOne({ where: { roleName: "Trip Leader" } });
+  if (!leaderRole) return;
+
+  const [updated] = await db.sequelize.query(
+    `UPDATE tripPeopleRoles t
+     JOIN (
+       SELECT l.tripId, MIN(l.id) AS firstId
+       FROM tripPeopleRoles l
+       WHERE l.roleId = :roleId
+         AND l.tripId NOT IN (
+           SELECT p.tripId FROM (
+             SELECT tripId FROM tripPeopleRoles WHERE roleId = :roleId AND isPrimaryLeader = 1
+           ) p
+         )
+       GROUP BY l.tripId
+     ) firsts ON firsts.firstId = t.id
+     SET t.isPrimaryLeader = 1`,
+    { replacements: { roleId: leaderRole.id } }
+  );
+  if (updated?.affectedRows) {
+    logger.info(`Marked primary trip leader on ${updated.affectedRows} trip(s).`);
+  }
+};
+
+const ensureTripDeposit = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'trips'
+       AND COLUMN_NAME = 'deposit'`
+  );
+  if (rows.length) return;
+
+  await db.sequelize.query(
+    `ALTER TABLE trips
+     ADD COLUMN deposit DECIMAL(10, 2) NULL
+     AFTER participantCost`
+  );
+  logger.info("trips.deposit column added.");
+};
+
+const ensureTripFlightSegmentCabinAndSeat = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tripFlightSegments'`
+  );
+  if (!tables.length) return;
+
+  const [columns] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tripFlightSegments'
+       AND COLUMN_NAME IN ('cabinClass', 'seatNumber', 'segmentType')`
+  );
+  const have = new Set(columns.map((c) => c.COLUMN_NAME));
+
+  if (!have.has("cabinClass")) {
+    await db.sequelize.query(
+      `ALTER TABLE tripFlightSegments
+       ADD COLUMN cabinClass VARCHAR(50) NULL AFTER arrivalTime`
+    );
+    logger.info("tripFlightSegments.cabinClass column added.");
+  }
+  if (!have.has("seatNumber")) {
+    await db.sequelize.query(
+      `ALTER TABLE tripFlightSegments
+       ADD COLUMN seatNumber VARCHAR(20) NULL AFTER cabinClass`
+    );
+    logger.info("tripFlightSegments.seatNumber column added.");
+  }
+  if (!have.has("segmentType")) {
+    await db.sequelize.query(
+      `ALTER TABLE tripFlightSegments
+       ADD COLUMN segmentType ENUM('arrival', 'return') NOT NULL DEFAULT 'arrival'
+       AFTER tripFlightId`
+    );
+    logger.info("tripFlightSegments.segmentType column added.");
+  }
+
+  // Prefer unique (tripFlightId, segmentType, segmentNumber); drop older flight+number unique if present.
+  const [indexes] = await db.sequelize.query(
+    `SHOW INDEX FROM tripFlightSegments WHERE Non_unique = 0`
+  );
+  const uniqueNames = new Set(indexes.map((r) => r.Key_name).filter((n) => n !== "PRIMARY"));
+  if (!uniqueNames.has("trip_flight_segments_flight_type_number_unique")) {
+    // Drop any unique that is only (tripFlightId, segmentNumber)
+    const byKey = new Map();
+    for (const row of indexes) {
+      if (row.Key_name === "PRIMARY") continue;
+      if (!byKey.has(row.Key_name)) byKey.set(row.Key_name, []);
+      byKey.get(row.Key_name).push(row.Column_name);
+    }
+    for (const [name, cols] of byKey.entries()) {
+      if (cols.length === 2 && cols.includes("tripFlightId") && cols.includes("segmentNumber")) {
+        await db.sequelize.query(`ALTER TABLE tripFlightSegments DROP INDEX \`${name}\``);
+        logger.info(`Dropped legacy unique index ${name} on tripFlightSegments.`);
+      }
+    }
+    await db.sequelize.query(
+      `ALTER TABLE tripFlightSegments
+       ADD UNIQUE INDEX trip_flight_segments_flight_type_number_unique
+       (tripFlightId, segmentType, segmentNumber)`
+    );
+    logger.info("tripFlightSegments unique (tripFlightId, segmentType, segmentNumber) added.");
+  }
+};
+
+const ensureLanguageCatalog = async () => {
+  const [tables] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'languages'`
+  );
+  if (!tables.length) return;
+
+  const Op = db.Sequelize.Op;
+  for (const row of LANGUAGE_SEED) {
+    const existing = await db.language.findOne({ where: { code: row.code } });
+    if (!existing) {
+      await db.language.create(row);
+    } else if (existing.name !== row.name) {
+      await existing.update({ name: row.name });
+    }
+  }
+
+  const keep = new Set(LANGUAGE_SEED.map((row) => row.code));
+  const extras = await db.language.findAll({
+    where: { code: { [Op.notIn]: [...keep] } },
+  });
+  for (const extra of extras) {
+    const used = await db.personLanguage.count({ where: { languageId: extra.id } });
+    if (used) continue;
+    await extra.destroy();
+    logger.info(`Removed language ${extra.code} (${extra.name}) not in the Western Hemisphere seed.`);
+  }
+};
+
 export const ensureSchema = async () => {
   await ensureNamedUniqueIndexes();
   await ensureEmailTemplateOrgNullable();
   await ensureTripPeopleRoleParticipantCost();
+  await ensureTripRequirePassport();
+  await ensureTripDeposit();
+  await ensureEmailTypes();
+  await ensureEmailTokens();
+  await ensureEmailTemplateToAddress();
+  await ensureEmailTemplateSchedule();
+  await ensureEmailLogToEmailLength();
+  await ensureEmailLogSource();
+  await ensureScheduledEmailSendsTable();
+  await ensureTripPrimaryLeader();
+  await ensureTripFlightSegmentCabinAndSeat();
   await ensureOrganizationWebsiteUrl();
+  await ensureOrganizationSubdomain();
   await ensureOrganizationAgreementFileName();
+  await ensureOrganizationMedicalAgreementFileName();
+  await ensureOrganizationTestMode();
   await ensureTripPeopleRoleTripWorkerRoleId();
   await ensurePersonProfileFields();
   await ensureTripPeopleRoleApplicationFields();
@@ -581,9 +1280,14 @@ export const ensureSchema = async () => {
   await ensureTripApplicantRoleRemoved();
   await ensureDocumentTypesTable();
   await ensurePersonDocumentsTable();
+  await ensurePersonDocumentSpecializationsTable();
   await ensureWorkerRoleDocumentType();
+  await ensureWorkerRoleRequiredDocuments();
   await ensureTripTravelOptionsTable();
   await ensureTripPeopleRoleOptionsTable();
+  await ensureMedicalConditionsTable();
+  await ensurePersonMedicalConditionsTable();
+  await ensureLanguageCatalog();
 };
 
 export default ensureSchema;

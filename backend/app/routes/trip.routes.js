@@ -1,6 +1,9 @@
 import { Router } from "express";
 import trips from "../controllers/trip.controller.js";
 import tripBrowse from "../controllers/tripBrowse.controller.js";
+import tripRooming from "../controllers/tripRooming.controller.js";
+import tripFlight from "../controllers/tripFlight.controller.js";
+import tripTeamEmail from "../controllers/tripTeamEmail.controller.js";
 import authenticate from "../authorization/accessControl.js";
 import { uploadTripImage } from "../config/multer.js";
 
@@ -23,10 +26,31 @@ router.get("/browse/:id", [authenticate], tripBrowse.getBrowseTrip);
 router.post("/browse/:id/apply", [authenticate], tripBrowse.applyToTrip);
 router.get("/browse/:id/application", [authenticate], tripBrowse.getApplication);
 router.put("/browse/:id/application", [authenticate], tripBrowse.updateApplication);
+router.post("/browse/:id/application/cancel", [authenticate], tripBrowse.cancelApplication);
+router.post("/browse/:id/application/uncancel", [authenticate], tripBrowse.uncancelApplication);
 
 router.get("/", [authenticate], trips.findAll);
+router.get("/:id/status", [authenticate], trips.findStatus);
+router.get("/:id/rooming", [authenticate], tripRooming.findRooming);
+router.put("/:id/rooming", [authenticate], tripRooming.updateRooming);
+router.get("/:id/flights", [authenticate], tripFlight.findFlights);
+router.put("/:id/flights/:tripPeopleRoleId", [authenticate], tripFlight.updateFlightHeader);
+router.get(
+  "/:id/flights/:tripPeopleRoleId/segments",
+  [authenticate],
+  tripFlight.findSegments
+);
+router.put(
+  "/:id/flights/:tripPeopleRoleId/segments",
+  [authenticate],
+  tripFlight.replaceSegments
+);
+router.get("/:id/team-email/templates", [authenticate], tripTeamEmail.findTemplates);
+router.post("/:id/team-email/preview", [authenticate], tripTeamEmail.preview);
+router.post("/:id/team-email", [authenticate], tripTeamEmail.send);
 router.get("/:id", [authenticate], trips.findOne);
 router.post("/", [authenticate], trips.create);
+router.post("/:id/copy", [authenticate], trips.copy);
 router.put("/:id", [authenticate], trips.update);
 router.put("/:id/image", [authenticate], handleTripImageUpload, trips.uploadImage);
 router.delete("/:id", [authenticate], trips.delete);

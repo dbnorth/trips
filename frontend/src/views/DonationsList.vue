@@ -50,7 +50,12 @@ const donorName = (item) => formatDonorName(item.donor);
 
 const participantName = (item) => {
   if (!item.participant) return "—";
-  return `${item.participant.firstName || ""} ${item.participant.lastName || ""}`.trim() || "—";
+  return (
+    [item.participant.firstName, item.participant.middleName, item.participant.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || "—"
+  );
 };
 
 const syncSelectedTrip = () => {

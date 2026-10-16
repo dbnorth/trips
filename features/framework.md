@@ -633,7 +633,7 @@ Example: Feature 2 (lists) and Feature 4 (profile) can ship in the same sprint, 
 - [ ] Add **Test Coverage Map** before coding
 - [ ] Add **Agent implementation request** (with correct reference file list) and **Definition of Done**
 - [ ] Document **Out of Scope** with links to other features
-- [ ] Add row to [features/README.md](./README.md) catalog
+- [ ] Add row to [features/README.md](./README.md) catalog, with a one-line **Summary**
 - [ ] No Agility list edit required — `feature-N-*.md` is auto-discovered (`# Feature: …` → epic name)
 - [ ] Before merge: complete the [Merge checklist + Agility sync](#merge-checklist--agility-sync)
 

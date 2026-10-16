@@ -183,3 +183,4 @@ Do not implement behavior not in this spec.
 
 - Authenticated apply completion — Feature 7
 - Staff donation admin UI — Feature 8
+- Public Apply landing on the trip **application** page (not trip browse) after auth — [Feature 13](feature-13-public-apply-to-application-page.md)

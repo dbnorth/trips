@@ -9,7 +9,18 @@ const CATALOG_ROLES = [
   { roleName: "Pending User", roleDescription: "Awaiting organization approval" },
 ];
 
+// Tests drop and empty tables; refuse unless connected to a database named *-test.
+const assertTestDatabase = () => {
+  const name = db.sequelize.config.database;
+  if (!name?.endsWith("-test")) {
+    throw new Error(
+      `Refusing to reset database "${name}": tests only run against a database whose name ends in "-test". Run tests from backend/ (npm test) so tests/setup.js loads .env.test.`
+    );
+  }
+};
+
 export const syncTestDatabase = async () => {
+  assertTestDatabase();
   await db.sequelize.sync({ force: true });
   await seedRoles();
 };
@@ -22,24 +33,39 @@ export const seedRoles = async () => {
 };
 
 export const resetTestDatabase = async () => {
+  assertTestDatabase();
   const ordered = [
+    db.tripFlightSegment,
+    db.tripFlight,
+    db.tripRoomAssignment,
+    db.tripRoom,
+    db.tripRoomingList,
     db.tripPeopleRoleOption,
     db.tripDonation,
+    db.personDocumentSpecialization,
     db.personDocument,
+    db.personMedicalCondition,
+    db.personLanguage,
     db.tripPeopleRole,
     db.tripWorkerRole,
     db.tripTravelOption,
+    db.scheduledEmailSend,
     db.emailTemplate,
+    db.emailType,
+    db.emailToken,
     db.emailLog,
     db.orgPeopleRole,
     db.trip,
     db.workerRole,
+    db.medicalCondition,
     db.donor,
     db.person,
     db.session,
     db.user,
     db.organization,
     db.documentType,
+    db.airport,
+    db.airline,
     db.role,
   ];
 
@@ -123,6 +149,7 @@ export const createSystemAdminUser = async ({
 export const completePersonProfile = async (personId, overrides = {}) => {
   await db.person.update(
     {
+      middleName: "Ann",
       addLine1: "123 Main St",
       city: "Springfield",
       country: "US",
@@ -135,6 +162,7 @@ export const completePersonProfile = async (personId, overrides = {}) => {
       emergencyContactName: "Sam Contact",
       emergencyContactPhoneCountryCode: "1",
       emergencyContactPhoneNumber: "5559876543",
+      emergencyContactRelationship: "spouse",
       hasAllergies: false,
       currentChurchHome: "First Church",
       currentChurchHomeCity: "Springfield",

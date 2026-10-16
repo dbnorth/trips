@@ -11,6 +11,7 @@ import EditPersonDialog from "../components/EditPersonDialog.vue";
 import ApplyTripDialog from "../components/ApplyTripDialog.vue";
 import EditTripDialog from "../components/EditTripDialog.vue";
 import EditOrganizationDialog from "../components/EditOrganizationDialog.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 import {
   isProfileComplete,
 } from "../utils/personProfile.js";
@@ -25,6 +26,12 @@ const profileLoading = ref(false);
 const showProfileDialog = ref(false);
 const showApplyDialog = ref(false);
 const applyTripId = ref(null);
+const showConfirmCancelApp = ref(false);
+const confirmCancelTrip = ref(null);
+const cancelAppSaving = ref(false);
+const showConfirmUncancelApp = ref(false);
+const confirmUncancelTrip = ref(null);
+const uncancelAppSaving = ref(false);
 const showEditOrgTrip = ref(false);
 const editOrgTripId = ref(null);
 const showEditOrganization = ref(false);
@@ -253,10 +260,70 @@ const openApplyDialog = (trip) => {
 
 const canUpdateApplication = (trip) =>
   trip?.alreadyApplied &&
-  (trip.applicationStatus === "incomplete" || trip.applicationStatus === "applied");
+  ["incomplete", "applied", "approved", "cancelled"].includes(trip.applicationStatus);
+
+const applicationActionLabel = (trip) =>
+  trip?.applicationStatus === "cancelled" || trip?.applicationStatus === "approved"
+    ? "Manage App"
+    : "Update App";
 
 const openUpdateApplication = (trip) => {
   openApplyDialog(trip);
+};
+
+const canCancelApplication = (trip) =>
+  trip?.alreadyApplied &&
+  ["incomplete", "applied", "approved"].includes(trip.applicationStatus);
+
+const canUncancelApplication = (trip) =>
+  trip?.alreadyApplied && trip.applicationStatus === "cancelled";
+
+const requestCancelApplication = (trip) => {
+  if (!trip?.id || !canCancelApplication(trip)) return;
+  confirmCancelTrip.value = trip;
+  showConfirmCancelApp.value = true;
+};
+
+const confirmCancelApplication = async () => {
+  const trip = confirmCancelTrip.value;
+  if (!trip?.id) return;
+  cancelAppSaving.value = true;
+  try {
+    await TripServices.cancelApplication(trip.id);
+    browseMessage.value = "Application cancelled.";
+    showConfirmCancelApp.value = false;
+    confirmCancelTrip.value = null;
+    await loadBrowseTrips();
+  } catch (e) {
+    browseMessage.value = e.response?.data?.message || "Unable to cancel application.";
+    showConfirmCancelApp.value = false;
+  } finally {
+    cancelAppSaving.value = false;
+  }
+};
+
+const requestUncancelApplication = (trip) => {
+  if (!trip?.id || !canUncancelApplication(trip)) return;
+  confirmUncancelTrip.value = trip;
+  showConfirmUncancelApp.value = true;
+};
+
+const confirmUncancelApplication = async () => {
+  const trip = confirmUncancelTrip.value;
+  if (!trip?.id) return;
+  uncancelAppSaving.value = true;
+  try {
+    await TripServices.uncancelApplication(trip.id);
+    browseMessage.value = "Application uncancelled.";
+    showConfirmUncancelApp.value = false;
+    confirmUncancelTrip.value = null;
+    await loadBrowseTrips();
+  } catch (e) {
+    browseMessage.value = e.response?.data?.message || "Unable to uncancel application.";
+    showConfirmUncancelApp.value = false;
+  } finally {
+    uncancelAppSaving.value = false;
+  }
 };
 
 const onApplicationSaved = () => {
@@ -326,6 +393,18 @@ const resolveOrgLabel = async () => {
 
 const openOrgTrip = (trip) => {
   router.push({ name: "tripView", params: { tripId: trip.id } });
+};
+
+const openOrgTripStatus = (trip) => {
+  router.push({ name: "tripStatus", params: { tripId: trip.id } });
+};
+
+const openOrgTripRooming = (trip) => {
+  router.push({ name: "tripRooming", params: { tripId: trip.id } });
+};
+
+const openOrgTripFlights = (trip) => {
+  router.push({ name: "tripFlights", params: { tripId: trip.id } });
 };
 
 const openEditOrgTrip = (trip) => {
@@ -642,7 +721,25 @@ onUnmounted(() => {
                         color="primary"
                         @click="openUpdateApplication(item)"
                       >
-                        Update App
+                        {{ applicationActionLabel(item) }}
+                      </v-btn>
+                      <v-btn
+                        v-if="canCancelApplication(item)"
+                        size="small"
+                        color="error"
+                        variant="tonal"
+                        @click="requestCancelApplication(item)"
+                      >
+                        Cancel App
+                      </v-btn>
+                      <v-btn
+                        v-if="canUncancelApplication(item)"
+                        size="small"
+                        color="primary"
+                        variant="tonal"
+                        @click="requestUncancelApplication(item)"
+                      >
+                        Uncancel
                       </v-btn>
                     </div>
                   </td>
@@ -732,7 +829,7 @@ onUnmounted(() => {
                 <th>Start</th>
                 <th>End</th>
                 <th>Status</th>
-                <th class="text-right" style="min-width: 100px">Actions</th>
+                <th class="text-right" style="min-width: 280px">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -743,8 +840,11 @@ onUnmounted(() => {
                 <td>{{ formatDate(item.endDate) }}</td>
                 <td>{{ item.status || "—" }}</td>
                 <td class="text-right">
-                  <div class="d-flex justify-end ga-2 flex-wrap">
+                  <div class="d-flex justify-end ga-1 flex-wrap">
                     <v-btn size="small" variant="tonal" @click="openOrgTrip(item)">View</v-btn>
+                    <v-btn size="small" variant="text" @click="openOrgTripStatus(item)">Status</v-btn>
+                    <v-btn size="small" variant="text" @click="openOrgTripRooming(item)">Room list</v-btn>
+                    <v-btn size="small" variant="text" @click="openOrgTripFlights(item)">Flights</v-btn>
                     <v-btn size="small" variant="text" @click="openEditOrgTrip(item)">Edit</v-btn>
                   </div>
                 </td>
@@ -876,6 +976,23 @@ onUnmounted(() => {
       v-model="showApplyDialog"
       :trip-id="applyTripId"
       @saved="onApplicationSaved"
+    />
+    <ConfirmDialog
+      v-model="showConfirmCancelApp"
+      title="Are you sure?"
+      message="Cancel this application? Your role slot will be freed."
+      confirm-text="Cancel App"
+      confirm-color="error"
+      :loading="cancelAppSaving"
+      @confirm="confirmCancelApplication"
+    />
+    <ConfirmDialog
+      v-model="showConfirmUncancelApp"
+      title="Are you sure?"
+      message="Uncancel this application? It will return to incomplete or applied based on completeness."
+      confirm-text="Uncancel"
+      :loading="uncancelAppSaving"
+      @confirm="confirmUncancelApplication"
     />
     <EditTripDialog
       v-model="showEditOrgTrip"

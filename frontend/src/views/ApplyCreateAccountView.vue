@@ -1,15 +1,19 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AuthServices from "../services/authServices.js";
 import { storeAuthenticatedUser } from "../utils/authSession.js";
+import { getRegistrationHostSubdomain } from "../utils/hostSubdomain.js";
+import { PREFERRED_NAME_HINT, defaultPreferredName } from "../utils/preferredName.js";
 
 const route = useRoute();
 const router = useRouter();
 
 const form = ref({
   firstName: "",
+  middleName: "",
   lastName: "",
+  preferredName: "",
   email: "",
   password: "",
   confirmPassword: "",
@@ -17,6 +21,9 @@ const form = ref({
 const formError = ref("");
 const existingAccountEmail = ref("");
 const saving = ref(false);
+const preferredNameEdited = ref(false);
+const hostSubdomain = ref(getRegistrationHostSubdomain());
+const subdomainOrg = ref(null);
 
 const applyContext = computed(() => ({
   tripId: route.query.tripId ? String(route.query.tripId) : "",
@@ -24,9 +31,24 @@ const applyContext = computed(() => ({
   org: route.query.org ? String(route.query.org) : "",
 }));
 
-const organizationName = computed(() => applyContext.value.org);
+const organizationName = computed(
+  () => subdomainOrg.value?.name || applyContext.value.org
+);
 
 const signInRoute = computed(() => ({ name: "applyAuth", query: { ...route.query } }));
+
+watch(
+  () => [form.value.firstName, form.value.lastName],
+  () => {
+    if (preferredNameEdited.value) return;
+    form.value.preferredName = defaultPreferredName(form.value.firstName, form.value.lastName);
+  }
+);
+
+const onPreferredNameInput = (value) => {
+  preferredNameEdited.value = true;
+  form.value.preferredName = value ?? "";
+};
 
 const goToApply = () => {
   const tripId = applyContext.value.tripId;
@@ -51,16 +73,26 @@ const submit = () => {
     return;
   }
 
-  const orgId = applyContext.value.orgId ? Number(applyContext.value.orgId) : null;
-  saving.value = true;
-  AuthServices.registerUser({
+  const queryOrgId = applyContext.value.orgId ? Number(applyContext.value.orgId) : null;
+  const payload = {
     firstName: f.firstName,
+    middleName: f.middleName?.trim() || null,
     lastName: f.lastName,
+    preferredName: f.preferredName?.trim() || null,
     email: f.email,
     password: f.password,
-    orgIds: orgId ? [orgId] : [],
-  })
+    orgIds: [],
+  };
+  if (hostSubdomain.value && subdomainOrg.value) {
+    payload.subdomain = hostSubdomain.value;
+  } else if (queryOrgId) {
+    payload.orgIds = [queryOrgId];
+  }
+
+  saving.value = true;
+  AuthServices.registerUser(payload)
     .then((res) => {
+      const orgId = subdomainOrg.value?.id ?? queryOrgId;
       storeAuthenticatedUser(res.data, {
         orgId,
         orgName: organizationName.value || null,
@@ -79,6 +111,17 @@ const submit = () => {
       saving.value = false;
     });
 };
+
+onMounted(async () => {
+  hostSubdomain.value = getRegistrationHostSubdomain();
+  if (!hostSubdomain.value) return;
+  try {
+    const res = await AuthServices.getRegisterOrganizationBySubdomain(hostSubdomain.value);
+    subdomainOrg.value = res.data || null;
+  } catch {
+    subdomainOrg.value = null;
+  }
+});
 </script>
 
 <template>
@@ -118,10 +161,25 @@ const submit = () => {
               density="comfortable"
             />
             <v-text-field
+              v-model="form.middleName"
+              label="Middle name"
+              autocomplete="additional-name"
+              density="comfortable"
+            />
+            <v-text-field
               v-model="form.lastName"
               label="Last name"
               autocomplete="family-name"
               density="comfortable"
+            />
+            <v-text-field
+              :model-value="form.preferredName"
+              label="Preferred name"
+              autocomplete="off"
+              density="comfortable"
+              :hint="PREFERRED_NAME_HINT"
+              persistent-hint
+              @update:model-value="onPreferredNameInput"
             />
             <v-text-field
               v-model="form.email"

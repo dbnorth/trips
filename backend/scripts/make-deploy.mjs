@@ -36,9 +36,13 @@ for (const name of entries) {
   cpSync(from, join(deployDir, name), { recursive: true });
 }
 
-const serviceFile = join(root, "trips-backend.service");
-if (existsSync(serviceFile)) {
-  cpSync(serviceFile, join(deployDir, "trips-backend.service"));
+for (const unitFile of [
+  "trips-backend.service",
+  "trips-scheduled-emails.service",
+  "trips-scheduled-emails.timer",
+]) {
+  const from = join(root, unitFile);
+  if (existsSync(from)) cpSync(from, join(deployDir, unitFile));
 }
 
 console.log(`Backend deploy artifact: ${deployDir}`);

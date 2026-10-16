@@ -1,11 +1,15 @@
 /**
  * Feature 6 — Worker Roles & Travel Options
  * Spec: features/feature-6-worker-roles-and-travel-options.md
+ *
+ * Feature 25 — Worker Role Required Documents
+ * Spec: features/feature-25-worker-role-required-documents.md
  */
 
 import request from "supertest";
 import app from "../server.js";
 import db from "../app/models/index.js";
+import ensureSchema from "../app/scripts/ensureSchema.js";
 import {
   syncTestDatabase,
   resetTestDatabase,
@@ -72,9 +76,11 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
         orgId: org.id,
         name: "Nurse",
         licenseRequired: true,
-        documentTypeId: docType.id,
         status: "active",
       });
+      expect(create.body.requiredDocumentTypeIds).toEqual([docType.id]);
+      expect(create.body.requiredDocumentTypes.map((d) => d.id)).toEqual([docType.id]);
+      expect(create.body.documentTypeId).toBeNull();
 
       const list = await request(app)
         .get("/trips/worker-roles")
@@ -83,6 +89,104 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
 
       expect(list.status).toBe(200);
       expect(list.body.map((r) => r.id)).toContain(create.body.id);
+    });
+
+    it("Org Admin saves multiple required documents on a worker role", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "multi-docs-admin@example.com",
+      });
+      const typeA = await db.documentType.create({
+        type: "medical_licence",
+        description: "RN License",
+      });
+      const typeB = await db.documentType.create({
+        type: "certification",
+        description: "First Aid",
+      });
+
+      const create = await request(app)
+        .post("/trips/worker-roles")
+        .set(authHeader)
+        .send({
+          orgId: org.id,
+          name: "Clinical Lead",
+          licenseRequired: false,
+          requiredDocumentTypeIds: [typeA.id, typeB.id],
+        });
+
+      expect(create.status).toBe(200);
+      expect(create.body.licenseRequired).toBe(false);
+      expect(create.body.requiredDocumentTypeIds.sort()).toEqual([typeA.id, typeB.id].sort());
+
+      const get = await request(app)
+        .get(`/trips/worker-roles/${create.body.id}`)
+        .set(authHeader);
+      expect(get.status).toBe(200);
+      expect(get.body.requiredDocumentTypeIds.sort()).toEqual([typeA.id, typeB.id].sort());
+    });
+
+    it("Required documents can be cleared", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "clear-docs-admin@example.com",
+      });
+      const typeA = await db.documentType.create({
+        type: "passport",
+        description: "Passport",
+      });
+
+      const create = await request(app)
+        .post("/trips/worker-roles")
+        .set(authHeader)
+        .send({
+          orgId: org.id,
+          name: "Helper",
+          requiredDocumentTypeIds: [typeA.id],
+        });
+      expect(create.status).toBe(200);
+      expect(create.body.requiredDocumentTypeIds).toEqual([typeA.id]);
+
+      const updated = await request(app)
+        .put(`/trips/worker-roles/${create.body.id}`)
+        .set(authHeader)
+        .send({
+          name: "Helper",
+          requiredDocumentTypeIds: [],
+        });
+
+      expect(updated.status).toBe(200);
+      expect(updated.body.requiredDocumentTypeIds).toEqual([]);
+      expect(updated.body.requiredDocumentTypes).toEqual([]);
+    });
+
+    it("Existing documentTypeId is migrated into required documents", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "migrate-docs-admin@example.com",
+      });
+      const docType = await db.documentType.create({
+        type: "medical_licence",
+        description: "Legacy Licence",
+      });
+      const role = await db.workerRole.create({
+        orgId: org.id,
+        name: "Legacy Nurse",
+        licenseRequired: true,
+        documentTypeId: docType.id,
+        status: "active",
+      });
+
+      await ensureSchema();
+
+      const joins = await db.workerRoleDocumentType.findAll({
+        where: { workerRoleId: role.id },
+      });
+      expect(joins).toHaveLength(1);
+      expect(joins[0].documentTypeId).toBe(docType.id);
+
+      const get = await request(app)
+        .get(`/trips/worker-roles/${role.id}`)
+        .set(authHeader);
+      expect(get.status).toBe(200);
+      expect(get.body.requiredDocumentTypeIds).toEqual([docType.id]);
     });
   });
 

@@ -56,6 +56,17 @@ const scopeLabel = (item) => {
   return item.organization?.name || "Organization";
 };
 
+const scheduleLabel = (item) => {
+  if (item.functionCode !== "Scheduled") return "";
+  if (item.scheduleRule === "daily") return "Daily";
+  if (item.scheduleRule === "weekly") return "Weekly (Tuesday)";
+  if (item.scheduleRule === "before-start" && item.scheduleDaysBefore) {
+    const days = Number(item.scheduleDaysBefore);
+    return `${days} ${days === 1 ? "day" : "days"} before trip start`;
+  }
+  return "";
+};
+
 const tripLabel = (item) => {
   if (item.orgId == null) return "—";
   return item.trip?.name || "All trips";
@@ -215,6 +226,8 @@ onUnmounted(() => {
       :loading="loading"
       :headers="[
         { title: 'Function code', key: 'functionCode' },
+        { title: 'Schedule', key: 'schedule', sortable: false },
+        { title: 'Email type', key: 'emailType' },
         { title: 'Subject', key: 'subject' },
         ...(isTripLeaderOnly ? [] : [{ title: 'Scope', key: 'scope' }]),
         ...(isTripLeaderOnly ? [] : [{ title: 'Trip', key: 'trip' }]),
@@ -224,6 +237,8 @@ onUnmounted(() => {
       density="compact"
     >
       <template #item.functionCode="{ item }">{{ item.functionCode || "—" }}</template>
+      <template #item.schedule="{ item }">{{ scheduleLabel(item) }}</template>
+      <template #item.emailType="{ item }">{{ item.emailType?.description || "—" }}</template>
       <template #item.subject="{ item }">{{ item.subject || "—" }}</template>
       <template #item.scope="{ item }">{{ scopeLabel(item) }}</template>
       <template #item.trip="{ item }">{{ tripLabel(item) }}</template>

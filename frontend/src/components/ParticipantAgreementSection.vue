@@ -12,8 +12,11 @@ const props = defineProps({
   agreementAdultLastName: { type: String, default: "" },
   agreementAdultEmail: { type: String, default: "" },
   agreementAdultRelationship: { type: String, default: "" },
-  /** When false, I Agree is disabled until profile + application are complete. */
-  canAgree: { type: Boolean, default: true },
+  /** When true, show medical agreement block (Take medication? Yes). */
+  showMedicalAgreement: { type: Boolean, default: false },
+  medicalAgreementContent: { type: String, default: "" },
+  medicalAgreementAccepted: { type: Boolean, default: false },
+  medicalAgreementDate: { type: [String, Date], default: null },
   disabled: { type: Boolean, default: false },
 });
 
@@ -24,24 +27,19 @@ const emit = defineEmits([
   "update:agreementAdultLastName",
   "update:agreementAdultEmail",
   "update:agreementAdultRelationship",
+  "update:medicalAgreementAccepted",
 ]);
 
 const previewHtml = computed(() => markdownToHtml(props.content));
+const medicalPreviewHtml = computed(() => markdownToHtml(props.medicalAgreementContent));
 const showAgreement = computed(() => !!props.content?.trim());
-const agreeDisabled = computed(() => props.disabled || !props.canAgree);
+const showMedicalContent = computed(() => !!props.medicalAgreementContent?.trim());
+const showSignatureBlock = computed(
+  () => showAgreement.value || (props.showMedicalAgreement && showMedicalContent.value)
+);
 
-const agreementDateLabel = computed(() => {
-  if (!props.agreementDate) return "";
-  const d = new Date(props.agreementDate);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-});
+const agreementDateLabel = computed(() => formatAgreementDate(props.agreementDate));
+const medicalAgreementDateLabel = computed(() => formatAgreementDate(props.medicalAgreementDate));
 
 const signatureLabel = computed(() =>
   props.under18
@@ -55,6 +53,19 @@ const signatureHint = computed(() =>
     : "Type your full name as your electronic signature"
 );
 
+function formatAgreementDate(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 const clearAdultFields = () => {
   emit("update:agreementAdultFirstName", "");
   emit("update:agreementAdultLastName", "");
@@ -63,7 +74,7 @@ const clearAdultFields = () => {
 };
 
 const onAccepted = (value) => {
-  if (agreeDisabled.value) return;
+  if (props.disabled) return;
   emit("update:agreementAccepted", !!value);
   if (!value) {
     emit("update:agreementSignatureName", "");
@@ -71,126 +82,169 @@ const onAccepted = (value) => {
   }
 };
 
+const onMedicalAccepted = (value) => {
+  if (props.disabled) return;
+  emit("update:medicalAgreementAccepted", !!value);
+};
+
 const onSignature = (value) => {
   emit("update:agreementSignatureName", value ?? "");
 };
 
 watch(
-  () => props.canAgree,
-  (ok) => {
-    if (!ok && props.agreementAccepted) {
-      emit("update:agreementAccepted", false);
+  () => props.showMedicalAgreement,
+  (show) => {
+    if (!show && props.medicalAgreementAccepted) {
+      emit("update:medicalAgreementAccepted", false);
     }
   }
 );
 </script>
 
 <template>
-  <div v-if="showAgreement" class="mt-4">
+  <div class="mt-4">
     <div class="text-subtitle-2 mb-2">Participant agreement</div>
-    <div class="agreement-preview pa-4 rounded mb-3">
-      <div class="agreement-html" v-html="previewHtml" />
-    </div>
-
-    <v-alert v-if="under18" type="warning" density="compact" class="mb-3" variant="tonal">
-      Since the participant is under 18, this must be signed by an adult.
-    </v-alert>
-
-    <template v-if="under18">
-      <v-row dense>
-        <v-col cols="12" sm="6">
-          <v-text-field
-            :model-value="agreementAdultFirstName"
-            label="First name"
-            density="compact"
-            autocomplete="given-name"
-            :disabled="disabled"
-            @update:model-value="emit('update:agreementAdultFirstName', $event ?? '')"
-          />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field
-            :model-value="agreementAdultLastName"
-            label="Last name"
-            density="compact"
-            autocomplete="family-name"
-            :disabled="disabled"
-            @update:model-value="emit('update:agreementAdultLastName', $event ?? '')"
-          />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field
-            :model-value="agreementAdultEmail"
-            label="Email"
-            type="email"
-            density="compact"
-            autocomplete="email"
-            :disabled="disabled"
-            @update:model-value="emit('update:agreementAdultEmail', $event ?? '')"
-          />
-        </v-col>
-        <v-col cols="12" sm="6">
-          <v-text-field
-            :model-value="agreementAdultRelationship"
-            label="Relationship to participant"
-            density="compact"
-            autocomplete="off"
-            :disabled="disabled"
-            @update:model-value="emit('update:agreementAdultRelationship', $event ?? '')"
-          />
-        </v-col>
-      </v-row>
-    </template>
-
-    <div class="text-body-2 mb-2">
-      I agree and understand that by typing my name below that it serves as my electronic
-      signature and it is the legal equivalent of my manual/handwritten signature and I consent
-      to be legally bound to this agreement.
-    </div>
-
-    <v-text-field
-      :model-value="agreementSignatureName"
-      :label="signatureLabel"
-      density="compact"
-      autocomplete="name"
-      :disabled="disabled"
-      :hint="signatureHint"
-      persistent-hint
-      class="mb-3"
-      @update:model-value="onSignature"
-    />
 
     <v-alert
-      v-if="!canAgree"
+      v-if="!showAgreement"
       type="info"
       density="compact"
       variant="tonal"
       class="mb-2"
     >
-      Your profile and application must be complete before you can agree to this agreement.
+      This organization has not published a participant agreement yet.
     </v-alert>
 
-    <v-checkbox
-      :model-value="agreementAccepted"
-      label="I Agree"
-      density="compact"
-      hide-details
-      :disabled="agreeDisabled"
-      class="mt-0 mb-2"
-      @update:model-value="onAccepted"
-    />
+    <template v-else>
+      <div class="agreement-preview pa-4 rounded mb-3">
+        <div class="agreement-html" v-html="previewHtml" />
+      </div>
 
-    <div v-if="agreementAccepted && agreementDateLabel" class="text-caption text-medium-emphasis mt-1">
-      Agreement date: {{ agreementDateLabel }}
+      <v-alert v-if="under18" type="warning" density="compact" class="mb-3" variant="tonal">
+        Since the participant is under 18, this must be signed by an adult.
+      </v-alert>
+
+      <template v-if="under18">
+        <v-row dense>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              :model-value="agreementAdultFirstName"
+              label="First name"
+              density="compact"
+              autocomplete="given-name"
+              :disabled="disabled"
+              @update:model-value="emit('update:agreementAdultFirstName', $event ?? '')"
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              :model-value="agreementAdultLastName"
+              label="Last name"
+              density="compact"
+              autocomplete="family-name"
+              :disabled="disabled"
+              @update:model-value="emit('update:agreementAdultLastName', $event ?? '')"
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              :model-value="agreementAdultEmail"
+              label="Email"
+              type="email"
+              density="compact"
+              autocomplete="email"
+              :disabled="disabled"
+              @update:model-value="emit('update:agreementAdultEmail', $event ?? '')"
+            />
+          </v-col>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              :model-value="agreementAdultRelationship"
+              label="Relationship to participant"
+              density="compact"
+              autocomplete="off"
+              :disabled="disabled"
+              @update:model-value="emit('update:agreementAdultRelationship', $event ?? '')"
+            />
+          </v-col>
+        </v-row>
+      </template>
+    </template>
+
+    <div v-if="showMedicalAgreement" class="mb-4 mt-4">
+      <div class="text-subtitle-2 mb-2">Medical agreement</div>
+      <v-alert
+        v-if="!showMedicalContent"
+        type="info"
+        density="compact"
+        variant="tonal"
+        class="mb-2"
+      >
+        This organization has not published a medical agreement yet.
+      </v-alert>
+      <div v-else class="agreement-preview pa-4 rounded mb-3">
+        <div class="agreement-html" v-html="medicalPreviewHtml" />
+      </div>
     </div>
+
+    <template v-if="showSignatureBlock">
+      <v-checkbox
+        v-if="showAgreement"
+        :model-value="agreementAccepted"
+        label="I agree to the Participation agreement"
+        density="compact"
+        hide-details
+        :disabled="disabled"
+        class="mt-0 mb-2"
+        @update:model-value="onAccepted"
+      />
+
+      <div v-if="showAgreement && agreementAccepted && agreementDateLabel" class="text-caption text-medium-emphasis mb-2">
+        Agreement date: {{ agreementDateLabel }}
+      </div>
+
+      <v-checkbox
+        v-if="showMedicalAgreement && showMedicalContent"
+        :model-value="medicalAgreementAccepted"
+        label="I agree to the medical agreement"
+        density="compact"
+        hide-details
+        :disabled="disabled"
+        class="mt-0 mb-2"
+        @update:model-value="onMedicalAccepted"
+      />
+      <div
+        v-if="showMedicalAgreement && showMedicalContent && medicalAgreementAccepted && medicalAgreementDateLabel"
+        class="text-caption text-medium-emphasis mb-2"
+      >
+        Medical agreement date: {{ medicalAgreementDateLabel }}
+      </div>
+
+      <div class="text-body-2 mb-2 mt-2">
+        I agree and understand that by typing my name below that it serves as my electronic
+        signature and it is the legal equivalent of my manual/handwritten signature and I consent
+        to be legally bound to each agreement I accept using the I agree checkboxes above.
+      </div>
+
+      <v-text-field
+        :model-value="agreementSignatureName"
+        :label="signatureLabel"
+        density="compact"
+        autocomplete="name"
+        :disabled="disabled"
+        :hint="signatureHint"
+        persistent-hint
+        class="mb-3"
+        @update:model-value="onSignature"
+      />
+    </template>
   </div>
 </template>
 
 <style scoped>
 .agreement-preview {
   background: rgba(0, 0, 0, 0.04);
-  max-height: 320px;
-  overflow: auto;
+  overflow-x: hidden;
 }
 
 .agreement-html :deep(h1) {
@@ -245,9 +299,5 @@ watch(
   text-decoration: underline !important;
   cursor: pointer;
   word-break: break-all;
-}
-
-.agreement-html :deep(a:hover) {
-  color: #0d47a1 !important;
 }
 </style>

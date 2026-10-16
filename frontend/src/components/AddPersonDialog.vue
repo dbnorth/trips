@@ -7,9 +7,12 @@ import PhoneInput from "./PhoneInput.vue";
 import PhoneCountryCodeInput from "./PhoneCountryCodeInput.vue";
 import AddressFields from "./AddressFields.vue";
 import PersonProfileFields from "./PersonProfileFields.vue";
+import PersonDocumentsCard from "./PersonDocumentsCard.vue";
 import Utils from "../config/utils.js";
 import { formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
-import { normalizeAddressFields } from "../utils/locationData.js";
+import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
+import { normalizeYesNo, otherLanguagePayload } from "../utils/personProfile.js";
+import { PREFERRED_NAME_HINT, defaultPreferredName } from "../utils/preferredName.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -25,13 +28,15 @@ const saving = ref(false);
 
 const emptyForm = () => ({
   firstName: "",
+  middleName: "",
   lastName: "",
+  preferredName: "",
   email: "",
   password: "",
   addLine1: "",
   addLine2: "",
   city: "",
-  country: "",
+  country: US_COUNTRY_CODE,
   state_prov: "",
   postalCode: "",
   phoneContryCode: "",
@@ -41,9 +46,13 @@ const emptyForm = () => ({
   emergencyContactName: "",
   emergencyContactPhoneCountryCode: "",
   emergencyContactPhoneNumber: "",
-  hasAllergies: false,
+  emergencyContactRelationship: null,
+  hasAllergies: null,
   allergiesDescription: "",
-  takesMedication: false,
+  takesMedication: null,
+  medicalConditionIds: [],
+  speaksOtherLanguage: null,
+  languages: [],
   currentChurchHome: "",
   currentChurchHomeCity: "",
   currentChurchHomeStateProv: "",
@@ -54,6 +63,20 @@ const emptyForm = () => ({
 });
 
 const form = ref(emptyForm());
+const preferredNameEdited = ref(false);
+
+watch(
+  () => [form.value.firstName, form.value.lastName],
+  () => {
+    if (preferredNameEdited.value) return;
+    form.value.preferredName = defaultPreferredName(form.value.firstName, form.value.lastName);
+  }
+);
+
+const onPreferredNameInput = (value) => {
+  preferredNameEdited.value = true;
+  form.value.preferredName = value ?? "";
+};
 
 const isSystemAdmin = computed(() => Utils.isSystemAdmin(user.value));
 
@@ -80,6 +103,7 @@ const resetForm = () => {
     orgId: defaultOrgId,
     roleId: pendingRole?.id ?? roles.value[0]?.id ?? null,
   };
+  preferredNameEdited.value = false;
   formError.value = "";
 };
 
@@ -148,7 +172,9 @@ const save = () => {
 
   const payload = {
     firstName: form.value.firstName.trim(),
+    middleName: form.value.middleName?.trim() || null,
     lastName: form.value.lastName.trim(),
+    preferredName: form.value.preferredName?.trim() || null,
     email: form.value.email.trim(),
     country: address.country || null,
     addLine1: form.value.addLine1?.trim() || null,
@@ -165,11 +191,12 @@ const save = () => {
       ? formatCountryCode(form.value.emergencyContactPhoneCountryCode)
       : null,
     emergencyContactPhoneNumber: form.value.emergencyContactPhoneNumber?.trim() || null,
-    hasAllergies: !!form.value.hasAllergies,
-    allergiesDescription: form.value.hasAllergies
+    emergencyContactRelationship: form.value.emergencyContactRelationship || null,
+    hasAllergies: normalizeYesNo(form.value.hasAllergies),
+    allergiesDescription: form.value.hasAllergies === true
       ? form.value.allergiesDescription?.trim() || null
       : null,
-    takesMedication: !!form.value.takesMedication,
+    takesMedication: normalizeYesNo(form.value.takesMedication),
     currentChurchHome: form.value.currentChurchHome?.trim() || null,
     currentChurchHomeCity: form.value.currentChurchHomeCity?.trim() || null,
     currentChurchHomeStateProv: form.value.currentChurchHomeStateProv?.trim() || null,
@@ -186,7 +213,30 @@ const save = () => {
   }
 
   PersonServices.create(payload)
-    .then((res) => {
+    .then(async (res) => {
+      const created = res.data?.person;
+      if (
+        created?.id &&
+        (form.value.orgId &&
+          (form.value.takesMedication === true || (form.value.medicalConditionIds || []).length) ||
+          form.value.speaksOtherLanguage === true ||
+          form.value.speaksOtherLanguage === false)
+      ) {
+        const payload = { version: created.version };
+        if (
+          form.value.orgId &&
+          (form.value.takesMedication === true || (form.value.medicalConditionIds || []).length)
+        ) {
+          payload.takesMedication = normalizeYesNo(form.value.takesMedication);
+          payload.medicalConditionIds =
+            form.value.takesMedication === true ? form.value.medicalConditionIds || [] : [];
+          payload.orgId = form.value.orgId;
+        }
+        if (form.value.speaksOtherLanguage === true || form.value.speaksOtherLanguage === false) {
+          Object.assign(payload, otherLanguagePayload(form.value));
+        }
+        await PersonServices.update(created.id, payload);
+      }
       emit("saved", res.data);
       close();
     })
@@ -205,8 +255,20 @@ const save = () => {
       <v-card-title>Add person</v-card-title>
 
       <v-card-text style="max-height: 70vh">
+        <v-divider class="person-section-rule" />
+        <div class="text-subtitle-2 font-weight-bold mb-2">Personal details</div>
         <v-text-field v-model="form.firstName" label="First name" density="compact" autocomplete="off" />
+        <v-text-field v-model="form.middleName" label="Middle name" density="compact" autocomplete="off" />
         <v-text-field v-model="form.lastName" label="Last name" density="compact" autocomplete="off" />
+        <v-text-field
+          :model-value="form.preferredName"
+          label="Preferred name"
+          density="compact"
+          autocomplete="off"
+          :hint="PREFERRED_NAME_HINT"
+          persistent-hint
+          @update:model-value="onPreferredNameInput"
+        />
         <v-text-field
           v-model="form.email"
           label="Email"
@@ -276,7 +338,7 @@ const save = () => {
           density="compact"
         >
           <template #item="{ props: itemProps, item }">
-            <v-list-item v-bind="itemProps" :subtitle="item.raw.roleDescription" />
+            <v-list-item v-bind="itemProps" :subtitle="item?.roleDescription" />
           </template>
         </v-select>
 
@@ -290,8 +352,9 @@ const save = () => {
             <PhoneInput v-model="form.phoneNumber" label="Phone number" />
           </v-col>
         </v-row>
-        <PersonProfileFields v-model="form" />
-        <v-textarea v-model="form.bioText" label="Bio" density="compact" rows="3" autocomplete="off" />
+        <PersonProfileFields v-model="form" :org-id="form.orgId" />
+
+        <PersonDocumentsCard />
 
         <v-alert v-if="formError" type="error" density="compact" class="mt-2">{{ formError }}</v-alert>
       </v-card-text>
@@ -304,3 +367,10 @@ const save = () => {
     </v-card>
   </v-dialog>
 </template>
+
+<style scoped>
+.person-section-rule {
+  margin: 16px -16px 12px;
+  opacity: 1;
+}
+</style>

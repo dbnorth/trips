@@ -5,6 +5,7 @@ import {
   usSubdivisionItems,
   isUnitedStates,
   resolveStateAbbrev,
+  US_COUNTRY_CODE,
 } from "../utils/locationData.js";
 
 const props = defineProps({
@@ -15,6 +16,17 @@ const countrySelectItems = countryItems();
 const stateSelectItems = usSubdivisionItems();
 
 const isUS = computed(() => isUnitedStates(props.modelValue.country));
+
+/** Default empty country when the address object is bound/replaced — not after user clears (FR-005). */
+watch(
+  () => props.modelValue,
+  (address) => {
+    if (address && (address.country == null || address.country === "")) {
+      address.country = US_COUNTRY_CODE;
+    }
+  },
+  { immediate: true }
+);
 
 watch(
   () => props.modelValue.country,

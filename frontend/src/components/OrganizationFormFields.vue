@@ -6,12 +6,31 @@ import { COLOR_OPTIONS } from "../utils/organizationForm.js";
 
 defineProps({
   modelValue: { type: Object, required: true },
+  showSubdomain: { type: Boolean, default: true },
 });
 </script>
 
 <template>
   <v-text-field v-model="modelValue.name" label="Name" density="compact" autocomplete="off" />
+  <v-text-field
+    v-if="showSubdomain"
+    v-model="modelValue.subdomain"
+    label="Subdomain"
+    hint="Optional. Visitors at {subdomain}.your-domain join this org when creating an account."
+    persistent-hint
+    density="compact"
+    autocomplete="off"
+    class="mb-2"
+  />
   <v-text-field v-model="modelValue.email" label="Email" type="email" density="compact" autocomplete="off" />
+  <v-checkbox
+    v-model="modelValue.testMode"
+    label="Test mode"
+    hint="Send every email for this organization to the organization email instead of the real recipients."
+    persistent-hint
+    density="compact"
+    class="mb-2"
+  />
   <v-select
     v-model="modelValue.colorFamily"
     :items="COLOR_OPTIONS"

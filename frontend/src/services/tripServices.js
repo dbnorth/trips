@@ -25,11 +25,50 @@ export default {
   updateApplication(id, data = {}) {
     return apiClient.put(`/trips/browse/${id}/application`, data);
   },
+  cancelApplication(id) {
+    return apiClient.post(`/trips/browse/${id}/application/cancel`);
+  },
+  uncancelApplication(id) {
+    return apiClient.post(`/trips/browse/${id}/application/uncancel`);
+  },
   get(id) {
     return apiClient.get(`/trips/${id}`);
   },
+  getStatus(id) {
+    return apiClient.get(`/trips/${id}/status`);
+  },
+  getRooming(id) {
+    return apiClient.get(`/trips/${id}/rooming`);
+  },
+  updateRooming(id, data) {
+    return apiClient.put(`/trips/${id}/rooming`, data);
+  },
+  getFlights(id) {
+    return apiClient.get(`/trips/${id}/flights`);
+  },
+  updateFlight(tripId, tripPeopleRoleId, data) {
+    return apiClient.put(`/trips/${tripId}/flights/${tripPeopleRoleId}`, data);
+  },
+  getFlightSegments(tripId, tripPeopleRoleId) {
+    return apiClient.get(`/trips/${tripId}/flights/${tripPeopleRoleId}/segments`);
+  },
+  updateFlightSegments(tripId, tripPeopleRoleId, data) {
+    return apiClient.put(`/trips/${tripId}/flights/${tripPeopleRoleId}/segments`, data);
+  },
+  getTeamEmailTemplates(id) {
+    return apiClient.get(`/trips/${id}/team-email/templates`);
+  },
+  previewTeamEmail(id, data) {
+    return apiClient.post(`/trips/${id}/team-email/preview`, data);
+  },
+  sendTeamEmail(id, data) {
+    return apiClient.post(`/trips/${id}/team-email`, data);
+  },
   create(data) {
     return apiClient.post("/trips", data);
+  },
+  copy(id, data) {
+    return apiClient.post(`/trips/${id}/copy`, data);
   },
   update(id, data) {
     return apiClient.put(`/trips/${id}`, data);

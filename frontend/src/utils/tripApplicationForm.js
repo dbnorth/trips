@@ -1,6 +1,82 @@
 const isBlank = (value) => value == null || String(value).trim() === "";
 
-const LICENSE_STATUSES = ["yes", "yes_retired", "no"];
+/** Every person-document row must have an uploaded file. */
+export const arePersonDocumentsUploaded = (documents = []) =>
+  (documents || []).every(
+    (doc) => doc.documentFileName && String(doc.documentFileName).trim() !== ""
+  );
+
+/**
+ * When the worker role requires document type(s), the person must have each type
+ * with a file. If compareDate is set, expiration must be after it.
+ */
+export const isRequiredRoleDocumentUploaded = ({
+  documents = [],
+  documentTypeId = null,
+  documentTypeIds = null,
+  compareDate = null,
+}) => {
+  const ids =
+    documentTypeIds != null
+      ? [
+          ...new Set(
+            (documentTypeIds || [])
+              .map((v) => Number(v))
+              .filter((n) => Number.isFinite(n) && n > 0)
+          ),
+        ]
+      : documentTypeId == null || documentTypeId === ""
+        ? []
+        : [Number(documentTypeId)];
+  if (!ids.length) return true;
+  return ids.every((id) =>
+    (documents || []).some((doc) => {
+      if (Number(doc.documentTypeId) !== id) return false;
+      if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
+      if (!compareDate) return true;
+      const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+      return expirationDate && expirationDate > compareDate;
+    })
+  );
+};
+
+/** Required document types that are missing or invalid for the trip compare date. */
+export const missingRequiredRoleDocuments = ({
+  documents = [],
+  requiredDocumentTypes = [],
+  compareDate = null,
+}) => {
+  const required = requiredDocumentTypes || [];
+  if (!required.length) return [];
+  return required.filter((docType) => {
+    const id = Number(docType.id ?? docType);
+    return !isRequiredRoleDocumentUploaded({
+      documents,
+      documentTypeIds: [id],
+      compareDate,
+    });
+  });
+};
+
+/**
+ * When the trip requires a passport, the person must have a passport-type document
+ * with a file. If compareDate is set, expiration must be after it.
+ */
+export const isRequiredPassportUploaded = ({
+  documents = [],
+  requirePassport = false,
+  compareDate = null,
+}) => {
+  if (!requirePassport) return true;
+  return (documents || []).some((doc) => {
+    const type = doc.documentType?.type ?? doc.type ?? null;
+    if (type !== "passport") return false;
+    if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
+    if (!compareDate) return true;
+    const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+    return expirationDate && expirationDate > compareDate;
+  });
+};
 
 /**
  * Application fields excluding the participant agreement.
@@ -10,15 +86,26 @@ export const isApplicationFormComplete = ({
   tripWorkerRoleId,
   willSelfFund,
   willRaiseFunds,
-  licenseRequired = false,
-  licenseStatus = null,
   hasPreferredRoommate = false,
   preferredRoommateNames = null,
+  flightPurchaseOption = null,
+  preferredDepartureAirportCode = null,
+  preferredReturnAirportCode = null,
+  preferredCabinClass = null,
+  preferredAirlineCode = null,
+  preferredRefundableTicket = null,
 }) => {
   if (tripWorkerRoleId == null || tripWorkerRoleId === "") return false;
   if (!willSelfFund && !willRaiseFunds) return false;
-  if (licenseRequired && !LICENSE_STATUSES.includes(licenseStatus)) return false;
   if (hasPreferredRoommate && isBlank(preferredRoommateNames)) return false;
+  if (flightPurchaseOption !== "self" && flightPurchaseOption !== "organization") return false;
+  if (flightPurchaseOption === "organization") {
+    if (isBlank(preferredDepartureAirportCode)) return false;
+    if (isBlank(preferredReturnAirportCode)) return false;
+    if (isBlank(preferredCabinClass)) return false;
+    if (isBlank(preferredAirlineCode)) return false;
+    if (preferredRefundableTicket !== true && preferredRefundableTicket !== false) return false;
+  }
   return true;
 };
 

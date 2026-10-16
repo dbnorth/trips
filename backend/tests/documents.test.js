@@ -1,6 +1,12 @@
 /**
  * Feature 4 — Document Types & Person Documents
  * Spec: features/feature-4-document-types-and-person-documents.md
+ *
+ * Feature 22 — Document Type Number Required & Instructions
+ * Spec: features/feature-22-document-number-and-instructions.md
+ *
+ * Feature 24 — Document Type Diploma
+ * Spec: features/feature-24-document-type-diploma.md
  */
 
 import request from "supertest";
@@ -42,6 +48,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       expect(create.body).toMatchObject({
         type: "passport",
         description: "US Passport",
+        documentNumberRequired: false,
       });
 
       const list = await request(app).get("/trips/document-types").set(authHeader);
@@ -99,6 +106,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
         documentTypeId: docType.id,
         countryIssued: "US",
         expirationDate: "2030-01-15",
+        documentNumber: null,
       });
       expect(upload.body.documentFileName).toMatch(/^people\//);
 
@@ -141,6 +149,315 @@ describe("Feature 4 — Document Types & Person Documents", () => {
 
       expect(view.status).toBe(403);
       expect(view.body.message).toMatch(/Forbidden/i);
+    });
+  });
+
+  describe("Feature 22 — Document number required & instructions", () => {
+    it("System Admin saves document number required and instructions", async () => {
+      const { authHeader } = await createSystemAdminUser({
+        email: "doc-number-admin@example.com",
+      });
+
+      const create = await request(app)
+        .post("/trips/document-types")
+        .set(authHeader)
+        .send({
+          type: "passport",
+          description: "Passport with number",
+          documentNumberRequired: true,
+          instructions: "Upload a clear photo of the photo page.",
+        });
+
+      expect(create.status).toBe(200);
+      expect(create.body).toMatchObject({
+        documentNumberRequired: true,
+        instructions: "Upload a clear photo of the photo page.",
+      });
+
+      const get = await request(app)
+        .get(`/trips/document-types/${create.body.id}`)
+        .set(authHeader);
+
+      expect(get.status).toBe(200);
+      expect(get.body.documentNumberRequired).toBe(true);
+      expect(get.body.instructions).toBe("Upload a clear photo of the photo page.");
+
+      const list = await request(app).get("/trips/document-types").set(authHeader);
+      const listed = list.body.find((d) => d.id === create.body.id);
+      expect(listed.documentNumberRequired).toBe(true);
+      expect(listed.instructions).toBe("Upload a clear photo of the photo page.");
+    });
+
+    it("Document number required defaults to unchecked", async () => {
+      const { authHeader } = await createSystemAdminUser({
+        email: "doc-default-admin@example.com",
+      });
+
+      const create = await request(app)
+        .post("/trips/document-types")
+        .set(authHeader)
+        .send({ type: "medical_licence", description: "Licence no number" });
+
+      expect(create.status).toBe(200);
+      expect(create.body.documentNumberRequired).toBe(false);
+      expect(create.body.instructions).toBeNull();
+    });
+
+    it("System Admin can create a Certification document type", async () => {
+      const { authHeader } = await createSystemAdminUser({
+        email: "doc-cert-admin@example.com",
+      });
+
+      const create = await request(app)
+        .post("/trips/document-types")
+        .set(authHeader)
+        .send({
+          type: "certification",
+          description: "First Aid Certification",
+          documentNumberRequired: true,
+          instructions: "Upload both sides of the card.",
+        });
+
+      expect(create.status).toBe(200);
+      expect(create.body).toMatchObject({
+        type: "certification",
+        description: "First Aid Certification",
+        documentNumberRequired: true,
+        instructions: "Upload both sides of the card.",
+      });
+
+      const list = await request(app).get("/trips/document-types").set(authHeader);
+      expect(list.body.map((d) => d.id)).toContain(create.body.id);
+      expect(list.body.find((d) => d.id === create.body.id).type).toBe("certification");
+    });
+
+    it("System Admin can create a Diploma document type", async () => {
+      const { authHeader } = await createSystemAdminUser({
+        email: "doc-diploma-admin@example.com",
+      });
+
+      const create = await request(app)
+        .post("/trips/document-types")
+        .set(authHeader)
+        .send({
+          type: "diploma",
+          description: "Nursing Diploma",
+        });
+
+      expect(create.status).toBe(200);
+      expect(create.body).toMatchObject({
+        type: "diploma",
+        description: "Nursing Diploma",
+      });
+
+      const list = await request(app).get("/trips/document-types").set(authHeader);
+      expect(list.body.map((d) => d.id)).toContain(create.body.id);
+      expect(list.body.find((d) => d.id === create.body.id).type).toBe("diploma");
+    });
+
+    it("API rejects unknown document type values", async () => {
+      const { authHeader } = await createSystemAdminUser({
+        email: "doc-unknown-type@example.com",
+      });
+
+      const create = await request(app)
+        .post("/trips/document-types")
+        .set(authHeader)
+        .send({
+          type: "not_a_real_type",
+          description: "Invalid",
+        });
+
+      expect(create.status).toBe(400);
+      expect(create.body.message).toMatch(/diploma/i);
+      expect(create.body.message).toMatch(/medical_licence/i);
+    });
+
+    it("API rejects missing document number when required", async () => {
+      const { authHeader, user } = await registerUser({
+        email: "doc-number-owner@example.com",
+      });
+      const docType = await db.documentType.create({
+        type: "passport",
+        description: "Numbered Passport",
+        documentNumberRequired: true,
+        instructions: "Include the passport number.",
+      });
+
+      const beforeCount = await db.personDocument.count();
+
+      const upload = await request(app)
+        .post(`/trips/people/${user.personId}/documents`)
+        .set(authHeader)
+        .field("documentTypeId", String(docType.id))
+        .field("expirationDate", "2030-01-15")
+        .attach("document", TINY_PNG, {
+          filename: "passport.png",
+          contentType: "image/png",
+        });
+
+      expect(upload.status).toBe(400);
+      expect(upload.body.message).toMatch(/Document number is required/i);
+      expect(await db.personDocument.count()).toBe(beforeCount);
+
+      const uploadOk = await request(app)
+        .post(`/trips/people/${user.personId}/documents`)
+        .set(authHeader)
+        .field("documentTypeId", String(docType.id))
+        .field("documentNumber", "P1234567")
+        .field("expirationDate", "2030-01-15")
+        .attach("document", TINY_PNG, {
+          filename: "passport.png",
+          contentType: "image/png",
+        });
+
+      expect(uploadOk.status).toBe(200);
+      expect(uploadOk.body.documentNumber).toBe("P1234567");
+    });
+
+    it("Person document can be saved without uploading a file", async () => {
+      const { authHeader, user } = await registerUser({
+        email: "doc-no-file@example.com",
+      });
+      const docType = await db.documentType.create({
+        type: "certification",
+        description: "First Aid",
+      });
+
+      const create = await request(app)
+        .post(`/trips/people/${user.personId}/documents`)
+        .set(authHeader)
+        .field("documentTypeId", String(docType.id))
+        .field("countryIssued", "US")
+        .field("issueDate", "2024-01-01")
+        .field("expirationDate", "2027-01-01");
+
+      expect(create.status).toBe(200);
+      expect(create.body).toMatchObject({
+        personId: user.personId,
+        documentTypeId: docType.id,
+        expirationDate: "2027-01-01",
+        documentFileName: null,
+      });
+    });
+  });
+
+  describe("Feature 34 — Document Specializations", () => {
+    describe("US-34.1 — Allow specializations on a document type", () => {
+      it("Allow Specialization is saved on the document type", async () => {
+        const { authHeader } = await createSystemAdminUser({
+          email: "spec-admin@example.com",
+        });
+
+        const create = await request(app)
+          .post("/trips/document-types")
+          .set(authHeader)
+          .send({
+            type: "certification",
+            description: "Board certification",
+            allowSpecialization: true,
+          });
+
+        expect(create.status).toBe(200);
+        expect(create.body.allowSpecialization).toBe(true);
+
+        const get = await request(app)
+          .get(`/trips/document-types/${create.body.id}`)
+          .set(authHeader);
+
+        expect(get.status).toBe(200);
+        expect(get.body.allowSpecialization).toBe(true);
+      });
+    });
+
+    describe("US-34.2 — Add specializations while entering a document", () => {
+      it("Two specializations are saved on the document", async () => {
+        const { authHeader, user } = await registerUser({
+          email: "spec-docs@example.com",
+        });
+        const docType = await db.documentType.create({
+          type: "certification",
+          description: "Medical specialty",
+          allowSpecialization: true,
+        });
+
+        const upload = await request(app)
+          .post(`/trips/people/${user.personId}/documents`)
+          .set(authHeader)
+          .field("documentTypeId", String(docType.id))
+          .field("countryIssued", "US")
+          .field("issueDate", "2020-01-15")
+          .field("expirationDate", "2030-01-15")
+          .field(
+            "specializations",
+            JSON.stringify([
+              { name: "Cardiology", date: "2024-03-01" },
+              { name: "Pediatrics", date: "2024-06-15" },
+            ])
+          )
+          .attach("specializationFiles", TINY_PNG, {
+            filename: "cardiology.png",
+            contentType: "image/png",
+          })
+          .attach("specializationFiles", TINY_PNG, {
+            filename: "pediatrics.png",
+            contentType: "image/png",
+          });
+
+        expect(upload.status).toBe(200);
+        expect(upload.body.specializations).toEqual([
+          expect.objectContaining({
+            name: "Cardiology",
+            date: "2024-03-01",
+          }),
+          expect.objectContaining({
+            name: "Pediatrics",
+            date: "2024-06-15",
+          }),
+        ]);
+        expect(upload.body.specializations[0].documentFileName).toMatch(/^people\//);
+        expect(upload.body.specializations[1].documentFileName).toMatch(/^people\//);
+
+        const list = await request(app)
+          .get(`/trips/people/${user.personId}/documents`)
+          .set(authHeader);
+        expect(list.status).toBe(200);
+        expect(list.body[0].specializations.map((row) => row.name)).toEqual([
+          "Cardiology",
+          "Pediatrics",
+        ]);
+
+        const download = await request(app)
+          .get(
+            `/trips/people/${user.personId}/documents/${upload.body.id}/specializations/${upload.body.specializations[0].id}/download`
+          )
+          .set(authHeader);
+        expect(download.status).toBe(200);
+      });
+
+      it("A specialization without a file is rejected", async () => {
+        const { authHeader, user } = await registerUser({
+          email: "spec-nofile@example.com",
+        });
+        const docType = await db.documentType.create({
+          type: "certification",
+          description: "Specialty without file",
+          allowSpecialization: true,
+        });
+
+        const upload = await request(app)
+          .post(`/trips/people/${user.personId}/documents`)
+          .set(authHeader)
+          .field("documentTypeId", String(docType.id))
+          .field("expirationDate", "2030-01-15")
+          .field(
+            "specializations",
+            JSON.stringify([{ name: "Cardiology", date: "2024-03-01" }])
+          );
+
+        expect(upload.status).toBe(400);
+        expect(upload.body.message).toMatch(/file/i);
+      });
     });
   });
 });

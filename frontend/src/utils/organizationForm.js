@@ -1,4 +1,4 @@
-import { normalizeAddressFields } from "./locationData.js";
+import { normalizeAddressFields, US_COUNTRY_CODE } from "./locationData.js";
 
 export const COLOR_OPTIONS = ["blue", "teal", "green", "purple", "red", "orange"];
 
@@ -8,7 +8,7 @@ export const emptyOrganizationForm = () => ({
   addLine1: "",
   addLine2: "",
   city: "",
-  country: "",
+  country: US_COUNTRY_CODE,
   state_prov: "",
   postalCode: "",
   phoneContryCode: "",
@@ -19,12 +19,16 @@ export const emptyOrganizationForm = () => ({
   instagram: "",
   logo: null,
   agreementFileName: null,
+  medicalAgreementFileName: null,
   colorFamily: "blue",
+  subdomain: "",
+  testMode: false,
   version: 0,
 });
 
 export const buildOrganizationPayload = (form, { includeVersion = false } = {}) => {
   const address = normalizeAddressFields(form);
+  const subdomainRaw = form.subdomain?.trim() || "";
   const payload = {
     name: form.name.trim(),
     country: address.country || null,
@@ -40,6 +44,8 @@ export const buildOrganizationPayload = (form, { includeVersion = false } = {}) 
     facebookPage: form.facebookPage?.trim() || null,
     instagram: form.instagram?.trim() || null,
     colorFamily: form.colorFamily || "blue",
+    subdomain: subdomainRaw === "" ? null : subdomainRaw.toLowerCase(),
+    testMode: !!form.testMode,
   };
   if (includeVersion) payload.version = form.version;
   return payload;

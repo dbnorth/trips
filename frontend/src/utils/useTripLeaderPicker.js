@@ -1,13 +1,37 @@
-import { ref } from "vue";
+import { computed, ref, watch } from "vue";
 import PersonServices from "../services/personServices.js";
 
 export function useTripLeaderPicker() {
   const leaderPeopleIds = ref([]);
+  const primaryLeaderPeopleId = ref(null);
   const leaderOptions = ref([]);
   const leadersLoading = ref(false);
   const leadersError = ref("");
 
-  const personLabel = (person) => `${person.firstName || ""} ${person.lastName || ""}`.trim();
+  const personLabel = (person) =>
+    [person.firstName, person.middleName, person.lastName].filter(Boolean).join(" ").trim();
+
+  const primaryLeaderItems = computed(() =>
+    leaderPeopleIds.value.map((id) => {
+      const person = leaderOptions.value.find((p) => Number(p.id) === Number(id));
+      return { title: person ? personLabel(person) : `Person ${id}`, value: Number(id) };
+    })
+  );
+
+  watch(
+    leaderPeopleIds,
+    (ids) => {
+      const selected = (ids || []).map((id) => Number(id));
+      if (!selected.length) {
+        primaryLeaderPeopleId.value = null;
+        return;
+      }
+      if (!selected.includes(Number(primaryLeaderPeopleId.value))) {
+        primaryLeaderPeopleId.value = selected[0];
+      }
+    },
+    { deep: true }
+  );
 
   const loadLeaderOptions = async (orgId) => {
     leadersError.value = "";
@@ -31,18 +55,24 @@ export function useTripLeaderPicker() {
     }
   };
 
-  const setLeadersFromTrip = (ids) => {
-    leaderPeopleIds.value = Array.isArray(ids) ? ids.map((id) => Number(id)) : [];
+  const setLeadersFromTrip = (ids, primaryId = null) => {
+    const list = Array.isArray(ids) ? ids.map((id) => Number(id)) : [];
+    primaryLeaderPeopleId.value =
+      primaryId != null && list.includes(Number(primaryId)) ? Number(primaryId) : list[0] ?? null;
+    leaderPeopleIds.value = list;
   };
 
   const resetLeaders = () => {
     leaderPeopleIds.value = [];
+    primaryLeaderPeopleId.value = null;
     leaderOptions.value = [];
     leadersError.value = "";
   };
 
   return {
     leaderPeopleIds,
+    primaryLeaderPeopleId,
+    primaryLeaderItems,
     leaderOptions,
     leadersLoading,
     leadersError,

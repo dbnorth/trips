@@ -6,7 +6,8 @@ import {
   tripParticipantStatusColor,
 } from "../utils/tripParticipantStatus.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
-import { isUnder18 } from "../utils/personProfile.js";
+import { isUnder18, personDisplayName } from "../utils/personProfile.js";
+import ConfirmDialog from "./ConfirmDialog.vue";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -22,12 +23,24 @@ const saving = ref(false);
 const loadError = ref("");
 const actionError = ref("");
 const application = ref(null);
+const showConfirmCancel = ref(false);
+const showConfirmUncancel = ref(false);
 
 const canApprove = computed(
   () => props.mode === "approve" && application.value?.status === "applied"
 );
 const canManageApproved = computed(
   () => props.mode === "view" && application.value?.status === "approved"
+);
+const canCancelApplication = computed(
+  () =>
+    props.mode !== "preview" &&
+    ["incomplete", "applied", "approved"].includes(
+      String(application.value?.status || "").toLowerCase()
+    )
+);
+const canUncancelApplication = computed(
+  () => String(application.value?.status || "").toLowerCase() === "cancelled"
 );
 
 const dialogTitle = computed(() => {
@@ -36,32 +49,21 @@ const dialogTitle = computed(() => {
   return "View application";
 });
 
-const participantName = computed(() => {
-  const p = application.value?.person;
-  if (!p) return "Participant";
-  return `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Participant";
-});
+const participantName = computed(() =>
+  personDisplayName(application.value?.person, "Participant")
+);
 
 const workerRoleName = computed(
   () => application.value?.tripWorkerRole?.workerRole?.name || "—"
 );
 
-const licenseRequired = computed(
-  () => !!application.value?.tripWorkerRole?.workerRole?.licenseRequired
-);
-
 const under18 = computed(() => isUnder18(application.value?.person?.birthDate));
 
-const selectedTravelOptions = computed(() =>
-  (application.value?.travelOptions || []).filter((o) => o.selected)
-);
-
-const licenseLabel = (value) => {
-  if (value === "yes") return "Yes";
-  if (value === "yes_retired") return "Yes, retired";
-  if (value === "no") return "No";
-  return "—";
-};
+const selectedTravelOptions = computed(() => {
+  const options = application.value?.travelOptions;
+  if (!Array.isArray(options)) return [];
+  return options.filter((o) => o && o.selected);
+});
 
 const formatCost = (value) => (value != null ? formatMoneyDisplay(value) : "—");
 
@@ -142,15 +144,61 @@ const unapprove = () => {
 };
 
 const cancelApplication = () => {
-  if (!canManageApproved.value) return;
-  return updateStatus("cancelled", "Application cancelled.", "Unable to cancel application.");
+  if (!canCancelApplication.value || !application.value?.id) return;
+  showConfirmCancel.value = true;
+};
+
+const confirmCancelApplication = async () => {
+  if (!application.value?.id) return;
+  saving.value = true;
+  actionError.value = "";
+  try {
+    await TripPeopleRoleServices.cancel(application.value.id);
+    showConfirmCancel.value = false;
+    emit("saved", { status: "cancelled", message: "Application cancelled." });
+    close();
+  } catch (e) {
+    actionError.value = e.response?.data?.message || "Unable to cancel application.";
+    showConfirmCancel.value = false;
+  } finally {
+    saving.value = false;
+  }
+};
+
+const uncancelApplication = () => {
+  if (!canUncancelApplication.value || !application.value?.id) return;
+  showConfirmUncancel.value = true;
+};
+
+const confirmUncancelApplication = async () => {
+  if (!application.value?.id) return;
+  saving.value = true;
+  actionError.value = "";
+  try {
+    const res = await TripPeopleRoleServices.uncancel(application.value.id);
+    const status = res.data?.status || "incomplete";
+    showConfirmUncancel.value = false;
+    emit("saved", { status, message: "Application uncancelled." });
+    close();
+  } catch (e) {
+    actionError.value = e.response?.data?.message || "Unable to uncancel application.";
+    showConfirmUncancel.value = false;
+  } finally {
+    saving.value = false;
+  }
 };
 </script>
 
 <template>
-  <v-dialog :model-value="modelValue" max-width="640" scrollable @update:model-value="(v) => !v && close()">
-    <v-card>
-      <v-card-title class="d-flex align-center justify-space-between flex-wrap ga-2">
+  <v-dialog
+    :model-value="modelValue"
+    max-width="640"
+    max-height="90vh"
+    scrollable
+    @update:model-value="(v) => !v && close()"
+  >
+    <v-card class="d-flex flex-column" style="max-height: min(90vh, 900px)">
+      <v-card-title class="d-flex align-center justify-space-between flex-wrap ga-2 flex-shrink-0">
         <span>{{ dialogTitle }}</span>
         <v-chip
           v-if="application"
@@ -162,7 +210,7 @@ const cancelApplication = () => {
         </v-chip>
       </v-card-title>
 
-      <v-card-text style="max-height: 75vh">
+      <v-card-text class="overflow-y-auto flex-grow-1">
         <v-progress-linear v-if="loading" indeterminate class="mb-4" />
 
         <v-alert v-else-if="loadError" type="error" density="compact" class="mb-4">
@@ -197,14 +245,6 @@ const cancelApplication = () => {
             <div>{{ yesNo(application.willRaiseFunds) }}</div>
           </div>
 
-          <template v-if="licenseRequired">
-            <div class="text-subtitle-2 mb-2 mt-4">License</div>
-            <div class="mb-3">
-              <div class="text-caption text-medium-emphasis">License status</div>
-              <div>{{ licenseLabel(application.licenseStatus) }}</div>
-            </div>
-          </template>
-
           <div class="text-subtitle-2 mb-2 mt-4">Roommate preference</div>
           <div class="mb-2">
             <div class="text-caption text-medium-emphasis">Has preferred roommate</div>
@@ -215,8 +255,71 @@ const cancelApplication = () => {
             <div>{{ application.preferredRoommateNames || "—" }}</div>
           </div>
 
-          <div v-if="selectedTravelOptions.length" class="text-subtitle-2 mb-2 mt-4">
-            Selected travel options
+          <div class="text-subtitle-2 mb-2 mt-4">Flight purchase</div>
+          <div class="mb-2">
+            <div class="text-caption text-medium-emphasis">Option</div>
+            <div>
+              {{
+                application.flightPurchaseOption === "self"
+                  ? "Arrange for and purchase my own air travel"
+                  : application.flightPurchaseOption === "organization"
+                    ? "Organization arranges and purchases air travel"
+                    : "—"
+              }}
+            </div>
+          </div>
+          <template v-if="application.flightPurchaseOption === 'organization'">
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Preferred departure airport</div>
+              <div>
+                {{
+                  application.preferredDepartureAirport?.code ||
+                  application.preferredDepartureAirportCode ||
+                  "—"
+                }}
+              </div>
+            </div>
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Preferred return airport</div>
+              <div>
+                {{
+                  application.preferredReturnAirport?.code ||
+                  application.preferredReturnAirportCode ||
+                  "—"
+                }}
+              </div>
+            </div>
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Class of travel</div>
+              <div>{{ application.preferredCabinClass || "—" }}</div>
+            </div>
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Refundable ticket</div>
+              <div>
+                {{
+                  application.preferredRefundableTicket === true
+                    ? "Yes"
+                    : application.preferredRefundableTicket === false
+                      ? "No"
+                      : "—"
+                }}
+              </div>
+            </div>
+            <div class="mb-3">
+              <div class="text-caption text-medium-emphasis">Preferred airline</div>
+              <div>
+                {{
+                  application.preferredAirline?.code ||
+                  application.preferredAirlineCode ||
+                  "—"
+                }}
+              </div>
+            </div>
+          </template>
+
+          <div class="text-subtitle-2 mb-2 mt-4">Selected travel options</div>
+          <div v-if="!selectedTravelOptions.length" class="mb-3 text-medium-emphasis">
+            None selected
           </div>
           <div
             v-for="option in selectedTravelOptions"
@@ -232,7 +335,7 @@ const cancelApplication = () => {
 
           <div class="text-subtitle-2 mb-2 mt-4">Agreement</div>
           <div class="mb-2">
-            <div class="text-caption text-medium-emphasis">Agreed</div>
+            <div class="text-caption text-medium-emphasis">Participation agreed</div>
             <div>{{ yesNo(application.agreementAccepted) }}</div>
           </div>
           <div class="mb-2">
@@ -243,6 +346,33 @@ const cancelApplication = () => {
             <div class="text-caption text-medium-emphasis">Agreement date</div>
             <div>{{ formatDateTime(application.agreementDate) }}</div>
           </div>
+          <template
+            v-if="
+              application.person?.takesMedication === true ||
+              application.person?.takesMedication === 1 ||
+              application.medicalAgreementAccepted
+            "
+          >
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Medical agreement agreed</div>
+              <div>{{ yesNo(application.medicalAgreementAccepted) }}</div>
+            </div>
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Medical agreement date</div>
+              <div>{{ formatDateTime(application.medicalAgreementDate) }}</div>
+            </div>
+          </template>
+          <template v-if="application.person?.gender === 'female'">
+            <div class="text-subtitle-2 mb-2 mt-4">Pregnancy</div>
+            <div class="mb-2">
+              <div class="text-caption text-medium-emphasis">Are you pregnant?</div>
+              <div>{{ yesNo(application.isPregnant) }}</div>
+            </div>
+            <div v-if="application.isPregnant === true || application.isPregnant === 1" class="mb-2">
+              <div class="text-caption text-medium-emphasis">Due date</div>
+              <div>{{ application.pregnancyDueDate || "—" }}</div>
+            </div>
+          </template>
 
           <template v-if="under18 || application.agreementAdultFirstName || application.agreementAdultLastName">
             <div class="text-subtitle-2 mb-2 mt-4">Adult signer</div>
@@ -277,7 +407,7 @@ const cancelApplication = () => {
         </template>
       </v-card-text>
 
-      <v-card-actions>
+      <v-card-actions class="flex-shrink-0">
         <v-spacer />
         <v-btn variant="text" :disabled="saving" @click="close">Close</v-btn>
         <v-btn
@@ -289,13 +419,22 @@ const cancelApplication = () => {
           Unapprove
         </v-btn>
         <v-btn
-          v-if="canManageApproved"
+          v-if="canCancelApplication"
           color="error"
           variant="tonal"
           :disabled="saving"
           @click="cancelApplication"
         >
           Cancel
+        </v-btn>
+        <v-btn
+          v-if="canUncancelApplication"
+          color="primary"
+          variant="tonal"
+          :disabled="saving"
+          @click="uncancelApplication"
+        >
+          Uncancel
         </v-btn>
         <v-btn
           v-if="canApprove"
@@ -308,4 +447,22 @@ const cancelApplication = () => {
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <ConfirmDialog
+    v-model="showConfirmCancel"
+    title="Are you sure?"
+    message="Cancel this application? The role slot will be freed."
+    confirm-text="Cancel App"
+    confirm-color="error"
+    :loading="saving"
+    @confirm="confirmCancelApplication"
+  />
+  <ConfirmDialog
+    v-model="showConfirmUncancel"
+    title="Are you sure?"
+    message="Uncancel this application? It will return to incomplete or applied based on completeness."
+    confirm-text="Uncancel"
+    :loading="saving"
+    @confirm="confirmUncancelApplication"
+  />
 </template>

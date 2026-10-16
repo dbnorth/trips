@@ -121,4 +121,97 @@ describe("Feature 3 — Organizations & Agreements", () => {
       expect(get.body.exists).toBe(true);
     });
   });
+
+  describe("US-18.1 — Manage organization medical agreement", () => {
+    it("Org Admin saves medical agreement markdown", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "medical-agreement@example.com",
+        orgName: "Medical Agreement Org",
+      });
+      const markdown = "# Medical Agreement\n\nI consent to medical disclosure.";
+
+      const save = await request(app)
+        .put(`/trips/organizations/${org.id}/medical-agreement`)
+        .set(authHeader)
+        .send({ content: markdown });
+
+      expect(save.status).toBe(200);
+      expect(save.body.content).toBe(markdown);
+      expect(save.body.exists).toBe(true);
+      expect(save.body.medicalAgreementFileName).toMatch(/medical-agreement/);
+
+      const get = await request(app)
+        .get(`/trips/organizations/${org.id}/medical-agreement`)
+        .set(authHeader);
+
+      expect(get.status).toBe(200);
+      expect(get.body.content).toBe(markdown);
+      expect(get.body.exists).toBe(true);
+
+      const stored = await db.organization.findByPk(org.id);
+      expect(stored.medicalAgreementFileName).toMatch(/medical-agreement/);
+    });
+  });
+
+  describe("US-15.1 — Configure organization subdomain", () => {
+    it("System Admin sets a unique subdomain on an organization", async () => {
+      const { authHeader } = await createSystemAdminUser({
+        email: "subdomain-create@example.com",
+      });
+
+      const create = await request(app)
+        .post("/trips/organizations")
+        .set(authHeader)
+        .send({ name: "Hope Mission", subdomain: "Hope" });
+
+      expect(create.status).toBe(200);
+      expect(create.body.subdomain).toBe("hope");
+
+      const get = await request(app)
+        .get(`/trips/organizations/${create.body.id}`)
+        .set(authHeader);
+
+      expect(get.status).toBe(200);
+      expect(get.body.subdomain).toBe("hope");
+    });
+
+    it("Duplicate subdomain is rejected", async () => {
+      const { authHeader } = await createSystemAdminUser({
+        email: "subdomain-dup@example.com",
+      });
+
+      await request(app)
+        .post("/trips/organizations")
+        .set(authHeader)
+        .send({ name: "First Org", subdomain: "hope" });
+
+      const dup = await request(app)
+        .post("/trips/organizations")
+        .set(authHeader)
+        .send({ name: "Second Org", subdomain: "Hope" });
+
+      expect([400, 409]).toContain(dup.status);
+      expect(dup.body.message).toMatch(/subdomain/i);
+
+      const list = await request(app).get("/trips/organizations").set(authHeader);
+      const second = list.body.find((o) => o.name === "Second Org");
+      expect(second).toBeUndefined();
+    });
+
+    it("Invalid or reserved subdomain is rejected", async () => {
+      const { authHeader } = await createSystemAdminUser({
+        email: "subdomain-invalid@example.com",
+      });
+
+      for (const subdomain of ["www", "Hope_Mission", "-bad"]) {
+        const response = await request(app)
+          .post("/trips/organizations")
+          .set(authHeader)
+          .send({ name: `Org ${subdomain}`, subdomain });
+
+        expect(response.status).toBe(400);
+        expect(response.body.message).toBeTruthy();
+      }
+    });
+  });
 });

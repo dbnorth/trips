@@ -7,6 +7,8 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   organizationId: { type: [Number, String], default: null },
   organizationName: { type: String, default: "" },
+  /** `participant` | `medical` */
+  kind: { type: String, default: "participant" },
 });
 
 const emit = defineEmits(["update:modelValue", "saved"]);
@@ -21,16 +23,17 @@ const agreementFileName = ref(null);
 const exists = ref(false);
 const dirty = ref(false);
 
+const isMedical = computed(() => props.kind === "medical");
+
 const open = computed({
   get: () => props.modelValue,
   set: (v) => emit("update:modelValue", v),
 });
 
-const title = computed(() =>
-  props.organizationName
-    ? `Participant agreement — ${props.organizationName}`
-    : "Participant agreement"
-);
+const title = computed(() => {
+  const base = isMedical.value ? "Medical agreement" : "Participant agreement";
+  return props.organizationName ? `${base} — ${props.organizationName}` : base;
+});
 
 const previewHtml = computed(() => markdownToHtml(content.value));
 
@@ -42,9 +45,13 @@ const load = async () => {
   mode.value = "edit";
   dirty.value = false;
   try {
-    const res = await OrganizationServices.getAgreement(props.organizationId);
+    const res = isMedical.value
+      ? await OrganizationServices.getMedicalAgreement(props.organizationId)
+      : await OrganizationServices.getAgreement(props.organizationId);
     content.value = res.data?.content || "";
-    agreementFileName.value = res.data?.agreementFileName || null;
+    agreementFileName.value = isMedical.value
+      ? res.data?.medicalAgreementFileName || null
+      : res.data?.agreementFileName || null;
     exists.value = !!res.data?.exists;
   } catch (e) {
     formError.value = e.response?.data?.message || "Unable to load agreement.";
@@ -57,10 +64,11 @@ const load = async () => {
 };
 
 watch(
-  () => [props.modelValue, props.organizationId],
+  () => [props.modelValue, props.organizationId, props.kind],
   ([visible]) => {
     if (visible && props.organizationId) load();
-  }
+  },
+  { immediate: true }
 );
 
 const onContentInput = (value) => {
@@ -77,8 +85,12 @@ const save = async () => {
   formNotice.value = "";
   saving.value = true;
   try {
-    const res = await OrganizationServices.saveAgreement(props.organizationId, content.value);
-    agreementFileName.value = res.data?.agreementFileName || agreementFileName.value;
+    const res = isMedical.value
+      ? await OrganizationServices.saveMedicalAgreement(props.organizationId, content.value)
+      : await OrganizationServices.saveAgreement(props.organizationId, content.value);
+    agreementFileName.value = isMedical.value
+      ? res.data?.medicalAgreementFileName || agreementFileName.value
+      : res.data?.agreementFileName || agreementFileName.value;
     exists.value = true;
     dirty.value = false;
     emit("saved", res.data);

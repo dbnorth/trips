@@ -19,18 +19,33 @@ Notes:
 | `role` | 2 | Role catalog |
 | `orgPeopleRole` | 2 | Person ↔ org ↔ role |
 | `organization` | 3 | Sponsors / branding / agreement file |
-| `documentType` | 4 | Passport / medical licence catalog |
-| `personDocument` | 4 | Uploaded person documents |
+| `documentType` | 4, 22, 24, 25 | Passport / medical licence / certification / diploma catalog |
+| `personDocument` | 4, 22 | Uploaded person documents |
 | `trip` | 5 | Trip catalog |
 | `tripPeopleRole` | 5, 7 | Leaders, applications, participants |
-| `workerRole` | 6 | Org worker-role catalog |
+| `workerRole` | 6, 25 | Org worker-role catalog (+ required documents) |
+| `workerRoleDocumentType` | 25 | Worker role ↔ required document types |
+| `medicalCondition` | 17 | Org medical-condition catalog (name ≤ 50) |
+| `personMedicalCondition` | 17 | Person selected medical conditions |
+| `language` | 31 | Global language catalog |
+| `personLanguage` | 31 | Person other-language fluency and medical terminology |
 | `tripWorkerRole` | 6 | Per-trip role quantities |
 | `tripTravelOption` | 6 | Travel/cost option sets |
 | `tripPeopleRoleOption` | 7 | Selected travel options on an application |
+| `tripRoomingList` | 29 | Per-trip hotel / check-in / notes |
+| `tripRoom` | 29 | Room number, type, nights |
+| `tripRoomAssignment` | 29 | Participant ↔ room |
+| `airport` | 30 | Global airport catalog |
+| `airline` | 30 | Global airline catalog |
+| `tripFlight` | 30 | Per-participant flight header |
+| `tripFlightSegment` | 30 | Ordered flight segments |
 | `donor` | 8, 9 | Donor contacts |
 | `tripDonation` | 8, 9 | Donations |
-| `emailTemplate` | 10 | Email templates |
-| `emailLog` | 1 | Login / email audit (no associations) |
+| `emailTemplate` | 10, 39, 41, 42 | Email templates |
+| `emailType` | 39 | Email type catalog |
+| `emailToken` | 40 | Email template token catalog |
+| `emailLog` | 1, 43, 45 | Login / email audit; template sends record template, trip, and participant |
+| `scheduledEmailSend` | 44 | One row per scheduled template, trip, participant, and job date handled |
 
 ---
 
@@ -69,6 +84,8 @@ Notes:
 | id | INTEGER PK | autoIncrement |
 | userId | INTEGER | optional FK → user |
 | firstName, lastName | STRING | required |
+| middleName | STRING | nullable; optional (Feature 20) |
+| preferredName | STRING | nullable; blank save stores first name + last name (Feature 33) |
 | email | STRING | |
 | addLine1, addLine2, city, state_prov, postalCode | STRING | |
 | country | STRING(2) | |
@@ -79,9 +96,11 @@ Notes:
 | emergencyContactName | STRING(255) | |
 | emergencyContactPhoneCountryCode | STRING(10) | |
 | emergencyContactPhoneNumber | STRING(30) | |
-| hasAllergies | BOOLEAN | required, default `false` |
+| emergencyContactRelationship | ENUM(`spouse`,`father`,`mother`,`child`,`grandmother`,`grandfather`,`other`) | nullable; labels Spouse, Father, Mother, Child, Grand Mother, Grand Father, Other (Feature 32) |
+| hasAllergies | BOOLEAN | nullable; `null` = unanswered |
 | allergiesDescription | TEXT | |
-| takesMedication | BOOLEAN | required, default `false` |
+| takesMedication | BOOLEAN | nullable; `null` = unanswered |
+| speaksOtherLanguage | BOOLEAN | nullable; `null` = unanswered (Feature 31) |
 | currentChurchHome | STRING(255) | |
 | currentChurchHomeCity | STRING(100) | |
 | currentChurchHomeStateProv | STRING(100) | |
@@ -89,7 +108,7 @@ Notes:
 | bioText | TEXT | |
 | version | INTEGER | required, default `0` |
 
-**Associations:** `belongsTo` user; `hasMany` orgPeopleRole, tripPeopleRole, personDocument; `hasMany` tripDonation as participant.
+**Associations:** `belongsTo` user; `hasMany` orgPeopleRole, tripPeopleRole, personDocument, personLanguage; `hasMany` tripDonation as participant.
 
 ---
 
@@ -121,7 +140,10 @@ Notes:
 | instagram | STRING(255) | |
 | logo | STRING(500) | |
 | agreementFileName | STRING(500) | Markdown path under `agreements/` |
+| medicalAgreementFileName | STRING(500) | Medical agreement Markdown path under `agreements/` |
 | colorFamily | STRING(50) | UI theme |
+| subdomain | STRING(63) | optional, unique (lowercase); org branded host label — Feature 15 |
+| testMode | BOOLEAN | required, default `false`; emails for the org's trips go to the org email — Feature 49 |
 | version | INTEGER | required, default `0` |
 
 **Associations:** `hasMany` orgPeopleRole, trip, emailTemplate, workerRole (CASCADE).
@@ -142,19 +164,22 @@ Notes:
 
 ---
 
-## `documentType` — Feature 4
+## `documentType` — Features 4, 22
 
 | Field | Type | Rules |
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
 | description | STRING(255) | required |
-| type | ENUM(`medical_licence`,`passport`) | required |
+| type | ENUM(`medical_licence`,`passport`,`certification`,`diploma`) | required (`certification` — Feature 22; `diploma` — Feature 24) |
+| documentNumberRequired | BOOLEAN | required, default `false` (Feature 22) |
+| instructions | TEXT | nullable (Feature 22) |
+| allowSpecialization | BOOLEAN | required, default `false` (Feature 34) |
 
 **Associations:** `hasMany` workerRole (SET NULL); `hasMany` personDocument (RESTRICT).
 
 ---
 
-## `personDocument` — Feature 4
+## `personDocument` — Features 4, 22
 
 | Field | Type | Rules |
 |-------|------|--------|
@@ -162,11 +187,26 @@ Notes:
 | personId | INTEGER | required FK → person |
 | documentTypeId | INTEGER | required FK → documentType |
 | countryIssued | STRING(2) | |
+| documentNumber | STRING(100) | nullable; required by API when type.`documentNumberRequired` (Feature 22) |
 | issueDate | DATEONLY | |
 | expirationDate | DATEONLY | required |
-| documentFileName | STRING(500) | required |
+| documentFileName | STRING(500) | nullable; optional upload (Feature 22) |
 
-**Associations:** `belongsTo` person, documentType.
+**Associations:** `belongsTo` person, documentType; `hasMany` personDocumentSpecialization (CASCADE).
+
+---
+
+## `personDocumentSpecialization` — Feature 34
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| personDocumentId | INTEGER | required FK → personDocument; CASCADE on delete |
+| name | STRING | required |
+| specializationDate | DATEONLY | required; API field `date` |
+| documentFileName | STRING(500) | required relative path; same storage as person document files |
+
+**Associations:** `belongsTo` personDocument.
 
 ---
 
@@ -187,9 +227,11 @@ Notes:
 | facebookPage | STRING(500) | |
 | instagramId | STRING(255) | |
 | participantCost | DECIMAL(10,2) | |
+| deposit | DECIMAL(10,2) | nullable (Feature 38) |
+| requirePassport | BOOLEAN | required, default `false` (Feature 23) |
 | version | INTEGER | required, default `0` |
 
-**Associations:** `belongsTo` organization; `hasMany` tripPeopleRole, tripDonation, emailTemplate, tripWorkerRole, tripTravelOption.
+**Associations:** `belongsTo` organization; `hasMany` tripPeopleRole, tripDonation, emailTemplate, tripWorkerRole, tripTravelOption; `hasOne` tripRoomingList (Feature 29).
 
 ---
 
@@ -202,23 +244,143 @@ Notes:
 | peopleId | INTEGER | required FK → person |
 | roleId | INTEGER | required FK → role |
 | tripWorkerRoleId | INTEGER | optional FK → tripWorkerRole |
-| status | ENUM(`incomplete`,`applied`,`approved`,`declined`,`cancelled`) | required, default `incomplete` |
+| status | ENUM(`incomplete`,`applied`,`approved`,`declined`,`cancelled`) | required, default `incomplete`; **capacity** (Feature 26): `incomplete`/`applied`/`approved` occupy a trip worker-role slot; `cancelled`/`declined` do not |
 | participantCost | DECIMAL(10,2) | |
 | whygoText | TEXT | |
 | willSelfFund, willRaiseFunds | BOOLEAN | required, default `false` |
 | licenseStatus | ENUM(`yes`,`yes_retired`,`no`) | |
 | hasPreferredRoommate | BOOLEAN | required, default `false` |
 | preferredRoommateNames | STRING(500) | |
+| flightPurchaseOption | ENUM(`self`,`organization`) | nullable; Feature 30 application |
+| preferredDepartureAirportId | INTEGER | nullable FK → airport |
+| preferredReturnAirportId | INTEGER | nullable FK → airport |
+| preferredCabinClass | STRING(50) | nullable |
+| preferredAirlineId | INTEGER | nullable FK → airline |
+| preferredRefundableTicket | BOOLEAN | nullable; required for `applied` when organization purchases |
 | agreementAccepted | BOOLEAN | required, default `false` |
 | agreementSignatureName | STRING(255) | |
 | agreementDate | DATE | |
 | agreementAdultFirstName, agreementAdultLastName | STRING(100) | |
 | agreementAdultEmail | STRING(255) | |
 | agreementAdultRelationship | STRING(100) | |
+| medicalAgreementAccepted | BOOLEAN | required, default `false` |
+| medicalAgreementDate | DATE | |
+| isPregnant | BOOLEAN | nullable; `null` = unanswered; application-scoped (Feature 19) |
+| pregnancyDueDate | DATEONLY | cleared unless `isPregnant` is true |
 | assiginmentDateTime | DATE | |
+| medicalAgreementDate | DATE | |
+| assiginmentDateTime | DATE | |
+| isPrimaryLeader | BOOLEAN | required, default `false`; exactly one Trip Leader row per trip with leaders is `true` (Feature 40) |
 | version | INTEGER | required, default `0` |
 
-**Associations:** `belongsTo` trip, person, role, tripWorkerRole; `hasMany` tripPeopleRoleOption.
+**Associations:** `belongsTo` trip, person, role, tripWorkerRole; `hasMany` tripPeopleRoleOption; `hasOne` tripRoomAssignment (Feature 29); `hasOne` tripFlight (Feature 30).
+
+---
+
+## `tripRoomingList` — Feature 29
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tripId | INTEGER | required FK → trip, **unique** (one list per trip) |
+| hotelName | STRING(255) | |
+| checkInDate | DATEONLY | |
+| notes | TEXT | |
+
+**Associations:** `belongsTo` trip; `hasMany` tripRoom.
+
+---
+
+## `tripRoom` — Feature 29
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tripRoomingListId | INTEGER | required FK → tripRoomingList |
+| roomNumber | STRING(50) | required |
+| roomType | STRING(20) | required; `King` \| `Double` \| `Triple` |
+| numberOfNights | INTEGER | required, positive |
+
+**Associations:** `belongsTo` tripRoomingList; `hasMany` tripRoomAssignment.
+
+---
+
+## `tripRoomAssignment` — Feature 29
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tripRoomId | INTEGER | required FK → tripRoom |
+| tripPeopleRoleId | INTEGER | required FK → tripPeopleRole, **unique** (one room per participant) |
+
+**Associations:** `belongsTo` tripRoom, tripPeopleRole.
+
+---
+
+## `airport` — Feature 30
+
+Seeded from `backend/app/data/airports.json` (OpenFlights IATA set) via `npm run seed:catalogs`.
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| code | STRING(10) | required, unique |
+| airportName | STRING(255) | required |
+| city | STRING(255) | required |
+| country | STRING(100) | required |
+
+**Associations:** `hasMany` tripFlightSegment (as departure/arrival).
+
+---
+
+## `airline` — Feature 30
+
+Seeded from `backend/app/data/airlines.json` (OpenFlights active IATA set) via `npm run seed:catalogs`.
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| code | STRING(10) | required, unique |
+| name | STRING(255) | required |
+
+**Associations:** `hasMany` tripFlightSegment.
+
+---
+
+## `tripFlight` — Feature 30
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tripPeopleRoleId | INTEGER | required FK → tripPeopleRole, unique |
+| purchased | BOOLEAN | required, default `false` |
+| cost | DECIMAL(10,2) | nullable |
+| comments | TEXT | |
+
+**Associations:** `belongsTo` tripPeopleRole; `hasMany` tripFlightSegment.
+
+---
+
+## `tripFlightSegment` — Feature 30
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tripFlightId | INTEGER | required FK → tripFlight |
+| segmentType | ENUM(`arrival`,`return`) | required; default `arrival` |
+| segmentNumber | INTEGER | required; unique per flight **and** type |
+| departureAirportId | INTEGER | required FK → airport |
+| airlineId | INTEGER | required FK → airline |
+| flightNumber | STRING(20) | required |
+| departureDate | DATEONLY | required |
+| departureTime | STRING(5) | required (`HH:MM`) |
+| arrivalAirportId | INTEGER | required FK → airport |
+| arrivalDate | DATEONLY | required |
+| arrivalTime | STRING(5) | required (`HH:MM`) |
+| cabinClass | STRING(50) | optional |
+| seatNumber | STRING(20) | optional |
+
+**Associations:** `belongsTo` tripFlight, departureAirport, arrivalAirport, airline.
 
 ---
 
@@ -231,10 +393,75 @@ Notes:
 | name | STRING(100) | required |
 | description | STRING(500) | |
 | licenseRequired | BOOLEAN | required, default `false` |
-| documentTypeId | INTEGER | optional FK → documentType |
+| documentTypeId | INTEGER | optional FK → documentType; **deprecated for writes** (Feature 25 — migrate into join) |
 | status | ENUM(`active`,`inactive`) | required, default `active` |
 
-**Associations:** `belongsTo` organization, documentType; `hasMany` tripWorkerRole.
+**Associations:** `belongsTo` organization, documentType (legacy); `belongsToMany` documentType as `requiredDocumentTypes` through `workerRoleDocumentType`; `hasMany` tripWorkerRole.
+
+---
+
+## `workerRoleDocumentType` — Feature 25
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| workerRoleId | INTEGER | required FK → workerRole |
+| documentTypeId | INTEGER | required FK → documentType |
+| unique | `(workerRoleId, documentTypeId)` | |
+
+**Associations:** `belongsTo` workerRole, documentType.
+
+---
+
+## `medicalCondition` — Feature 17
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| orgId | INTEGER | required FK → organization |
+| name | STRING(50) | required; unique per org (case-insensitive) |
+
+**Associations:** `belongsTo` organization; `belongsToMany` person through `personMedicalCondition`.
+
+---
+
+## `personMedicalCondition` — Feature 17
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| personId | INTEGER | required FK → person |
+| medicalConditionId | INTEGER | required FK → medicalCondition |
+| unique | `(personId, medicalConditionId)` | |
+
+**Associations:** `belongsTo` person, medicalCondition. Deleting a condition cascades join rows.
+
+---
+
+## `language` — Feature 31
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| code | STRING(10) | required; unique ISO 639-1 or 639-3 |
+| name | STRING(100) | required |
+
+Seeded global catalog. No org column.
+
+---
+
+## `personLanguage` — Feature 31
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| personId | INTEGER | required FK → person |
+| languageId | INTEGER | required FK → language |
+| fluency | ENUM(`basic`,`conversational`) | required |
+| knowsMedicalTerminology | BOOLEAN | required |
+| unique | `(personId, languageId)` | |
+
+**Associations:** `belongsTo` person (cascade delete), language.
 
 ---
 
@@ -314,7 +541,7 @@ Notes:
 
 ---
 
-## `emailTemplate` — Feature 10
+## `emailTemplate` — Features 10, 39
 
 | Field | Type | Rules |
 |-------|------|--------|
@@ -326,24 +553,77 @@ Notes:
 | subject | STRING(500) | |
 | content | TEXT | |
 | attachment | STRING(500) | |
+| emailTypeId | INTEGER | optional FK → emailType; required when the template form saves (Feature 39) |
+| emailBody | TEXT | optional in the table; required when the template form saves (Feature 39) |
+| toAddress | STRING(1000) | optional in the table; required when the template form saves. Comma-separated email addresses and email tokens (Feature 41) |
+| scheduleRule | STRING(20) | optional; `daily`, `weekly` (Tuesday), or `before-start`. Required when the template form saves a `Scheduled` template; empty for `Send Now` (Feature 42) |
+| scheduleDaysBefore | INTEGER | optional; 1–365 when `scheduleRule` is `before-start`, otherwise empty (Feature 42) |
 
-**Associations:** `belongsTo` organization, trip.
+**Associations:** `belongsTo` organization, trip, emailType.
+
+`functionCode` stays a string. Saves from the template form store `Scheduled` or `Send Now`.
 
 ---
 
-## `emailLog` — Feature 1
+## `emailType` — Feature 39
 
 | Field | Type | Rules |
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
-| toEmail | STRING | required |
-| fromEmail | STRING | |
+| typeCode | STRING | required, unique |
+| description | STRING | required |
+| eventCode | STRING | required |
+
+**Associations:** `hasMany` emailTemplate (`emailTypeId`, RESTRICT).
+
+---
+
+## `emailToken` — Feature 40
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tokenCode | STRING(100) | required, unique; capital letters, digits, and underscores, starting with a letter |
+| description | STRING | required |
+| valueSource | STRING(100) | required; one of the fixed value sources in `backend/app/utils/emailTokenValues.js` |
+
+**Associations:** none. Templates write tokens as `{{TOKEN_CODE}}` text.
+
+---
+
+## `emailLog` — Features 1, 43, 45
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| toEmail | STRING(1000) | required. For template sends, the filled **To** list (Feature 43) |
+| fromEmail | STRING | For template sends, the address the email was sent From |
 | dateTime | DATE | required, default NOW |
 | subject | STRING(500) | |
-| content | TEXT | |
-| emailId | STRING(255) | |
+| content | TEXT | For template sends, the plain-text body |
+| emailId | STRING(255) | For template sends, the mail server message ID (smtp mode) or the file name (file mode) |
+| emailTemplateId | INTEGER | optional; FK → emailTemplate (SET NULL). For template sends, the template sent (Feature 45) |
+| tripId | INTEGER | optional; FK → trip (SET NULL). For template sends, the trip (Feature 45) |
+| personId | INTEGER | optional; FK → person (SET NULL). For template sends, the participant (Feature 45) |
 
-**Associations:** none. No CRUD API.
+**Associations:** `belongsTo` emailTemplate, trip, person (all optional; deleting them keeps the row). No CRUD API. Feature 43 adds one row per template email sent; failed and skipped sends add no row. Sign-in rows (subject **Login**) leave the Feature 45 columns empty.
+
+---
+
+## `scheduledEmailSend` — Feature 44
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| emailTemplateId | INTEGER | required; FK → emailTemplate (CASCADE) |
+| tripId | INTEGER | required; FK → trip (CASCADE) |
+| personId | INTEGER | required; FK → person (CASCADE) |
+| sendDate | DATEONLY | required; the job date |
+| status | ENUM(`sent`, `skipped`, `failed`) | required |
+| reason | STRING(1000) | skip reason or error message |
+| emailLogId | INTEGER | optional; FK → emailLog (SET NULL) when sent |
+
+**Unique:** (`emailTemplateId`, `tripId`, `personId`, `sendDate`). **Associations:** `belongsTo` emailTemplate, trip, person, emailLog. No CRUD API; written only by the daily scheduled email job.
 
 ---
 
@@ -358,10 +638,14 @@ organization ──1:N── orgPeopleRole ──N:1── person
 organization ──1:N── trip ──1:N── tripPeopleRole ──N:1── person / role
                   ├──1:N── tripWorkerRole ──N:1── workerRole
                   ├──1:N── tripTravelOption
-                  └──1:N── tripDonation ──N:1── donor / person
+                  ├──1:N── tripDonation ──N:1── donor / person
+                  └──1:1── tripRoomingList ──1:N── tripRoom ──1:N── tripRoomAssignment ──N:1── tripPeopleRole
 
 tripPeopleRole ──1:N── tripPeopleRoleOption ──N:1── tripTravelOption
 person ──1:N── personDocument ──N:1── documentType
 workerRole ──N:1── documentType (optional)
 organization ──1:N── emailTemplate ──N:1── trip (optional)
+emailType ──1:N── emailTemplate
+emailTemplate ──1:N── scheduledEmailSend ──N:1── trip / person / emailLog (optional)
+emailLog ──N:1── emailTemplate / trip / person (all optional)
 ```

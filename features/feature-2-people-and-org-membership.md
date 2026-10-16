@@ -224,3 +224,4 @@ Do not implement behavior not in this spec.
 - Organization CRUD — Feature 3
 - System admin all-orgs people list including persons without org membership — [Feature 11](feature-11-people-list-all-orgs-includes-admin.md)
 - Encrypting person pictures and documents at rest — [Feature 12](feature-12-encrypt-person-media.md)
+- Add person Role select Vuetify 4 crash (`item.raw.roleDescription`) — [Feature 14](feature-14-add-person-role-select-fix.md)

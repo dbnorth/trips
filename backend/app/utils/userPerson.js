@@ -103,7 +103,7 @@ export const applyRegistrationPassword = async (userId, password) => {
  */
 export const upsertPersonForUser = async (
   user,
-  { firstName, lastName, emailNorm, ...extraFields },
+  { firstName, middleName, lastName, emailNorm, ...extraFields },
   { mergeOptional = false } = {}
 ) => {
   let person =
@@ -116,6 +116,11 @@ export const upsertPersonForUser = async (
     email: emailNorm,
     userId: user.id,
   };
+
+  if (middleName !== undefined) {
+    const trimmed = middleName == null ? "" : String(middleName).trim();
+    personPayload.middleName = trimmed === "" ? null : trimmed;
+  }
 
   for (const [key, val] of Object.entries(extraFields)) {
     if (val === undefined) continue;

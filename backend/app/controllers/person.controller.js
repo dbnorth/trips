@@ -3,6 +3,8 @@ import path from "path";
 import fs from "fs";
 import { canAccessOrg, isOrgAdminForOrg, isSystemAdmin, peopleListOrgIds, ROLE_TRIP_LEADER } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
+import { normalizeEmergencyContactRelationship } from "../utils/emergencyContactRelationship.js";
+import { resolvePreferredName } from "../utils/preferredName.js";
 import {
   normalizeEmail,
   findUserByEmail,
@@ -15,6 +17,13 @@ import {
   resolveLinkedUser,
   linkPersonToUser,
 } from "../utils/userPerson.js";
+import {
+  normalizeTriState,
+  validateLanguageRows,
+  replacePersonLanguages,
+  clearPersonLanguages,
+  loadPersonLanguages,
+} from "../utils/personLanguages.js";
 
 const Person = db.person;
 const User = db.user;
@@ -22,12 +31,16 @@ const Session = db.session;
 const OrgPeopleRole = db.orgPeopleRole;
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
+const MedicalCondition = db.medicalCondition;
+const PersonMedicalCondition = db.personMedicalCondition;
 const Op = db.Sequelize.Op;
 const exports = {};
 
 const personFields = [
   "firstName",
+  "middleName",
   "lastName",
+  "preferredName",
   "email",
   "addLine1",
   "addLine2",
@@ -42,9 +55,11 @@ const personFields = [
   "emergencyContactName",
   "emergencyContactPhoneCountryCode",
   "emergencyContactPhoneNumber",
+  "emergencyContactRelationship",
   "hasAllergies",
   "allergiesDescription",
   "takesMedication",
+  "speaksOtherLanguage",
   "currentChurchHome",
   "currentChurchHomeCity",
   "currentChurchHomeStateProv",
@@ -60,6 +75,11 @@ const validatePersonFields = (data) => {
     !["male", "female"].includes(data.gender)
   ) {
     return "Gender must be male or female.";
+  }
+  if (Object.prototype.hasOwnProperty.call(data, "emergencyContactRelationship")) {
+    const relationship = normalizeEmergencyContactRelationship(data.emergencyContactRelationship);
+    if (!relationship.ok) return relationship.message;
+    data.emergencyContactRelationship = relationship.value;
   }
   return null;
 };
@@ -160,6 +180,134 @@ const canManagePerson = async (req, personId) => {
   return !!link;
 };
 
+const enrichPersonPayload = async (person, queryOrgId = null) => {
+  const payload = person.toJSON ? person.toJSON() : { ...person };
+  const links = await PersonMedicalCondition.findAll({
+    where: { personId: person.id },
+    include: [
+      {
+        model: MedicalCondition,
+        as: "medicalCondition",
+        attributes: ["id", "name", "orgId"],
+      },
+    ],
+  });
+  let medicalConditions = links
+    .map((link) => link.medicalCondition)
+    .filter(Boolean)
+    .map((c) => ({ id: c.id, name: c.name, orgId: c.orgId }));
+
+  if (queryOrgId != null && queryOrgId !== "") {
+    const orgId = Number(queryOrgId);
+    medicalConditions = medicalConditions.filter((c) => Number(c.orgId) === orgId);
+  }
+
+  payload.medicalConditions = medicalConditions;
+  payload.medicalConditionIds = medicalConditions.map((c) => c.id);
+  payload.speaksOtherLanguage = normalizeTriState(payload.speaksOtherLanguage);
+  payload.languages = await loadPersonLanguages(person.id);
+  return payload;
+};
+
+/**
+ * When the request includes speaksOtherLanguage and/or languages, validate and replace rows.
+ * Returns { ok: false, status, message } or { ok: true, speaksOtherLanguage }.
+ */
+const applyLanguageFields = async (personId, source, { hasSpeaks, hasLanguages }) => {
+  if (!hasSpeaks && !hasLanguages) return { ok: true, skipped: true };
+
+  const speaks = hasSpeaks ? normalizeTriState(source.speaksOtherLanguage) : null;
+  const person = await Person.findByPk(personId);
+  const effectiveSpeaks = hasSpeaks
+    ? speaks
+    : normalizeTriState(person?.speaksOtherLanguage);
+
+  if (effectiveSpeaks === true) {
+    const check = await validateLanguageRows(source.languages);
+    if (!check.ok) return check;
+    await replacePersonLanguages(personId, check.rows);
+    return { ok: true };
+  }
+
+  await clearPersonLanguages(personId);
+  return { ok: true };
+};
+
+const stripLanguageInput = (data) => {
+  const hasSpeaks = Object.prototype.hasOwnProperty.call(data, "speaksOtherLanguage");
+  const hasLanguages = Object.prototype.hasOwnProperty.call(data, "languages");
+  const languages = data.languages;
+  const speaksOtherLanguage = hasSpeaks ? normalizeTriState(data.speaksOtherLanguage) : undefined;
+  delete data.languages;
+  if (hasSpeaks) data.speaksOtherLanguage = speaksOtherLanguage;
+  return { hasSpeaks, hasLanguages, languages, speaksOtherLanguage };
+};
+
+/**
+ * Sync person↔condition links for one org.
+ * When takesMedication is false, clears that org's links.
+ * When true, replaces that org's links with medicalConditionIds (must belong to orgId).
+ */
+const syncPersonMedicalConditions = async ({
+  personId,
+  orgId,
+  takesMedication,
+  medicalConditionIds,
+}) => {
+  if (orgId == null || orgId === "") {
+    return { ok: false, status: 400, message: "Organization is required to update medical conditions." };
+  }
+  const orgNum = Number(orgId);
+  if (Number.isNaN(orgNum)) {
+    return { ok: false, status: 400, message: "Invalid organization." };
+  }
+
+  const orgConditionRows = await MedicalCondition.findAll({
+    where: { orgId: orgNum },
+    attributes: ["id"],
+  });
+  const orgConditionIds = orgConditionRows.map((r) => Number(r.id));
+
+  if (!takesMedication) {
+    if (orgConditionIds.length) {
+      await PersonMedicalCondition.destroy({
+        where: {
+          personId,
+          medicalConditionId: { [Op.in]: orgConditionIds },
+        },
+      });
+    }
+    return { ok: true };
+  }
+
+  const requested = Array.isArray(medicalConditionIds)
+    ? [...new Set(medicalConditionIds.map((id) => Number(id)).filter((id) => !Number.isNaN(id)))]
+    : [];
+
+  if (requested.some((id) => !orgConditionIds.includes(id))) {
+    return {
+      ok: false,
+      status: 400,
+      message: "One or more medical conditions do not belong to the organization.",
+    };
+  }
+
+  await PersonMedicalCondition.destroy({
+    where: {
+      personId,
+      medicalConditionId: { [Op.in]: orgConditionIds },
+    },
+  });
+
+  if (requested.length) {
+    await PersonMedicalCondition.bulkCreate(
+      requested.map((medicalConditionId) => ({ personId, medicalConditionId }))
+    );
+  }
+
+  return { ok: true };
+};
+
 exports.findOne = async (req, res) => {
   try {
     const person = await Person.findByPk(req.params.id);
@@ -167,7 +315,7 @@ exports.findOne = async (req, res) => {
     if (!(await canManagePerson(req, person.id))) {
       return res.status(404).send({ message: "Person not found." });
     }
-    const payload = person.toJSON();
+    const payload = await enrichPersonPayload(person, req.query.orgId);
     if (isSystemAdmin(req)) {
       const linkedUser = await resolveLinkedUser(person);
       if (linkedUser) {
@@ -187,8 +335,26 @@ exports.findOne = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const { orgId: bodyOrgId, roleId, password, isAdmin, ...personData } = req.body;
+    const languageInput = stripLanguageInput(personData);
+    if (Object.prototype.hasOwnProperty.call(personData, "middleName")) {
+      const trimmed =
+        personData.middleName == null ? "" : String(personData.middleName).trim();
+      personData.middleName = trimmed === "" ? null : trimmed;
+    }
+    personData.preferredName = resolvePreferredName(
+      personData.preferredName,
+      personData.firstName,
+      personData.lastName
+    );
     const validationError = validatePersonFields(personData);
     if (validationError) return res.status(400).send({ message: validationError });
+
+    if (languageInput.hasSpeaks && languageInput.speaksOtherLanguage === true) {
+      const languageCheck = await validateLanguageRows(languageInput.languages);
+      if (!languageCheck.ok) {
+        return res.status(languageCheck.status).send({ message: languageCheck.message });
+      }
+    }
     let orgId = bodyOrgId != null && bodyOrgId !== "" ? parseInt(bodyOrgId, 10) : null;
 
     if (!isSystemAdmin(req)) {
@@ -230,7 +396,9 @@ exports.create = async (req, res) => {
         linkedUser,
         {
           firstName: personData.firstName,
+          middleName: personData.middleName,
           lastName: personData.lastName,
+          preferredName: personData.preferredName,
           emailNorm,
           addLine1: personData.addLine1,
           addLine2: personData.addLine2,
@@ -245,9 +413,11 @@ exports.create = async (req, res) => {
           emergencyContactName: personData.emergencyContactName,
           emergencyContactPhoneCountryCode: personData.emergencyContactPhoneCountryCode,
           emergencyContactPhoneNumber: personData.emergencyContactPhoneNumber,
+          emergencyContactRelationship: personData.emergencyContactRelationship,
           hasAllergies: personData.hasAllergies,
           allergiesDescription: personData.allergiesDescription,
           takesMedication: personData.takesMedication,
+          speaksOtherLanguage: personData.speaksOtherLanguage,
           currentChurchHome: personData.currentChurchHome,
           currentChurchHomeCity: personData.currentChurchHomeCity,
           currentChurchHomeStateProv: personData.currentChurchHomeStateProv,
@@ -259,6 +429,15 @@ exports.create = async (req, res) => {
       let orgRoleResult = null;
       if (orgId) {
         orgRoleResult = await ensureOrgPeopleRole(orgId, person.id, roleId);
+      }
+
+      const languageResult = await applyLanguageFields(
+        person.id,
+        languageInput,
+        languageInput
+      );
+      if (!languageResult.ok) {
+        return res.status(languageResult.status).send({ message: languageResult.message });
       }
 
       const message = isExisting
@@ -281,6 +460,11 @@ exports.create = async (req, res) => {
       await ensureOrgPeopleRole(orgId, person.id, roleId);
     }
 
+    const languageResult = await applyLanguageFields(person.id, languageInput, languageInput);
+    if (!languageResult.ok) {
+      return res.status(languageResult.status).send({ message: languageResult.message });
+    }
+
     res.send({ person, existingPerson: false, message: "Person created." });
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -296,8 +480,32 @@ exports.update = async (req, res) => {
     }
 
     const body = { ...req.body };
+    const languageInput = stripLanguageInput(body);
+    if (Object.prototype.hasOwnProperty.call(body, "middleName")) {
+      const trimmed = body.middleName == null ? "" : String(body.middleName).trim();
+      body.middleName = trimmed === "" ? null : trimmed;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "preferredName")) {
+      const firstName = Object.prototype.hasOwnProperty.call(body, "firstName")
+        ? body.firstName
+        : person.firstName;
+      const lastName = Object.prototype.hasOwnProperty.call(body, "lastName")
+        ? body.lastName
+        : person.lastName;
+      body.preferredName = resolvePreferredName(body.preferredName, firstName, lastName);
+    }
     const validationError = validatePersonFields(body);
     if (validationError) return res.status(400).send({ message: validationError });
+
+    const speaksForLanguages = languageInput.hasSpeaks
+      ? languageInput.speaksOtherLanguage
+      : normalizeTriState(person.speaksOtherLanguage);
+    if ((languageInput.hasSpeaks || languageInput.hasLanguages) && speaksForLanguages === true) {
+      const languageCheck = await validateLanguageRows(languageInput.languages);
+      if (!languageCheck.ok) {
+        return res.status(languageCheck.status).send({ message: languageCheck.message });
+      }
+    }
 
     if (Object.prototype.hasOwnProperty.call(body, "email") && person.userId) {
       const newEmail = body.email?.trim()?.toLowerCase() || "";
@@ -353,9 +561,72 @@ exports.update = async (req, res) => {
       delete body.password;
     }
 
+    const hasMedicalConditionIds = Object.prototype.hasOwnProperty.call(body, "medicalConditionIds");
+    const hasTakesMedication = Object.prototype.hasOwnProperty.call(body, "takesMedication");
+    const medicalOrgId =
+      body.orgId ?? body.medicalConditionOrgId ?? req.query.orgId ?? null;
+    const medicalConditionIds = body.medicalConditionIds;
+    delete body.medicalConditionIds;
+    delete body.medicalConditionOrgId;
+    if (Object.prototype.hasOwnProperty.call(body, "orgId")) delete body.orgId;
+
     const result = await optimisticUpdate(Person, req.params.id, body, personFields);
     if (!result.ok) return res.status(result.status).send({ message: result.message });
-    res.send(result.data);
+
+    if (languageInput.hasSpeaks || languageInput.hasLanguages) {
+      const languageResult = await applyLanguageFields(person.id, languageInput, languageInput);
+      if (!languageResult.ok) {
+        return res.status(languageResult.status).send({ message: languageResult.message });
+      }
+    }
+
+    const takesMedicationExplicitYes =
+      hasTakesMedication &&
+      (req.body.takesMedication === true || req.body.takesMedication === 1);
+    const takesMedicationExplicitNo =
+      hasTakesMedication &&
+      (req.body.takesMedication === false || req.body.takesMedication === 0);
+    const takesMedication = takesMedicationExplicitYes
+      ? true
+      : takesMedicationExplicitNo
+        ? false
+        : result.data.takesMedication === true || result.data.takesMedication === 1;
+
+    // Sync only when condition IDs are sent, or Take medication? is explicitly No (clear org selections).
+    // Unanswered (null) must not require an org — admin People edit often has no org scope.
+    const shouldSyncConditions = hasMedicalConditionIds || takesMedicationExplicitNo;
+
+    if (shouldSyncConditions) {
+      if (medicalOrgId == null || medicalOrgId === "") {
+        const selectingConditions =
+          takesMedicationExplicitYes ||
+          (hasMedicalConditionIds &&
+            Array.isArray(medicalConditionIds) &&
+            medicalConditionIds.length > 0);
+        if (selectingConditions) {
+          return res.status(400).send({
+            message: "Organization is required to update medical conditions.",
+          });
+        }
+        // Explicit No / empty clear with no org scope: skip org-scoped sync.
+      } else {
+        const syncResult = await syncPersonMedicalConditions({
+          personId: person.id,
+          orgId: medicalOrgId,
+          takesMedication,
+          medicalConditionIds: hasMedicalConditionIds ? medicalConditionIds : [],
+        });
+        if (!syncResult.ok) {
+          return res.status(syncResult.status).send({ message: syncResult.message });
+        }
+      }
+    }
+
+    const payload = await enrichPersonPayload(
+      await Person.findByPk(person.id),
+      medicalOrgId
+    );
+    res.send({ ...result.data.toJSON?.() ?? result.data, ...payload, version: result.data.version });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

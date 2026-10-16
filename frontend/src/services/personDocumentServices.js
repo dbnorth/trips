@@ -13,30 +13,47 @@ export default {
     const form = new FormData();
     form.append("documentTypeId", data.documentTypeId);
     if (data.countryIssued) form.append("countryIssued", data.countryIssued);
+    if (data.documentNumber) form.append("documentNumber", data.documentNumber);
     if (data.issueDate) form.append("issueDate", data.issueDate);
     form.append("expirationDate", data.expirationDate);
-    form.append("document", data.file);
+    if (data.file) form.append("document", data.file);
+    if (data.specializations) {
+      form.append("specializations", JSON.stringify(data.specializations));
+      for (const file of data.specializationFiles || []) {
+        form.append("specializationFiles", file);
+      }
+    }
     return apiClient.post(`/people/${personId}/documents`, form);
   },
   update(personId, documentId, data) {
     const form = new FormData();
     form.append("documentTypeId", data.documentTypeId);
     if (data.countryIssued) form.append("countryIssued", data.countryIssued);
+    if (data.documentNumber) form.append("documentNumber", data.documentNumber);
     if (data.issueDate) form.append("issueDate", data.issueDate);
     form.append("expirationDate", data.expirationDate);
     if (data.file) form.append("document", data.file);
+    if (data.specializations) {
+      form.append("specializations", JSON.stringify(data.specializations));
+      for (const file of data.specializationFiles || []) {
+        form.append("specializationFiles", file);
+      }
+    }
     return apiClient.put(`/people/${personId}/documents/${documentId}`, form);
   },
   delete(personId, documentId) {
     return apiClient.delete(`/people/${personId}/documents/${documentId}`);
   },
-  async download(personId, row) {
-    const response = await apiClient.get(`/people/${personId}/documents/${row.id}/download`, {
+  async download(personId, row, specialization = null) {
+    const path = specialization
+      ? `/people/${personId}/documents/${row.id}/specializations/${specialization.id}/download`
+      : `/people/${personId}/documents/${row.id}/download`;
+    const response = await apiClient.get(path, {
       responseType: "blob",
     });
     const filename =
       filenameFromDisposition(response.headers?.["content-disposition"]) ||
-      row.documentFileName?.split("/").pop() ||
+      (specialization?.documentFileName || row.documentFileName)?.split("/").pop() ||
       "document";
     const url = URL.createObjectURL(response.data);
     const link = document.createElement("a");
@@ -47,13 +64,16 @@ export default {
     link.remove();
     URL.revokeObjectURL(url);
   },
-  async view(personId, row) {
-    const response = await apiClient.get(`/people/${personId}/documents/${row.id}/view`, {
+  async view(personId, row, specialization = null) {
+    const path = specialization
+      ? `/people/${personId}/documents/${row.id}/specializations/${specialization.id}/view`
+      : `/people/${personId}/documents/${row.id}/view`;
+    const response = await apiClient.get(path, {
       responseType: "blob",
     });
     let blob = response.data;
     let type = blob?.type || response.headers?.["content-type"] || "";
-    const name = String(row.documentFileName || "").toLowerCase();
+    const name = String(specialization?.documentFileName || row.documentFileName || "").toLowerCase();
     const isHeic =
       /image\/hei[cf]/i.test(type) ||
       name.endsWith(".heic") ||
