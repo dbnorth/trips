@@ -3,6 +3,8 @@
  * Spec: features/feature-17-org-medical-conditions.md
  * Feature 19 — Pregnancy Health Questions
  * Spec: features/feature-19-pregnancy-health-questions.md
+ * Feature 47 — Simplify Application Warnings
+ * Spec: features/feature-47-simplify-application-warnings.md
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -104,13 +106,9 @@ describe("PersonProfileFields — Feature 19", () => {
     });
     await flushPromises();
 
-    const labels = wrapper.findAllComponents({ name: "VSelect" }).map((c) => c.props("label"));
-    const allergiesIdx = labels.indexOf("Have allergies?");
-    const pregnantIdx = labels.indexOf("Are you pregnant?");
-    const medIdx = labels.indexOf("Take medication?");
-    expect(pregnantIdx).toBeGreaterThan(-1);
-    expect(allergiesIdx).toBeLessThan(pregnantIdx);
-    expect(pregnantIdx).toBeLessThan(medIdx);
+    const text = wrapper.text();
+    expect(text).toContain("Are you pregnant?");
+    expect(text.indexOf("Have allergies?")).toBeLessThan(text.indexOf("Are you pregnant?"));
     wrapper.unmount();
   });
 
@@ -212,7 +210,7 @@ describe("Feature 31 — Person Other Languages", () => {
       });
 
       const { wrapper } = await mountWithPlugins(PersonProfileFields, {
-        props: { modelValue: form, healthOnly: true },
+        props: { modelValue: form },
       });
       await flushPromises();
 
@@ -233,7 +231,7 @@ describe("Feature 31 — Person Other Languages", () => {
       });
 
       const { wrapper } = await mountWithPlugins(PersonProfileFields, {
-        props: { modelValue: form, healthOnly: true },
+        props: { modelValue: form },
       });
       await flushPromises();
 
@@ -270,6 +268,114 @@ describe("Feature 32 — Emergency Contact Relationship", () => {
         "Grand Father",
         "Other",
       ]);
+      wrapper.unmount();
+    });
+  });
+});
+
+describe("Feature 47 — Simplify Application Warnings", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    MedicalConditionServices.getAll.mockResolvedValue({ data: [] });
+    LanguageServices.getAll.mockResolvedValue({
+      data: [{ id: 1, code: "es", name: "Spanish" }],
+    });
+  });
+
+  const byLabel = (wrapper, name, label) =>
+    wrapper.findAllComponents({ name }).find((c) => c.props("label") === label);
+
+  describe("US-47.3 — Profile health answers are display-only on the application", () => {
+    it("Profile health answers are display-only on the application", async () => {
+      const form = reactive({
+        hasAllergies: true,
+        allergiesDescription: "Peanuts",
+        takesMedication: false,
+        speaksOtherLanguage: true,
+        languages: [{ languageId: 1, fluency: "basic", knowsMedicalTerminology: false }],
+      });
+
+      const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+        props: { modelValue: form, healthOnly: true, orgId: 10 },
+      });
+      await flushPromises();
+
+      const text = wrapper.text();
+      expect(text).toContain("Have allergies? Yes");
+      expect(text).toContain("Allergies description: Peanuts");
+      expect(text).toContain("Take medication? No");
+      expect(text).toContain("Do you speak a language other than English? Yes");
+      expect(text).toContain("Spanish: Basic; medical terminology: No");
+      expect(wrapper.findAllComponents({ name: "VSelect" })).toHaveLength(0);
+      expect(wrapper.findAllComponents({ name: "VTextarea" })).toHaveLength(0);
+      expect(wrapper.findAllComponents({ name: "VAutocomplete" })).toHaveLength(0);
+      expect(text).not.toContain("Add language");
+      expect(text).not.toContain("Remove");
+      const note =
+        "If your contact information or other personal information has changed, please update your profile. " +
+        "Your health and language information below comes from your profile.";
+      expect(text).toContain(note);
+      expect(text.indexOf(note)).toBeLessThan(text.indexOf("Health information"));
+      expect(text.indexOf("Health information")).toBeLessThan(text.indexOf("Have allergies?"));
+
+      const updateProfile = wrapper.findAll("button").find((b) => b.text() === "Update profile");
+      await updateProfile.trigger("click");
+      expect(wrapper.emitted("update-profile")).toHaveLength(1);
+      wrapper.unmount();
+    });
+
+    it("Pregnancy questions stay editable on the application", async () => {
+      const form = reactive({
+        gender: "female",
+        hasAllergies: false,
+        isPregnant: null,
+        takesMedication: false,
+      });
+
+      const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+        props: { modelValue: form, healthOnly: true },
+      });
+      await flushPromises();
+
+      const pregnant = byLabel(wrapper, "VSelect", "Are you pregnant?");
+      expect(pregnant).toBeTruthy();
+      expect(pregnant.props("disabled")).toBe(false);
+      pregnant.vm.$emit("update:modelValue", true);
+      expect(wrapper.emitted("update:modelValue").at(-1)[0].isPregnant).toBe(true);
+      wrapper.unmount();
+    });
+
+    it("Pregnancy question appears below the language question", async () => {
+      MedicalConditionServices.getAll.mockResolvedValue({
+        data: [{ id: 1, name: "Diabetes", orgId: 10 }],
+      });
+      const form = reactive({
+        gender: "female",
+        hasAllergies: false,
+        isPregnant: null,
+        takesMedication: true,
+        medicalConditionIds: [1],
+        speaksOtherLanguage: true,
+        languages: [{ languageId: 1, fluency: "conversational", knowsMedicalTerminology: true }],
+      });
+
+      const { wrapper } = await mountWithPlugins(PersonProfileFields, {
+        props: { modelValue: form, healthOnly: true, orgId: 10 },
+      });
+      await flushPromises();
+
+      const text = wrapper.text();
+      const pregnantIdx = text.indexOf("Are you pregnant?");
+      expect(text).toContain("Medical conditions: Diabetes");
+      expect(text.indexOf("Take medication?")).toBeLessThan(pregnantIdx);
+      expect(text.indexOf("Medical conditions:")).toBeLessThan(pregnantIdx);
+      expect(text.indexOf("Medical conditions:")).toBeLessThan(text.indexOf("Language"));
+      expect(text.indexOf("Language")).toBeLessThan(
+        text.indexOf("Do you speak a language other than English?")
+      );
+      expect(text.indexOf("Do you speak a language other than English?")).toBeLessThan(pregnantIdx);
+      expect(text.indexOf("Spanish:")).toBeLessThan(text.indexOf("Current Health"));
+      expect(text.indexOf("Current Health")).toBeLessThan(pregnantIdx);
       wrapper.unmount();
     });
   });
