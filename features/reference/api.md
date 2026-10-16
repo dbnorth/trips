@@ -270,12 +270,12 @@ No auth. Slugs: spaces → `_`.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/email-templates` | auth | List (org / trip-leader scoped). Includes `emailTypeId`, `functionCode`, `subject`, `fromEmail`, and `emailBody` when present |
-| `GET` | `/trips/email-templates/copy-sources` | auth | Copy sources (`?tripId=` optional) |
-| `POST` | `/trips/email-templates/preview` | System Admin, Org Admin, or Trip Leader of the trip | Body `{ orgId, tripId, personId?, subject, emailBody }` → `{ subject, emailBody }` with `{{TOKEN_CODE}}` tokens replaced. Trip not in the organization or person without a participant application on the trip → `400`. Sends no email — Feature 40 |
+| `GET` | `/trips/email-templates` | auth | List (org / trip-leader scoped). Includes `emailTypeId`, `functionCode`, `subject`, `fromEmail`, `toAddress`, and `emailBody` when present |
+| `GET` | `/trips/email-templates/copy-sources` | auth | Copy sources (`?tripId=` optional). Includes `toAddress` (Feature 41) |
+| `POST` | `/trips/email-templates/preview` | System Admin, Org Admin, or Trip Leader of the trip | Body `{ orgId, tripId, personId?, fromEmail?, toAddress?, subject, emailBody }` → `{ fromEmail, toAddress, subject, emailBody }` with `{{TOKEN_CODE}}` tokens replaced. In `toAddress`, recipients that come out empty are left out and the rest are joined with `, ` (Feature 41). Trip not in the organization or person without a participant application on the trip → `400`. Sends no email — Feature 40 |
 | `GET` | `/trips/email-templates/:id` | auth | Get |
-| `POST` | `/trips/email-templates` | auth | Create. Feature 39 body adds `emailTypeId`, `functionCode` (`Scheduled` or `Send Now`), and `emailBody` |
-| `PUT` | `/trips/email-templates/:id` | auth | Update. Same Feature 39 fields when present |
+| `POST` | `/trips/email-templates` | auth | Create. Feature 39 body adds `emailTypeId`, `functionCode` (`Scheduled` or `Send Now`), and `emailBody`. Feature 41 adds required `toAddress`: comma-separated email addresses or `{{TOKEN_CODE}}` tokens whose value source is an email; blank → `400` "To is required.", any other recipient → `400`. `fromEmail` must be exactly one email address or email token → otherwise `400` |
+| `PUT` | `/trips/email-templates/:id` | auth | Update. Same Feature 39 and Feature 41 fields when present |
 | `DELETE` | `/trips/email-templates/:id` | auth | Delete |
 
 ---

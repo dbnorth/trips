@@ -39,7 +39,9 @@ const emailTypesLoading = ref(false);
 const emailTokens = ref([]);
 const insertSubjectToken = ref(null);
 const insertBodyToken = ref(null);
-const cursorPositions = ref({ subject: null, emailBody: null });
+const insertToToken = ref(null);
+const insertFromToken = ref(null);
+const cursorPositions = ref({ subject: null, emailBody: null, toAddress: null });
 const showPreview = ref(false);
 
 const emptyForm = () => ({
@@ -47,6 +49,7 @@ const emptyForm = () => ({
   tripId: null,
   emailTypeId: null,
   fromEmail: "",
+  toAddress: "",
   functionCode: null,
   subject: "",
   content: "",
@@ -160,6 +163,17 @@ const tokenItems = computed(() =>
   }))
 );
 
+const EMAIL_VALUE_SOURCES = ["organization.email", "participant.email", "primaryLeader.email"];
+
+const emailTokenItems = computed(() =>
+  emailTokens.value
+    .filter((token) => EMAIL_VALUE_SOURCES.includes(token.valueSource))
+    .map((token) => ({
+      title: `{{${token.tokenCode}}} — ${token.description}`,
+      value: token.tokenCode,
+    }))
+);
+
 const loadEmailTokens = async () => {
   try {
     const res = await EmailTokenServices.getAll();
@@ -184,7 +198,15 @@ const insertToken = async (field, tokenCode) => {
   cursorPositions.value[field] = at + symbol.length;
   await nextTick();
   if (field === "subject") insertSubjectToken.value = null;
+  else if (field === "toAddress") insertToToken.value = null;
   else insertBodyToken.value = null;
+};
+
+const setFromToken = async (tokenCode) => {
+  if (!tokenCode) return;
+  form.value.fromEmail = `{{${tokenCode}}}`;
+  await nextTick();
+  insertFromToken.value = null;
 };
 
 const loadTrips = async () => {
@@ -242,6 +264,7 @@ const applyTemplate = (row) => {
     tripId: row?.tripId ?? null,
     emailTypeId: row?.emailTypeId ?? null,
     fromEmail: row?.fromEmail || "",
+    toAddress: row?.toAddress || "",
     functionCode: normalizeFunctionCode(row?.functionCode),
     subject: row?.subject || "",
     content: row?.content || "",
@@ -256,6 +279,7 @@ const applyCopySource = (functionCode) => {
   const source = copySources.value.find((template) => template.functionCode === functionCode);
   if (!source) return;
   form.value.fromEmail = source.fromEmail || "";
+  form.value.toAddress = source.toAddress || "";
   form.value.subject = source.subject || "";
   form.value.content = source.content || "";
   form.value.attachment = source.attachment || "";
@@ -289,7 +313,7 @@ watch(
       copyFromCode.value = null;
       emailTypes.value = [];
       emailTokens.value = [];
-      cursorPositions.value = { subject: null, emailBody: null };
+      cursorPositions.value = { subject: null, emailBody: null, toAddress: null };
       showPreview.value = false;
       organizations.value = [];
       formError.value = "";
@@ -355,6 +379,10 @@ const save = async () => {
     formError.value = "From email is required.";
     return;
   }
+  if (!form.value.toAddress?.trim()) {
+    formError.value = "To is required.";
+    return;
+  }
   if (!form.value.emailBody?.trim()) {
     formError.value = "Email body is required.";
     return;
@@ -373,6 +401,7 @@ const save = async () => {
         ? Number(form.value.tripId)
         : null,
     fromEmail: form.value.fromEmail.trim(),
+    toAddress: form.value.toAddress.trim(),
     functionCode: form.value.functionCode,
     subject: form.value.subject.trim(),
     content: form.value.content?.trim() || null,
@@ -485,7 +514,45 @@ const save = async () => {
             @update:model-value="(code) => insertToken('subject', code)"
           />
         </div>
-        <v-text-field v-model="form.fromEmail" label="From email" type="email" density="compact" autocomplete="off" />
+        <div class="d-flex align-start ga-2">
+          <v-text-field
+            v-model="form.fromEmail"
+            label="From email"
+            density="compact"
+            autocomplete="off"
+            class="flex-grow-1"
+          />
+          <v-select
+            v-model="insertFromToken"
+            :items="emailTokenItems"
+            label="Insert token"
+            density="compact"
+            class="token-select"
+            hide-details
+            @update:model-value="setFromToken"
+          />
+        </div>
+        <div class="d-flex align-start ga-2">
+          <v-text-field
+            v-model="form.toAddress"
+            label="To"
+            density="compact"
+            autocomplete="off"
+            class="flex-grow-1"
+            hint="Email addresses or email tokens, separated by commas"
+            persistent-hint
+            @blur="rememberCursor('toAddress', $event)"
+          />
+          <v-select
+            v-model="insertToToken"
+            :items="emailTokenItems"
+            label="Insert token"
+            density="compact"
+            class="token-select"
+            hide-details
+            @update:model-value="(code) => insertToken('toAddress', code)"
+          />
+        </div>
         <div class="d-flex align-start ga-2">
           <v-textarea
             v-model="form.emailBody"
@@ -528,6 +595,7 @@ const save = async () => {
       :org-id="form.orgId"
       :trip-id="isTripLeaderAdd ? fixedTripId : form.tripId"
       :from-email="form.fromEmail"
+      :to-address="form.toAddress"
       :subject="form.subject"
       :email-body="form.emailBody"
     />

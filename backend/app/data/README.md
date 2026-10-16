@@ -14,3 +14,11 @@ cd backend && npm run seed:catalogs
 ```
 
 `npm run seed` also runs this after roles/admin.
+
+# Email templates
+
+| File | Contents |
+|------|----------|
+| `emailTemplates.json` | Organization-wide templates (one per email type) for `organizationName`, each with **From email** `{{ORG_EMAIL}}` and **To** `{{PARTICIPANT_EMAIL}}` |
+
+`npm run seed` runs `seedEmailTemplates.js` after email types and tokens. It skips when the organization does not exist, adds missing templates, and fills in **To** on existing ones that have none.

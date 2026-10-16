@@ -9,6 +9,7 @@ const props = defineProps({
   orgId: { type: [Number, String], default: null },
   tripId: { type: [Number, String], default: null },
   fromEmail: { type: String, default: "" },
+  toAddress: { type: String, default: "" },
   subject: { type: String, default: "" },
   emailBody: { type: String, default: "" },
 });
@@ -77,6 +78,8 @@ const loadPreview = async () => {
       orgId: Number(props.orgId),
       tripId: Number(selectedTripId.value),
       personId: selectedPersonId.value ?? null,
+      fromEmail: props.fromEmail || "",
+      toAddress: props.toAddress || "",
       subject: props.subject || "",
       emailBody: props.emailBody || "",
     });
@@ -145,7 +148,8 @@ const close = () => emit("update:modelValue", false);
         <v-alert v-if="previewError" type="error" density="compact" class="mb-2">{{ previewError }}</v-alert>
         <v-progress-linear v-if="previewLoading" indeterminate class="mb-2" />
         <div v-if="preview" class="email-preview">
-          <div class="mb-2"><strong>From email:</strong> {{ fromEmail }}</div>
+          <div class="mb-2"><strong>From email:</strong> {{ preview.fromEmail }}</div>
+          <div class="mb-2"><strong>To:</strong> {{ preview.toAddress }}</div>
           <div class="mb-2"><strong>Subject:</strong> {{ preview.subject }}</div>
           <div class="mb-1"><strong>Email body:</strong></div>
           <div class="email-preview-body border rounded pa-3">{{ preview.emailBody }}</div>

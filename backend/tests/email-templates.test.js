@@ -1,6 +1,8 @@
 /**
  * Feature 10 — Email Templates
  * Spec: features/feature-10-email-templates.md
+ * Feature 41 — Email Template To Address
+ * Spec: features/feature-41-email-template-to-address.md
  */
 
 import request from "supertest";
@@ -160,6 +162,7 @@ describe("Feature 10 — Email Templates", () => {
             functionCode: "Send Now",
             subject: "Application received",
             fromEmail: "trips@example.com",
+            toAddress: "applicant@example.com",
             emailBody: "We received your application.",
           });
 
@@ -280,6 +283,160 @@ describe("Feature 10 — Email Templates", () => {
 
         expect(preview.status).toBe(200);
         expect(preview.body.emailBody).toBe("Hello {{NOT_A_TOKEN}}");
+      });
+    });
+
+    describe("Feature 41 — Email Template To Address", () => {
+      const setupTemplateAuthoring = async () => {
+        const sys = await createSystemAdminUser({ email: "to-type-admin@example.com" });
+        const emailType = await request(app)
+          .post("/trips/email-types")
+          .set(sys.authHeader)
+          .send({
+            typeCode: "apply-received",
+            description: "Application received",
+            eventCode: "application-submitted",
+          });
+        expect(emailType.status).toBe(200);
+        const { authHeader, org } = await createOrgAdminUser({
+          email: "to-org-admin@example.com",
+          orgName: "To Org",
+        });
+        const templateBody = (toAddress, fromEmail = "trips@example.com") => ({
+          orgId: org.id,
+          emailTypeId: emailType.body.id,
+          functionCode: "Send Now",
+          subject: "Application received",
+          fromEmail,
+          toAddress,
+          emailBody: "We received your application.",
+        });
+        return { authHeader, templateBody };
+      };
+
+      describe("US-41.1 — Set who a template is sent to", () => {
+        it("To is saved", async () => {
+          await addToken("PARTICIPANT_EMAIL", "participant.email");
+          const { authHeader, templateBody } = await setupTemplateAuthoring();
+
+          const create = await request(app)
+            .post("/trips/email-templates")
+            .set(authHeader)
+            .send(templateBody("{{PARTICIPANT_EMAIL}}, office@example.org"));
+          expect(create.status).toBe(200);
+
+          const loaded = await request(app)
+            .get(`/trips/email-templates/${create.body.id}`)
+            .set(authHeader);
+          expect(loaded.status).toBe(200);
+          expect(loaded.body.toAddress).toBe("{{PARTICIPANT_EMAIL}}, office@example.org");
+        });
+
+        it("To is required", async () => {
+          const { authHeader, templateBody } = await setupTemplateAuthoring();
+
+          const create = await request(app)
+            .post("/trips/email-templates")
+            .set(authHeader)
+            .send(templateBody("  "));
+
+          expect(create.status).toBe(400);
+          expect(create.body.message).toBe("To is required.");
+        });
+
+        it("To rejects a recipient that is not an email or email token", async () => {
+          await addToken("TRIP_NAME", "trip.name");
+          const { authHeader, templateBody } = await setupTemplateAuthoring();
+
+          for (const toAddress of ["{{TRIP_NAME}}", "participant", "a@example.org,,b@example.org"]) {
+            const create = await request(app)
+              .post("/trips/email-templates")
+              .set(authHeader)
+              .send(templateBody(toAddress));
+            expect(create.status).toBe(400);
+            expect(create.body.message).toBe(
+              "To must list email addresses or email tokens, separated by commas."
+            );
+          }
+        });
+      });
+
+      describe("US-41.3 — Preview the recipients", () => {
+        it("Preview replaces tokens in To", async () => {
+          await addToken("PARTICIPANT_EMAIL", "participant.email");
+          const { authHeader, org, trip, participant } = await setupTripWithParticipant();
+
+          const preview = await request(app)
+            .post("/trips/email-templates/preview")
+            .set(authHeader)
+            .send({
+              orgId: org.id,
+              tripId: trip.id,
+              personId: participant.user.personId,
+              toAddress: "{{PARTICIPANT_EMAIL}}, office@example.org",
+              subject: "Hello",
+              emailBody: "Hello",
+            });
+
+          expect(preview.status).toBe(200);
+          expect(preview.body.toAddress).toBe(
+            "preview-participant@example.com, office@example.org"
+          );
+        });
+      });
+
+      describe("US-41.4 — Send from an email token", () => {
+        it("From email accepts an email token", async () => {
+          await addToken("ORG_EMAIL", "organization.email");
+          const { authHeader, templateBody } = await setupTemplateAuthoring();
+
+          const create = await request(app)
+            .post("/trips/email-templates")
+            .set(authHeader)
+            .send(templateBody("applicant@example.com", "{{ORG_EMAIL}}"));
+          expect(create.status).toBe(200);
+
+          const loaded = await request(app)
+            .get(`/trips/email-templates/${create.body.id}`)
+            .set(authHeader);
+          expect(loaded.status).toBe(200);
+          expect(loaded.body.fromEmail).toBe("{{ORG_EMAIL}}");
+        });
+
+        it("From email rejects two senders", async () => {
+          const { authHeader, templateBody } = await setupTemplateAuthoring();
+
+          const create = await request(app)
+            .post("/trips/email-templates")
+            .set(authHeader)
+            .send(templateBody("applicant@example.com", "a@example.org, b@example.org"));
+
+          expect(create.status).toBe(400);
+          expect(create.body.message).toBe(
+            "From email must be an email address or an email token."
+          );
+        });
+
+        it("Preview replaces the token in From email", async () => {
+          await addToken("ORG_EMAIL", "organization.email");
+          const { authHeader, org, trip } = await setupTripWithParticipant();
+          await db.organization.update({ email: "office@example.org" }, { where: { id: org.id } });
+
+          const preview = await request(app)
+            .post("/trips/email-templates/preview")
+            .set(authHeader)
+            .send({
+              orgId: org.id,
+              tripId: trip.id,
+              fromEmail: "{{ORG_EMAIL}}",
+              toAddress: "applicant@example.com",
+              subject: "Hello",
+              emailBody: "Hello",
+            });
+
+          expect(preview.status).toBe(200);
+          expect(preview.body.fromEmail).toBe("office@example.org");
+        });
       });
     });
   });

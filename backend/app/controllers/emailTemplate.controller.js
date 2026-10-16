@@ -9,7 +9,13 @@ import {
   ROLE_TRIP_LEADER,
   ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
-import { buildTokenValues, substituteTokens } from "../utils/emailTokenValues.js";
+import {
+  buildTokenValues,
+  recipientsAreValid,
+  senderIsValid,
+  substituteRecipients,
+  substituteTokens,
+} from "../utils/emailTokenValues.js";
 
 const EmailTemplate = db.emailTemplate;
 const EmailType = db.emailType;
@@ -25,6 +31,7 @@ const templateFields = [
   "attachment",
   "emailTypeId",
   "emailBody",
+  "toAddress",
 ];
 
 const getOrgAdminOrgIds = (req) => [
@@ -153,13 +160,38 @@ const validateOrganizationTemplateFields = async (body) => {
   if (!trimRequired(body.fromEmail)) {
     return { error: { status: 400, message: "From email is required." } };
   }
+  if (!(await senderIsValid(body.fromEmail))) {
+    return {
+      error: { status: 400, message: "From email must be an email address or an email token." },
+    };
+  }
+  const toAddress = trimRequired(body.toAddress);
+  if (!toAddress) {
+    return { error: { status: 400, message: "To is required." } };
+  }
+  if (!(await recipientsAreValid(toAddress))) {
+    return {
+      error: {
+        status: 400,
+        message: "To must list email addresses or email tokens, separated by commas.",
+      },
+    };
+  }
   if (!trimRequired(body.emailBody)) {
     return { error: { status: 400, message: "Email body is required." } };
   }
   return { ok: true };
 };
 
-const copySourceAttributes = ["id", "functionCode", "fromEmail", "subject", "content", "attachment"];
+const copySourceAttributes = [
+  "id",
+  "functionCode",
+  "fromEmail",
+  "toAddress",
+  "subject",
+  "content",
+  "attachment",
+];
 
 const hasFunctionCode = {
   functionCode: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: "" }] },
@@ -401,7 +433,7 @@ exports.update = async (req, res) => {
 
 exports.preview = async (req, res) => {
   try {
-    const { orgId, tripId, personId, subject, emailBody } = req.body || {};
+    const { orgId, tripId, personId, fromEmail, toAddress, subject, emailBody } = req.body || {};
     if (orgId == null || orgId === "") {
       return res.status(400).send({ message: "Organization is required." });
     }
@@ -440,6 +472,8 @@ exports.preview = async (req, res) => {
       personId: previewPersonId,
     });
     res.send({
+      fromEmail: substituteTokens(fromEmail, values).trim(),
+      toAddress: substituteRecipients(toAddress, values),
       subject: substituteTokens(subject, values),
       emailBody: substituteTokens(emailBody, values),
     });

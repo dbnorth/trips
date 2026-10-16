@@ -41,7 +41,7 @@ Notes:
 | `tripFlightSegment` | 30 | Ordered flight segments |
 | `donor` | 8, 9 | Donor contacts |
 | `tripDonation` | 8, 9 | Donations |
-| `emailTemplate` | 10, 39 | Email templates |
+| `emailTemplate` | 10, 39, 41 | Email templates |
 | `emailType` | 39 | Email type catalog |
 | `emailToken` | 40 | Email template token catalog |
 | `emailLog` | 1 | Login / email audit (no associations) |
@@ -553,6 +553,7 @@ Seeded global catalog. No org column.
 | attachment | STRING(500) | |
 | emailTypeId | INTEGER | optional FK → emailType; required when the template form saves (Feature 39) |
 | emailBody | TEXT | optional in the table; required when the template form saves (Feature 39) |
+| toAddress | STRING(1000) | optional in the table; required when the template form saves. Comma-separated email addresses and email tokens (Feature 41) |
 
 **Associations:** `belongsTo` organization, trip, emailType.
 

@@ -3,6 +3,8 @@
  * Spec: features/feature-39-email-types-and-templates.md
  * Feature 40 — Email Template Tokens and Preview
  * Spec: features/feature-40-email-template-tokens.md
+ * Feature 41 — Email Template To Address
+ * Spec: features/feature-41-email-template-to-address.md
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -135,8 +137,8 @@ describe("Feature 40 — Email Template Tokens and Preview", () => {
     const insertSelects = wrapper
       .findAllComponents({ name: "VSelect" })
       .filter((select) => select.props("label") === "Insert token");
-    expect(insertSelects).toHaveLength(2);
-    const bodyInsert = insertSelects[1];
+    expect(insertSelects).toHaveLength(4);
+    const bodyInsert = insertSelects[3];
     expect(bodyInsert.props("items").map((item) => item.title)).toContain("{{TRIP_NAME}} — Trip name");
 
     bodyInsert.vm.$emit("update:modelValue", "TRIP_NAME");
@@ -144,6 +146,93 @@ describe("Feature 40 — Email Template Tokens and Preview", () => {
 
     expect(body.element.value).toBe("Hello {{TRIP_NAME}} team");
     expect(bodyInsert.props("modelValue")).toBeNull();
+
+    wrapper.unmount();
+  });
+});
+
+describe("Feature 41 — Email Template To Address", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    setOrgAdminUser();
+    EmailTypeServices.getAll.mockResolvedValue({ data: [] });
+    EmailTokenServices.getAll.mockResolvedValue({
+      data: [
+        { id: 1, tokenCode: "TRIP_NAME", description: "Trip name", valueSource: "trip.name" },
+        {
+          id: 2,
+          tokenCode: "PARTICIPANT_EMAIL",
+          description: "Participant email",
+          valueSource: "participant.email",
+        },
+      ],
+    });
+    TripServices.getAll.mockResolvedValue({ data: [] });
+    EmailTemplateServices.getCopySources.mockResolvedValue({ data: [] });
+  });
+
+  const mountForm = () =>
+    mountWithPlugins(EmailTemplateFormDialog, {
+      props: { modelValue: true, orgId: 3 },
+      global: {
+        plugins: [vuetify],
+        stubs: { VDialog: { template: "<div><slot /></div>" } },
+      },
+    });
+
+  it("Template form shows To after From email", async () => {
+    const { wrapper } = await mountForm();
+    await flushPromises();
+
+    const labels = wrapper
+      .findAllComponents({ name: "VTextField" })
+      .map((field) => field.props("label"))
+      .filter((label) => label !== "Insert token");
+    const from = labels.indexOf("From email");
+    expect(from).toBeGreaterThan(-1);
+    expect(labels[from + 1]).toBe("To");
+
+    wrapper.unmount();
+  });
+
+  it("To token list shows only email tokens", async () => {
+    const { wrapper } = await mountForm();
+    await flushPromises();
+
+    const toInsert = wrapper
+      .findAllComponents({ name: "VSelect" })
+      .filter((select) => select.props("label") === "Insert token")[2];
+    const titles = toInsert.props("items").map((item) => item.title);
+
+    expect(titles).toContain("{{PARTICIPANT_EMAIL}} — Participant email");
+    expect(titles.some((title) => title.includes("TRIP_NAME"))).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it("Template form sets From email from the token list", async () => {
+    EmailTokenServices.getAll.mockResolvedValue({
+      data: [
+        { id: 3, tokenCode: "ORG_EMAIL", description: "Organization email", valueSource: "organization.email" },
+      ],
+    });
+    const { wrapper } = await mountForm();
+    await flushPromises();
+
+    const fromField = wrapper
+      .findAllComponents({ name: "VTextField" })
+      .find((field) => field.props("label") === "From email");
+    await fromField.find("input").setValue("old@example.org");
+
+    const fromInsert = wrapper
+      .findAllComponents({ name: "VSelect" })
+      .filter((select) => select.props("label") === "Insert token")[1];
+    fromInsert.vm.$emit("update:modelValue", "ORG_EMAIL");
+    await flushPromises();
+
+    expect(fromField.find("input").element.value).toBe("{{ORG_EMAIL}}");
+    expect(fromInsert.props("modelValue")).toBeNull();
 
     wrapper.unmount();
   });

@@ -949,6 +949,19 @@ const ensureEmailTypes = async () => {
   }
 };
 
+const ensureEmailTemplateToAddress = async () => {
+  const [cols] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailTemplates'
+       AND COLUMN_NAME = 'toAddress'`
+  );
+  if (!cols.length) {
+    await db.sequelize.query("ALTER TABLE emailTemplates ADD COLUMN toAddress VARCHAR(1000) NULL");
+    logger.info("emailTemplates.toAddress column added.");
+  }
+};
+
 const ensureEmailTokens = async () => {
   const [tables] = await db.sequelize.query(
     `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -1132,6 +1145,7 @@ export const ensureSchema = async () => {
   await ensureTripDeposit();
   await ensureEmailTypes();
   await ensureEmailTokens();
+  await ensureEmailTemplateToAddress();
   await ensureTripPrimaryLeader();
   await ensureTripFlightSegmentCabinAndSeat();
   await ensureOrganizationWebsiteUrl();

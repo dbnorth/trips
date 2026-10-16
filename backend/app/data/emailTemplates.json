@@ -1,0 +1,85 @@
+{
+  "organizationName": "Health Talents International",
+  "templates": [
+    {
+      "typeCode": "apply-started",
+      "functionCode": "Send Now",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "Your {{TRIP_NAME}} application has started",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nThank you for starting your application for {{TRIP_NAME}} in {{TRIP_LOCATION}}, {{TRIP_START_DATE}} to {{TRIP_END_DATE}}.\n\nYour application is saved, so you can come back and finish it at any time. When every section is complete, submit it and our team will review it.\n\nIf you have questions, contact your trip leader, {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}}, at {{LEADER_EMAIL}}.\n\nBlessings,\n{{ORG_NAME}}\n{{ORG_WEBSITE}}"
+    },
+    {
+      "typeCode": "apply-incomplete",
+      "functionCode": "Scheduled",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "Reminder: finish your {{TRIP_NAME}} application",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nYour application for {{TRIP_NAME}} ({{TRIP_START_DATE}} to {{TRIP_END_DATE}}) is not finished yet. Please log in, complete the remaining sections, and submit it so we can hold your place on the team.\n\nNeed help? Reach {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}} at {{LEADER_EMAIL}} or {{LEADER_PHONE}}.\n\nThank you,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "apply-received",
+      "functionCode": "Send Now",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "We received your {{TRIP_NAME}} application",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nThank you for applying to serve with {{ORG_NAME}} on {{TRIP_NAME}}.\n\nTrip: {{TRIP_NAME}}\nLocation: {{TRIP_LOCATION}}\nDates: {{TRIP_START_DATE}} to {{TRIP_END_DATE}}\n\nOur team is reviewing your application, and we will let you know as soon as a decision is made. If you have questions in the meantime, contact {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}} at {{LEADER_EMAIL}}.\n\nBlessings,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "apply-approved",
+      "functionCode": "Send Now",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "You're approved for {{TRIP_NAME}}!",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nCongratulations! Your application for {{TRIP_NAME}} has been approved. We are excited to have you on the team.\n\nLocation: {{TRIP_LOCATION}}\nDates: {{TRIP_START_DATE}} to {{TRIP_END_DATE}}\nTrip cost: {{TRIP_COST}}\nDeposit: {{TRIP_DEPOSIT}}\n\nYour next step is the deposit, which secures your place on the trip. Your trip leader, {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}}, will be in touch with more details and can be reached at {{LEADER_EMAIL}}.\n\nWelcome aboard,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "deposit-due",
+      "functionCode": "Scheduled",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "Deposit due for {{TRIP_NAME}}",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nThis is a reminder that a deposit of {{TRIP_DEPOSIT}} is due to secure your place on {{TRIP_NAME}} ({{TRIP_START_DATE}} to {{TRIP_END_DATE}}).\n\nSo far, {{PARTICIPANT_AMOUNT_RAISED}} has been raised toward your trip. You can find giving and payment information at {{ORG_WEBSITE}}.\n\nIf you have questions about your deposit, contact {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}} at {{LEADER_EMAIL}}.\n\nThank you,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "deposit-received",
+      "functionCode": "Send Now",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "Deposit received for {{TRIP_NAME}}",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nThank you! We received your deposit of {{TRIP_DEPOSIT}} for {{TRIP_NAME}}, and your place on the team is secured.\n\nRemaining balance: {{PARTICIPANT_AMOUNT_OWED}}\n\nWe will send reminders as the trip gets closer. Your trip leader, {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}}, is available at {{LEADER_EMAIL}} for any questions.\n\nBlessings,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "payment-due",
+      "functionCode": "Scheduled",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "Balance reminder for {{TRIP_NAME}}",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nHere is an update on your balance for {{TRIP_NAME}}.\n\nTrip cost: {{TRIP_COST}}\nRaised so far: {{PARTICIPANT_AMOUNT_RAISED}}\nRemaining balance: {{PARTICIPANT_AMOUNT_OWED}}\n\nPlease plan to have your balance paid before the trip begins on {{TRIP_START_DATE}}. Giving and payment information is at {{ORG_WEBSITE}}.\n\nQuestions? Contact {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}} at {{LEADER_EMAIL}}.\n\nThank you,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "payment-complete",
+      "functionCode": "Send Now",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "Your {{TRIP_NAME}} trip is fully paid",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nGreat news: your trip to {{TRIP_LOCATION}} for {{TRIP_NAME}} is fully paid. A total of {{PARTICIPANT_AMOUNT_RAISED}} has been given toward your trip.\n\nThank you, and please thank everyone who supported you. We look forward to serving alongside you from {{TRIP_START_DATE}} to {{TRIP_END_DATE}}.\n\nBlessings,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "donation-received",
+      "functionCode": "Send Now",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "A donation was given toward your {{TRIP_NAME}} trip",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nGood news: a donation was just given toward your trip, {{TRIP_NAME}}.\n\nRaised so far: {{PARTICIPANT_AMOUNT_RAISED}}\nRemaining balance: {{PARTICIPANT_AMOUNT_OWED}}\n\nThis is a great time to thank your supporters and share what you will be doing in {{TRIP_LOCATION}}.\n\nBlessings,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "pre-departure",
+      "functionCode": "Scheduled",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "Getting ready for {{TRIP_NAME}}",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\n{{TRIP_NAME}} begins on {{TRIP_START_DATE}}, and we can't wait to serve with you in {{TRIP_LOCATION}}. Before you go, please check that:\n\n- Your passport is valid and uploaded\n- All required documents in your profile are complete\n- Your flight details are confirmed\n- You have packed for the trip, returning {{TRIP_END_DATE}}\n\nYour trip leader is {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}}. Save their contact details for travel days: {{LEADER_EMAIL}}, {{LEADER_PHONE}}.\n\nSafe travels,\n{{ORG_NAME}}"
+    }
+  ]
+}

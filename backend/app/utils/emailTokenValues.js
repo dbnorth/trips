@@ -27,6 +27,15 @@ export const VALUE_SOURCES = [
 
 export const VALUE_SOURCE_KEYS = new Set(VALUE_SOURCES.map((s) => s.valueSource));
 
+export const EMAIL_VALUE_SOURCES = new Set([
+  "organization.email",
+  "participant.email",
+  "primaryLeader.email",
+]);
+
+const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SINGLE_TOKEN_PATTERN = /^\{\{([A-Z][A-Z0-9_]*)\}\}$/;
+
 export const TOKEN_CODE_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 
 const TOKEN_PATTERN = /\{\{([A-Z][A-Z0-9_]*)\}\}/g;
@@ -164,3 +173,40 @@ export const substituteTokens = (input, values) =>
   text(input).replace(TOKEN_PATTERN, (match, code) =>
     Object.prototype.hasOwnProperty.call(values, code) ? values[code] : match
   );
+
+const splitRecipients = (toAddress) => text(toAddress).split(",").map((entry) => entry.trim());
+
+const loadEmailTokenCodes = async () =>
+  new Set(
+    (await db.emailToken.findAll({ attributes: ["tokenCode", "valueSource"] }))
+      .filter((token) => EMAIL_VALUE_SOURCES.has(token.valueSource))
+      .map((token) => token.tokenCode)
+  );
+
+const isEmailEntry = (entry, emailTokenCodes) => {
+  const token = SINGLE_TOKEN_PATTERN.exec(entry);
+  if (token) return emailTokenCodes.has(token[1]);
+  return EMAIL_ADDRESS_PATTERN.test(entry);
+};
+
+/** True when every comma-separated recipient is an email address or a catalog token whose value is an email. */
+export const recipientsAreValid = async (toAddress) => {
+  const entries = splitRecipients(toAddress);
+  if (!entries.length || entries.some((entry) => !entry)) return false;
+  const emailTokenCodes = await loadEmailTokenCodes();
+  return entries.every((entry) => isEmailEntry(entry, emailTokenCodes));
+};
+
+/** True when the sender is exactly one email address or one catalog token whose value is an email. */
+export const senderIsValid = async (fromEmail) => {
+  const entry = text(fromEmail).trim();
+  if (!entry || entry.includes(",")) return false;
+  return isEmailEntry(entry, await loadEmailTokenCodes());
+};
+
+/** Replace tokens in each recipient and leave out recipients that come out empty. */
+export const substituteRecipients = (toAddress, values) =>
+  splitRecipients(toAddress)
+    .map((entry) => substituteTokens(entry, values).trim())
+    .filter(Boolean)
+    .join(", ");
