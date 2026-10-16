@@ -41,7 +41,11 @@ describe("Feature 40 — Email Template Tokens and Preview", () => {
       ],
     });
     EmailTemplateServices.preview.mockResolvedValue({
-      data: { subject: "Welcome to Guatemala Clinic", emailBody: "Hi Pat" },
+      data: {
+        fromEmail: "trips@example.com",
+        subject: "Welcome to Guatemala Clinic",
+        emailBody: "Hi Pat",
+      },
     });
   });
 
@@ -77,6 +81,8 @@ describe("Feature 40 — Email Template Tokens and Preview", () => {
       orgId: 3,
       tripId: 11,
       personId: 21,
+      fromEmail: "trips@example.com",
+      toAddress: "",
       subject: "Welcome to {{TRIP_NAME}}",
       emailBody: "Hi {{PARTICIPANT_FIRST_NAME}}",
     });

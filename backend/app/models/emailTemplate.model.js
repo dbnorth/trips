@@ -12,6 +12,7 @@ const EmailTemplate = SequelizeInstance.define("emailTemplate", {
   attachment: { type: Sequelize.STRING(500) },
   emailTypeId: { type: Sequelize.INTEGER, allowNull: true },
   emailBody: { type: Sequelize.TEXT, allowNull: true },
+  toAddress: { type: Sequelize.STRING(1000), allowNull: true },
 });
 
 export default EmailTemplate;
