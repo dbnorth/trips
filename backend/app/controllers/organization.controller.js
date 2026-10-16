@@ -40,6 +40,7 @@ const orgFields = [
   "instagram",
   "colorFamily",
   "subdomain",
+  "testMode",
 ];
 
 const pickOrgPayload = (body, { includeSubdomain }) => {

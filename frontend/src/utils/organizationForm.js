@@ -22,6 +22,7 @@ export const emptyOrganizationForm = () => ({
   medicalAgreementFileName: null,
   colorFamily: "blue",
   subdomain: "",
+  testMode: false,
   version: 0,
 });
 
@@ -44,6 +45,7 @@ export const buildOrganizationPayload = (form, { includeVersion = false } = {}) 
     instagram: form.instagram?.trim() || null,
     colorFamily: form.colorFamily || "blue",
     subdomain: subdomainRaw === "" ? null : subdomainRaw.toLowerCase(),
+    testMode: !!form.testMode,
   };
   if (includeVersion) payload.version = form.version;
   return payload;
