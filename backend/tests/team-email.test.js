@@ -40,7 +40,7 @@ describe("Feature 46 — Email Trip Team", () => {
       ...fields,
     });
 
-  const addParticipant = async (status, { email, tripId = trip.id } = {}) => {
+  const addParticipant = async (status, { email, tripId = trip.id, roleName } = {}) => {
     personCount += 1;
     const person = await db.person.create({
       firstName: `Pat${personCount}`,
@@ -50,11 +50,13 @@ describe("Feature 46 — Email Trip Team", () => {
     await db.tripPeopleRole.create({
       tripId,
       peopleId: person.id,
-      roleId: participantRole.id,
+      roleId: roleName ? (await findRole(roleName)).id : participantRole.id,
       status,
     });
     return person;
   };
+
+  const addLeader = () => addParticipant("approved", { roleName: "Trip Leader" });
 
   // Sign-ins also write "Login" rows to the email log.
   const sentEmails = () =>
@@ -217,36 +219,27 @@ describe("Feature 46 — Email Trip Team", () => {
   });
 
   describe("US-46.3 — Choose who gets the email", () => {
-    it("All potential participants excludes declined and cancelled", async () => {
+    it("All potential participants includes Trip Leaders and excludes declined and cancelled", async () => {
       const template = await addTemplate();
       const incomplete = await addParticipant("incomplete");
       const applied = await addParticipant("applied");
       const approved = await addParticipant("approved");
       await addParticipant("declined");
       await addParticipant("cancelled");
-      const leaderPerson = await db.person.create({
-        firstName: "Lee",
-        lastName: "Leader",
-        email: "lee@example.org",
-      });
-      await db.tripPeopleRole.create({
-        tripId: trip.id,
-        peopleId: leaderPerson.id,
-        roleId: (await findRole("Trip Leader")).id,
-        status: "approved",
-      });
+      const leader = await addLeader();
 
       const response = await sendTeamEmail(template, { sendTo: "potential" });
 
       expect(response.status).toBe(200);
-      expect(response.body.sent).toBe(3);
-      expect(await sentTo()).toEqual([incomplete.email, applied.email, approved.email]);
+      expect(response.body.sent).toBe(4);
+      expect(await sentTo()).toEqual([incomplete.email, applied.email, approved.email, leader.email]);
     });
 
     it("All accepted participants sends only to approved", async () => {
       const template = await addTemplate();
       await addParticipant("applied");
       const approved = await addParticipant("approved");
+      await addLeader();
 
       const response = await sendTeamEmail(template, { sendTo: "accepted" });
 
@@ -258,15 +251,15 @@ describe("Feature 46 — Email Trip Team", () => {
       const template = await addTemplate();
       const first = await addParticipant("incomplete");
       await addParticipant("applied");
-      const third = await addParticipant("approved");
+      const leader = await addLeader();
 
       const response = await sendTeamEmail(template, {
         sendTo: "selected",
-        personIds: [first.id, third.id],
+        personIds: [first.id, leader.id],
       });
 
       expect(response.status).toBe(200);
-      expect(await sentTo()).toEqual([first.email, third.email]);
+      expect(await sentTo()).toEqual([first.email, leader.email]);
     });
 
     it("Selected participants must be potential participants on the trip", async () => {

@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import TripServices from "../services/tripServices.js";
 import ConfirmDialog from "./ConfirmDialog.vue";
 
+const POTENTIAL_ROLES = ["Trip Participant", "Trip Leader"];
 const POTENTIAL_STATUSES = ["incomplete", "applied", "approved"];
 
 const SEND_TO_ITEMS = [
@@ -38,27 +39,32 @@ const error = ref("");
 const personName = (person) =>
   [person?.firstName, person?.lastName].filter(Boolean).join(" ").trim() || "Participant";
 
+const isPotential = (row) =>
+  POTENTIAL_ROLES.includes(row.role?.roleName) &&
+  POTENTIAL_STATUSES.includes(String(row.status || "").toLowerCase());
+
+const isAccepted = (row) =>
+  row.role?.roleName === "Trip Participant" && String(row.status || "").toLowerCase() === "approved";
+
 const potentialParticipants = computed(() => {
-  const seen = new Set();
-  return props.participants
-    .filter((row) => row.role?.roleName === "Trip Participant")
-    .filter((row) => POTENTIAL_STATUSES.includes(String(row.status || "").toLowerCase()))
-    .filter((row) => {
-      const id = Number(row.peopleId);
-      if (seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    })
-    .map((row) => ({
-      title: personName(row.person),
-      value: Number(row.peopleId),
-      status: String(row.status).toLowerCase(),
-    }));
+  const byId = new Map();
+  for (const row of props.participants.filter(isPotential)) {
+    const id = Number(row.peopleId);
+    const entry = byId.get(id) ?? { value: id, person: row.person, leader: false, accepted: false };
+    if (row.role.roleName === "Trip Leader") entry.leader = true;
+    if (isAccepted(row)) entry.accepted = true;
+    byId.set(id, entry);
+  }
+  return [...byId.values()].map((entry) => ({
+    title: entry.leader ? `${personName(entry.person)} (Trip Leader)` : personName(entry.person),
+    value: entry.value,
+    accepted: entry.accepted,
+  }));
 });
 
 const recipients = computed(() => {
   if (sendTo.value === "accepted") {
-    return potentialParticipants.value.filter((p) => p.status === "approved");
+    return potentialParticipants.value.filter((p) => p.accepted);
   }
   if (sendTo.value === "selected") {
     return potentialParticipants.value.filter((p) => selectedPersonIds.value.includes(p.value));

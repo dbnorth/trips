@@ -38,7 +38,7 @@
 **So that** each message reaches the right people
 
 **Priority:** P1
-**Independent test:** With one incomplete, one applied, one approved, and one declined participant, **All potential participants** sends three emails and **All accepted participants** sends one.
+**Independent test:** With one incomplete, one applied, one approved, and one declined participant and one Trip Leader, **All potential participants** sends four emails and **All accepted participants** sends one.
 **Acceptance scenarios:** see ### US-46.3
 
 ### US-46.4: Preview the email before sending
@@ -78,11 +78,11 @@
 
   | Choice | Recipients |
   |--------|-----------|
-  | **All potential participants** | Every **Trip Participant** on the trip with status incomplete, applied, or approved |
-  | **All accepted participants** | Every **Trip Participant** on the trip with status approved |
-  | **Selected participants** | The participants chosen in a multi-select listing the potential participants |
+  | **All potential participants** | Every **Trip Participant** and **Trip Leader** on the trip with status incomplete, applied, or approved |
+  | **All accepted participants** | Every **Trip Participant** on the trip with status approved (no Trip Leaders) |
+  | **Selected participants** | The people chosen in a multi-select listing the potential participants, with Trip Leaders labelled "(Trip Leader)" |
 
-  The dialog shows how many participants the choice reaches. Other roles (for example **Trip Leader**) and declined or cancelled participants are never recipients.
+  The dialog shows how many people the choice reaches. A person who is both a **Trip Leader** and a **Trip Participant** on the trip gets one email. Other roles and declined or cancelled assignments are never recipients.
 - **FR-009**: Each recipient MUST get their own email, addressed to that participant's email, with tokens in **Subject** and **Email body** filled for that participant, trip, and organization (Feature 40). The template's **To** is not used. **From** comes from the template's **From email** with tokens filled, and Feature 43 `EMAIL_SENDER` / Reply-To rules apply.
 - **FR-010**: **Preview** MUST show the email as it will be sent to one recipient: From, Reply-To (when present), To, Subject, and body. A **Preview as** dropdown lists the current recipients and defaults to the first.
 - **FR-011**: **Send** MUST first open a confirmation (`ConfirmDialog`) titled "Are you sure?" with the message "Send this email to N participants?" ("1 participant" when N is 1), where N is the recipient count, and buttons **Send** and **Cancel**. **Cancel** closes the confirmation and sends nothing. Confirming MUST send the email to every recipient through the email service (Feature 43). One recipient failing or being skipped MUST NOT stop the others. Each email sent is logged with its template, trip, and participant (Feature 45 **FR-012**), and with the subject and body as sent (dialog edits and tokens filled).
@@ -105,7 +105,8 @@
 - Participant with no email → skipped "No recipients."; the rest still send.
 - Template **From email** empty after tokens → every recipient skipped "No sender."
 - **All accepted participants** with no approved participants → recipient count 0, **Send** disabled; the server returns `400` "No participants to send to."
-- Selected person who is declined, cancelled, a **Trip Leader**, or on another trip → `400`.
+- Selected person who is declined, cancelled, or on another trip → `400`.
+- Person who is both a **Trip Leader** and a **Trip Participant** on the trip → listed once, one email.
 - Org template and trip template with the same email type → both are listed; the user picks one.
 - Edited subject or body containing tokens → tokens fill per recipient.
 - Mail server down → each recipient fails with the error; the response still returns `200` with the counts.
@@ -123,7 +124,7 @@
 ## Data Ownership & Isolation
 
 - Templates come only from the trip itself or the trip's organization.
-- Recipients are only **Trip Participant** assignments on that trip.
+- Recipients are only **Trip Participant** and **Trip Leader** assignments on that trip.
 - Permissions match managing the trip's participants (Feature 7).
 
 ---
@@ -213,19 +214,19 @@ None. `emailTemplate.functionCode` stays a string and may now hold `Trip Partici
 
 ### US-46.3 — Choose who gets the email
 
-#### Scenario: All potential participants excludes declined and cancelled
+#### Scenario: All potential participants includes Trip Leaders and excludes declined and cancelled
 * **Given** Trip Participants with status incomplete, applied, approved, declined, and cancelled, and a Trip Leader
 * **When** I send to All potential participants
-* **Then** only the incomplete, applied, and approved participants are emailed
+* **Then** only the incomplete, applied, and approved participants and the Trip Leader are emailed
 
 #### Scenario: All accepted participants sends only to approved
-* **Given** Trip Participants with status applied and approved
+* **Given** Trip Participants with status applied and approved, and a Trip Leader
 * **When** I send to All accepted participants
 * **Then** only the approved participant is emailed
 
 #### Scenario: Selected participants sends only to those chosen
-* **Given** three potential participants
-* **When** I send to Selected participants with two of them chosen
+* **Given** two potential participants and a Trip Leader
+* **When** I send to Selected participants with one participant and the Trip Leader chosen
 * **Then** only those two are emailed
 
 #### Scenario: Selected participants must be potential participants on the trip
@@ -236,8 +237,8 @@ None. `emailTemplate.functionCode` stays a string and may now hold `Trip Partici
 #### Scenario: Selected participants shows the participant picker
 * **Given** the Email team dialog is open
 * **When** I choose Selected participants
-* **Then** a multi-select of the potential participants appears
-* **And** the recipient count matches the participants chosen
+* **Then** a multi-select of the potential participants and Trip Leaders appears, with Trip Leaders labelled "(Trip Leader)"
+* **And** the recipient count matches the people chosen
 
 ### US-46.4 — Preview the email before sending
 
@@ -297,7 +298,7 @@ None. `emailTemplate.functionCode` stays a string and may now hold `Trip Partici
 | US-46.2 | Dialog lists the trip's and organization's Trip Participant templates | `backend/tests/` team email | `Dialog lists the trip's and organization's Trip Participant templates` |
 | US-46.2 | Choosing a template fills subject and body for editing | `frontend/tests/` TripTeamEmailDialog | `Choosing a template fills subject and body for editing` |
 | US-46.2 | Participants cannot email the team | `backend/tests/` team email | `Participants cannot email the team` |
-| US-46.3 | All potential participants excludes declined and cancelled | `backend/tests/` team email | `All potential participants excludes declined and cancelled` |
+| US-46.3 | All potential participants includes Trip Leaders and excludes declined and cancelled | `backend/tests/` team email | `All potential participants includes Trip Leaders and excludes declined and cancelled` |
 | US-46.3 | All accepted participants sends only to approved | `backend/tests/` team email | `All accepted participants sends only to approved` |
 | US-46.3 | Selected participants sends only to those chosen | `backend/tests/` team email | `Selected participants sends only to those chosen` |
 | US-46.3 | Selected participants must be potential participants on the trip | `backend/tests/` team email | `Selected participants must be potential participants on the trip` |
@@ -346,7 +347,8 @@ Do not implement behavior not in this spec.
 ## Out of Scope
 
 - Saving dialog edits back to the template
-- Emailing donors, Trip Leaders, or people who are not Trip Participants on the trip
+- Emailing donors, or people who are not Trip Participants or Trip Leaders on the trip
+- Trip Leaders in **All accepted participants**
 - Attachments, CC, or BCC
 - Scheduling the email for later
 - A history screen of team emails sent (the email log records them)
