@@ -41,7 +41,7 @@ Notes:
 | `tripFlightSegment` | 30 | Ordered flight segments |
 | `donor` | 8, 9 | Donor contacts |
 | `tripDonation` | 8, 9 | Donations |
-| `emailTemplate` | 10, 39, 41 | Email templates |
+| `emailTemplate` | 10, 39, 41, 42 | Email templates |
 | `emailType` | 39 | Email type catalog |
 | `emailToken` | 40 | Email template token catalog |
 | `emailLog` | 1 | Login / email audit (no associations) |
@@ -554,6 +554,8 @@ Seeded global catalog. No org column.
 | emailTypeId | INTEGER | optional FK → emailType; required when the template form saves (Feature 39) |
 | emailBody | TEXT | optional in the table; required when the template form saves (Feature 39) |
 | toAddress | STRING(1000) | optional in the table; required when the template form saves. Comma-separated email addresses and email tokens (Feature 41) |
+| scheduleRule | STRING(20) | optional; `daily`, `weekly` (Tuesday), or `before-start`. Required when the template form saves a `Scheduled` template; empty for `Send Now` (Feature 42) |
+| scheduleDaysBefore | INTEGER | optional; 1–365 when `scheduleRule` is `before-start`, otherwise empty (Feature 42) |
 
 **Associations:** `belongsTo` organization, trip, emailType.
 

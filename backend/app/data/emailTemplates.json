@@ -12,6 +12,7 @@
     {
       "typeCode": "apply-incomplete",
       "functionCode": "Scheduled",
+      "scheduleRule": "weekly",
       "fromEmail": "{{ORG_EMAIL}}",
       "toAddress": "{{PARTICIPANT_EMAIL}}",
       "subject": "Reminder: finish your {{TRIP_NAME}} application",
@@ -36,6 +37,7 @@
     {
       "typeCode": "deposit-due",
       "functionCode": "Scheduled",
+      "scheduleRule": "weekly",
       "fromEmail": "{{ORG_EMAIL}}",
       "toAddress": "{{PARTICIPANT_EMAIL}}",
       "subject": "Deposit due for {{TRIP_NAME}}",
@@ -52,6 +54,7 @@
     {
       "typeCode": "payment-due",
       "functionCode": "Scheduled",
+      "scheduleRule": "weekly",
       "fromEmail": "{{ORG_EMAIL}}",
       "toAddress": "{{PARTICIPANT_EMAIL}}",
       "subject": "Balance reminder for {{TRIP_NAME}}",
@@ -76,6 +79,8 @@
     {
       "typeCode": "pre-departure",
       "functionCode": "Scheduled",
+      "scheduleRule": "before-start",
+      "scheduleDaysBefore": 5,
       "fromEmail": "{{ORG_EMAIL}}",
       "toAddress": "{{PARTICIPANT_EMAIL}}",
       "subject": "Getting ready for {{TRIP_NAME}}",

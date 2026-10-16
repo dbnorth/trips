@@ -962,6 +962,26 @@ const ensureEmailTemplateToAddress = async () => {
   }
 };
 
+const ensureEmailTemplateSchedule = async () => {
+  const columns = [
+    ["scheduleRule", "VARCHAR(20) NULL"],
+    ["scheduleDaysBefore", "INT NULL"],
+  ];
+  for (const [name, definition] of columns) {
+    const [cols] = await db.sequelize.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'emailTemplates'
+         AND COLUMN_NAME = :name`,
+      { replacements: { name } }
+    );
+    if (!cols.length) {
+      await db.sequelize.query(`ALTER TABLE emailTemplates ADD COLUMN ${name} ${definition}`);
+      logger.info(`emailTemplates.${name} column added.`);
+    }
+  }
+};
+
 const ensureEmailTokens = async () => {
   const [tables] = await db.sequelize.query(
     `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -1146,6 +1166,7 @@ export const ensureSchema = async () => {
   await ensureEmailTypes();
   await ensureEmailTokens();
   await ensureEmailTemplateToAddress();
+  await ensureEmailTemplateSchedule();
   await ensureTripPrimaryLeader();
   await ensureTripFlightSegmentCabinAndSeat();
   await ensureOrganizationWebsiteUrl();
