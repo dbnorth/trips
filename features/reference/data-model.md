@@ -44,7 +44,7 @@ Notes:
 | `emailTemplate` | 10, 39, 41, 42 | Email templates |
 | `emailType` | 39 | Email type catalog |
 | `emailToken` | 40 | Email template token catalog |
-| `emailLog` | 1, 43 | Login / email audit (no associations) |
+| `emailLog` | 1, 43, 45 | Login / email audit; template sends record template, trip, and participant |
 | `scheduledEmailSend` | 44 | One row per scheduled template, trip, participant, and job date handled |
 
 ---
@@ -590,7 +590,7 @@ Seeded global catalog. No org column.
 
 ---
 
-## `emailLog` — Features 1, 43
+## `emailLog` — Features 1, 43, 45
 
 | Field | Type | Rules |
 |-------|------|--------|
@@ -601,8 +601,11 @@ Seeded global catalog. No org column.
 | subject | STRING(500) | |
 | content | TEXT | For template sends, the plain-text body |
 | emailId | STRING(255) | For template sends, the mail server message ID (smtp mode) or the file name (file mode) |
+| emailTemplateId | INTEGER | optional; FK → emailTemplate (SET NULL). For template sends, the template sent (Feature 45) |
+| tripId | INTEGER | optional; FK → trip (SET NULL). For template sends, the trip (Feature 45) |
+| personId | INTEGER | optional; FK → person (SET NULL). For template sends, the participant (Feature 45) |
 
-**Associations:** none. No CRUD API. Feature 43 adds one row per template email sent; failed and skipped sends add no row.
+**Associations:** `belongsTo` emailTemplate, trip, person (all optional; deleting them keeps the row). No CRUD API. Feature 43 adds one row per template email sent; failed and skipped sends add no row. Sign-in rows (subject **Login**) leave the Feature 45 columns empty.
 
 ---
 
@@ -643,4 +646,5 @@ workerRole ──N:1── documentType (optional)
 organization ──1:N── emailTemplate ──N:1── trip (optional)
 emailType ──1:N── emailTemplate
 emailTemplate ──1:N── scheduledEmailSend ──N:1── trip / person / emailLog (optional)
+emailLog ──N:1── emailTemplate / trip / person (all optional)
 ```

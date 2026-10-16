@@ -975,6 +975,32 @@ const ensureEmailLogToEmailLength = async () => {
   }
 };
 
+const ensureEmailLogSource = async () => {
+  const columns = [
+    ["emailTemplateId", "emailTemplates"],
+    ["tripId", "trips"],
+    ["personId", "people"],
+  ];
+  for (const [name, table] of columns) {
+    const [cols] = await db.sequelize.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'emailLogs'
+         AND COLUMN_NAME = :name`,
+      { replacements: { name } }
+    );
+    if (cols.length) continue;
+    await db.sequelize.query(`ALTER TABLE emailLogs ADD COLUMN ${name} INT NULL`);
+    await db.sequelize.query(
+      `ALTER TABLE emailLogs
+       ADD CONSTRAINT emailLogs_${name}_fk
+       FOREIGN KEY (${name}) REFERENCES ${table}(id)
+       ON DELETE SET NULL ON UPDATE CASCADE`
+    );
+    logger.info(`emailLogs.${name} column added.`);
+  }
+};
+
 const ensureScheduledEmailSendsTable = async () => {
   const [tables] = await db.sequelize.query(
     `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -1223,6 +1249,7 @@ export const ensureSchema = async () => {
   await ensureEmailTemplateToAddress();
   await ensureEmailTemplateSchedule();
   await ensureEmailLogToEmailLength();
+  await ensureEmailLogSource();
   await ensureScheduledEmailSendsTable();
   await ensureTripPrimaryLeader();
   await ensureTripFlightSegmentCabinAndSeat();

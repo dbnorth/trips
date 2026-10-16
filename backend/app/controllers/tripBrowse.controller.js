@@ -18,6 +18,7 @@ import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../
 import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import { withCapacityFields } from "../utils/tripRoleCapacity.js";
+import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 import {
   cancelApplicationAssignment,
   uncancelApplicationAssignment,
@@ -699,6 +700,7 @@ exports.applyToTrip = async (req, res) => {
     });
 
     await syncTripPeopleRoleOptions(link.id, travelOptions, selectedTravelOptionIds);
+    await sendApplicationEventEmails(link, null);
 
     const participantOrgRole = await Role.findOne({ where: { roleName: ROLE_TRIP_PARTICIPANT } });
     if (participantOrgRole) {
@@ -944,6 +946,7 @@ exports.updateApplication = async (req, res) => {
           ? assignment.medicalAgreementDate || medical.medicalAgreementDate
           : null;
 
+    const previousStatus = assignment.status;
     await assignment.update({
       tripWorkerRoleId,
       willSelfFund,
@@ -974,6 +977,7 @@ exports.updateApplication = async (req, res) => {
     });
 
     await syncTripPeopleRoleOptions(assignment.id, travelOptions, selectedTravelOptionIds);
+    await sendApplicationEventEmails(assignment, previousStatus);
 
     const full = await loadApplicationAssignment(trip.id, peopleId);
     const travelOptionsWithSelection = await loadTravelOptionsForApplication(trip.id, assignment.id);

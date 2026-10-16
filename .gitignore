@@ -8,6 +8,7 @@ backend/deploy/
 backend/logs/
 backend/uploads/
 backend/test-mail/
+backend/test-mail-test/
 backend/images/**
 !backend/images/**/
 !backend/images/**/.gitkeep

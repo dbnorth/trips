@@ -214,18 +214,18 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `GET` | `/trips/trips/browse/mine` | auth | My trips |
 | `GET` | `/trips/trips/browse` | auth | Active trips (`?orgId=`) |
 | `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreements/options |
-| `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance; `isPregnant` / `pregnancyDueDate` on assignment) |
+| `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance; `isPregnant` / `pregnancyDueDate` on assignment); sends `application-started` / `application-submitted` event emails — Feature 45 |
 | `GET` | `/trips/trips/browse/:id/application` | auth | Own application |
-| `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields) |
+| `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields); sends `application-submitted` event emails — Feature 45 |
 | `POST` | `/trips/trips/browse/:id/application/cancel` | auth | Applicant cancel own application (`incomplete`/`applied`/`approved` → `cancelled`) |
 | `POST` | `/trips/trips/browse/:id/application/uncancel` | auth | Applicant uncancel → auto `incomplete`/`applied`; fails if role full |
 | `GET` | `/trips/trip-people-roles` | auth | Roster (`?tripId=`) |
 | `GET` | `/trips/trips/:id/status` | auth | Trip Status board — Feature 28 (also listed under Trips catalog) |
 | `GET` | `/trips/trip-people-roles/:id` | auth | One assignment |
-| `POST` | `/trips/trip-people-roles` | auth | Staff add participant |
+| `POST` | `/trips/trip-people-roles` | auth | Staff add participant; sends application event emails for Trip Participants — Feature 45 |
 | `POST` | `/trips/trip-people-roles/:id/cancel` | auth | Staff cancel (`incomplete`/`applied`/`approved`) |
 | `POST` | `/trips/trip-people-roles/:id/uncancel` | auth | Staff uncancel → auto `incomplete`/`applied`; fails if role full |
-| `PUT` | `/trips/trip-people-roles/:id` | auth | Update / approve / decline |
+| `PUT` | `/trips/trip-people-roles/:id` | auth | Update / approve / decline; sends `application-submitted` / `application-approved` event emails for Trip Participants — Feature 45 |
 | `DELETE` | `/trips/trip-people-roles/:id` | auth | Delete |
 | `GET` | `/trips/export/trips/:tripId/participants.csv` | auth | Participants CSV; **Preferred Name** column after **Last Name** (Feature 33) |
 
@@ -238,7 +238,7 @@ Browse/apply UI is blocked for system admins (router); see `behavior.md`.
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | `GET` | `/trips/donations` | auth | List (`?tripId=` required); participants see own rows only |
-| `POST` | `/trips/donations` | auth | Staff create (nested `donor` / `donorId`) |
+| `POST` | `/trips/donations` | auth | Staff create (nested `donor` / `donorId`); sends donation event emails — Feature 45 |
 | `PUT` | `/trips/donations/:id` | auth | Update |
 | `DELETE` | `/trips/donations/:id` | auth | Delete |
 | `GET` | `/trips/donors/lookup` | auth | Lookup `?email=` |
@@ -262,7 +262,7 @@ No auth. Slugs: spaces → `_`.
 | `GET` | `/trips/public/trips/by-name/:tripSlug/overview` | none | Overview + roles needed |
 | `GET` | `/trips/public/trips/:tripId/participants/:personId` | none | Participant donate data |
 | `GET` | `/trips/public/trips/by-name/:tripSlug/participants/:personSlug` | none | Same by slug |
-| `POST` | `/trips/public/donations` | none | Public donation (`tripId`, `amount`, `donor`, optional `personId`) |
+| `POST` | `/trips/public/donations` | none | Public donation (`tripId`, `amount`, `donor`, optional `personId`); sends donation event emails — Feature 45 |
 
 ---
 
@@ -314,6 +314,6 @@ Duplicate `tokenCode`, a token code outside capital letters / digits / underscor
 | Model | How accessed |
 |-------|----------------|
 | `tripPeopleRoleOption` | Nested via browse apply / TPR application payloads |
-| `emailLog` | Written by auth/login paths; no CRUD API |
+| `emailLog` | Written by auth/login paths and every template email sent (with template, trip, and participant — Feature 45); no CRUD API |
 
 Deep payload/Gherkin detail remains in each `features/feature-N-*.md`.

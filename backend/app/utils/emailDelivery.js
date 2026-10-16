@@ -88,6 +88,9 @@ export const sendTemplateEmail = async ({ template, tripId, personId }) => {
     subject: message.subject,
     content: message.text,
     emailId,
+    emailTemplateId: template.id,
+    tripId,
+    personId,
   });
   return { status: "sent", emailLogId: log.id };
 };

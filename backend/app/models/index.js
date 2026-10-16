@@ -129,6 +129,12 @@ db.person.hasMany(db.scheduledEmailSend, { foreignKey: "personId", onDelete: "CA
 db.scheduledEmailSend.belongsTo(db.person, { foreignKey: "personId", onDelete: "CASCADE" });
 db.emailLog.hasMany(db.scheduledEmailSend, { foreignKey: "emailLogId", onDelete: "SET NULL" });
 db.scheduledEmailSend.belongsTo(db.emailLog, { foreignKey: "emailLogId", onDelete: "SET NULL" });
+db.emailTemplate.hasMany(db.emailLog, { foreignKey: "emailTemplateId", onDelete: "SET NULL" });
+db.emailLog.belongsTo(db.emailTemplate, { foreignKey: "emailTemplateId", onDelete: "SET NULL" });
+db.trip.hasMany(db.emailLog, { foreignKey: "tripId", onDelete: "SET NULL" });
+db.emailLog.belongsTo(db.trip, { foreignKey: "tripId", onDelete: "SET NULL" });
+db.person.hasMany(db.emailLog, { foreignKey: "personId", onDelete: "SET NULL" });
+db.emailLog.belongsTo(db.person, { foreignKey: "personId", onDelete: "SET NULL" });
 
 db.organization.hasMany(db.workerRole, { foreignKey: "orgId", onDelete: "CASCADE" });
 db.workerRole.belongsTo(db.organization, {
