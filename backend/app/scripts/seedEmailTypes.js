@@ -12,6 +12,7 @@ const emailTypes = [
   { typeCode: "payment-complete", description: "Trip fully paid", eventCode: "payment-complete" },
   { typeCode: "donation-received", description: "Donation received", eventCode: "donation-received" },
   { typeCode: "pre-departure", description: "Pre-departure information", eventCode: "pre-departure" },
+  { typeCode: "team-update", description: "Trip team update", eventCode: "team-email" },
 ];
 
 const run = async () => {

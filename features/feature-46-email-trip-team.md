@@ -88,6 +88,7 @@
 - **FR-011**: **Send** MUST first open a confirmation (`ConfirmDialog`) titled "Are you sure?" with the message "Send this email to N participants?" ("1 participant" when N is 1), where N is the recipient count, and buttons **Send** and **Cancel**. **Cancel** closes the confirmation and sends nothing. Confirming MUST send the email to every recipient through the email service (Feature 43). One recipient failing or being skipped MUST NOT stop the others. Each email sent is logged with its template, trip, and participant (Feature 45 **FR-012**), and with the subject and body as sent (dialog edits and tokens filled).
 - **FR-012**: After sending, the dialog MUST show how many emails were sent, skipped, and failed, and list each skipped or failed participant with the reason.
 - **FR-013**: **Preview** and **Send** MUST be disabled until a template is chosen, **Subject** and **Email body** are not empty, and there is at least one recipient. The server MUST reject the same cases with `400`: no template, a template that is not a **Trip Participant** template of the trip or its organization, empty subject or body, an unknown **Send to** choice, no recipients, or a selected person who is not a potential participant on the trip.
+- **FR-014**: The email type seed (`seedEmailTypes.js`) MUST add the email type `team-update` with description **Trip team update** and event code `team-email`, for **Trip Participant** templates. `team-email` is not an event code the app sends automatically. An existing `team-update` type is left unchanged.
 
 ---
 
@@ -115,6 +116,7 @@
 - **SC-002**: Each recipient gets an email filled with their own details.
 - **SC-003**: Every email sent appears in the email log with its template, trip, and participant.
 - **SC-004**: Automated tests for the scenarios below pass.
+- **SC-005**: After `npm run seed`, the **Trip team update** email type exists and can be chosen for a **Trip Participant** template.
 
 ---
 
@@ -333,6 +335,7 @@ Do not implement behavior not in this spec.
 *   [x] **Send to** choices and recipient rules (**FR-008**, **FR-009**)
 *   [x] Preview (**FR-010**)
 *   [x] Send with "Are you sure?" confirmation and recipient count, results summary, and validation (**FR-011**–**FR-013**)
+*   [x] `team-update` email type in the seed (**FR-014**)
 *   [x] Automated tests for every Gherkin scenario
 *   [x] Living reference updated in this PR
 *   [x] `npm test` green
