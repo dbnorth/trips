@@ -3,6 +3,7 @@ import trips from "../controllers/trip.controller.js";
 import tripBrowse from "../controllers/tripBrowse.controller.js";
 import tripRooming from "../controllers/tripRooming.controller.js";
 import tripFlight from "../controllers/tripFlight.controller.js";
+import tripTeamEmail from "../controllers/tripTeamEmail.controller.js";
 import authenticate from "../authorization/accessControl.js";
 import { uploadTripImage } from "../config/multer.js";
 
@@ -44,6 +45,9 @@ router.put(
   [authenticate],
   tripFlight.replaceSegments
 );
+router.get("/:id/team-email/templates", [authenticate], tripTeamEmail.findTemplates);
+router.post("/:id/team-email/preview", [authenticate], tripTeamEmail.preview);
+router.post("/:id/team-email", [authenticate], tripTeamEmail.send);
 router.get("/:id", [authenticate], trips.findOne);
 router.post("/", [authenticate], trips.create);
 router.post("/:id/copy", [authenticate], trips.copy);

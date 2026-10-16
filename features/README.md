@@ -63,8 +63,9 @@ These `feature-*.md` files are a **reverse-spec** of the imported Mission Trips 
 | 43 | [feature-43-email-delivery.md](./feature-43-email-delivery.md) | `feature/43-email-delivery` | 40, 41 |
 | 44 | [feature-44-daily-scheduled-emails.md](./feature-44-daily-scheduled-emails.md) | `feature/44-daily-scheduled-emails` | 39, 42, 43 |
 | 45 | [feature-45-send-now-event-emails.md](./feature-45-send-now-event-emails.md) | `feature/45-send-now-event-emails` | 7, 8, 39, 43 |
+| 46 | [feature-46-email-trip-team.md](./feature-46-email-trip-team.md) | `feature/46-email-trip-team` | 7, 39, 42, 43, 45 |
 
-Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37 → 38 → 39 → 40 → 41 → 42/43 → 44 → 45).
+Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37 → 38 → 39 → 40 → 41 → 42/43 → 44 → 45 → 46).
 
 New features: follow [framework.md](./framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, Gherkin, **Agent implementation request**, **Definition of Done**.
 

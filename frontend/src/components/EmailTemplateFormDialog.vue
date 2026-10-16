@@ -11,7 +11,9 @@ import Utils from "../config/utils.js";
 const FUNCTION_CODE_ITEMS = [
   { title: "Scheduled", value: "Scheduled" },
   { title: "Send Now", value: "Send Now" },
+  { title: "Trip Participant", value: "Trip Participant" },
 ];
+const FUNCTION_CODES = FUNCTION_CODE_ITEMS.map((item) => item.value);
 
 const SCHEDULE_ITEMS = [
   { title: "Daily", value: "daily" },
@@ -134,8 +136,7 @@ const functionCodeHint = computed(() => {
   return "Copy from a global master template for this function code";
 });
 
-const normalizeFunctionCode = (code) =>
-  code === "Scheduled" || code === "Send Now" ? code : null;
+const normalizeFunctionCode = (code) => (FUNCTION_CODES.includes(code) ? code : null);
 
 const loadOrganizations = async () => {
   if (!isSystemAdminUser.value) {
@@ -381,7 +382,7 @@ const save = async () => {
     formError.value = "Email type is required.";
     return;
   }
-  if (form.value.functionCode !== "Scheduled" && form.value.functionCode !== "Send Now") {
+  if (!FUNCTION_CODES.includes(form.value.functionCode)) {
     formError.value = "Function code is required.";
     return;
   }

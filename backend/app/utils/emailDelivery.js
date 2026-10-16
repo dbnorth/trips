@@ -55,24 +55,49 @@ const deliver = async (settings, message) => {
 };
 
 /**
+ * The email one template sends to one trip participant, with tokens filled in.
+ * `toEmail`, `subject`, and `emailBody` replace the template's when given.
+ * Returns `{ message }`, or `{ reason }` when there is no recipient or sender.
+ */
+export const buildTemplateMessage = async ({
+  template,
+  tripId,
+  personId,
+  toEmail,
+  subject,
+  emailBody,
+}) => {
+  const values = await buildTokenValues({ orgId: template.orgId, tripId, personId });
+  const to =
+    toEmail !== undefined
+      ? String(toEmail ?? "").trim()
+      : substituteRecipients(template.toAddress, values);
+  if (!to) return { reason: "No recipients." };
+  const templateFrom = substituteTokens(template.fromEmail, values).trim();
+  if (!templateFrom) return { reason: "No sender." };
+
+  const { sender } = readSettings();
+  const message = {
+    from: sender || templateFrom,
+    to,
+    subject: substituteTokens(subject ?? template.subject, values),
+    text: substituteTokens(emailBody ?? template.emailBody, values),
+  };
+  if (sender) message.replyTo = templateFrom;
+  return { message };
+};
+
+/**
  * Send one template to one trip participant with tokens filled in, and record it in `emailLog`.
+ * Takes the same options as `buildTemplateMessage`.
  * Returns `{ status: "sent", emailLogId }`, `{ status: "skipped", reason }`, or `{ status: "failed", reason }`.
  */
-export const sendTemplateEmail = async ({ template, tripId, personId }) => {
-  const values = await buildTokenValues({ orgId: template.orgId, tripId, personId });
-  const to = substituteRecipients(template.toAddress, values);
-  if (!to) return { status: "skipped", reason: "No recipients." };
-  const templateFrom = substituteTokens(template.fromEmail, values).trim();
-  if (!templateFrom) return { status: "skipped", reason: "No sender." };
-
+export const sendTemplateEmail = async (options) => {
+  const { template, tripId, personId } = options;
+  const { message, reason } = await buildTemplateMessage(options);
+  if (!message) return { status: "skipped", reason };
+  const { to } = message;
   const settings = readSettings();
-  const message = {
-    from: settings.sender || templateFrom,
-    to,
-    subject: substituteTokens(template.subject, values),
-    text: substituteTokens(template.emailBody, values),
-  };
-  if (settings.sender) message.replyTo = templateFrom;
 
   let emailId;
   try {

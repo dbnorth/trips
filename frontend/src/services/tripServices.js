@@ -55,6 +55,15 @@ export default {
   updateFlightSegments(tripId, tripPeopleRoleId, data) {
     return apiClient.put(`/trips/${tripId}/flights/${tripPeopleRoleId}/segments`, data);
   },
+  getTeamEmailTemplates(id) {
+    return apiClient.get(`/trips/${id}/team-email/templates`);
+  },
+  previewTeamEmail(id, data) {
+    return apiClient.post(`/trips/${id}/team-email/preview`, data);
+  },
+  sendTeamEmail(id, data) {
+    return apiClient.post(`/trips/${id}/team-email`, data);
+  },
   create(data) {
     return apiClient.post("/trips", data);
   },
