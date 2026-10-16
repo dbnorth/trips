@@ -15,6 +15,7 @@ import EmailTemplate from "./emailTemplate.model.js";
 import EmailType from "./emailType.model.js";
 import EmailToken from "./emailToken.model.js";
 import EmailLog from "./emailLog.model.js";
+import ScheduledEmailSend from "./scheduledEmailSend.model.js";
 import WorkerRole from "./workerRole.model.js";
 import TripWorkerRole from "./tripWorkerRole.model.js";
 import TripTravelOption from "./tripTravelOption.model.js";
@@ -53,6 +54,7 @@ db.emailTemplate = EmailTemplate;
 db.emailType = EmailType;
 db.emailToken = EmailToken;
 db.emailLog = EmailLog;
+db.scheduledEmailSend = ScheduledEmailSend;
 db.workerRole = WorkerRole;
 db.tripWorkerRole = TripWorkerRole;
 db.tripTravelOption = TripTravelOption;
@@ -118,6 +120,15 @@ db.trip.hasMany(db.emailTemplate, { foreignKey: "tripId", onDelete: "CASCADE" })
 db.emailTemplate.belongsTo(db.trip, { foreignKey: "tripId", onDelete: "CASCADE" });
 db.emailType.hasMany(db.emailTemplate, { foreignKey: "emailTypeId", onDelete: "RESTRICT" });
 db.emailTemplate.belongsTo(db.emailType, { foreignKey: "emailTypeId", onDelete: "RESTRICT" });
+
+db.emailTemplate.hasMany(db.scheduledEmailSend, { foreignKey: "emailTemplateId", onDelete: "CASCADE" });
+db.scheduledEmailSend.belongsTo(db.emailTemplate, { foreignKey: "emailTemplateId", onDelete: "CASCADE" });
+db.trip.hasMany(db.scheduledEmailSend, { foreignKey: "tripId", onDelete: "CASCADE" });
+db.scheduledEmailSend.belongsTo(db.trip, { foreignKey: "tripId", onDelete: "CASCADE" });
+db.person.hasMany(db.scheduledEmailSend, { foreignKey: "personId", onDelete: "CASCADE" });
+db.scheduledEmailSend.belongsTo(db.person, { foreignKey: "personId", onDelete: "CASCADE" });
+db.emailLog.hasMany(db.scheduledEmailSend, { foreignKey: "emailLogId", onDelete: "SET NULL" });
+db.scheduledEmailSend.belongsTo(db.emailLog, { foreignKey: "emailLogId", onDelete: "SET NULL" });
 
 db.organization.hasMany(db.workerRole, { foreignKey: "orgId", onDelete: "CASCADE" });
 db.workerRole.belongsTo(db.organization, {

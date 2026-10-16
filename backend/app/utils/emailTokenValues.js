@@ -103,6 +103,25 @@ const loadPrimaryLeader = async (tripId) => {
 };
 
 /**
+ * Amount a participant has raised for a trip, and what they still owe (`null` when the cost is unknown).
+ * The assignment's participant cost overrides the trip's.
+ */
+export const participantAmounts = async (trip, personId, assignment) => {
+  const raised = Number(
+    (await db.tripDonation.sum("amount", { where: { tripId: trip.id, personId } })) || 0
+  );
+  const costRaw =
+    assignment?.participantCost != null && assignment.participantCost !== ""
+      ? assignment.participantCost
+      : trip.participantCost;
+  const owed =
+    costRaw != null && costRaw !== "" && !Number.isNaN(Number(costRaw))
+      ? Math.max(0, Number(costRaw) - raised)
+      : null;
+  return { raised, owed };
+};
+
+/**
  * Build the value for every value source from an organization and an optional trip and participant.
  * Missing data yields empty text.
  */
@@ -119,17 +138,9 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
       where: { tripId: trip.id, peopleId: person.id },
       order: [["id", "ASC"]],
     });
-    const raised = Number(
-      (await db.tripDonation.sum("amount", { where: { tripId: trip.id, personId: person.id } })) || 0
-    );
+    const { raised, owed } = await participantAmounts(trip, person.id, assignment);
     amountRaised = formatMoney(raised);
-    const costRaw =
-      assignment?.participantCost != null && assignment.participantCost !== ""
-        ? assignment.participantCost
-        : trip.participantCost;
-    if (costRaw != null && costRaw !== "" && !Number.isNaN(Number(costRaw))) {
-      amountOwed = formatMoney(Math.max(0, Number(costRaw) - raised));
-    }
+    if (owed != null) amountOwed = formatMoney(owed);
   }
 
   return {
