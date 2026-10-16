@@ -302,7 +302,7 @@ Duplicate `typeCode`, a blank required field, or deleting a type a template stil
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | `GET` | `/trips/email-tokens` | System Admin, Org Admin, or Trip Leader | List (`id`, `tokenCode`, `description`, `valueSource`) ordered by token code |
-| `GET` | `/trips/email-tokens/value-sources` | System Admin | Fixed value sources `[{ valueSource, label }]` |
+| `GET` | `/trips/email-tokens/value-sources` | System Admin | Fixed value sources `[{ valueSource, label }]`; includes `participant.tripRole` "Participant trip role" (Feature 48) |
 | `GET` | `/trips/email-tokens/:id` | System Admin | Get one |
 | `POST` | `/trips/email-tokens` | System Admin | Create `{ tokenCode, description, valueSource }` |
 | `PUT` | `/trips/email-tokens/:id` | System Admin | Update |

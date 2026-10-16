@@ -19,6 +19,7 @@ const tokens = [
   { tokenCode: "PARTICIPANT_EMAIL", valueSource: "participant.email" },
   { tokenCode: "PARTICIPANT_AMOUNT_RAISED", valueSource: "participant.amountRaised" },
   { tokenCode: "PARTICIPANT_AMOUNT_OWED", valueSource: "participant.amountOwed" },
+  { tokenCode: "PARTICIPANT_TRIP_ROLE", valueSource: "participant.tripRole" },
   { tokenCode: "LEADER_FIRST_NAME", valueSource: "primaryLeader.firstName" },
   { tokenCode: "LEADER_LAST_NAME", valueSource: "primaryLeader.lastName" },
   { tokenCode: "LEADER_PREFERRED_NAME", valueSource: "primaryLeader.preferredName" },
