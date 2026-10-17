@@ -2,7 +2,7 @@
 
 **Feature ID:** 51
 **Branch pattern:** `feature/51-sender-via-mission-trips`
-**Status:** Ready
+**Status:** Implemented
 **Created:** 2026-10-16
 **Input:** The mail server may only send from our verified domain, so every email must go out from `notifications@missiontrips.app` with a display name that says who it is from, and replies must go to the real sender. Pattern: From `"John Doe via Mission Trips" <notifications@missiontrips.app>`, Reply-To `john.doe@gmail.com`.
 **Depends on:** [Feature 40 — Email Template Tokens](feature-40-email-template-tokens.md), [Feature 41 — Email Template To Address](feature-41-email-template-to-address.md), [Feature 43 — Email Delivery](feature-43-email-delivery.md), [Feature 46 — Email Trip Team](feature-46-email-trip-team.md)
@@ -175,12 +175,12 @@ Do not implement behavior not in this spec.
 
 ## Definition of Done
 
-*   [ ] Every email From `"<sender name> via Mission Trips" <notifications@missiontrips.app>` with Reply-To the filled template From (**FR-001**–**FR-005**)
-*   [ ] File, smtp, email log, and team email Preview use the new From (**FR-006**, **FR-007**)
-*   [ ] `EMAIL_SENDER` removed from code, `backend/.env.example`, and the deploy workflow (**FR-008**)
-*   [ ] Automated tests for every Gherkin scenario; existing tests updated
-*   [ ] Living reference updated in this PR
-*   [ ] `npm test` green in backend
+*   [x] Every email From `"<sender name> via Mission Trips" <notifications@missiontrips.app>` with Reply-To the filled template From (**FR-001**–**FR-005**)
+*   [x] File, smtp, email log, and team email Preview use the new From (**FR-006**, **FR-007**)
+*   [x] `EMAIL_SENDER` removed from code, `backend/.env.example`, and the deploy workflow (**FR-008**)
+*   [x] Automated tests for every Gherkin scenario; existing tests updated
+*   [x] Living reference updated in this PR
+*   [x] `npm test` green in backend
 *   [ ] On `feature/51-sender-via-mission-trips`; PR → `dev`
 
 ---
