@@ -7,6 +7,7 @@ import {
 } from "../authorization/accessControl.js";
 import { TRIP_ROOM_TYPES } from "../models/tripRoom.model.js";
 import { buildRoomListData, renderRoomListPdf } from "../utils/roomListPdf.js";
+import { sendPdf } from "../utils/pdf.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
@@ -223,14 +224,7 @@ exports.roomingPdf = async (req, res) => {
 
     const data = await buildRoomListData(tripId);
     if (!data) return res.status(404).send({ message: "Trip not found." });
-    const pdf = await renderRoomListPdf(data);
-    const filename = `Room List - ${data.trip.name}.pdf`;
-    const asciiFilename = filename.replace(/[^\x20-\x7e]|["\\]/g, "");
-    res.set({
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
-    });
-    res.send(pdf);
+    sendPdf(res, await renderRoomListPdf(data), `Room List - ${data.trip.name}.pdf`);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

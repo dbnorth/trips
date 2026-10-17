@@ -45,4 +45,11 @@ export default {
       "Unable to download room list PDF."
     );
   },
+  flightsPdf(tripId, tripName) {
+    return downloadFile(
+      `trips/${tripId}/flights/pdf`,
+      `Flights - ${tripName}.pdf`,
+      "Unable to download flights PDF."
+    );
+  },
 };

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
+import ExportServices from "../services/exportServices.js";
 import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 
@@ -17,6 +18,7 @@ const trip = ref(null);
 const participants = ref([]);
 const loading = ref(false);
 const savingId = ref(null);
+const downloadingPdf = ref(false);
 const message = ref("");
 const error = ref("");
 const showSegments = ref(false);
@@ -118,6 +120,18 @@ const saveRow = async (row) => {
   }
 };
 
+const downloadPdf = async () => {
+  downloadingPdf.value = true;
+  error.value = "";
+  try {
+    await ExportServices.flightsPdf(resolvedTripId.value, trip.value.name);
+  } catch (err) {
+    error.value = err.message || "Unable to download flights PDF.";
+  } finally {
+    downloadingPdf.value = false;
+  }
+};
+
 const openSegments = (row) => {
   segmentsParticipant.value = row;
   showSegments.value = true;
@@ -146,6 +160,15 @@ onMounted(load);
         <v-btn variant="text" @click="router.push({ name: 'trips' })">Back to trips</v-btn>
         <h1 class="text-h5">{{ pageTitle }}</h1>
       </div>
+      <v-btn
+        variant="tonal"
+        color="primary"
+        :loading="downloadingPdf"
+        :disabled="loading || !trip"
+        @click="downloadPdf"
+      >
+        Flights PDF
+      </v-btn>
     </div>
 
     <v-progress-linear v-if="loading" indeterminate class="mb-4" />
