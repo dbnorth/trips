@@ -18,7 +18,6 @@ const EMAIL_KEYS = [
   "SMTP_SECURE",
   "SMTP_USER",
   "SMTP_PASSWORD",
-  "EMAIL_SENDER",
 ];
 
 const addToken = (tokenCode, valueSource) =>
@@ -113,7 +112,7 @@ describe("Feature 43 — Email Delivery", () => {
 
       const log = await db.emailLog.findByPk(result.emailLogId);
       expect(log.toEmail).toBe("ana@example.org");
-      expect(log.fromEmail).toBe("office@example.org");
+      expect(log.fromEmail).toBe('"Delivery Org via Mission Trips" <notifications@missiontrips.app>');
       expect(log.subject).toBe("Welcome Ana");
       expect(log.content).toBe("See you in Guatemala Clinic.");
       expect(log.emailId).toBe(mailFiles()[0]);
@@ -179,7 +178,8 @@ describe("Feature 43 — Email Delivery", () => {
       const lines = readOnlyMailFile().split("\n");
       expect(lines[0]).toMatch(/^Date: /);
       expect(lines.slice(1)).toEqual([
-        "From: office@example.org",
+        'From: "Delivery Org via Mission Trips" <notifications@missiontrips.app>',
+        "Reply-To: office@example.org",
         "To: ana@example.org",
         "Subject: Welcome Ana",
         "",
@@ -225,23 +225,6 @@ describe("Feature 43 — Email Delivery", () => {
       expect(mailFiles()).toHaveLength(0);
       const log = await db.emailLog.findByPk(result.emailLogId);
       expect(log.emailId).toBe("<abc@localhost>");
-    });
-
-    it("Sender setting sends from the app address with Reply-To", async () => {
-      const { org, trip, person } = await createTripParticipant();
-      process.env.EMAIL_SENDER = "trips@example.org";
-
-      const result = await sendTemplateEmail({
-        template: templateFor(org, { fromEmail: "office@example.org" }),
-        tripId: trip.id,
-        personId: person.id,
-      });
-
-      const file = readOnlyMailFile();
-      expect(file).toContain("From: trips@example.org\n");
-      expect(file).toContain("Reply-To: office@example.org\n");
-      const log = await db.emailLog.findByPk(result.emailLogId);
-      expect(log.fromEmail).toBe("trips@example.org");
     });
   });
 });
