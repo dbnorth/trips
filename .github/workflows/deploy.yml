@@ -53,15 +53,15 @@ jobs:
       PORT: ${{ secrets.PORT }}
       NODE_ENV: production
       SEQUELIZE_SYNC_ALTER: ${{ secrets.SEQUELIZE_SYNC_ALTER }}
-      EMAIL_MODE: ${{ vars.EMAIL_MODE }}
-      EMAIL_FILE_DIR: ${{ vars.EMAIL_FILE_DIR }}
-      SMTP_HOST: ${{ vars.SMTP_HOST }}
-      SMTP_PORT: ${{ vars.SMTP_PORT }}
-      SMTP_SECURE: ${{ vars.SMTP_SECURE }}
+      EMAIL_MODE: ${{ secrets.EMAIL_MODE }}
+      EMAIL_FILE_DIR: ${{ secrets.EMAIL_FILE_DIR }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-      SMTP_PASSWORD_SECRET_ID: ${{ vars.SMTP_PASSWORD_SECRET_ID }}
-      SCHEDULED_EMAIL_TIMEZONE: ${{ vars.SCHEDULED_EMAIL_TIMEZONE }}
+      SMTP_PASSWORD_SECRET_ID: ${{ secrets.SMTP_PASSWORD_SECRET_ID }}
+      SCHEDULED_EMAIL_TIMEZONE: ${{ secrets.SCHEDULED_EMAIL_TIMEZONE }}
 
     defaults:
       run:
