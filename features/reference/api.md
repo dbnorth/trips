@@ -134,6 +134,7 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 | `GET` | `/trips/trips/:id/status` | auth | Trip Status board (Trip Leader / Org Admin / System Admin): trip summary, roles with capacity counts, travel-option columns, participants with status / missing items / owed / raised / selected options — Feature 28 |
 | `GET` | `/trips/trips/:id/rooming` | auth | Rooming list load (staff): trip summary, hotel header, rooms, participant assignment grid + roommate prefs — Feature 29 |
 | `PUT` | `/trips/trips/:id/rooming` | auth | Upsert rooming hotel header + rooms/assignments from participant grid — Feature 29 |
+| `GET` | `/trips/trips/:id/rooming/pdf` | auth | Room list PDF (same staff access as rooming; else `403`/`404`): `application/pdf`, `Content-Disposition: attachment; filename="Room List - <trip name>.pdf"` — Feature 54 |
 | `GET` | `/trips/trips/:id/flights` | auth | Participant flights board (staff) — Feature 30 |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId` | auth | Upsert flight header (purchased, cost, comments) — Feature 30 |
 | `GET` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | List flight segments — Feature 30 |
