@@ -32,6 +32,7 @@ router.post("/browse/:id/application/uncancel", [authenticate], tripBrowse.uncan
 router.get("/", [authenticate], trips.findAll);
 router.get("/:id/status", [authenticate], trips.findStatus);
 router.get("/:id/rooming", [authenticate], tripRooming.findRooming);
+router.get("/:id/rooming/pdf", [authenticate], tripRooming.roomingPdf);
 router.put("/:id/rooming", [authenticate], tripRooming.updateRooming);
 router.get("/:id/flights", [authenticate], tripFlight.findFlights);
 router.put("/:id/flights/:tripPeopleRoleId", [authenticate], tripFlight.updateFlightHeader);

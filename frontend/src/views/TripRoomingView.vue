@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
+import ExportServices from "../services/exportServices.js";
 
 const ROOM_TYPES = ["King", "Double", "Triple"];
 
@@ -21,6 +22,7 @@ const notes = ref("");
 const participants = ref([]);
 const loading = ref(false);
 const saving = ref(false);
+const downloadingPdf = ref(false);
 const message = ref("");
 const error = ref("");
 
@@ -110,6 +112,18 @@ const save = async () => {
   }
 };
 
+const downloadPdf = async () => {
+  downloadingPdf.value = true;
+  error.value = "";
+  try {
+    await ExportServices.roomListPdf(resolvedTripId.value, trip.value.name);
+  } catch (err) {
+    error.value = err.message || "Unable to download room list PDF.";
+  } finally {
+    downloadingPdf.value = false;
+  }
+};
+
 watch(resolvedTripId, () => {
   load();
 });
@@ -124,9 +138,20 @@ onMounted(load);
         <v-btn variant="text" @click="router.push({ name: 'trips' })">Back to trips</v-btn>
         <h1 class="text-h5">{{ pageTitle }}</h1>
       </div>
-      <v-btn color="primary" :loading="saving" :disabled="loading || !trip" @click="save">
-        Save
-      </v-btn>
+      <div class="d-flex ga-2">
+        <v-btn
+          variant="tonal"
+          color="primary"
+          :loading="downloadingPdf"
+          :disabled="loading || !trip"
+          @click="downloadPdf"
+        >
+          Room list PDF
+        </v-btn>
+        <v-btn color="primary" :loading="saving" :disabled="loading || !trip" @click="save">
+          Save
+        </v-btn>
+      </div>
     </div>
 
     <v-progress-linear v-if="loading" indeterminate class="mb-4" />

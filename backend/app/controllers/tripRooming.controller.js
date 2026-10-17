@@ -6,6 +6,7 @@ import {
   isTripLeaderForTrip,
 } from "../authorization/accessControl.js";
 import { TRIP_ROOM_TYPES } from "../models/tripRoom.model.js";
+import { buildRoomListData, renderRoomListPdf } from "../utils/roomListPdf.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
@@ -209,6 +210,27 @@ exports.findRooming = async (req, res) => {
     const payload = await buildRoomingPayload(tripId);
     if (!payload) return res.status(404).send({ message: "Trip not found." });
     res.send(payload);
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.roomingPdf = async (req, res) => {
+  try {
+    const tripId = req.params.id;
+    const manage = await canManageTripRooming(req, tripId);
+    if (!manage.ok) return forbid(res, manage);
+
+    const data = await buildRoomListData(tripId);
+    if (!data) return res.status(404).send({ message: "Trip not found." });
+    const pdf = await renderRoomListPdf(data);
+    const filename = `Room List - ${data.trip.name}.pdf`;
+    const asciiFilename = filename.replace(/[^\x20-\x7e]|["\\]/g, "");
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    });
+    res.send(pdf);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

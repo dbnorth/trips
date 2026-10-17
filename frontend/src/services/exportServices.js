@@ -1,7 +1,7 @@
 import apiClient, { getBaseUrl } from "./services.js";
 import Utils from "../config/utils.js";
 
-const downloadCsv = async (path, filename) => {
+const downloadFile = async (path, filename, errorMessage = "Unable to download CSV.") => {
   const user = Utils.getStore("user");
   const headers = { Authorization: `Bearer ${user?.token}` };
   const orgId = Utils.effectiveOrgId(user);
@@ -10,7 +10,7 @@ const downloadCsv = async (path, filename) => {
   }
   const res = await fetch(`${getBaseUrl()}${path}`, { headers });
   if (!res.ok) {
-    let message = "Unable to download CSV.";
+    let message = errorMessage;
     try {
       const data = await res.json();
       if (data?.message) message = data.message;
@@ -30,12 +30,19 @@ const downloadCsv = async (path, filename) => {
 
 export default {
   participantsCsv(tripId) {
-    return downloadCsv(`export/trips/${tripId}/participants.csv`, `participants-${tripId}.csv`);
+    return downloadFile(`export/trips/${tripId}/participants.csv`, `participants-${tripId}.csv`);
   },
   donorsCsv(tripId) {
-    return downloadCsv(`export/trips/${tripId}/donors.csv`, `donors-${tripId}.csv`);
+    return downloadFile(`export/trips/${tripId}/donors.csv`, `donors-${tripId}.csv`);
   },
   donationsCsv(tripId) {
-    return downloadCsv(`export/trips/${tripId}/donations.csv`, `donations-${tripId}.csv`);
+    return downloadFile(`export/trips/${tripId}/donations.csv`, `donations-${tripId}.csv`);
+  },
+  roomListPdf(tripId, tripName) {
+    return downloadFile(
+      `trips/${tripId}/rooming/pdf`,
+      `Room List - ${tripName}.pdf`,
+      "Unable to download room list PDF."
+    );
   },
 };
