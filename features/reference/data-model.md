@@ -108,7 +108,7 @@ Notes:
 | bioText | TEXT | |
 | version | INTEGER | required, default `0` |
 
-**Associations:** `belongsTo` user; `hasMany` orgPeopleRole, tripPeopleRole, personDocument, personLanguage; `hasMany` tripDonation as participant.
+**Associations:** `belongsTo` user; `hasMany` orgPeopleRole, tripPeopleRole, personDocument, personLanguage; `hasMany` tripDonation as participant; `hasOne` donor as `donor` (Feature 53).
 
 ---
 
@@ -518,9 +518,10 @@ Seeded global catalog. No org column.
 | phoneNumber | STRING(30) | |
 | email | STRING | |
 | status | ENUM(`active`,`inactive`,`dontcontact`) | required, default `active` |
+| personId | INTEGER | optional FK → person, unique (`donors_personId_unique`), `ON DELETE SET NULL`; the person's linked donor (Feature 53) |
 | version | INTEGER | required, default `0` |
 
-**Associations:** `hasMany` tripDonation (SET NULL).
+**Associations:** `hasMany` tripDonation (SET NULL); `belongsTo` person as `person` (Feature 53).
 
 ---
 

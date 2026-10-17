@@ -1,14 +1,14 @@
 import db from "../models/index.js";
-import {
-  canAccessTrip,
-  isOrgAdminForOrg,
-  isSystemAdmin,
-  isTripLeaderForTrip,
-  isTripParticipantForTrip,
-} from "../authorization/accessControl.js";
+import { isTripParticipantForTrip } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import { normalizeEmail } from "../utils/userPerson.js";
 import { sendDonationEventEmails } from "../utils/eventEmails.js";
+import {
+  canManageDonations,
+  findDonatablePerson,
+  findOrCreateLinkedDonor,
+  isApprovedTripMember,
+} from "../utils/donorPerson.js";
 
 const TripDonation = db.tripDonation;
 const TripPeopleRole = db.tripPeopleRole;
@@ -70,11 +70,19 @@ const upsertDonor = async (donorBody, donorId) => {
   return Donor.create(payload);
 };
 
-const canManageDonations = async (req, tripId) => {
-  const access = await canAccessTrip(req, tripId);
-  if (!access.ok) return false;
-  if (isOrgAdminForOrg(req, access.trip.orgId) || isSystemAdmin(req)) return true;
-  return isTripLeaderForTrip(req, tripId);
+class PersonNotFoundError extends Error {}
+
+/** Staff save with `donor.personId` and no chosen donor: use or create the person's linked donor. */
+const linkedDonorForStaffSave = async (req, tripId, donorBody) => {
+  const person = await findDonatablePerson(req, tripId, { id: donorBody.personId });
+  if (!person) throw new PersonNotFoundError("Person not found.");
+  const payload = pickDonorPayload(donorBody);
+  const existing = await Donor.findOne({ where: { personId: person.id } });
+  if (existing) {
+    await existing.update(payload);
+    return existing;
+  }
+  return Donor.create({ ...payload, personId: person.id });
 };
 
 /** Approved participant or any active application assignment for this trip. */
@@ -139,10 +147,51 @@ exports.create = async (req, res) => {
       return res.status(403).send({ message: "Forbidden." });
     }
     const { donor, donorId, ...donationBody } = req.body;
-    const donorRecord = await upsertDonor(donor, donorId);
+    const donorRecord =
+      donor?.personId && !donorId
+        ? await linkedDonorForStaffSave(req, req.body.tripId, donor)
+        : await upsertDonor(donor, donorId);
     const data = await TripDonation.create({
       ...donationBody,
       donorId: donorRecord?.id ?? null,
+    });
+    await sendDonationEventEmails(data);
+    res.send(await loadDonation(data.id));
+  } catch (err) {
+    if (err instanceof PersonNotFoundError) return res.status(400).send({ message: err.message });
+    res.status(500).send({ message: err.message });
+  }
+};
+
+/** A person with an application on the trip donates toward an approved member (or themselves). */
+exports.createByParticipant = async (req, res) => {
+  try {
+    const { tripId, personId, amount, paymentInfo } = req.body;
+    if (!(await hasTripAssignment(req, tripId))) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+    const parsedAmount = Number(amount);
+    if (!amount || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).send({ message: "Donation amount is required." });
+    }
+    const recipientId = Number(personId);
+    const recipientApproved = recipientId ? await isApprovedTripMember(tripId, recipientId) : false;
+    if (recipientId === Number(req.user.personId) && !recipientApproved) {
+      return res
+        .status(403)
+        .send({ message: "You can donate to yourself only on trips where you are approved." });
+    }
+    if (!recipientApproved) {
+      return res.status(400).send({ message: "Choose a participant on this trip." });
+    }
+    const donorRecord = await findOrCreateLinkedDonor(req.user.personId);
+    const data = await TripDonation.create({
+      tripId,
+      personId: recipientId,
+      donorId: donorRecord.id,
+      amount: parsedAmount,
+      dateTime: new Date(),
+      paymentInfo: paymentInfo?.trim() || null,
     });
     await sendDonationEventEmails(data);
     res.send(await loadDonation(data.id));
@@ -159,13 +208,17 @@ exports.update = async (req, res) => {
       return res.status(403).send({ message: "Forbidden." });
     }
     const { donor, donorId, ...donationBody } = req.body;
-    if (donor || donorId) {
+    if (donor?.personId && !donorId) {
+      const donorRecord = await linkedDonorForStaffSave(req, row.tripId, donor);
+      donationBody.donorId = donorRecord.id;
+    } else if (donor || donorId) {
       await upsertDonor(donor, donorId || row.donorId);
     }
     const result = await optimisticUpdate(TripDonation, req.params.id, donationBody, fields);
     if (!result.ok) return res.status(result.status).send({ message: result.message });
     res.send(await loadDonation(req.params.id));
   } catch (err) {
+    if (err instanceof PersonNotFoundError) return res.status(400).send({ message: err.message });
     res.status(500).send({ message: err.message });
   }
 };

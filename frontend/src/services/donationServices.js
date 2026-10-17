@@ -7,6 +7,9 @@ export default {
   create(data) {
     return apiClient.post("/donations", data);
   },
+  createByParticipant(data) {
+    return apiClient.post("/donations/participant", data);
+  },
   update(id, data) {
     return apiClient.put(`/donations/${id}`, data);
   },

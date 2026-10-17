@@ -218,7 +218,7 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 | `GET` | `/trips/trips/browse/orgs` | auth | Browse orgs |
 | `GET` | `/trips/trips/browse/mine` | auth | My trips |
 | `GET` | `/trips/trips/browse` | auth | Active trips (`?orgId=`) |
-| `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreements/options |
+| `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreements/options; Feature 53 `myTripInfo.donationRecipients` `[{ personId, firstName, lastName }]` (approved Trip Participants and Trip Leaders) when the caller's application is incomplete/applied/approved, else `[]` |
 | `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance; `isPregnant` / `pregnancyDueDate` on assignment); sends `application-started` / `application-submitted` event emails — Feature 45 |
 | `GET` | `/trips/trips/browse/:id/application` | auth | Own application |
 | `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields); sends `application-submitted` event emails — Feature 45 |
@@ -243,12 +243,13 @@ Browse/apply UI is blocked for system admins (router); see `behavior.md`.
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | `GET` | `/trips/donations` | auth | List (`?tripId=` required); participants see own rows only |
-| `POST` | `/trips/donations` | auth | Staff create (nested `donor` / `donorId`); sends donation event emails — Feature 45 |
-| `PUT` | `/trips/donations/:id` | auth | Update |
+| `POST` | `/trips/donations` | auth | Staff create (nested `donor` / `donorId`); sends donation event emails — Feature 45. Feature 53: `donor.personId` with no `donorId` uses or creates that person's linked donor (person must be in the trip's organization, System Admin any) → otherwise `400` "Person not found." |
+| `POST` | `/trips/donations/participant` | auth | Feature 53. Body `{ tripId, personId, amount, paymentInfo }` (`personId` = recipient). Caller needs an incomplete/applied/approved application on the trip → else `403` "Forbidden."; amount above 0 → else `400` "Donation amount is required."; self only when approved → else `403` "You can donate to yourself only on trips where you are approved."; recipient must be an approved Trip Participant or Trip Leader → else `400` "Choose a participant on this trip." Uses the caller's linked donor (created from their person when missing), current date/time; sends donation event emails |
+| `PUT` | `/trips/donations/:id` | auth | Update; Feature 53 `donor.personId` as on create |
 | `DELETE` | `/trips/donations/:id` | auth | Delete |
-| `GET` | `/trips/donors/lookup` | auth | Lookup `?email=` |
+| `GET` | `/trips/donors/lookup` | auth | Lookup `?email=`; Feature 53 adds optional `tripId`. Donor by email → donor + `source: "donor"`. Otherwise, for staff who manage donations on `tripId`, a person with the email in the trip's organization (System Admin any): their linked donor (`source: "donor"`) or `{ id: null, personId, firstName, lastName, email, address, phone, status: "active", source: "person" }`. Else `404` "Donor not found." |
 | `GET` | `/trips/donors` | auth | List donors |
-| `POST` | `/trips/donors` | auth | Create donor |
+| `POST` | `/trips/donors` | auth | Create donor (`personId` ignored) |
 | `PUT` | `/trips/donors/:id` | auth | Update donor |
 | `GET` | `/trips/export/trips/:tripId/donors.csv` | auth | Donors CSV |
 | `GET` | `/trips/export/trips/:tripId/donations.csv` | auth | Donations CSV |
@@ -267,7 +268,7 @@ No auth. Slugs: spaces → `_`.
 | `GET` | `/trips/public/trips/by-name/:tripSlug/overview` | none | Overview + roles needed |
 | `GET` | `/trips/public/trips/:tripId/participants/:personId` | none | Participant donate data |
 | `GET` | `/trips/public/trips/by-name/:tripSlug/participants/:personSlug` | none | Same by slug |
-| `POST` | `/trips/public/donations` | none | Public donation (`tripId`, `amount`, `donor`, optional `personId`); sends donation event emails — Feature 45 |
+| `POST` | `/trips/public/donations` | optional | Public donation (`tripId`, `amount`, `donor`, optional `personId`); sends donation event emails — Feature 45. Feature 53: with a valid sign-in token the signed-in person's linked donor is used (created from the entered donor details when missing); naming yourself needs an approved assignment → else `403`. `donor.personId` / `donor.id` in the body are ignored |
 
 ---
 
