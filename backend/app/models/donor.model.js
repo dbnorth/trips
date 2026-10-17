@@ -15,6 +15,7 @@ const Donor = SequelizeInstance.define("donor", {
   phoneNumber: { type: Sequelize.STRING(30) },
   email: { type: Sequelize.STRING },
   status: { type: Sequelize.ENUM("active", "inactive", "dontcontact"), allowNull: false, defaultValue: "active" },
+  personId: { type: Sequelize.INTEGER, allowNull: true, unique: "donors_personId_unique" },
   version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
 });
 

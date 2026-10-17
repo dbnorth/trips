@@ -1,4 +1,5 @@
 import axios from "axios";
+import Utils from "../config/utils.js";
 
 const baseurl = import.meta.env.DEV ? "http://localhost:3200/trips/" : "/trips/";
 
@@ -20,6 +21,8 @@ export default {
     return publicClient.get(`/public/trips/by-name/${encodeURIComponent(tripSlug)}/overview`);
   },
   donate(data) {
-    return publicClient.post("/public/donations", data);
+    const token = Utils.getStore("user")?.token;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    return publicClient.post("/public/donations", data, { headers });
   },
 };

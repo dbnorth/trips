@@ -186,19 +186,17 @@ const loadAirfare = async (assignment) => {
 const loadDonationsBySource = async (tripId, person) => {
   const rows = await db.tripDonation.findAll({
     where: { tripId, personId: person.id },
-    include: [{ model: db.donor, as: "donor", attributes: ["email"] }],
+    include: [{ model: db.donor, as: "donor", attributes: ["personId"] }],
     order: [
       ["dateTime", "ASC"],
       ["id", "ASC"],
     ],
   });
-  const personEmail = text(person.email).trim().toLowerCase();
   const own = [];
   const others = [];
   for (const row of rows) {
-    const donorEmail = text(row.donor?.email).trim().toLowerCase();
     const entry = { date: localDate(row.dateTime), amount: Number(row.amount) || 0 };
-    (personEmail && donorEmail === personEmail ? own : others).push(entry);
+    (Number(row.donor?.personId) === Number(person.id) ? own : others).push(entry);
   }
   return { own, others };
 };

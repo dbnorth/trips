@@ -113,6 +113,8 @@ db.person.hasMany(db.tripDonation, { foreignKey: "personId", onDelete: "SET NULL
 db.tripDonation.belongsTo(db.person, { foreignKey: "personId", as: "participant", onDelete: "SET NULL" });
 db.donor.hasMany(db.tripDonation, { foreignKey: "donorId", onDelete: "SET NULL" });
 db.tripDonation.belongsTo(db.donor, { foreignKey: "donorId", as: "donor", onDelete: "SET NULL" });
+db.person.hasOne(db.donor, { foreignKey: "personId", as: "donor", onDelete: "SET NULL" });
+db.donor.belongsTo(db.person, { foreignKey: "personId", as: "person", onDelete: "SET NULL" });
 
 db.organization.hasMany(db.emailTemplate, { foreignKey: "orgId", onDelete: "CASCADE" });
 db.emailTemplate.belongsTo(db.organization, { foreignKey: "orgId", onDelete: "CASCADE" });

@@ -48,6 +48,7 @@ const emptyDonor = () => ({
   phoneContryCode: "",
   phoneNumber: "",
   status: "active",
+  personId: null,
   version: 0,
 });
 
@@ -190,10 +191,13 @@ const lookupDonor = () => {
   lookupBusy.value = true;
   formError.value = "";
   lookupNotice.value = "";
-  DonorServices.lookupByEmail(email)
+  DonorServices.lookupByEmail(email, resolvedTripId())
     .then((r) => {
       donor.value = { ...emptyDonor(), ...normalizeAddressFields(r.data) };
-      lookupNotice.value = "Donor found. Review and update details below if needed.";
+      lookupNotice.value =
+        r.data.source === "person"
+          ? "Person found. A donor will be added from their details."
+          : "Donor found. Review and update details below if needed.";
     })
     .catch((e) => {
       if (e.response?.status === 404) {
@@ -267,6 +271,7 @@ const save = async () => {
       phoneContryCode: donor.value.phoneContryCode?.trim() || null,
       phoneNumber: donor.value.phoneNumber?.trim() || null,
       status: donor.value.status || "active",
+      personId: donor.value.personId || null,
     },
   };
 

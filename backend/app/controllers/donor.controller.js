@@ -1,6 +1,7 @@
 import db from "../models/index.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import { normalizeEmail } from "../utils/userPerson.js";
+import { donorDetailsFromPerson, findDonatablePerson } from "../utils/donorPerson.js";
 
 const Donor = db.donor;
 const fields = [
@@ -36,8 +37,23 @@ exports.lookupByEmail = async (req, res) => {
     const donor = await Donor.findOne({
       where: db.sequelize.where(db.sequelize.fn("LOWER", db.sequelize.col("email")), emailNorm),
     });
-    if (!donor) return res.status(404).send({ message: "Donor not found." });
-    res.send(donor);
+    if (donor) return res.send({ ...donor.toJSON(), source: "donor" });
+
+    const person = await findDonatablePerson(
+      req,
+      req.query.tripId,
+      db.sequelize.where(db.sequelize.fn("LOWER", db.sequelize.col("email")), emailNorm)
+    );
+    if (!person) return res.status(404).send({ message: "Donor not found." });
+    const linked = await Donor.findOne({ where: { personId: person.id } });
+    if (linked) return res.send({ ...linked.toJSON(), source: "donor" });
+    res.send({
+      id: null,
+      personId: person.id,
+      ...donorDetailsFromPerson(person),
+      status: "active",
+      source: "person",
+    });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
@@ -45,7 +61,7 @@ exports.lookupByEmail = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const payload = { ...req.body };
+    const { personId: _personId, ...payload } = req.body;
     if (payload.email) payload.email = normalizeEmail(payload.email);
     const data = await Donor.create(payload);
     res.send(data);

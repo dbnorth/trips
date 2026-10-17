@@ -70,8 +70,9 @@ These `feature-*.md` files are a **reverse-spec** of the imported Mission Trips 
 | 50 | SMTP password read from AWS Secrets Manager (local agent) when `SMTP_PASSWORD_SECRET_ID` is set | [feature-50-aws-secrets-smtp-password.md](./feature-50-aws-secrets-smtp-password.md) | `feature/50-aws-secrets-smtp-password` | 43 |
 | 51 | All email From `"<sender> via Mission Trips" <notifications@missiontrips.app>`, Reply-To the template From; replaces `EMAIL_SENDER` | [feature-51-sender-via-mission-trips.md](./feature-51-sender-via-mission-trips.md) | `feature/51-sender-via-mission-trips` | 40, 41, 43, 46 |
 | 52 | Email tokens for a participant financial statement: trip cost, trip options, airfare, total, participant donations, trip donations, balance due | [feature-52-participant-financial-tokens.md](./feature-52-participant-financial-tokens.md) | `feature/52-participant-financial-tokens` | 6, 7, 8, 30, 40 |
+| 53 | Participants donate to themselves (when approved) and teammates; donors linked to a person; staff donor lookup falls back to a person; participant donations found by donor link | [feature-53-participant-donations.md](./feature-53-participant-donations.md) | `feature/53-participant-donations` | 7, 8, 9, 45, 52 |
 
-Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37 → 38 → 39 → 40 → 41 → 42/43 → 44 → 45 → 46 → 47 → 48 → 49 → 50 → 51 → 52).
+Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37 → 38 → 39 → 40 → 41 → 42/43 → 44 → 45 → 46 → 47 → 48 → 49 → 50 → 51 → 52 → 53).
 
 New features: follow [framework.md](./framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, Gherkin, **Agent implementation request**, **Definition of Done**. Give each catalog row a one-line **Summary** so agents can find features without opening every spec.
 

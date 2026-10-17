@@ -1,5 +1,6 @@
 import { Router } from "express";
 import dashboard from "../controllers/dashboard.controller.js";
+import { optionalAuthenticate } from "../authorization/accessControl.js";
 
 const router = Router();
 
@@ -9,6 +10,6 @@ router.get("/trips/by-name/:tripSlug", dashboard.getTripForDonorBySlug);
 router.get("/trips/:tripId/participants/:personId", dashboard.getParticipantForDonor);
 router.get("/trips/:tripId", dashboard.getTripForDonor);
 router.get("/orgs/by-name/:orgSlug", dashboard.getOrgTripsBySlug);
-router.post("/donations", dashboard.createPublicDonation);
+router.post("/donations", [optionalAuthenticate], dashboard.createPublicDonation);
 
 export default router;

@@ -1,8 +1,8 @@
 import apiClient from "./services.js";
 
 export default {
-  lookupByEmail(email) {
-    return apiClient.get("/donors/lookup", { params: { email } });
+  lookupByEmail(email, tripId = null) {
+    return apiClient.get("/donors/lookup", { params: { email, tripId } });
   },
   create(data) {
     return apiClient.post("/donors", data);

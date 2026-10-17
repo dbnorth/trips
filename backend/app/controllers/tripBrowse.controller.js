@@ -19,6 +19,7 @@ import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import { withCapacityFields } from "../utils/tripRoleCapacity.js";
 import { sendApplicationEventEmails } from "../utils/eventEmails.js";
+import { loadDonationRecipients } from "../utils/donorPerson.js";
 import {
   cancelApplicationAssignment,
   uncancelApplicationAssignment,
@@ -505,6 +506,9 @@ exports.getBrowseTrip = async (req, res) => {
               ? Number(trip.participantCost)
               : null,
         donationTotal: Number(donationTotal) || 0,
+        donationRecipients: ["incomplete", "applied", "approved"].includes(assignment.status)
+          ? await loadDonationRecipients(trip.id)
+          : [],
       };
     }
 

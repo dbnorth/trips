@@ -142,6 +142,26 @@ const ensureOrganizationTestMode = async () => {
   logger.info("organizations.testMode column added.");
 };
 
+const ensureDonorPersonId = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'donors'
+       AND COLUMN_NAME = 'personId'`
+  );
+  if (rows.length) return;
+
+  await db.sequelize.query("ALTER TABLE donors ADD COLUMN personId INT NULL AFTER status");
+  await db.sequelize.query("ALTER TABLE donors ADD UNIQUE INDEX donors_personId_unique (personId)");
+  await db.sequelize.query(
+    `ALTER TABLE donors
+     ADD CONSTRAINT donors_personId_fk
+     FOREIGN KEY (personId) REFERENCES people(id)
+     ON DELETE SET NULL ON UPDATE CASCADE`
+  );
+  logger.info("donors.personId column added (unique, ON DELETE SET NULL).");
+};
+
 const ensureTripPeopleRoleTripWorkerRoleId = async () => {
   const [rows] = await db.sequelize.query(
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -1273,6 +1293,7 @@ export const ensureSchema = async () => {
   await ensureOrganizationAgreementFileName();
   await ensureOrganizationMedicalAgreementFileName();
   await ensureOrganizationTestMode();
+  await ensureDonorPersonId();
   await ensureTripPeopleRoleTripWorkerRoleId();
   await ensurePersonProfileFields();
   await ensureTripPeopleRoleApplicationFields();

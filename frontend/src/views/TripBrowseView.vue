@@ -8,6 +8,7 @@ import Utils from "../config/utils.js";
 import DonorTripHeading from "../components/DonorTripHeading.vue";
 import ApplyTripDialog from "../components/ApplyTripDialog.vue";
 import ParticipantDonationsDialog from "../components/ParticipantDonationsDialog.vue";
+import ParticipantDonateDialog from "../components/ParticipantDonateDialog.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { storeAuthenticatedUser } from "../utils/authSession.js";
 import {
@@ -31,6 +32,7 @@ const message = ref("");
 const messageType = ref("info");
 const showApplyDialog = ref(false);
 const showDonationsDialog = ref(false);
+const showDonateDialog = ref(false);
 
 const canUpdateApplication = computed(
   () =>
@@ -58,6 +60,16 @@ const donationsParticipant = computed(() => {
 });
 
 const canViewDonations = computed(() => !!myTripInfo.value && !!donationsParticipant.value);
+
+const donationRecipients = computed(() => myTripInfo.value?.donationRecipients || []);
+
+const canDonate = computed(() => donationRecipients.value.length > 0);
+
+const onDonated = () => {
+  messageType.value = "success";
+  message.value = "Thank you for your donation!";
+  load();
+};
 
 const load = async () => {
   loading.value = true;
@@ -242,6 +254,9 @@ onMounted(load);
       <div class="d-flex align-center justify-space-between flex-wrap ga-2 mb-3">
         <h2 class="text-h6 mb-0">My Trip Info</h2>
         <div class="d-flex flex-wrap ga-2">
+          <v-btn v-if="canDonate" color="primary" variant="flat" @click="showDonateDialog = true">
+            Donate
+          </v-btn>
           <v-btn
             v-if="canViewDonations"
             color="primary"
@@ -304,6 +319,14 @@ onMounted(load);
       :trip-id="tripId"
       :participant="donationsParticipant"
       read-only
+    />
+    <ParticipantDonateDialog
+      v-if="canDonate"
+      v-model="showDonateDialog"
+      :trip-id="tripId"
+      :person-id="currentUser?.personId"
+      :recipients="donationRecipients"
+      @saved="onDonated"
     />
   </v-container>
 </template>

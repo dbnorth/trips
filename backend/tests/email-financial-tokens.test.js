@@ -73,11 +73,11 @@ describe("Feature 52 — Participant Financial Statement Email Tokens", () => {
     await db.tripFlight.create({ tripPeopleRoleId: assignment.id, cost });
   };
 
-  const addDonation = async (amount, dateTime, donorEmail) => {
+  const addDonation = async (amount, dateTime, donorEmail, donorPersonId = null) => {
     const donor =
       donorEmail === undefined
         ? null
-        : await db.donor.create({ firstName: "Donor", email: donorEmail });
+        : await db.donor.create({ firstName: "Donor", email: donorEmail, personId: donorPersonId });
     await db.tripDonation.create({
       tripId: trip.id,
       personId: ana.id,
@@ -150,7 +150,7 @@ describe("Feature 52 — Participant Financial Statement Email Tokens", () => {
     it("Participant donations and trip donations are listed separately", async () => {
       await addTokens(FINANCIAL_TOKENS);
       await addDonation(250, "2026-10-05T17:00:00Z", "mary@example.org");
-      await addDonation(300, "2026-10-01T17:00:00Z", "Ana@Example.org ");
+      await addDonation(300, "2026-10-01T17:00:00Z", "ana@example.org", ana.id);
       await addDonation(50, "2026-10-09T17:00:00Z", undefined);
 
       const values = await sendTokens([
@@ -165,6 +165,19 @@ describe("Feature 52 — Participant Financial Statement Email Tokens", () => {
         PARTICIPANT_DONATIONS_TOTAL: "$300.00",
         PARTICIPANT_TRIP_DONATIONS: "October 5, 2026: $250.00\nOctober 9, 2026: $50.00",
         PARTICIPANT_TRIP_DONATIONS_TOTAL: "$300.00",
+      });
+    });
+
+    it("Only the linked donor counts as a participant donation", async () => {
+      await addTokens(FINANCIAL_TOKENS);
+      await addDonation(300, "2026-10-01T17:00:00Z", "ana.linked@example.org", ana.id);
+      await addDonation(100, "2026-10-02T17:00:00Z", "ana@example.org");
+
+      const values = await sendTokens(["PARTICIPANT_DONATIONS", "PARTICIPANT_TRIP_DONATIONS"]);
+
+      expect(values).toEqual({
+        PARTICIPANT_DONATIONS: "October 1, 2026: $300.00",
+        PARTICIPANT_TRIP_DONATIONS: "October 2, 2026: $100.00",
       });
     });
 
