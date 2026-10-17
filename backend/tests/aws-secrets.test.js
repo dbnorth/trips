@@ -20,7 +20,6 @@ const ENV_KEYS = [
   "SMTP_PASSWORD",
   "SMTP_PASSWORD_SECRET_ID",
   "SECRETS_AGENT_TOKEN_FILE",
-  "EMAIL_SENDER",
 ];
 
 const SECRET_READ_FAILED = "Could not read the SMTP password from AWS Secrets Manager.";

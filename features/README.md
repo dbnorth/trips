@@ -68,8 +68,9 @@ These `feature-*.md` files are a **reverse-spec** of the imported Mission Trips 
 | 48 | Email token PARTICIPANT_TRIP_ROLE (participant's trip role name) | [feature-48-participant-trip-role-token.md](./feature-48-participant-trip-role-token.md) | `feature/48-participant-trip-role-token` | 6, 7, 40, 43 |
 | 49 | Organization test mode: all its emails go to the organization email, first line names the intended recipient | [feature-49-organization-email-test-mode.md](./feature-49-organization-email-test-mode.md) | `feature/49-organization-email-test-mode` | 3, 43, 44, 45, 46 |
 | 50 | SMTP password read from AWS Secrets Manager (local agent) when `SMTP_PASSWORD_SECRET_ID` is set | [feature-50-aws-secrets-smtp-password.md](./feature-50-aws-secrets-smtp-password.md) | `feature/50-aws-secrets-smtp-password` | 43 |
+| 51 | All email From `"<sender> via Mission Trips" <notifications@missiontrips.app>`, Reply-To the template From; replaces `EMAIL_SENDER` | [feature-51-sender-via-mission-trips.md](./feature-51-sender-via-mission-trips.md) | `feature/51-sender-via-mission-trips` | 40, 41, 43, 46 |
 
-Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37 → 38 → 39 → 40 → 41 → 42/43 → 44 → 45 → 46 → 47 → 48 → 49 → 50).
+Suggested reading order follows **Depends on** (1 → 2/3 → 4 → 5 → 6 → 7 → 8/9/10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37 → 38 → 39 → 40 → 41 → 42/43 → 44 → 45 → 46 → 47 → 48 → 49 → 50 → 51).
 
 New features: follow [framework.md](./framework.md#feature-spec-template) — **Status**, **Input**, **FR-00N**, **SC-00N**, **Key Entities**, Gherkin, **Agent implementation request**, **Definition of Done**. Give each catalog row a one-line **Summary** so agents can find features without opening every spec.
 

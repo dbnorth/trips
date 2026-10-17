@@ -36,7 +36,7 @@ export const EMAIL_VALUE_SOURCES = new Set([
 ]);
 
 const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const SINGLE_TOKEN_PATTERN = /^\{\{([A-Z][A-Z0-9_]*)\}\}$/;
+export const SINGLE_TOKEN_PATTERN = /^\{\{([A-Z][A-Z0-9_]*)\}\}$/;
 
 export const TOKEN_CODE_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 

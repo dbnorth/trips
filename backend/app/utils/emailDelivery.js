@@ -5,7 +5,13 @@ import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
 import db from "../models/index.js";
 import logger from "../config/logger.js";
-import { buildTokenValues, substituteRecipients, substituteTokens } from "./emailTokenValues.js";
+import {
+  SINGLE_TOKEN_PATTERN,
+  buildSourceValues,
+  buildTokenValues,
+  substituteRecipients,
+  substituteTokens,
+} from "./emailTokenValues.js";
 
 const backendDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -26,9 +32,50 @@ const readSettings = () => {
     password: env.SMTP_PASSWORD || "",
     passwordSecretId: (env.SMTP_PASSWORD_SECRET_ID || "").trim(),
     secretsTokenFile: (env.SECRETS_AGENT_TOKEN_FILE || "").trim() || "/var/run/awssmatoken",
-    sender: (env.EMAIL_SENDER || "").trim(),
   };
 };
+
+/** The mail server may only send from this verified address. */
+const SENDER_ADDRESS = "notifications@missiontrips.app";
+const SENDER_APP_NAME = "Mission Trips";
+
+const fullName = (firstName, lastName) =>
+  [firstName, lastName].map((part) => part.trim()).filter(Boolean).join(" ");
+
+/**
+ * Name of whoever owns the template's From email: the token's owner, or for a typed address
+ * the first of organization, primary trip leader, participant whose email matches. "" when none.
+ */
+const senderName = async ({ fromEntry, fromAddress, tripId, personId }) => {
+  const trip = await db.trip.findByPk(tripId, { attributes: ["orgId"] });
+  const values = await buildSourceValues({ orgId: trip?.orgId ?? null, tripId, personId });
+  const owners = [
+    { emailSource: "organization.email", name: values["organization.name"].trim() },
+    {
+      emailSource: "primaryLeader.email",
+      name: fullName(values["primaryLeader.firstName"], values["primaryLeader.lastName"]),
+    },
+    {
+      emailSource: "participant.email",
+      name: fullName(values["participant.firstName"], values["participant.lastName"]),
+    },
+  ];
+
+  const token = SINGLE_TOKEN_PATTERN.exec(fromEntry.trim());
+  if (token) {
+    const row = await db.emailToken.findOne({ where: { tokenCode: token[1] } });
+    return owners.find((owner) => owner.emailSource === row?.valueSource)?.name ?? "";
+  }
+  const address = fromAddress.toLowerCase();
+  return (
+    owners.find((owner) => values[owner.emailSource].trim().toLowerCase() === address)?.name ?? ""
+  );
+};
+
+const quoteDisplayName = (name) => `"${name.replace(/(["\\])/g, "\\$1")}"`;
+
+const senderFrom = (name) =>
+  `${quoteDisplayName(name ? `${name} via ${SENDER_APP_NAME}` : SENDER_APP_NAME)} <${SENDER_ADDRESS}>`;
 
 const SECRETS_AGENT_URL = "http://localhost:2773/secretsmanager/get";
 const SECRET_READ_FAILED = "Could not read the SMTP password from AWS Secrets Manager.";
@@ -106,14 +153,19 @@ export const buildTemplateMessage = async ({
   const templateFrom = substituteTokens(template.fromEmail, values).trim();
   if (!templateFrom) return { reason: "No sender." };
 
-  const { sender } = readSettings();
+  const name = await senderName({
+    fromEntry: template.fromEmail,
+    fromAddress: templateFrom,
+    tripId,
+    personId,
+  });
   const message = {
-    from: sender || templateFrom,
+    from: senderFrom(name),
+    replyTo: templateFrom,
     to,
     subject: substituteTokens(subject ?? template.subject, values),
     text: substituteTokens(emailBody ?? template.emailBody, values),
   };
-  if (sender) message.replyTo = templateFrom;
   return { message };
 };
 

@@ -14,7 +14,7 @@ import { syncTestDatabase, resetTestDatabase, findRole } from "./helpers.js";
 const TUESDAY = "2026-11-03";
 const WEDNESDAY = "2026-11-04";
 
-const EMAIL_KEYS = ["EMAIL_MODE", "EMAIL_FILE_DIR", "EMAIL_SENDER", "SMTP_HOST", "SMTP_PORT"];
+const EMAIL_KEYS = ["EMAIL_MODE", "EMAIL_FILE_DIR", "SMTP_HOST", "SMTP_PORT"];
 
 describe("Feature 44 — Daily Scheduled Emails", () => {
   let savedEnv;
