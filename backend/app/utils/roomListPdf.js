@@ -1,25 +1,16 @@
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-import PDFDocument from "pdfkit";
 import db from "../models/index.js";
 import { formatDate } from "./emailTokenValues.js";
-
-const IMAGES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../images");
-const PDF_LOGO_EXTENSIONS = [".png", ".jpg", ".jpeg"];
-
-/** Absolute path of the organization logo when it is a PNG or JPEG file that exists. */
-const logoFilePath = (logo) => {
-  if (!logo || !PDF_LOGO_EXTENSIONS.includes(path.extname(logo).toLowerCase())) return null;
-  const file = path.join(IMAGES_DIR, logo);
-  if (!file.startsWith(IMAGES_DIR + path.sep)) return null;
-  return fs.existsSync(file) ? file : null;
-};
-
-const BLANK = "—";
-const orBlank = (value) => (value == null || String(value).trim() === "" ? BLANK : String(value));
-const joinParts = (parts, separator) =>
-  parts.map((part) => (part == null ? "" : String(part).trim())).filter(Boolean).join(separator);
+import {
+  orBlank,
+  joinParts,
+  organizationHeader,
+  formatFlightDateTime,
+  drawOrganizationHeader,
+  drawInfoBlock,
+  rowHeight,
+  drawRow,
+  renderPdf,
+} from "./pdf.js";
 
 const compareRoomNumbers = (a, b) =>
   String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
@@ -42,31 +33,12 @@ const loadPassports = async (personIds) => {
   return byPerson;
 };
 
-/** "15:45" → "3:45 PM"; values that are not HH:MM are returned as entered. */
-const formatTime12 = (value) => {
-  const match = /^(\d{1,2}):(\d{2})/.exec(String(value || "").trim());
-  if (!match) return String(value || "").trim();
-  const hours = Number(match[1]);
-  return `${hours % 12 || 12}:${match[2]} ${hours < 12 ? "AM" : "PM"}`;
-};
-
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-/** "2027-01-02" → "Saturday 01/02/2027". */
-const formatWeekdayDate = (value) => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ""));
-  if (!match) return "";
-  const [, year, month, day] = match;
-  const weekday = WEEKDAYS[new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))).getUTCDay()];
-  return `${weekday} ${month}/${day}/${year}`;
-};
-
 /** Arrival date and time of the last Arrival segment, e.g. "Saturday 01/02/2027 3:45 PM". */
 const flightArrival = (flight) => {
   const segments = flight?.segments || [];
   if (!segments.length) return "";
   const last = segments.reduce((a, b) => (b.segmentNumber > a.segmentNumber ? b : a));
-  return joinParts([formatWeekdayDate(last.arrivalDate), formatTime12(last.arrivalTime)], " ");
+  return formatFlightDateTime(last.arrivalDate, last.arrivalTime);
 };
 
 /** Trip info, hotel info, and room assignment rows ordered by room number, then last and first name. */
@@ -136,10 +108,7 @@ export const buildRoomListData = async (tripId) => {
   const passports = await loadPassports([...new Set(assigned.map(({ person }) => person.id))]);
 
   return {
-    organization: {
-      name: orBlank(trip.organization?.name),
-      logoFile: logoFilePath(trip.organization?.logo),
-    },
+    organization: organizationHeader(trip.organization),
     trip: {
       name: orBlank(trip.name),
       location: orBlank(joinParts([trip.location, trip.city, trip.country], ", ")),
@@ -176,75 +145,10 @@ const COLUMNS = [
   { key: "flightArrival", label: "Flight arrival", width: 145 },
   { key: "email", label: "Email", width: 135 },
 ];
-const CELL_PADDING = 4;
-
-const drawInfoBlock = (doc, heading, lines) => {
-  doc.font("Helvetica-Bold").fontSize(12).text(heading);
-  doc.moveDown(0.2);
-  for (const [label, value] of lines) {
-    doc.font("Helvetica-Bold").fontSize(10).text(`${label}: `, { continued: true });
-    doc.font("Helvetica").text(value);
-  }
-  doc.moveDown(0.8);
-};
-
-const LOGO_SIZE = 48;
-
-const drawOrganizationHeader = (doc, organization) => {
-  const left = doc.page.margins.left;
-  const top = doc.page.margins.top;
-  let nameX = left;
-  if (organization.logoFile) {
-    try {
-      doc.image(organization.logoFile, left, top, { fit: [LOGO_SIZE, LOGO_SIZE], valign: "center" });
-      nameX = left + LOGO_SIZE + 12;
-    } catch {
-      nameX = left;
-    }
-  }
-  doc.font("Helvetica-Bold").fontSize(16);
-  const nameHeight = doc.heightOfString(organization.name, { width: 500 });
-  doc.text(organization.name, nameX, top + Math.max(0, (LOGO_SIZE - nameHeight) / 2), { width: 500 });
-  doc.x = left;
-  doc.y = top + LOGO_SIZE + 12;
-};
-
-const rowHeight = (doc, values) =>
-  Math.max(
-    ...COLUMNS.map((column, index) =>
-      doc.heightOfString(values[index], { width: column.width - CELL_PADDING * 2 })
-    )
-  ) +
-  CELL_PADDING * 2;
-
-const drawRow = (doc, values, y, { bold = false } = {}) => {
-  doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(9);
-  const height = rowHeight(doc, values);
-  let x = doc.page.margins.left;
-  for (const [index, column] of COLUMNS.entries()) {
-    doc.text(values[index], x + CELL_PADDING, y + CELL_PADDING, {
-      width: column.width - CELL_PADDING * 2,
-    });
-    x += column.width;
-  }
-  doc
-    .moveTo(doc.page.margins.left, y + height)
-    .lineTo(x, y + height)
-    .lineWidth(0.5)
-    .strokeColor("#999999")
-    .stroke();
-  return y + height;
-};
 
 /** Render the room list data as a PDF and resolve with its bytes. */
 export const renderRoomListPdf = (data) =>
-  new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "LETTER", layout: "landscape", margin: 36 });
-    const chunks = [];
-    doc.on("data", (chunk) => chunks.push(chunk));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
-
+  renderPdf((doc) => {
     drawOrganizationHeader(doc, data.organization);
     doc.font("Helvetica-Bold").fontSize(18).text("Room List");
     doc.moveDown(0.6);
@@ -264,21 +168,19 @@ export const renderRoomListPdf = (data) =>
 
     if (!data.rows.length) {
       doc.font("Helvetica").fontSize(10).text("No room assignments.");
-      doc.end();
       return;
     }
 
     const headerValues = COLUMNS.map((column) => column.label);
     const bottom = doc.page.height - doc.page.margins.bottom;
-    let y = drawRow(doc, headerValues, doc.y, { bold: true });
+    let y = drawRow(doc, COLUMNS, headerValues, doc.y, { bold: true });
     for (const row of data.rows) {
       const values = COLUMNS.map((column) => String(row[column.key] ?? ""));
       doc.font("Helvetica").fontSize(9);
-      if (y + rowHeight(doc, values) > bottom) {
+      if (y + rowHeight(doc, COLUMNS, values) > bottom) {
         doc.addPage();
-        y = drawRow(doc, headerValues, doc.page.margins.top, { bold: true });
+        y = drawRow(doc, COLUMNS, headerValues, doc.page.margins.top, { bold: true });
       }
-      y = drawRow(doc, values, y);
+      y = drawRow(doc, COLUMNS, values, y);
     }
-    doc.end();
   });

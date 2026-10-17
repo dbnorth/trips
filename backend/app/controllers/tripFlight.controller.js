@@ -6,6 +6,8 @@ import {
   isTripLeaderForTrip,
 } from "../authorization/accessControl.js";
 import { flightPurchaseInclude } from "../utils/flightPurchaseFields.js";
+import { buildFlightsData, renderFlightsPdf } from "../utils/flightsPdf.js";
+import { sendPdf } from "../utils/pdf.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
@@ -271,6 +273,20 @@ exports.findFlights = async (req, res) => {
       },
       participants,
     });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.flightsPdf = async (req, res) => {
+  try {
+    const tripId = req.params.id;
+    const manage = await canManageTripFlights(req, tripId);
+    if (!manage.ok) return forbid(res, manage);
+
+    const data = await buildFlightsData(tripId);
+    if (!data) return res.status(404).send({ message: "Trip not found." });
+    sendPdf(res, await renderFlightsPdf(data), `Flights - ${data.trip.name}.pdf`);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

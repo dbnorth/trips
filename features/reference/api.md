@@ -27,7 +27,7 @@
 | `/users`, `/roles`, `/people`, `/org-people-roles` | 2, **11** (all-orgs people list) |
 | `/organizations` | 3 |
 | `/document-types`, `/people/:id/documents` | 4 |
-| `/trips` CRUD + image, `/dashboard/*` | 5, **28** (trip status board), **29** (rooming), **30** (flights) |
+| `/trips` CRUD + image, `/dashboard/*` | 5, **28** (trip status board), **29** (rooming), **30** (flights), **54** (room list PDF), **55** (flights PDF) |
 | `/worker-roles`, `/trip-worker-roles`, `/trip-travel-options` | 6 |
 | `/medical-conditions` | 17 |
 | `/languages` | 31 |
@@ -136,6 +136,7 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 | `PUT` | `/trips/trips/:id/rooming` | auth | Upsert rooming hotel header + rooms/assignments from participant grid — Feature 29 |
 | `GET` | `/trips/trips/:id/rooming/pdf` | auth | Room list PDF (same staff access as rooming; else `403`/`404`): `application/pdf`, `Content-Disposition: attachment; filename="Room List - <trip name>.pdf"` — Feature 54 |
 | `GET` | `/trips/trips/:id/flights` | auth | Participant flights board (staff) — Feature 30 |
+| `GET` | `/trips/trips/:id/flights/pdf` | auth | Flights PDF (same staff access as flights; else `403`/`404`): `application/pdf`, `Content-Disposition: attachment; filename="Flights - <trip name>.pdf"` — Feature 55 |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId` | auth | Upsert flight header (purchased, cost, comments) — Feature 30 |
 | `GET` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | List flight segments — Feature 30 |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | Replace flight segments — Feature 30 |
