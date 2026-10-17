@@ -60,7 +60,7 @@ jobs:
       SMTP_SECURE: ${{ vars.SMTP_SECURE }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-      EMAIL_SENDER: ${{ vars.EMAIL_SENDER }}
+      SMTP_PASSWORD_SECRET_ID: ${{ vars.SMTP_PASSWORD_SECRET_ID }}
       SCHEDULED_EMAIL_TIMEZONE: ${{ vars.SCHEDULED_EMAIL_TIMEZONE }}
 
     defaults:
@@ -100,7 +100,7 @@ jobs:
           printf 'SMTP_SECURE=%s\n' "$SMTP_SECURE" >> .env
           printf 'SMTP_USER=%s\n' "$SMTP_USER" >> .env
           printf 'SMTP_PASSWORD=%s\n' "$SMTP_PASSWORD" >> .env
-          printf 'EMAIL_SENDER=%s\n' "$EMAIL_SENDER" >> .env
+          printf 'SMTP_PASSWORD_SECRET_ID=%s\n' "$SMTP_PASSWORD_SECRET_ID" >> .env
           printf 'SCHEDULED_EMAIL_TIMEZONE=%s\n' "$SCHEDULED_EMAIL_TIMEZONE" >> .env
           # Confirm key is present without printing the secret value
           grep -q '^DB_PW=.\+' .env || { echo "::error::DB_PW line missing or empty in .env"; exit 1; }

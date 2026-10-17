@@ -304,7 +304,8 @@ describe("Feature 46 — Email Trip Team", () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toMatchObject({
-        from: "office@example.org",
+        from: '"Admin Org via Mission Trips" <notifications@missiontrips.app>',
+        replyTo: "office@example.org",
         to: "pat@example.org",
         subject: "Hello Pat",
         body: "See you soon, Pat.",
