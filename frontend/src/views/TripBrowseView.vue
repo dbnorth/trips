@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import PersonServices from "../services/personServices.js";
@@ -9,7 +9,11 @@ import DonorTripHeading from "../components/DonorTripHeading.vue";
 import ApplyTripDialog from "../components/ApplyTripDialog.vue";
 import ParticipantDonationsDialog from "../components/ParticipantDonationsDialog.vue";
 import ParticipantDonateDialog from "../components/ParticipantDonateDialog.vue";
+import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
+import MyTripNextActions from "../components/MyTripNextActions.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
+import { hasApplicationAction } from "../utils/myTripNextActions.js";
 import { storeAuthenticatedUser } from "../utils/authSession.js";
 import {
   tripParticipantStatusLabel,
@@ -33,6 +37,15 @@ const messageType = ref("info");
 const showApplyDialog = ref(false);
 const showDonationsDialog = ref(false);
 const showDonateDialog = ref(false);
+const showFlightsDialog = ref(false);
+const showConfirmCancelApp = ref(false);
+const cancelAppSaving = ref(false);
+
+const nextActions = computed(() => myTripInfo.value?.nextActions || []);
+
+const showHeaderUpdateApp = computed(
+  () => canUpdateApplication.value && !hasApplicationAction(nextActions.value)
+);
 
 const canUpdateApplication = computed(
   () =>
@@ -129,6 +142,31 @@ const onApplicationSaved = async () => {
   await refreshSession();
   load();
 };
+
+watch(showApplyDialog, (open) => {
+  if (!open) load();
+});
+
+const confirmCancelApplication = async () => {
+  cancelAppSaving.value = true;
+  try {
+    await TripServices.cancelApplication(props.tripId);
+    showConfirmCancelApp.value = false;
+    await load();
+    messageType.value = "success";
+    message.value = "Application cancelled.";
+  } catch (e) {
+    showConfirmCancelApp.value = false;
+    messageType.value = "error";
+    message.value = e.response?.data?.message || "Unable to cancel application.";
+  } finally {
+    cancelAppSaving.value = false;
+  }
+};
+
+const participantName = computed(() =>
+  [currentUser.value?.firstName, currentUser.value?.lastName].filter(Boolean).join(" ")
+);
 
 const leaderPictureUrl = (leader) => PersonServices.getPictureUrl(leader?.picture);
 
@@ -268,7 +306,7 @@ onMounted(load);
             View donations
           </v-btn>
           <v-btn
-            v-if="canUpdateApplication"
+            v-if="showHeaderUpdateApp"
             color="primary"
             variant="tonal"
             @click="openUpdateApplication"
@@ -277,6 +315,15 @@ onMounted(load);
           </v-btn>
         </div>
       </div>
+      <MyTripNextActions
+        v-if="nextActions.length"
+        class="mb-3"
+        :actions="nextActions"
+        @update="openUpdateApplication"
+        @cancel="showConfirmCancelApp = true"
+        @donate="showDonateDialog = true"
+        @flights="showFlightsDialog = true"
+      />
       <v-row dense>
         <v-col cols="12" sm="6" md="3">
           <div class="text-caption text-medium-emphasis">Status</div>
@@ -329,6 +376,25 @@ onMounted(load);
       :person-id="currentUser?.personId"
       :recipients="donationRecipients"
       @saved="onDonated"
+    />
+    <FlightSegmentsDialog
+      v-if="myTripInfo?.tripPeopleRoleId"
+      v-model="showFlightsDialog"
+      :trip-id="tripId"
+      :trip-people-role-id="myTripInfo.tripPeopleRoleId"
+      :participant-name="participantName"
+      :trip-start-date="trip?.startDate || ''"
+      :trip-end-date="trip?.endDate || ''"
+      @saved="load"
+    />
+    <ConfirmDialog
+      v-model="showConfirmCancelApp"
+      title="Are you sure?"
+      message="Cancel this application? Your role slot will be freed."
+      confirm-text="Cancel App"
+      confirm-color="error"
+      :loading="cancelAppSaving"
+      @confirm="confirmCancelApplication"
     />
   </v-container>
 </template>

@@ -523,6 +523,8 @@ exports.getBrowseTrip = async (req, res) => {
         donationRecipients: ["incomplete", "applied", "approved"].includes(assignment.status)
           ? await loadDonationRecipients(trip.id)
           : [],
+        tripPeopleRoleId: assignment.id,
+        nextActions: await loadMyTripNextActions(assignment, trip),
       };
     }
 

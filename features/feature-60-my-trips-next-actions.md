@@ -86,6 +86,7 @@
 - **FR-017**: The next-actions row MUST be highlighted by what it asks: **orange** for "Waiting on approval.", **yellow** when the participant must act (complete or submit application, deposit, donation, flights), and **green** for "You are all ready for the trip.".
 - **FR-018**: An **incomplete** application with nothing missing — no missing documents (**FR-005**) and no other missing item on the Trip Status board checklist (Feature 28: profile, role, funding, flight preferences, travel options, agreements, pregnancy) — MUST show "Submit your application." (`submit-application`) instead of **FR-004**, with **Submit App** (opens the existing application dialog, where **Submit Application** shows) and **Cancel App**. The trip's own row hides **Update App** and **Cancel App** as in **FR-004**.
 - **FR-019**: Closing the application dialog opened from Home (saved or not) MUST reload **My Trips**, so documents uploaded from inside it update the next actions.
+- **FR-020**: The trip page (`/browse-trips/:tripId`, opened by **View** from My Trips) MUST show the same next actions in its **My Trip Info** card — same rules, texts, buttons, and highlight (**FR-001**–**FR-018**). While complete- or submit-application shows, the card's own **Update App** MUST be hidden. **Cancel App** opens the existing cancel confirmation. After donating, saving flights, cancelling, or closing the application dialog, the page MUST reload.
 
 ---
 
@@ -143,6 +144,7 @@
 | Method | Endpoint | Auth | Change |
 |--------|----------|------|--------|
 | `GET` | `/trips/trips/browse/mine` | auth | Each trip adds `tripPeopleRoleId` and `nextActions` (**FR-015**) |
+| `GET` | `/trips/trips/browse/:id` | auth | `myTripInfo` adds `tripPeopleRoleId` and `nextActions` (**FR-020**) |
 | `GET` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | Also allowed for the assignment's own participant when its flight purchase option is `self`; else `403` (**FR-014**) |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | Same as GET; same validation as staff (**FR-014**) |
 
@@ -162,6 +164,8 @@
 | UI | Change |
 |----|--------|
 | `Home` — **My Trips** table | A next-actions row under each upcoming trip with actions: one line per action (text from **FR-004**–**FR-012**, **FR-016**) with its buttons (**FR-002**), highlighted orange / yellow / green (**FR-017**); the trip row hides **Update App** / **Cancel App** while the complete-application action shows them (**FR-004**) |
+| `TripBrowseView` — **My Trip Info** card | The same next actions, buttons, and highlight; header **Update App** hidden while complete/submit application shows (**FR-020**) |
+| `MyTripNextActions` (new component) | Shared next-actions box (lines, buttons, highlight) used by Home and the trip page |
 | `ApplyTripDialog` / `ConfirmDialog` | Reused for **Update App** / **Cancel App** (**FR-004**) |
 | `ParticipantDonateDialog` | Reused for **Donate**; recipients loaded from the trip's **My Trip Info** (**FR-011**) |
 | `FlightSegmentsDialog` | Reused for **Enter Flights** on the participant's own assignment (**FR-013**) |
@@ -194,6 +198,17 @@ No schema changes. Uses `tripPeopleRole` (`status`, `flightPurchaseOption`, `par
 * **When** I open the home page
 * **Then** the row under that trip shows "Waiting on approval."
 * **And** a trip with no next actions has no next-actions row
+
+#### Scenario: Trip page returns my next actions
+* **Given** I have an applied application on an upcoming trip
+* **When** I open that trip's page
+* **Then** `myTripInfo.nextActions` is `[{ code: "wait-approval" }]` and `myTripInfo.tripPeopleRoleId` is my assignment
+
+#### Scenario: Trip page shows my next actions
+* **Given** my trip's **My Trip Info** has the next action complete-application with missing documents "Passport"
+* **When** I open the trip page
+* **Then** **My Trip Info** shows "Complete your application." and "Missing documents: Passport." highlighted yellow, without the card's own **Update App**
+* **And** **Update App** opens the application dialog, and **Cancel App** opens the cancel confirmation
 
 #### Scenario: Next-actions rows are highlighted by status
 * **Given** My Trips has upcoming trips whose next actions are wait-approval, make-donation, and all-ready
@@ -297,6 +312,8 @@ No schema changes. Uses `tripPeopleRole` (`status`, `flightPurchaseOption`, `par
 | US-60.1 | My trips returns next actions for upcoming trips only | `backend/tests/my-trips-next-actions.test.js` | `My trips returns next actions for upcoming trips only` |
 | US-60.1 | Cancelled application has no next actions | `backend/tests/my-trips-next-actions.test.js` | `Cancelled application has no next actions` |
 | US-60.1 | Home shows next actions under the trip | `frontend/tests/HomeNextActions.test.js` | `Home shows next actions under the trip` |
+| US-60.1 | Trip page returns my next actions | `backend/tests/my-trips-next-actions.test.js` | `Trip page returns my next actions` |
+| US-60.1 | Trip page shows my next actions | `frontend/tests/TripBrowseNextActions.test.js` | `Trip page shows my next actions` |
 | US-60.1 | Next-actions rows are highlighted by status | `frontend/tests/HomeNextActions.test.js` | `Next-actions rows are highlighted by status` |
 | US-60.2 | Incomplete application lists missing documents | `backend/tests/my-trips-next-actions.test.js` | `Incomplete application lists missing documents` |
 | US-60.2 | Passport required by the role and the trip is listed once | `backend/tests/my-trips-next-actions.test.js` | `Passport required by the role and the trip is listed once` |
@@ -336,6 +353,7 @@ Do not implement behavior not in this spec.
 *   [x] My Trips next actions computed by the API and shown under upcoming trips, highlighted by status (**FR-001**–**FR-010**, **FR-012**, **FR-015**–**FR-017**)
 *   [x] Next-action buttons open the application, cancel, Donate, and flight segments dialogs; My Trips reloads after donating, saving flights, or closing the application dialog (**FR-004**, **FR-011**, **FR-013**, **FR-018**, **FR-019**)
 *   [x] Participant access to their own flight segments when buying their own ticket (**FR-014**)
+*   [x] Same next actions in the trip page's **My Trip Info** (**FR-020**)
 *   [x] Automated tests for every Gherkin scenario
 *   [x] Living reference updated in this PR
 *   [x] `npm test` green in backend and frontend
