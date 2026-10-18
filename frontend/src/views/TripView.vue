@@ -297,6 +297,22 @@ const downloadParticipantsCsv = async () => {
   }
 };
 
+const downloadingDocumentsId = ref(null);
+
+const downloadDocumentsPdf = async (item) => {
+  if (!tripId.value || !item?.person?.id) return;
+  downloadingDocumentsId.value = item.id;
+  message.value = "";
+  try {
+    const name = [item.person.firstName, item.person.lastName].filter(Boolean).join(" ");
+    await ExportServices.participantDocumentsPdf(tripId.value, item.id, name);
+  } catch (e) {
+    message.value = e.message || "Unable to download documents PDF.";
+  } finally {
+    downloadingDocumentsId.value = null;
+  }
+};
+
 onMounted(refresh);
 </script>
 
@@ -488,6 +504,15 @@ onMounted(refresh);
         </v-btn>
         <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
         <v-btn size="small" variant="text" @click="openDonations(item)">View donations</v-btn>
+        <v-btn
+          size="small"
+          variant="text"
+          :disabled="!item.person?.id"
+          :loading="downloadingDocumentsId === item.id"
+          @click="downloadDocumentsPdf(item)"
+        >
+          Documents PDF
+        </v-btn>
         <v-btn
           v-if="participantDonorLink(item)"
           size="small"

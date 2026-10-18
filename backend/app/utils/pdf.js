@@ -111,10 +111,10 @@ export const drawRow = (doc, columns, values, y, { bold = false, lineColor = "#9
   return y + height;
 };
 
-/** Run draw(doc) on a landscape letter document and resolve with the PDF bytes. */
-export const renderPdf = (draw) =>
+/** Run draw(doc) on a letter document (landscape unless given) and resolve with the PDF bytes. */
+export const renderPdf = (draw, { layout = "landscape" } = {}) =>
   new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "LETTER", layout: "landscape", margin: 36 });
+    const doc = new PDFDocument({ size: "LETTER", layout, margin: 36 });
     const chunks = [];
     doc.on("data", (chunk) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));

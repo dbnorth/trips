@@ -1,6 +1,9 @@
 /**
  * Feature 46 — Email Trip Team
  * Spec: features/feature-46-email-trip-team.md
+ *
+ * Feature 58 — Participant Documents PDF
+ * Spec: features/feature-58-participant-documents-pdf.md
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -11,6 +14,7 @@ import TripServices from "../src/services/tripServices.js";
 import TripPeopleRoleServices from "../src/services/tripPeopleRoleServices.js";
 import DonationServices from "../src/services/donationServices.js";
 import TripTravelOptionServices from "../src/services/tripTravelOptionServices.js";
+import ExportServices from "../src/services/exportServices.js";
 import { mountWithPlugins } from "./testUtils.js";
 
 vi.mock("../src/services/tripServices.js", () => ({
@@ -26,7 +30,7 @@ vi.mock("../src/services/tripTravelOptionServices.js", () => ({
   default: { getAll: vi.fn() },
 }));
 vi.mock("../src/services/exportServices.js", () => ({
-  default: { participantsCsv: vi.fn() },
+  default: { participantsCsv: vi.fn(), participantDocumentsPdf: vi.fn() },
 }));
 vi.mock("../src/services/personServices.js", () => ({
   default: { getPictureUrl: vi.fn(() => null) },
@@ -92,6 +96,57 @@ describe("Feature 46 — Email Trip Team", () => {
     expect(dialog().props("modelValue")).toBe(true);
     expect(dialog().props("tripId")).toBe("42");
     expect(dialog().props("participants")).toHaveLength(1);
+
+    wrapper.unmount();
+  });
+});
+
+describe("Feature 58 — Participant Documents PDF", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    TripServices.get.mockResolvedValue({
+      data: { id: 42, name: "Guatemala Clinic", orgId: 10, status: "active", leaderNames: [] },
+    });
+    TripPeopleRoleServices.getAll.mockResolvedValue({
+      data: [
+        {
+          id: 7,
+          peopleId: 5,
+          status: "approved",
+          role: { roleName: "Trip Participant" },
+          person: { id: 5, firstName: "Ana", middleName: "Maria", lastName: "Lopez" },
+        },
+      ],
+    });
+    DonationServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({ data: [] });
+    ExportServices.participantDocumentsPdf.mockResolvedValue();
+  });
+
+  it("Documents PDF action on the participant row", async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: { stubs: { TripWorkerRolesCard: Stub } },
+    });
+    await flushPromises();
+
+    const button = wrapper.findAll("button").find((b) => b.text().trim() === "Documents PDF");
+    expect(button).toBeTruthy();
+    await button.trigger("click");
+    await flushPromises();
+
+    expect(ExportServices.participantDocumentsPdf).toHaveBeenCalledWith("42", 7, "Ana Lopez");
 
     wrapper.unmount();
   });
