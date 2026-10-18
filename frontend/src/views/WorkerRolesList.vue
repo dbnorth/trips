@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import WorkerRoleServices from "../services/workerRoleServices.js";
 import WorkerRoleFormDialog from "../components/WorkerRoleFormDialog.vue";
 import Utils from "../config/utils.js";
+import { activeRequiredSpecializations } from "../utils/tripApplicationForm.js";
 
 const roles = ref([]);
 const user = ref(null);
@@ -29,6 +30,17 @@ const orgLabel = computed(() => {
   return Utils.orgDisplayName(user.value, orgId);
 });
 const showOrgScopeNotice = computed(() => Utils.showOrgScopeNotice(user.value));
+
+const requiredDocumentsLabel = (role) => {
+  const specializations = activeRequiredSpecializations(role);
+  const labels = (role.requiredDocumentTypes || []).map((d) => {
+    const names = specializations
+      .filter((s) => Number(s.documentTypeId) === Number(d.id))
+      .map((s) => s.name);
+    return names.length ? `${d.description} (${names.join(", ")})` : d.description;
+  });
+  return labels.join(", ") || "—";
+};
 
 const load = () => {
   user.value = Utils.getStore("user");
@@ -123,16 +135,14 @@ onUnmounted(() => {
       :headers="[
         { title: 'Name', key: 'name' },
         { title: 'Description', key: 'description' },
-        { title: 'License required', key: 'licenseRequired' },
-        { title: 'Document type', key: 'documentType' },
+        { title: 'Required documents', key: 'requiredDocuments', sortable: false },
         { title: 'Status', key: 'status' },
         { title: 'Actions', key: 'actions', sortable: false },
       ]"
       density="compact"
     >
       <template #item.description="{ item }">{{ item.description || "—" }}</template>
-      <template #item.licenseRequired="{ item }">{{ item.licenseRequired ? "Yes" : "No" }}</template>
-      <template #item.documentType="{ item }">{{ item.documentType?.description || "—" }}</template>
+      <template #item.requiredDocuments="{ item }">{{ requiredDocumentsLabel(item) }}</template>
       <template #item.status="{ item }">{{ item.status === "active" ? "Active" : "Inactive" }}</template>
       <template #item.actions="{ item }">
         <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>

@@ -261,7 +261,7 @@ const orgInclude = {
 const workerRoleInclude = {
   model: WorkerRole,
   as: "workerRole",
-  attributes: ["id", "name", "description", "licenseRequired", "documentTypeId", "status"],
+  attributes: ["id", "name", "description", "documentTypeId", "status"],
   include: [
     {
       model: db.documentType,
@@ -593,12 +593,10 @@ exports.applyToTrip = async (req, res) => {
     const willSelfFund = parseBool(req.body?.willSelfFund);
     const willRaiseFunds = parseBool(req.body?.willRaiseFunds);
 
-    const licenseRequired = !!selectedRole.workerRole?.licenseRequired;
-    let licenseStatus = req.body?.licenseStatus || null;
+    const licenseStatus = req.body?.licenseStatus || null;
     if (licenseStatus && !LICENSE_STATUSES.includes(licenseStatus)) {
       return res.status(400).send({ message: "License status must be Yes, Yes retired, or No." });
     }
-    if (!licenseRequired) licenseStatus = null;
 
     const hasPreferredRoommate = parseBool(req.body?.hasPreferredRoommate);
     const preferredRoommateNames = hasPreferredRoommate
@@ -656,7 +654,6 @@ exports.applyToTrip = async (req, res) => {
       preferredCabinClass: flightPurchase.preferredCabinClass,
       preferredAirlineId: flightPurchase.preferredAirlineId,
       preferredRefundableTicket: flightPurchase.preferredRefundableTicket,
-      licenseRequired,
       agreementRequired,
       agreementAccepted: agreement.agreementAccepted,
       agreementSignatureName: agreement.agreementSignatureName,
@@ -857,12 +854,10 @@ exports.updateApplication = async (req, res) => {
     const willSelfFund = parseBool(req.body?.willSelfFund);
     const willRaiseFunds = parseBool(req.body?.willRaiseFunds);
 
-    const licenseRequired = !!selectedRole.workerRole?.licenseRequired;
-    let licenseStatus = req.body?.licenseStatus || null;
+    const licenseStatus = req.body?.licenseStatus || null;
     if (licenseStatus && !LICENSE_STATUSES.includes(licenseStatus)) {
       return res.status(400).send({ message: "License status must be Yes, Yes retired, or No." });
     }
-    if (!licenseRequired) licenseStatus = null;
 
     const hasPreferredRoommate = parseBool(req.body?.hasPreferredRoommate);
     const preferredRoommateNames = hasPreferredRoommate
@@ -912,7 +907,6 @@ exports.updateApplication = async (req, res) => {
       preferredCabinClass: flightPurchase.preferredCabinClass,
       preferredAirlineId: flightPurchase.preferredAirlineId,
       preferredRefundableTicket: flightPurchase.preferredRefundableTicket,
-      licenseRequired,
       agreementRequired,
       agreementAccepted: agreement.agreementAccepted,
       agreementSignatureName: agreement.agreementSignatureName,

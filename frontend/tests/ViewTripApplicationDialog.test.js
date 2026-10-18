@@ -24,7 +24,7 @@ const application = {
   status: "applied",
   version: 1,
   person: { firstName: "Ada", lastName: "Applicant" },
-  tripWorkerRole: { workerRole: { name: "Nurse", licenseRequired: false } },
+  tripWorkerRole: { workerRole: { name: "Nurse" } },
   willSelfFund: true,
   willRaiseFunds: false,
   hasPreferredRoommate: false,

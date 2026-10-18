@@ -159,7 +159,7 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/worker-roles` | auth | Org worker-role catalog (`?orgId=`); includes `requiredDocumentTypes` / `requiredDocumentTypeIds` (Feature 25) and `requiredSpecializations` (`[{ id, name, documentTypeId }]`) / `requiredSpecializationIds` (Feature 59) |
+| `GET` | `/trips/worker-roles` | auth | Org worker-role catalog (`?orgId=`); includes `requiredDocumentTypes` / `requiredDocumentTypeIds` (Feature 25) and `requiredSpecializations` (`[{ id, name, documentTypeId }]`) / `requiredSpecializationIds` (Feature 59); each required document type includes `allowSpecialization`. No `licenseRequired` on any worker role payload (removed in Feature 59) |
 | `GET` | `/trips/worker-roles/:id` | auth | Get |
 | `POST` | `/trips/worker-roles` | auth | Create (org admin); `requiredDocumentTypeIds?: number[]` (Feature 25); `requiredSpecializationIds?: number[]` — each must belong to a required document type, else `400` "Required specializations must belong to a required document." (Feature 59) |
 | `PUT` | `/trips/worker-roles/:id` | auth | Update; replace required document list when `requiredDocumentTypeIds` sent; replace required specializations when `requiredSpecializationIds` sent (same `400`); removing a required document also removes its required specializations (Feature 59) |

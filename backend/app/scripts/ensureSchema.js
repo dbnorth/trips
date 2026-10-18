@@ -802,7 +802,7 @@ const ensureWorkerRoleDocumentType = async () => {
   );
   if (!docTypeCols.length) {
     await db.sequelize.query(
-      `ALTER TABLE workerRoles ADD COLUMN documentTypeId INT NULL AFTER licenseRequired`
+      `ALTER TABLE workerRoles ADD COLUMN documentTypeId INT NULL AFTER description`
     );
     await db.sequelize.query(
       `ALTER TABLE workerRoles
@@ -822,6 +822,17 @@ const ensureWorkerRoleDocumentType = async () => {
   if (legacyCols.length) {
     await db.sequelize.query(`ALTER TABLE workerRoles DROP COLUMN licenseType`);
     logger.info("workerRoles.licenseType column removed.");
+  }
+
+  const [licenseRequiredCols] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'workerRoles'
+       AND COLUMN_NAME = 'licenseRequired'`
+  );
+  if (licenseRequiredCols.length) {
+    await db.sequelize.query(`ALTER TABLE workerRoles DROP COLUMN licenseRequired`);
+    logger.info("workerRoles.licenseRequired column removed.");
   }
 };
 

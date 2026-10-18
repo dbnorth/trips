@@ -66,7 +66,6 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
           orgId: org.id,
           name: "Nurse",
           description: "Licensed nursing staff",
-          licenseRequired: true,
           documentTypeId: docType.id,
           status: "active",
         });
@@ -75,7 +74,6 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
       expect(create.body).toMatchObject({
         orgId: org.id,
         name: "Nurse",
-        licenseRequired: true,
         status: "active",
       });
       expect(create.body.requiredDocumentTypeIds).toEqual([docType.id]);
@@ -110,12 +108,10 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
         .send({
           orgId: org.id,
           name: "Clinical Lead",
-          licenseRequired: false,
           requiredDocumentTypeIds: [typeA.id, typeB.id],
         });
 
       expect(create.status).toBe(200);
-      expect(create.body.licenseRequired).toBe(false);
       expect(create.body.requiredDocumentTypeIds.sort()).toEqual([typeA.id, typeB.id].sort());
 
       const get = await request(app)
@@ -169,7 +165,6 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
       const role = await db.workerRole.create({
         orgId: org.id,
         name: "Legacy Nurse",
-        licenseRequired: true,
         documentTypeId: docType.id,
         status: "active",
       });
@@ -209,7 +204,6 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
         .send({
           orgId: org.id,
           name: "Builder",
-          licenseRequired: false,
         });
       expect(workerRole.status).toBe(200);
 

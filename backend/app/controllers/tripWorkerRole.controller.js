@@ -23,7 +23,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const workerRoleInclude = {
   model: WorkerRole,
   as: "workerRole",
-  attributes: ["id", "name", "description", "licenseRequired", "documentTypeId", "status"],
+  attributes: ["id", "name", "description", "documentTypeId", "status"],
   include: [
     { model: db.documentType, as: "documentType", attributes: ["id", "description", "type"] },
     {

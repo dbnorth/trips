@@ -172,7 +172,6 @@ describe("Feature 45 — Send Now Event Emails", () => {
       const workerRole = await db.workerRole.create({
         orgId: org.id,
         name: "General Team",
-        licenseRequired: false,
       });
       const tripWorkerRole = await db.tripWorkerRole.create({
         tripId: trip.id,

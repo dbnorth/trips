@@ -253,7 +253,6 @@ describe("Feature 5 — Trip Catalog Management", () => {
         .send({
           orgId: org.id,
           name: "Nurse",
-          licenseRequired: false,
         });
       expect(workerRole.status).toBe(200);
 
