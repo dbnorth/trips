@@ -7,6 +7,8 @@
  * Spec: features/feature-56-reserved-role-emails.md
  * Feature 57 — Document Type Has Expiration Date
  * Spec: features/feature-57-document-type-expiration-date.md
+ * Feature 59 — Document Type Specialization List
+ * Spec: features/feature-59-document-type-specialization-list.md
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -389,6 +391,55 @@ describe("Feature 47 — Simplify Application Warnings", () => {
         "Upload the following required documents before submitting your application: Diploma."
       );
       expect(wrapper.text()).not.toContain("expiration date");
+      wrapper.unmount();
+    });
+  });
+
+  describe("Feature 59 — US-59.4 Application checks require the role's specializations", () => {
+    it("Apply dialog names the missing specialization", async () => {
+      browseTrip({
+        rolesNeeded: [
+          {
+            ...OPEN_ROLE,
+            workerRole: {
+              name: "Pediatric Nurse",
+              requiredDocumentTypes: [
+                {
+                  id: 7,
+                  description: "Board certification",
+                  type: "certification",
+                  hasExpirationDate: true,
+                  allowSpecialization: true,
+                },
+              ],
+              requiredSpecializations: [{ id: 71, name: "Pediatrics", documentTypeId: 7 }],
+            },
+          },
+        ],
+      });
+      PersonDocumentServices.getAll.mockResolvedValue({
+        data: [
+          {
+            id: 1,
+            documentTypeId: 7,
+            expirationDate: "2030-01-01",
+            documentFileName: "people/board.png",
+            documentType: { id: 7, hasExpirationDate: true },
+            specializations: [],
+          },
+        ],
+      });
+      const wrapper = await openDialog();
+
+      wrapper
+        .findAllComponents({ name: "VSelect" })
+        .find((c) => c.props("label") === "Trip role")
+        .vm.$emit("update:modelValue", OPEN_ROLE.id);
+      await flushPromises();
+
+      expect(wrapper.text()).toContain(
+        "Upload the following required documents with an expiration date past the end of the trip (2026-12-10) before submitting your application: Board certification (Pediatrics)."
+      );
       wrapper.unmount();
     });
   });

@@ -25,6 +25,9 @@ Notes:
 | `tripPeopleRole` | 5, 7 | Leaders, applications, participants |
 | `workerRole` | 6, 25 | Org worker-role catalog (+ required documents) |
 | `workerRoleDocumentType` | 25 | Worker role ↔ required document types |
+| `documentTypeSpecialization` | 59 | Specialization names on a document type's list |
+| `workerRoleSpecialization` | 59 | Worker role ↔ required specializations |
+| `personDocumentSpecialization` | 34, 59 | Specializations (list entry, date, file) on a person document |
 | `medicalCondition` | 17 | Org medical-condition catalog (name ≤ 50) |
 | `personMedicalCondition` | 17 | Person selected medical conditions |
 | `language` | 31 | Global language catalog |
@@ -177,7 +180,22 @@ Notes:
 | allowSpecialization | BOOLEAN | required, default `false` (Feature 34) |
 | hasExpirationDate | BOOLEAN | required, default `true` (Feature 57) |
 
-**Associations:** `hasMany` workerRole (SET NULL); `hasMany` personDocument (RESTRICT).
+**Associations:** `hasMany` workerRole (SET NULL); `hasMany` personDocument (RESTRICT); `hasMany` documentTypeSpecialization as `specializations` (CASCADE, Feature 59).
+
+---
+
+## `documentTypeSpecialization` — Feature 59
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| documentTypeId | INTEGER | required FK → documentType; CASCADE on delete |
+| name | STRING(100) | required, trimmed; unique per document type ignoring case (API) |
+| unique | `(documentTypeId, name)` | |
+
+**Associations:** `belongsTo` documentType; `hasMany` personDocumentSpecialization (RESTRICT); `hasMany` workerRoleSpecialization (RESTRICT). An entry used by either cannot be removed from the list.
+
+Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part of `npm run seed`) adds missing document types (by description) and their missing specializations.
 
 ---
 
@@ -198,17 +216,18 @@ Notes:
 
 ---
 
-## `personDocumentSpecialization` — Feature 34
+## `personDocumentSpecialization` — Features 34, 59
 
 | Field | Type | Rules |
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
 | personDocumentId | INTEGER | required FK → personDocument; CASCADE on delete |
-| name | STRING | required |
+| documentTypeSpecializationId | INTEGER | required FK → documentTypeSpecialization; RESTRICT on delete; must be on the document type's list (Feature 59; replaces the free-text `name`) |
 | specializationDate | DATEONLY | required; API field `date` |
 | documentFileName | STRING(500) | required relative path; same storage as person document files |
+| unique | `(personDocumentId, documentTypeSpecializationId)` | Feature 59 (created by `ensureSchema`) |
 
-**Associations:** `belongsTo` personDocument.
+**Associations:** `belongsTo` personDocument, documentTypeSpecialization.
 
 ---
 
@@ -398,7 +417,7 @@ Seeded from `backend/app/data/airlines.json` (OpenFlights active IATA set) via `
 | documentTypeId | INTEGER | optional FK → documentType; **deprecated for writes** (Feature 25 — migrate into join) |
 | status | ENUM(`active`,`inactive`) | required, default `active` |
 
-**Associations:** `belongsTo` organization, documentType (legacy); `belongsToMany` documentType as `requiredDocumentTypes` through `workerRoleDocumentType`; `hasMany` tripWorkerRole.
+**Associations:** `belongsTo` organization, documentType (legacy); `belongsToMany` documentType as `requiredDocumentTypes` through `workerRoleDocumentType`; `belongsToMany` documentTypeSpecialization as `requiredSpecializations` through `workerRoleSpecialization` (Feature 59); `hasMany` tripWorkerRole.
 
 ---
 
@@ -412,6 +431,19 @@ Seeded from `backend/app/data/airlines.json` (OpenFlights active IATA set) via `
 | unique | `(workerRoleId, documentTypeId)` | |
 
 **Associations:** `belongsTo` workerRole, documentType.
+
+---
+
+## `workerRoleSpecialization` — Feature 59
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| workerRoleId | INTEGER | required FK → workerRole; CASCADE on delete |
+| documentTypeSpecializationId | INTEGER | required FK → documentTypeSpecialization; RESTRICT on delete; its document type must be one of the role's required documents |
+| unique | `(workerRoleId, documentTypeSpecializationId)` | |
+
+**Associations:** `belongsTo` workerRole, documentTypeSpecialization.
 
 ---
 

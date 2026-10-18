@@ -40,7 +40,14 @@ const includeDocumentType = [
   {
     model: PersonDocumentSpecialization,
     as: "specializations",
-    attributes: ["id", "name", "specializationDate", "documentFileName"],
+    attributes: ["id", "documentTypeSpecializationId", "specializationDate", "documentFileName"],
+    include: [
+      {
+        model: db.documentTypeSpecialization,
+        as: "documentTypeSpecialization",
+        attributes: ["id", "name"],
+      },
+    ],
   },
 ];
 
@@ -100,15 +107,23 @@ const parseSpecializations = (body) => {
   return { present: true, rows: raw };
 };
 
-const prepareSpecializations = (rows, files, existingById) => {
+const prepareSpecializations = (rows, files, existingById, listIds) => {
   const prepared = [];
+  const chosen = new Set();
   let fileIndex = 0;
   for (const row of rows) {
-    const name = row?.name == null ? "" : String(row.name).trim();
+    const specializationId = Number(row?.documentTypeSpecializationId);
     const date = row?.date == null ? "" : String(row.date).trim();
-    if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    if (!Number.isInteger(specializationId) || specializationId < 1 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return { error: SPECIALIZATION_INVALID };
     }
+    if (!listIds.has(specializationId)) {
+      return { error: "Specialization is not in the list for this document type." };
+    }
+    if (chosen.has(specializationId)) {
+      return { error: "Each specialization can be added only once per document." };
+    }
+    chosen.add(specializationId);
     const id = row?.id != null && row.id !== "" ? Number(row.id) : null;
     if (Number.isInteger(id) && id > 0 && !existingById.get(id)) {
       return { error: "Specialization not found." };
@@ -118,7 +133,7 @@ const prepareSpecializations = (rows, files, existingById) => {
     if (current && !replaceFile) {
       prepared.push({
         id: current.id,
-        name,
+        specializationId,
         date,
         documentFileName: current.documentFileName,
         file: null,
@@ -129,7 +144,7 @@ const prepareSpecializations = (rows, files, existingById) => {
     if (!file) return { error: SPECIALIZATION_INVALID };
     prepared.push({
       id: current?.id ?? null,
-      name,
+      specializationId,
       date,
       documentFileName: storedFileName(file),
       file,
@@ -151,14 +166,14 @@ const persistSpecializations = async (personDocumentId, prepared, existingRows) 
       const row = existingById.get(item.id);
       if (item.file) removeDocumentFile(row.documentFileName);
       await row.update({
-        name: item.name,
+        documentTypeSpecializationId: item.specializationId,
         specializationDate: item.date,
         documentFileName: item.documentFileName,
       });
     } else {
       await PersonDocumentSpecialization.create({
         personDocumentId,
-        name: item.name,
+        documentTypeSpecializationId: item.specializationId,
         specializationDate: item.date,
         documentFileName: item.documentFileName,
       });
@@ -191,7 +206,12 @@ const resolveSpecializationPlan = async (body, documentType, files, personDocume
     ? await PersonDocumentSpecialization.findAll({ where: { personDocumentId } })
     : [];
   const existingById = new Map(existing.map((row) => [row.id, row]));
-  const prepared = prepareSpecializations(parsed.rows, files, existingById);
+  const list = await db.documentTypeSpecialization.findAll({
+    where: { documentTypeId: documentType.id },
+    attributes: ["id"],
+  });
+  const listIds = new Set(list.map((row) => Number(row.id)));
+  const prepared = prepareSpecializations(parsed.rows, files, existingById, listIds);
   if (prepared.error) return prepared;
   return { skip: false, prepared: prepared.prepared, existing, unusedFiles: prepared.unusedFiles };
 };
@@ -200,7 +220,8 @@ const serializeDocument = (row) => {
   const json = row.toJSON();
   json.specializations = (json.specializations || []).map((item) => ({
     id: item.id,
-    name: item.name,
+    documentTypeSpecializationId: item.documentTypeSpecializationId,
+    name: item.documentTypeSpecialization?.name ?? null,
     date: item.specializationDate,
     documentFileName: item.documentFileName,
   }));

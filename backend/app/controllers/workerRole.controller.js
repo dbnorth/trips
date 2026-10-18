@@ -11,7 +11,11 @@ const WorkerRole = db.workerRole;
 const Organization = db.organization;
 const DocumentType = db.documentType;
 const WorkerRoleDocumentType = db.workerRoleDocumentType;
+const WorkerRoleSpecialization = db.workerRoleSpecialization;
+const DocumentTypeSpecialization = db.documentTypeSpecialization;
 const STATUSES = ["active", "inactive"];
+const SPECIALIZATION_NOT_REQUIRED_DOCUMENT =
+  "Required specializations must belong to a required document.";
 
 const requiredDocumentTypeInclude = {
   model: DocumentType,
@@ -20,10 +24,18 @@ const requiredDocumentTypeInclude = {
   through: { attributes: [] },
 };
 
+const requiredSpecializationInclude = {
+  model: DocumentTypeSpecialization,
+  as: "requiredSpecializations",
+  attributes: ["id", "name", "documentTypeId"],
+  through: { attributes: [] },
+};
+
 const roleIncludes = [
   { model: Organization, as: "organization", attributes: ["id", "name"] },
   { model: DocumentType, as: "documentType", attributes: ["id", "description", "type"] },
   requiredDocumentTypeInclude,
+  requiredSpecializationInclude,
 ];
 
 const getOrgAdminOrgIds = (req) => [
@@ -53,6 +65,7 @@ const formatRole = (role) => {
   const json = typeof role.toJSON === "function" ? role.toJSON() : { ...role };
   const required = json.requiredDocumentTypes || [];
   json.requiredDocumentTypeIds = required.map((d) => d.id);
+  json.requiredSpecializationIds = (json.requiredSpecializations || []).map((s) => s.id);
   return json;
 };
 
@@ -132,6 +145,51 @@ const syncRequiredDocumentTypes = async (workerRoleId, ids) => {
   );
 };
 
+const parseRequiredSpecializationIds = (body) => {
+  if (!Object.prototype.hasOwnProperty.call(body, "requiredSpecializationIds")) {
+    return { provided: false, ids: [] };
+  }
+  const raw = body.requiredSpecializationIds;
+  if (raw == null) return { provided: true, ids: [] };
+  if (!Array.isArray(raw)) return { error: "requiredSpecializationIds must be an array." };
+  const ids = [...new Set(raw.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+  return { provided: true, ids };
+};
+
+/** Every specialization must exist and belong to one of the role's required document types. */
+const validateRequiredSpecializationIds = async (ids, requiredDocumentTypeIds) => {
+  if (!ids.length) return { ok: true };
+  const found = await DocumentTypeSpecialization.findAll({
+    where: { id: ids },
+    attributes: ["id", "documentTypeId"],
+  });
+  const allowed = new Set(requiredDocumentTypeIds.map(Number));
+  if (found.length !== ids.length || found.some((s) => !allowed.has(Number(s.documentTypeId)))) {
+    return { ok: false, message: SPECIALIZATION_NOT_REQUIRED_DOCUMENT };
+  }
+  return { ok: true };
+};
+
+const syncRequiredSpecializations = async (workerRoleId, ids) => {
+  await WorkerRoleSpecialization.destroy({ where: { workerRoleId } });
+  if (!ids.length) return;
+  await WorkerRoleSpecialization.bulkCreate(
+    ids.map((documentTypeSpecializationId) => ({ workerRoleId, documentTypeSpecializationId }))
+  );
+};
+
+/** Drop required specializations whose document type is no longer required. */
+const pruneRequiredSpecializations = async (workerRoleId, requiredDocumentTypeIds) => {
+  const rows = await WorkerRoleSpecialization.findAll({
+    where: { workerRoleId },
+    include: [{ model: DocumentTypeSpecialization, as: "documentTypeSpecialization", attributes: ["documentTypeId"] }],
+  });
+  const allowed = new Set(requiredDocumentTypeIds.map(Number));
+  for (const row of rows) {
+    if (!allowed.has(Number(row.documentTypeSpecialization?.documentTypeId))) await row.destroy();
+  }
+};
+
 const exports = {};
 
 exports.findAll = async (req, res) => {
@@ -200,6 +258,10 @@ exports.create = async (req, res) => {
     const requiredIds = required.provided ? required.ids : [];
     const docCheck = await validateDocumentTypeIds(requiredIds);
     if (!docCheck.ok) return res.status(400).send({ message: docCheck.message });
+    const specializations = parseRequiredSpecializationIds(req.body);
+    if (specializations.error) return res.status(400).send({ message: specializations.error });
+    const specCheck = await validateRequiredSpecializationIds(specializations.ids, requiredIds);
+    if (!specCheck.ok) return res.status(400).send({ message: specCheck.message });
 
     const data = await WorkerRole.create({
       orgId,
@@ -210,6 +272,7 @@ exports.create = async (req, res) => {
       status: payload.status ?? "active",
     });
     await syncRequiredDocumentTypes(data.id, requiredIds);
+    await syncRequiredSpecializations(data.id, specializations.ids);
     res.send(await loadRole(data.id));
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -241,10 +304,26 @@ exports.update = async (req, res) => {
       const docCheck = await validateDocumentTypeIds(required.ids);
       if (!docCheck.ok) return res.status(400).send({ message: docCheck.message });
     }
+    const specializations = parseRequiredSpecializationIds(req.body);
+    if (specializations.error) return res.status(400).send({ message: specializations.error });
+    const requiredIds = required.provided
+      ? required.ids
+      : (await WorkerRoleDocumentType.findAll({ where: { workerRoleId: role.id } })).map(
+          (row) => row.documentTypeId
+        );
+    if (specializations.provided) {
+      const specCheck = await validateRequiredSpecializationIds(specializations.ids, requiredIds);
+      if (!specCheck.ok) return res.status(400).send({ message: specCheck.message });
+    }
 
     await role.update(payload);
     if (required.provided) {
       await syncRequiredDocumentTypes(role.id, required.ids);
+    }
+    if (specializations.provided) {
+      await syncRequiredSpecializations(role.id, specializations.ids);
+    } else if (required.provided) {
+      await pruneRequiredSpecializations(role.id, required.ids);
     }
     res.send(await loadRole(role.id));
   } catch (err) {

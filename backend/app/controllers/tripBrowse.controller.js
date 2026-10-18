@@ -7,6 +7,7 @@ import {
 import {
   arePersonDocumentsUploaded,
   isRequiredPassportUploaded,
+  activeRequiredSpecializations,
   isRequiredRoleDocumentUploaded,
   loadPersonDocumentsForCompleteness,
   loadPersonForCompleteness,
@@ -270,7 +271,13 @@ const workerRoleInclude = {
     {
       model: db.documentType,
       as: "requiredDocumentTypes",
-      attributes: ["id", "description", "type", "hasExpirationDate"],
+      attributes: ["id", "description", "type", "hasExpirationDate", "allowSpecialization"],
+      through: { attributes: [] },
+    },
+    {
+      model: db.documentTypeSpecialization,
+      as: "requiredSpecializations",
+      attributes: ["id", "name", "documentTypeId"],
       through: { attributes: [] },
     },
   ],
@@ -671,6 +678,7 @@ exports.applyToTrip = async (req, res) => {
             ? [selectedRole.workerRole.documentTypeId]
             : []),
         compareDate: documentCompareDate,
+        requiredSpecializations: activeRequiredSpecializations(selectedRole.workerRole),
       }),
       requiredPassportUploaded: isRequiredPassportUploaded({
         documents: personDocuments,
@@ -926,6 +934,7 @@ exports.updateApplication = async (req, res) => {
             ? [selectedRole.workerRole.documentTypeId]
             : []),
         compareDate: documentCompareDate,
+        requiredSpecializations: activeRequiredSpecializations(selectedRole.workerRole),
       }),
       requiredPassportUploaded: isRequiredPassportUploaded({
         documents: personDocuments,

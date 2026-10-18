@@ -7,6 +7,9 @@
  *
  * Feature 57 — Document Type Has Expiration Date
  * Spec: features/feature-57-document-type-expiration-date.md
+ *
+ * Feature 59 — Document Type Specialization List
+ * Spec: features/feature-59-document-type-specialization-list.md
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -136,6 +139,7 @@ describe("Feature 22 — Document number & instructions", () => {
       allowSpecialization: false,
       hasExpirationDate: true,
       instructions: "Bring original.",
+      specializations: [],
     });
 
     wrapper.unmount();
@@ -421,6 +425,59 @@ describe("Feature 57 — Document Type Has Expiration Date", () => {
     await typeSelect.vm.$emit("update:modelValue", 1);
     await flushPromises();
     expect(expirationField()).toBeTruthy();
+
+    wrapper.unmount();
+  });
+});
+
+describe("Feature 59 — Document Type Specialization List", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    DocumentTypeServices.getAll.mockResolvedValue({
+      data: [
+        {
+          id: 1,
+          description: "Board certification",
+          type: "certification",
+          allowSpecialization: true,
+          specializations: [
+            { id: 11, name: "Emergency" },
+            { id: 12, name: "Pediatrics" },
+          ],
+        },
+      ],
+    });
+    PersonDocumentServices.getAll.mockResolvedValue({ data: [] });
+  });
+
+  it("Specialization is chosen from the document type's list", async () => {
+    const { wrapper } = await mountCard({ personId: 5 });
+    await flushPromises();
+    await clickButton(wrapper, "Add Document");
+
+    const typeSelect = wrapper.findComponent({ name: "VSelect" });
+    await typeSelect.vm.$emit("update:modelValue", 1);
+    await flushPromises();
+    await clickButton(wrapper, "Add specialization");
+
+    const specializationSelects = () =>
+      wrapper
+        .findAllComponents({ name: "VSelect" })
+        .filter((c) => c.props("label") === "Specialization");
+    const offered = (select) => select.props("items").map((item) => item.title);
+
+    expect(specializationSelects()).toHaveLength(1);
+    expect(offered(specializationSelects()[0])).toEqual(["Emergency", "Pediatrics"]);
+
+    await specializationSelects()[0].vm.$emit("update:modelValue", 12);
+    await flushPromises();
+    await clickButton(wrapper, "Add specialization");
+
+    expect(offered(specializationSelects()[1])).toEqual(["Emergency"]);
+    const addButton = wrapper
+      .findAllComponents({ name: "VBtn" })
+      .find((b) => b.text().trim() === "Add specialization");
+    expect(addButton.props("disabled")).toBe(true);
 
     wrapper.unmount();
   });

@@ -130,9 +130,8 @@ const normalizeManualStatus = (value) => {
 const computeStatusForPayload = async (payload, orgId) => {
   const person = await loadPersonForCompleteness(payload.peopleId);
   const personDocuments = await loadPersonDocumentsForCompleteness(payload.peopleId);
-  const { licenseRequired, requiredDocumentTypeIds } = await loadWorkerRoleDocumentRequirements(
-    payload.tripWorkerRoleId
-  );
+  const { licenseRequired, requiredDocumentTypeIds, requiredSpecializations } =
+    await loadWorkerRoleDocumentRequirements(payload.tripWorkerRoleId);
   const trip =
     payload.tripId != null
       ? await Trip.findByPk(payload.tripId, {
@@ -182,6 +181,7 @@ const computeStatusForPayload = async (payload, orgId) => {
       documents: personDocuments,
       documentTypeIds: requiredDocumentTypeIds,
       compareDate: documentCompareDate,
+      requiredSpecializations,
     }),
     requiredPassportUploaded: isRequiredPassportUploaded({
       documents: personDocuments,

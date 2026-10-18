@@ -85,7 +85,13 @@ export const buildParticipantDocumentsData = async (tripId, assignmentId) => {
     where: { personId: person.id },
     include: [
       { model: db.documentType, as: "documentType", attributes: ["description", "hasExpirationDate"] },
-      { model: db.personDocumentSpecialization, as: "specializations" },
+      {
+        model: db.personDocumentSpecialization,
+        as: "specializations",
+        include: [
+          { model: db.documentTypeSpecialization, as: "documentTypeSpecialization", attributes: ["name"] },
+        ],
+      },
     ],
     order: [
       [{ model: db.documentType, as: "documentType" }, "description", "ASC"],
@@ -105,7 +111,7 @@ export const buildParticipantDocumentsData = async (tripId, assignmentId) => {
       row.documentType?.hasExpirationDate === false ? "" : formatDate(row.expirationDate)
     ),
     specializations: (row.specializations || []).map((spec) => ({
-      name: orBlank(spec.name),
+      name: orBlank(spec.documentTypeSpecialization?.name),
       date: orBlank(formatDate(spec.specializationDate)),
     })),
   }));

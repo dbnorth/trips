@@ -65,6 +65,18 @@ describe("Feature 58 — Participant Documents PDF", () => {
   const addType = (description, type = "certification", extra = {}) =>
     db.documentType.create({ description, type, ...extra });
 
+  const addSpecialization = async (personDocument, name, fields) =>
+    db.personDocumentSpecialization.create({
+      personDocumentId: personDocument.id,
+      documentTypeSpecializationId: (
+        await db.documentTypeSpecialization.create({
+          documentTypeId: personDocument.documentTypeId,
+          name,
+        })
+      ).id,
+      ...fields,
+    });
+
   const addDocument = (person, documentType, fields = {}) =>
     db.personDocument.create({
       personId: person.id,
@@ -135,15 +147,11 @@ describe("Feature 58 — Participant Documents PDF", () => {
       const ana = await addPerson("Ana", "Lopez");
       const assignment = await addAssignment(ana.id);
       const certification = await addDocument(ana, await addType("Board certification"));
-      await db.personDocumentSpecialization.create({
-        personDocumentId: certification.id,
-        name: "Pediatrics",
+      await addSpecialization(certification, "Pediatrics", {
         specializationDate: "2024-03-01",
         documentFileName: "people/missing-pediatrics.png",
       });
-      await db.personDocumentSpecialization.create({
-        personDocumentId: certification.id,
-        name: "Emergency",
+      await addSpecialization(certification, "Emergency", {
         specializationDate: "2025-05-10",
         documentFileName: "people/missing-emergency.png",
       });
@@ -165,9 +173,7 @@ describe("Feature 58 — Participant Documents PDF", () => {
       const certification = await addDocument(ana, await addType("Board certification"), {
         documentFileName: writeUpload("board.png", TINY_PNG),
       });
-      await db.personDocumentSpecialization.create({
-        personDocumentId: certification.id,
-        name: "Pediatrics",
+      await addSpecialization(certification, "Pediatrics", {
         specializationDate: "2024-03-01",
         documentFileName: writeUpload("pediatrics.png", TINY_PNG),
       });
