@@ -176,6 +176,7 @@ exports.findStatus = async (req, res) => {
       workerRoleName: role.workerRole?.name || null,
       quantity: role.quantity,
       signedUpCount: role.signedUpCount,
+      reservedCount: role.reservedCount,
       availableCount: role.availableCount,
     }));
 

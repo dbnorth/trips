@@ -30,6 +30,7 @@ Notes:
 | `language` | 31 | Global language catalog |
 | `personLanguage` | 31 | Person other-language fluency and medical terminology |
 | `tripWorkerRole` | 6 | Per-trip role quantities |
+| `tripWorkerRoleReservation` | 56 | Trip-role slot reserved for an email |
 | `tripTravelOption` | 6 | Travel/cost option sets |
 | `tripPeopleRoleOption` | 7 | Selected travel options on an application |
 | `tripRoomingList` | 29 | Per-trip hotel / check-in / notes |
@@ -474,7 +475,22 @@ Seeded global catalog. No org column.
 | workerRoleId | INTEGER | required FK → workerRole |
 | quantity | INTEGER | required, default `1` |
 
-**Associations:** `belongsTo` trip, workerRole; `hasMany` tripPeopleRole.
+**Associations:** `belongsTo` trip, workerRole; `hasMany` tripPeopleRole; `hasMany` tripWorkerRoleReservation as `reservations` (Feature 56).
+
+---
+
+## `tripWorkerRoleReservation` — Feature 56
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| tripId | INTEGER | required FK → trip |
+| tripWorkerRoleId | INTEGER | required FK → tripWorkerRole (removed with the role) |
+| email | STRING(255) | required; stored trimmed and lowercased; unique per trip (`tripWorkerRoleReservations_trip_email_unique` on `tripId`, `email`) |
+
+A reservation is **filled** when an `incomplete` / `applied` / `approved` application for the same trip role belongs to a person whose email matches (case-insensitive). Filled state is derived, not stored.
+
+**Associations:** `belongsTo` trip, tripWorkerRole.
 
 ---
 
@@ -638,6 +654,7 @@ organization ──1:N── orgPeopleRole ──N:1── person
                   └──N:1── role
 organization ──1:N── trip ──1:N── tripPeopleRole ──N:1── person / role
                   ├──1:N── tripWorkerRole ──N:1── workerRole
+                  │          └──1:N── tripWorkerRoleReservation
                   ├──1:N── tripTravelOption
                   ├──1:N── tripDonation ──N:1── donor / person
                   └──1:1── tripRoomingList ──1:N── tripRoom ──1:N── tripRoomAssignment ──N:1── tripPeopleRole

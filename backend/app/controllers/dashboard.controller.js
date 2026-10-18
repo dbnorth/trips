@@ -315,6 +315,7 @@ const loadPublicTripRolesNeeded = async (tripId) => {
     id: json.id,
     quantity: Number(json.quantity) || 0,
     signedUpCount: json.signedUpCount || 0,
+    reservedCount: json.reservedCount || 0,
     availableCount: json.availableCount || 0,
     workerRole: json.workerRole
       ? {

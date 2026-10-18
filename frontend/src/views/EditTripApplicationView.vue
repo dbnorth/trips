@@ -44,6 +44,7 @@ const message = ref("");
 const messageType = ref("info");
 const trip = ref(null);
 const rolesNeeded = ref([]);
+const myReservedRoleId = ref(null);
 const application = ref(null);
 const canEdit = ref(false);
 const personDocuments = ref([]);
@@ -104,6 +105,9 @@ const medicalAgreementRequired = computed(
 const participantUnder18 = computed(() => isUnder18(person.value?.birthDate));
 
 const availableRoles = computed(() => {
+  if (myReservedRoleId.value) {
+    return (rolesNeeded.value || []).filter((r) => Number(r.id) === myReservedRoleId.value);
+  }
   const currentId = Number(form.value.tripWorkerRoleId || application.value?.tripWorkerRoleId);
   return (rolesNeeded.value || []).filter(
     (r) => (r.availableCount || 0) > 0 || Number(r.id) === currentId
@@ -452,6 +456,10 @@ const load = async () => {
       ? res.data.medicalAgreement.content || ""
       : "";
     applyFormFromApplication(application.value);
+    myReservedRoleId.value = res.data?.myReservedTripWorkerRoleId
+      ? Number(res.data.myReservedTripWorkerRoleId)
+      : null;
+    if (myReservedRoleId.value) form.value.tripWorkerRoleId = myReservedRoleId.value;
     await loadPerson();
     if (!canEdit.value) {
       const status = application.value?.status;
@@ -745,8 +753,8 @@ onMounted(load);
           :items="roleItems"
           label="Trip role"
           density="compact"
-          :disabled="!canEdit || !availableRoles.length"
-          hint="Only roles with open positions are listed"
+          :disabled="!canEdit || !availableRoles.length || !!myReservedRoleId"
+          :hint="myReservedRoleId ? 'This role is reserved for you.' : 'Only roles with open positions are listed'"
           persistent-hint
           class="mb-2"
         />

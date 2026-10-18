@@ -10,6 +10,8 @@ import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
 import { useTripLeaderPicker } from "../utils/useTripLeaderPicker.js";
 import MoneyInput from "./MoneyInput.vue";
 import CountrySelect from "./CountrySelect.vue";
+import RoleReservationsDialog from "./RoleReservationsDialog.vue";
+import { parseEmailList, tooManyReservedEmailsError } from "../utils/emailList.js";
 import { parseMoneyAmount, formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { resolveCountryCode } from "../utils/locationData.js";
 
@@ -60,7 +62,12 @@ const selectedRoles = ref([]);
 const initialRoleIds = ref([]);
 const addRoleId = ref(null);
 const addQuantity = ref(1);
+const addEmails = ref("");
+const showAddRole = ref(false);
+const addRoleError = ref("");
 const rolesError = ref("");
+const showReservations = ref(false);
+const reservationsRoleId = ref(null);
 
 const travelOptions = ref([]);
 const initialTravelOptionIds = ref([]);
@@ -132,11 +139,42 @@ const totalRolesNeeded = computed(() =>
   selectedRoles.value.reduce((sum, r) => sum + Number(r.quantity || 0), 0)
 );
 
+const reservationsRole = computed(() => {
+  const row = selectedRoles.value.find((r) => r.id != null && Number(r.id) === Number(reservationsRoleId.value));
+  return row ? { id: row.id, workerRole: { name: row.name }, availableCount: row.availableCount } : null;
+});
+
+const openReservations = (row) => {
+  reservationsRoleId.value = row.id;
+  showReservations.value = true;
+};
+
+const loadReservedEmails = async (tripWorkerRoleId) => {
+  try {
+    const res = await TripWorkerRoleServices.getReservations(tripWorkerRoleId);
+    return (res.data || []).map((r) => r.email);
+  } catch {
+    return [];
+  }
+};
+
+const refreshRoleCounts = async () => {
+  const res = await TripWorkerRoleServices.getAll(props.tripId);
+  for (const saved of res.data || []) {
+    const row = selectedRoles.value.find((r) => Number(r.id) === Number(saved.id));
+    if (row) row.availableCount = saved.availableCount;
+  }
+  const changed = selectedRoles.value.find((r) => Number(r.id) === Number(reservationsRoleId.value));
+  if (changed) changed.emails = await loadReservedEmails(changed.id);
+};
+
 const resetRoles = () => {
   selectedRoles.value = [];
   initialRoleIds.value = [];
   addRoleId.value = null;
   addQuantity.value = 1;
+  addEmails.value = "";
+  showAddRole.value = false;
   rolesError.value = "";
   workerRoles.value = [];
 };
@@ -154,11 +192,12 @@ const mapTripRoleRow = (row) => ({
   id: row.id,
   workerRoleId: row.workerRoleId,
   name: row.workerRole?.name || "—",
-  description: row.workerRole?.description || "",
   licenseRequired: !!row.workerRole?.licenseRequired,
   documentTypeDescription: row.workerRole?.documentType?.description || "",
   quantity: Number(row.quantity) || 1,
   originalQuantity: Number(row.quantity) || 1,
+  availableCount: row.availableCount ?? 0,
+  emails: [],
 });
 
 const loadWorkerRoles = async (orgId) => {
@@ -182,36 +221,46 @@ const loadWorkerRoles = async (orgId) => {
 const loadTripRoles = async (tripId) => {
   const res = await TripWorkerRoleServices.getAll(tripId);
   const rows = (res.data || []).map(mapTripRoleRow);
+  await Promise.all(rows.map(async (row) => (row.emails = await loadReservedEmails(row.id))));
   selectedRoles.value = rows;
   initialRoleIds.value = rows.map((r) => r.id);
+};
+
+const openAddRole = () => {
+  addRoleId.value = null;
+  addQuantity.value = 1;
+  addEmails.value = "";
+  addRoleError.value = "";
+  showAddRole.value = true;
 };
 
 const addSelectedRole = () => {
   if (!addRoleId.value) return;
   const qty = Number(addQuantity.value);
   if (!Number.isInteger(qty) || qty < 1) {
-    rolesError.value = "Quantity must be a positive whole number.";
+    addRoleError.value = "Quantity must be a positive whole number.";
     return;
   }
   const role = workerRoles.value.find((r) => Number(r.id) === Number(addRoleId.value));
   if (!role) return;
   if (selectedRoles.value.some((r) => Number(r.workerRoleId) === Number(role.id))) {
-    rolesError.value = "That role is already selected.";
+    addRoleError.value = "That role is already selected.";
     return;
   }
-  rolesError.value = "";
+  const emails = parseEmailList(addEmails.value);
+  addRoleError.value = tooManyReservedEmailsError(emails, qty);
+  if (addRoleError.value) return;
   selectedRoles.value.push({
     id: null,
     workerRoleId: role.id,
     name: role.name,
-    description: role.description || "",
     licenseRequired: !!role.licenseRequired,
     documentTypeDescription: role.documentType?.description || "",
     quantity: qty,
     originalQuantity: null,
+    emails,
   });
-  addRoleId.value = null;
-  addQuantity.value = 1;
+  showAddRole.value = false;
 };
 
 const removeSelectedRole = (workerRoleId) => {
@@ -226,8 +275,13 @@ const syncTripRoles = async (tripId) => {
   );
   const toDelete = initialRoleIds.value.filter((id) => !currentIds.has(Number(id)));
 
+  // Record each success so a retry after a partial failure only resends what failed.
   await Promise.all([
-    ...toDelete.map((id) => TripWorkerRoleServices.delete(id)),
+    ...toDelete.map((id) =>
+      TripWorkerRoleServices.delete(id).then(() => {
+        initialRoleIds.value = initialRoleIds.value.filter((x) => Number(x) !== Number(id));
+      })
+    ),
     ...selectedRoles.value
       .filter((r) => r.id == null)
       .map((r) =>
@@ -235,6 +289,10 @@ const syncTripRoles = async (tripId) => {
           tripId: Number(tripId),
           workerRoleId: Number(r.workerRoleId),
           quantity: Number(r.quantity),
+          emails: r.emails,
+        }).then((res) => {
+          Object.assign(r, { ...mapTripRoleRow(res.data), emails: r.emails });
+          initialRoleIds.value.push(r.id);
         })
       ),
     ...selectedRoles.value
@@ -243,7 +301,9 @@ const syncTripRoles = async (tripId) => {
           r.id != null && Number(r.quantity) !== Number(r.originalQuantity)
       )
       .map((r) =>
-        TripWorkerRoleServices.update(r.id, { quantity: Number(r.quantity) })
+        TripWorkerRoleServices.update(r.id, { quantity: Number(r.quantity) }).then(() => {
+          r.originalQuantity = Number(r.quantity);
+        })
       ),
   ]);
 };
@@ -414,6 +474,7 @@ watch(
     selectedRoles.value = [];
     addRoleId.value = null;
     addQuantity.value = 1;
+    addEmails.value = "";
     loadWorkerRoles(orgId);
   }
 );
@@ -436,6 +497,11 @@ const save = async () => {
     const qty = Number(row.quantity);
     if (!Number.isInteger(qty) || qty < 1) {
       formError.value = "Each team role needs a positive whole number.";
+      return;
+    }
+    const tooMany = tooManyReservedEmailsError(row.emails, qty, row.name);
+    if (tooMany) {
+      formError.value = tooMany;
       return;
     }
   }
@@ -675,21 +741,17 @@ const save = async () => {
                 <tr>
                   <th>Role</th>
                   <th style="width: 130px">Number Needed</th>
-                  <th style="width: 90px"></th>
+                  <th style="width: 200px"></th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="row in selectedRoles" :key="row.id || `new-${row.workerRoleId}`">
+                <template v-for="row in selectedRoles" :key="row.id || `new-${row.workerRoleId}`">
+                <tr class="role-row">
                   <td>
-                    <div>
-                      {{ row.name }}
-                      <span v-if="row.licenseRequired" class="text-caption text-medium-emphasis">
-                        ({{ row.documentTypeDescription ? row.documentTypeDescription + " · " : "" }}license required)
-                      </span>
-                    </div>
-                    <div v-if="row.description" class="text-caption text-medium-emphasis">
-                      {{ row.description }}
-                    </div>
+                    {{ row.name }}
+                    <span v-if="row.licenseRequired" class="text-caption text-medium-emphasis">
+                      ({{ row.documentTypeDescription ? row.documentTypeDescription + " · " : "" }}license required)
+                    </span>
                   </td>
                   <td>
                     <v-text-field
@@ -700,7 +762,10 @@ const save = async () => {
                       hide-details
                     />
                   </td>
-                  <td>
+                  <td class="text-no-wrap">
+                    <v-btn v-if="row.id != null" size="small" variant="text" @click="openReservations(row)">
+                      Reserved emails
+                    </v-btn>
                     <v-btn
                       size="small"
                       variant="text"
@@ -711,6 +776,12 @@ const save = async () => {
                     </v-btn>
                   </td>
                 </tr>
+                <tr class="reserved-emails-row">
+                  <td colspan="3" class="text-caption text-medium-emphasis">
+                    Reserved emails: {{ row.emails.length ? row.emails.join(", ") : "—" }}
+                  </td>
+                </tr>
+                </template>
               </tbody>
             </v-table>
 
@@ -718,45 +789,63 @@ const save = async () => {
               Optional — add staffing roles for this trip.
             </p>
 
-            <div class="add-role-form pa-4 rounded mb-2">
-              <div class="text-subtitle-2 mb-3">Add Role</div>
-              <div class="d-flex align-center ga-3 flex-wrap">
-                <v-select
-                  v-model="addRoleId"
-                  :items="availableRoleItems"
-                  label="Worker role"
-                  density="compact"
-                  hide-details
-                  style="max-width: 280px; min-width: 180px"
-                  :disabled="!form.orgId || !availableRoleItems.length"
-                  :placeholder="
-                    !form.orgId
-                      ? 'Select an organization first'
-                      : availableRoleItems.length
-                        ? undefined
-                        : 'No more active roles to add'
-                  "
-                />
-                <v-text-field
-                  v-model.number="addQuantity"
-                  type="number"
-                  min="1"
-                  label="Number Needed"
-                  density="compact"
-                  hide-details
-                  style="max-width: 120px"
-                  :disabled="!form.orgId"
-                />
-                <v-btn
-                  color="primary"
-                  size="small"
-                  :disabled="!addRoleId"
-                  @click="addSelectedRole"
-                >
-                  Add role
-                </v-btn>
-              </div>
+            <div class="d-flex align-center ga-3 mb-2">
+              <v-btn
+                color="primary"
+                size="small"
+                variant="tonal"
+                :disabled="!form.orgId || !availableRoleItems.length"
+                @click="openAddRole"
+              >
+                Add role
+              </v-btn>
+              <span v-if="!form.orgId" class="text-caption text-medium-emphasis">
+                Select an organization first
+              </span>
+              <span v-else-if="!availableRoleItems.length && !workerRolesLoading" class="text-caption text-medium-emphasis">
+                No more active roles to add
+              </span>
             </div>
+
+            <v-dialog v-model="showAddRole" max-width="480">
+              <v-card>
+                <v-card-title>Add Role</v-card-title>
+                <v-card-text>
+                  <v-select
+                    v-model="addRoleId"
+                    :items="availableRoleItems"
+                    label="Worker role"
+                    density="compact"
+                    class="mb-2"
+                  />
+                  <v-text-field
+                    v-model.number="addQuantity"
+                    type="number"
+                    min="1"
+                    label="Number Needed"
+                    density="compact"
+                    class="mb-2"
+                  />
+                  <v-textarea
+                    v-model="addEmails"
+                    label="Reserved emails (optional)"
+                    hint="Separate emails with commas, spaces, or new lines. Saved with the role when you save the trip."
+                    persistent-hint
+                    density="compact"
+                    rows="2"
+                    auto-grow
+                  />
+                  <v-alert v-if="addRoleError" type="error" density="compact" class="mt-3">
+                    {{ addRoleError }}
+                  </v-alert>
+                </v-card-text>
+                <v-card-actions>
+                  <v-spacer />
+                  <v-btn variant="text" @click="showAddRole = false">Cancel</v-btn>
+                  <v-btn color="primary" :disabled="!addRoleId" @click="addSelectedRole">Add</v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
 
             <v-alert v-if="rolesError" type="error" density="compact" class="mt-2">
               {{ rolesError }}
@@ -879,6 +968,8 @@ const save = async () => {
         <v-btn variant="text" @click="close">Cancel</v-btn>
         <v-btn color="primary" :loading="saving" :disabled="loading" @click="save">Save</v-btn>
       </v-card-actions>
+
+      <RoleReservationsDialog v-model="showReservations" :role="reservationsRole" @changed="refreshRoleCounts" />
     </v-card>
   </v-dialog>
 </template>
@@ -886,5 +977,12 @@ const save = async () => {
 <style scoped>
 .add-role-form {
   background-color: #f0f0f0;
+}
+.role-row > td {
+  border-bottom: none !important;
+}
+.reserved-emails-row > td {
+  height: auto !important;
+  padding-bottom: 8px !important;
 }
 </style>

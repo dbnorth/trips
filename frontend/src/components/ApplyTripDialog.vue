@@ -44,6 +44,7 @@ const saving = ref(false);
 const formError = ref("");
 const trip = ref(null);
 const rolesNeeded = ref([]);
+const myReservedRoleId = ref(null);
 const personDocuments = ref([]);
 const person = ref(null);
 const healthForm = ref({
@@ -112,6 +113,9 @@ const medicalAgreementRequired = computed(
 const participantUnder18 = computed(() => isUnder18(person.value?.birthDate));
 
 const availableRoles = computed(() => {
+  if (myReservedRoleId.value) {
+    return (rolesNeeded.value || []).filter((r) => Number(r.id) === myReservedRoleId.value);
+  }
   const currentId = Number(form.value.tripWorkerRoleId);
   return (rolesNeeded.value || []).filter(
     (r) => (r.availableCount || 0) > 0 || (editingApplication.value && Number(r.id) === currentId)
@@ -490,6 +494,7 @@ const loadExistingApplication = async () => {
   canEdit.value = !!res.data?.canEdit;
   applicationStatus.value = res.data?.applicationStatus || res.data?.application?.status || null;
   applyFormFromApplication(res.data?.application);
+  applyReservedRole(res.data?.myReservedTripWorkerRoleId);
   if (!canEdit.value) {
     const status = applicationStatus.value || "unknown";
     if (status === "cancelled") {
@@ -502,10 +507,16 @@ const loadExistingApplication = async () => {
   }
 };
 
+const applyReservedRole = (roleId) => {
+  myReservedRoleId.value = roleId ? Number(roleId) : null;
+  if (myReservedRoleId.value) form.value.tripWorkerRoleId = myReservedRoleId.value;
+};
+
 const loadNewApplication = async () => {
   const res = await TripServices.getBrowseTrip(props.tripId);
   trip.value = res.data?.trip || null;
   rolesNeeded.value = res.data?.rolesNeeded || [];
+  applyReservedRole(res.data?.myReservedTripWorkerRoleId);
   travelOptions.value = res.data?.travelOptions || [];
   selectedTravelOptionIds.value = (res.data?.travelOptions || [])
     .filter((o) => o.selected)
@@ -819,8 +830,8 @@ const confirmUncancelApplication = async () => {
             :items="roleItems"
             label="Trip role"
             density="compact"
-            :disabled="!canEdit || !availableRoles.length"
-            hint="Only roles with open positions are listed"
+            :disabled="!canEdit || !availableRoles.length || !!myReservedRoleId"
+            :hint="myReservedRoleId ? 'This role is reserved for you.' : 'Only roles with open positions are listed'"
             persistent-hint
             class="mb-2"
           />
