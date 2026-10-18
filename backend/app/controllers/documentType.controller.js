@@ -37,6 +37,13 @@ const pickPayload = (body) => {
       body.allowSpecialization === 1 ||
       body.allowSpecialization === "1";
   }
+  if (Object.prototype.hasOwnProperty.call(body, "hasExpirationDate")) {
+    payload.hasExpirationDate =
+      body.hasExpirationDate === true ||
+      body.hasExpirationDate === "true" ||
+      body.hasExpirationDate === 1 ||
+      body.hasExpirationDate === "1";
+  }
   if (Object.prototype.hasOwnProperty.call(body, "instructions")) {
     const val = body.instructions;
     if (val == null) payload.instructions = null;
@@ -102,6 +109,7 @@ exports.create = async (req, res) => {
       type: payload.type,
       documentNumberRequired: payload.documentNumberRequired ?? false,
       allowSpecialization: payload.allowSpecialization ?? false,
+      hasExpirationDate: payload.hasExpirationDate ?? true,
       instructions: Object.prototype.hasOwnProperty.call(payload, "instructions")
         ? payload.instructions
         : null,

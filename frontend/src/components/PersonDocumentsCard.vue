@@ -87,6 +87,8 @@ const documentNumberRequired = computed(
 
 const allowSpecialization = computed(() => !!selectedDocumentType.value?.allowSpecialization);
 
+const hasExpirationDate = computed(() => selectedDocumentType.value?.hasExpirationDate !== false);
+
 let specializationKey = 0;
 const newSpecialization = (row = {}) => ({
   key: row.id || `new-${++specializationKey}`,
@@ -150,7 +152,7 @@ const validateForm = () => {
   if (!form.value.issueDate) {
     errors.issueDate = "Issue date is required.";
   }
-  if (!form.value.expirationDate) {
+  if (hasExpirationDate.value && !form.value.expirationDate) {
     errors.expirationDate = "Expiration date is required.";
   }
   if (allowSpecialization.value) {
@@ -248,7 +250,7 @@ const saveDocument = async () => {
       : null,
     countryIssued: resolveCountryCode(form.value.countryIssued) || null,
     issueDate: form.value.issueDate,
-    expirationDate: form.value.expirationDate,
+    expirationDate: hasExpirationDate.value ? form.value.expirationDate : null,
     file: form.value.file || undefined,
   };
   if (allowSpecialization.value) {
@@ -392,7 +394,7 @@ onMounted(load);
           <td>{{ row.documentNumber || "—" }}</td>
           <td>{{ countryLabel(row.countryIssued) }}</td>
           <td>{{ row.issueDate || "—" }}</td>
-          <td>{{ row.expirationDate }}</td>
+          <td>{{ row.expirationDate || "—" }}</td>
           <td>
             <v-btn
               v-if="row.documentFileName"
@@ -489,7 +491,7 @@ onMounted(load);
             :error-messages="fieldErrors.issueDate"
           />
         </v-col>
-        <v-col cols="12" sm="6">
+        <v-col v-if="hasExpirationDate" cols="12" sm="6">
           <v-text-field
             v-model="form.expirationDate"
             label="Expiration date"

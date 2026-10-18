@@ -105,18 +105,18 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 
 ---
 
-## Document types & person documents — Features 4, 22, 24
+## Document types & person documents — Features 4, 22, 24, 57
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/document-types` | auth | Catalog (any auth user); includes `documentNumberRequired`, `instructions`, `allowSpecialization` (Feature 34); `type` may be `medical_licence`, `passport`, `certification`, or `diploma` |
+| `GET` | `/trips/document-types` | auth | Catalog (any auth user); includes `documentNumberRequired`, `instructions`, `allowSpecialization` (Feature 34), `hasExpirationDate` (Feature 57); `type` may be `medical_licence`, `passport`, `certification`, or `diploma` |
 | `GET` | `/trips/document-types/:id` | auth | Get (sysadmin gate in controller) |
-| `POST` | `/trips/document-types` | auth | Create (sysadmin); optional `documentNumberRequired`, `instructions`, `allowSpecialization`; `type` includes `diploma` (Feature 24) |
+| `POST` | `/trips/document-types` | auth | Create (sysadmin); optional `documentNumberRequired`, `instructions`, `allowSpecialization`, `hasExpirationDate` (default `true`, Feature 57); `type` includes `diploma` (Feature 24) |
 | `PUT` | `/trips/document-types/:id` | auth | Update (sysadmin) |
 | `DELETE` | `/trips/document-types/:id` | auth | Delete (sysadmin) |
-| `GET` | `/trips/people/:id/documents` | auth | List; includes `specializations` (`id`, `name`, `date`, `documentFileName`) when present |
-| `POST` | `/trips/people/:id/documents` | auth | Upload (`multipart` field `document`); optional `documentNumber` (required when type says so); `specializations` JSON plus `specializationFiles` when the type allows them (Feature 34) |
-| `PUT` | `/trips/people/:id/documents/:documentId` | auth | Update/replace; specialization list replaces stored rows when sent and the type allows them |
+| `GET` | `/trips/people/:id/documents` | auth | List; includes `specializations` (`id`, `name`, `date`, `documentFileName`) when present; `expirationDate` may be null and `documentType` includes `hasExpirationDate` (Feature 57) |
+| `POST` | `/trips/people/:id/documents` | auth | Upload (`multipart` field `document`); optional `documentNumber` (required when type says so); `expirationDate` required only when the type has `hasExpirationDate`, otherwise stored null and any value sent is ignored (`400` "Expiration date is required.", Feature 57); `specializations` JSON plus `specializationFiles` when the type allows them (Feature 34) |
+| `PUT` | `/trips/people/:id/documents/:documentId` | auth | Update/replace; same `expirationDate` rule as `POST`; specialization list replaces stored rows when sent and the type allows them |
 | `DELETE` | `/trips/people/:id/documents/:documentId` | auth | Delete |
 | `GET` | `/trips/people/:id/documents/:documentId/view` | auth | Inline view |
 | `GET` | `/trips/people/:id/documents/:documentId/download` | auth | Download |

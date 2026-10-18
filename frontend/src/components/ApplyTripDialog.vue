@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import TripServices from "../services/tripServices.js";
 import PersonServices from "../services/personServices.js";
 import PersonDocumentServices from "../services/personDocumentServices.js";
+import DocumentTypeServices from "../services/documentTypeServices.js";
 import Utils from "../config/utils.js";
 import DonorTripHeading from "./DonorTripHeading.vue";
 import ParticipantAgreementSection from "./ParticipantAgreementSection.vue";
@@ -24,6 +25,7 @@ import {
   isRequiredPassportUploaded,
   isRequiredRoleDocumentUploaded,
   missingRequiredRoleDocuments,
+  needsExpirationWording,
   validateTravelOptionSelections,
 } from "../utils/tripApplicationForm.js";
 import {
@@ -46,6 +48,7 @@ const trip = ref(null);
 const rolesNeeded = ref([]);
 const myReservedRoleId = ref(null);
 const personDocuments = ref([]);
+const documentTypes = ref([]);
 const person = ref(null);
 const healthForm = ref({
   gender: null,
@@ -186,6 +189,10 @@ const documentRequirementWarning = computed(() => {
     return "Upload a file for every document on your profile before submitting your application.";
   }
   if (trip.value?.requirePassport && !hasRequiredPassportForTrip.value) {
+    const passportTypes = documentTypes.value.filter((t) => t.type === "passport");
+    if (!needsExpirationWording(passportTypes)) {
+      return "Upload a passport before submitting your application.";
+    }
     const endDate = dateOnly(trip.value?.endDate);
     const endPart = endDate ? ` (${endDate})` : "";
     return `Upload a passport with an expiration date past the end of the trip${endPart} before submitting your application.`;
@@ -199,6 +206,9 @@ const documentRequirementWarning = computed(() => {
   if (!missing.length) return "";
 
   const names = missing.map((d) => d.description || "required document").join(", ");
+  if (!needsExpirationWording(missing)) {
+    return `Upload the following required documents before submitting your application: ${names}.`;
+  }
   const endDate = dateOnly(trip.value?.endDate);
   const endPart = endDate ? ` (${endDate})` : "";
   return `Upload the following required documents with an expiration date past the end of the trip${endPart} before submitting your application: ${names}.`;
@@ -438,6 +448,15 @@ const loadPersonDocuments = async () => {
   }
 };
 
+const loadDocumentTypes = async () => {
+  try {
+    const res = await DocumentTypeServices.getAll();
+    documentTypes.value = res.data || [];
+  } catch {
+    documentTypes.value = [];
+  }
+};
+
 const applyHealthFromPerson = (data) => {
   healthForm.value = {
     gender: data?.gender || null,
@@ -553,6 +572,7 @@ const load = async () => {
   resetForm();
   try {
     await loadPersonDocuments();
+    await loadDocumentTypes();
     await loadNewApplication();
     // Load person after trip so medical-condition org context is known (Feature 17).
     await loadPerson();

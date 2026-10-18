@@ -5,6 +5,8 @@
  * Spec: features/feature-47-simplify-application-warnings.md
  * Feature 56 — Reserved Role Emails
  * Spec: features/feature-56-reserved-role-emails.md
+ * Feature 57 — Document Type Has Expiration Date
+ * Spec: features/feature-57-document-type-expiration-date.md
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -27,6 +29,9 @@ vi.mock("../src/services/personServices.js", () => ({
 }));
 vi.mock("../src/services/personDocumentServices.js", () => ({
   default: { getAll: vi.fn() },
+}));
+vi.mock("../src/services/documentTypeServices.js", () => ({
+  default: { getAll: vi.fn(() => Promise.resolve({ data: [] })) },
 }));
 
 import TripServices from "../src/services/tripServices.js";
@@ -353,6 +358,37 @@ describe("Feature 47 — Simplify Application Warnings", () => {
       expect(select.props("modelValue")).toBe(OPEN_ROLE.id);
       expect(select.props("disabled")).toBe(true);
       expect(select.props("hint")).toBe("This role is reserved for you.");
+      wrapper.unmount();
+    });
+  });
+
+  describe("Feature 57 — US-57.3 Application document checks skip expiration", () => {
+    it("Missing-document message leaves out expiration wording", async () => {
+      browseTrip({
+        rolesNeeded: [
+          {
+            ...OPEN_ROLE,
+            workerRole: {
+              name: "Nurse",
+              requiredDocumentTypes: [
+                { id: 9, description: "Diploma", type: "diploma", hasExpirationDate: false },
+              ],
+            },
+          },
+        ],
+      });
+      const wrapper = await openDialog();
+
+      wrapper
+        .findAllComponents({ name: "VSelect" })
+        .find((c) => c.props("label") === "Trip role")
+        .vm.$emit("update:modelValue", OPEN_ROLE.id);
+      await flushPromises();
+
+      expect(wrapper.text()).toContain(
+        "Upload the following required documents before submitting your application: Diploma."
+      );
+      expect(wrapper.text()).not.toContain("expiration date");
       wrapper.unmount();
     });
   });

@@ -175,6 +175,7 @@ Notes:
 | documentNumberRequired | BOOLEAN | required, default `false` (Feature 22) |
 | instructions | TEXT | nullable (Feature 22) |
 | allowSpecialization | BOOLEAN | required, default `false` (Feature 34) |
+| hasExpirationDate | BOOLEAN | required, default `true` (Feature 57) |
 
 **Associations:** `hasMany` workerRole (SET NULL); `hasMany` personDocument (RESTRICT).
 
@@ -190,7 +191,7 @@ Notes:
 | countryIssued | STRING(2) | |
 | documentNumber | STRING(100) | nullable; required by API when type.`documentNumberRequired` (Feature 22) |
 | issueDate | DATEONLY | |
-| expirationDate | DATEONLY | required |
+| expirationDate | DATEONLY | nullable; required by API when type.`hasExpirationDate`, stored null otherwise (Feature 57) |
 | documentFileName | STRING(500) | nullable; optional upload (Feature 22) |
 
 **Associations:** `belongsTo` person, documentType; `hasMany` personDocumentSpecialization (CASCADE).

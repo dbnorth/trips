@@ -34,6 +34,7 @@ const includeDocumentType = [
       "documentNumberRequired",
       "instructions",
       "allowSpecialization",
+      "hasExpirationDate",
     ],
   },
   {
@@ -220,7 +221,7 @@ const validatePayload = async (body) => {
   const documentType = await DocumentType.findByPk(documentTypeId);
   if (!documentType) return { error: "Document type not found." };
 
-  if (!body.expirationDate) {
+  if (documentType.hasExpirationDate && !body.expirationDate) {
     return { error: "Expiration date is required." };
   }
 
@@ -239,7 +240,7 @@ const validatePayload = async (body) => {
       countryIssued: body.countryIssued?.trim()?.toUpperCase() || null,
       documentNumber,
       issueDate: body.issueDate || null,
-      expirationDate: body.expirationDate,
+      expirationDate: documentType.hasExpirationDate ? body.expirationDate : null,
     },
   };
 };

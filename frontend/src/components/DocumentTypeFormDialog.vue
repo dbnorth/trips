@@ -18,6 +18,7 @@ const emptyForm = () => ({
   type: null,
   documentNumberRequired: false,
   allowSpecialization: false,
+  hasExpirationDate: true,
   instructions: "",
 });
 
@@ -44,6 +45,7 @@ const loadRow = async () => {
       type: row.type || null,
       documentNumberRequired: !!row.documentNumberRequired,
       allowSpecialization: !!row.allowSpecialization,
+      hasExpirationDate: row.hasExpirationDate !== false,
       instructions: row.instructions || "",
     };
   } catch (e) {
@@ -79,6 +81,7 @@ const save = async () => {
     type: form.value.type,
     documentNumberRequired: !!form.value.documentNumberRequired,
     allowSpecialization: !!form.value.allowSpecialization,
+    hasExpirationDate: !!form.value.hasExpirationDate,
     instructions: form.value.instructions?.trim() || null,
   };
 
@@ -129,6 +132,13 @@ const save = async () => {
         <v-checkbox
           v-model="form.allowSpecialization"
           label="Allow Specialization"
+          density="compact"
+          hide-details
+          class="mb-2"
+        />
+        <v-checkbox
+          v-model="form.hasExpirationDate"
+          label="Has Expiration Date"
           density="compact"
           hide-details
           class="mb-2"
