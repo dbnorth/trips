@@ -4,6 +4,9 @@
  *
  * Feature 24 — Document Type Diploma
  * Spec: features/feature-24-document-type-diploma.md
+ *
+ * Feature 57 — Document Type Has Expiration Date
+ * Spec: features/feature-57-document-type-expiration-date.md
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -131,6 +134,7 @@ describe("Feature 22 — Document number & instructions", () => {
       type: "passport",
       documentNumberRequired: true,
       allowSpecialization: false,
+      hasExpirationDate: true,
       instructions: "Bring original.",
     });
 
@@ -382,6 +386,41 @@ describe("Feature 35 — Person Document Add Dialog", () => {
       .find((c) => c.props("label") === "Document type");
     expect(typeField).toBeFalsy();
     expect(PersonDocumentServices.create).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+});
+
+describe("Feature 57 — Document Type Has Expiration Date", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    DocumentTypeServices.getAll.mockResolvedValue({
+      data: [
+        { id: 1, description: "Passport", type: "passport", hasExpirationDate: true },
+        { id: 2, description: "Diploma", type: "diploma", hasExpirationDate: false },
+      ],
+    });
+    PersonDocumentServices.getAll.mockResolvedValue({ data: [] });
+  });
+
+  it("Expiration date is hidden for a type without one", async () => {
+    const { wrapper } = await mountCard({ personId: 5 });
+    await flushPromises();
+    await clickButton(wrapper, "Add Document");
+
+    const expirationField = () =>
+      wrapper
+        .findAllComponents({ name: "VTextField" })
+        .find((c) => c.props("label") === "Expiration date");
+    const typeSelect = wrapper.findComponent({ name: "VSelect" });
+
+    await typeSelect.vm.$emit("update:modelValue", 2);
+    await flushPromises();
+    expect(expirationField()).toBeFalsy();
+
+    await typeSelect.vm.$emit("update:modelValue", 1);
+    await flushPromises();
+    expect(expirationField()).toBeTruthy();
 
     wrapper.unmount();
   });

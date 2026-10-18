@@ -116,7 +116,7 @@ export const isRequiredRoleDocumentUploaded = ({
     (documents || []).some((doc) => {
       if (Number(doc.documentTypeId) !== id) return false;
       if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
-      if (!compareDate) return true;
+      if (!compareDate || doc.documentType?.hasExpirationDate === false) return true;
       const expirationDate = String(doc.expirationDate || "").slice(0, 10);
       return expirationDate && expirationDate > compareDate;
     })
@@ -155,7 +155,7 @@ export const isRequiredPassportUploaded = ({
     const type = doc.documentType?.type ?? doc.type ?? null;
     if (type !== "passport") return false;
     if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
-    if (!compareDate) return true;
+    if (!compareDate || doc.documentType?.hasExpirationDate === false) return true;
     const expirationDate = String(doc.expirationDate || "").slice(0, 10);
     return expirationDate && expirationDate > compareDate;
   });
@@ -346,7 +346,7 @@ export const loadPersonDocumentsForCompleteness = async (peopleId) => {
       {
         model: db.documentType,
         as: "documentType",
-        attributes: ["id", "type"],
+        attributes: ["id", "type", "hasExpirationDate"],
       },
     ],
   });

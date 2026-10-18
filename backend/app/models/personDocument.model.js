@@ -8,7 +8,7 @@ const PersonDocument = SequelizeInstance.define("personDocument", {
   countryIssued: { type: Sequelize.STRING(2) },
   documentNumber: { type: Sequelize.STRING(100), allowNull: true },
   issueDate: { type: Sequelize.DATEONLY },
-  expirationDate: { type: Sequelize.DATEONLY, allowNull: false },
+  expirationDate: { type: Sequelize.DATEONLY, allowNull: true },
   documentFileName: { type: Sequelize.STRING(500), allowNull: true },
 });
 

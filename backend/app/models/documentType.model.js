@@ -19,6 +19,11 @@ const DocumentType = SequelizeInstance.define("documentType", {
     allowNull: false,
     defaultValue: false,
   },
+  hasExpirationDate: {
+    type: Sequelize.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+  },
 });
 
 export default DocumentType;

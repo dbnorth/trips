@@ -262,11 +262,15 @@ const workerRoleInclude = {
   as: "workerRole",
   attributes: ["id", "name", "description", "licenseRequired", "documentTypeId", "status"],
   include: [
-    { model: db.documentType, as: "documentType", attributes: ["id", "description", "type"] },
+    {
+      model: db.documentType,
+      as: "documentType",
+      attributes: ["id", "description", "type", "hasExpirationDate"],
+    },
     {
       model: db.documentType,
       as: "requiredDocumentTypes",
-      attributes: ["id", "description", "type"],
+      attributes: ["id", "description", "type", "hasExpirationDate"],
       through: { attributes: [] },
     },
   ],
