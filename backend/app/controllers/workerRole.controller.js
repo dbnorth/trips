@@ -20,7 +20,7 @@ const SPECIALIZATION_NOT_REQUIRED_DOCUMENT =
 const requiredDocumentTypeInclude = {
   model: DocumentType,
   as: "requiredDocumentTypes",
-  attributes: ["id", "description", "type"],
+  attributes: ["id", "description", "type", "allowSpecialization"],
   through: { attributes: [] },
 };
 
@@ -84,9 +84,6 @@ const pickPayload = (body) => {
   if (Object.prototype.hasOwnProperty.call(body, "description")) {
     const val = body.description;
     payload.description = typeof val === "string" ? val.trim() || null : val ?? null;
-  }
-  if (Object.prototype.hasOwnProperty.call(body, "licenseRequired")) {
-    payload.licenseRequired = !!body.licenseRequired;
   }
   if (Object.prototype.hasOwnProperty.call(body, "status")) {
     payload.status = body.status;
@@ -267,7 +264,6 @@ exports.create = async (req, res) => {
       orgId,
       name: payload.name,
       description: payload.description ?? null,
-      licenseRequired: payload.licenseRequired ?? false,
       documentTypeId: null,
       status: payload.status ?? "active",
     });

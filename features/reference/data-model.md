@@ -413,9 +413,10 @@ Seeded from `backend/app/data/airlines.json` (OpenFlights active IATA set) via `
 | orgId | INTEGER | required FK → organization |
 | name | STRING(100) | required |
 | description | STRING(500) | |
-| licenseRequired | BOOLEAN | required, default `false` |
 | documentTypeId | INTEGER | optional FK → documentType; **deprecated for writes** (Feature 25 — migrate into join) |
 | status | ENUM(`active`,`inactive`) | required, default `active` |
+
+`licenseRequired` was removed in Feature 59 (`ensureSchema` drops the column).
 
 **Associations:** `belongsTo` organization, documentType (legacy); `belongsToMany` documentType as `requiredDocumentTypes` through `workerRoleDocumentType`; `belongsToMany` documentTypeSpecialization as `requiredSpecializations` through `workerRoleSpecialization` (Feature 59); `hasMany` tripWorkerRole.
 

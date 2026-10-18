@@ -131,9 +131,8 @@ const roleItems = computed(() =>
   availableRoles.value.map((r) => {
     const name = r.workerRole?.name || "Role";
     const available = `${r.availableCount} available`;
-    const license = r.workerRole?.licenseRequired ? " — License required" : "";
     return {
-      title: `${name} (${available})${license}`,
+      title: `${name} (${available})`,
       value: r.id,
       raw: r,
     };

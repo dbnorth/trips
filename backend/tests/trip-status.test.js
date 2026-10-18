@@ -43,7 +43,6 @@ const setupTripWithRole = async ({
     .send({
       orgId: org.id,
       name: "Nurse",
-      licenseRequired: false,
     });
   expect(workerRole.status).toBe(200);
 

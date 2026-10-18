@@ -225,7 +225,6 @@ export const isApplicationComplete = ({
   preferredCabinClass = null,
   preferredAirlineId = null,
   preferredRefundableTicket = null,
-  licenseRequired = false,
   agreementRequired = false,
   agreementAccepted = false,
   agreementSignatureName = null,
@@ -295,7 +294,6 @@ export const resolveAppliedOrIncompleteStatus = ({
   preferredCabinClass = null,
   preferredAirlineId = null,
   preferredRefundableTicket = null,
-  licenseRequired = false,
   agreementRequired = false,
   agreementAccepted = false,
   agreementSignatureName = null,
@@ -327,7 +325,6 @@ export const resolveAppliedOrIncompleteStatus = ({
     preferredCabinClass,
     preferredAirlineId,
     preferredRefundableTicket,
-    licenseRequired,
     agreementRequired,
     agreementAccepted,
     agreementSignatureName,
@@ -411,7 +408,6 @@ export const loadPersonDocumentsForCompleteness = async (peopleId) => {
 export const loadWorkerRoleDocumentRequirements = async (tripWorkerRoleId) => {
   if (tripWorkerRoleId == null || tripWorkerRoleId === "") {
     return {
-      licenseRequired: false,
       documentTypeId: null,
       requiredDocumentTypeIds: [],
       requiredSpecializations: [],
@@ -422,7 +418,7 @@ export const loadWorkerRoleDocumentRequirements = async (tripWorkerRoleId) => {
       {
         model: WorkerRole,
         as: "workerRole",
-        attributes: ["id", "licenseRequired", "documentTypeId"],
+        attributes: ["id", "documentTypeId"],
         include: [
           {
             model: db.documentType,
@@ -446,7 +442,6 @@ export const loadWorkerRoleDocumentRequirements = async (tripWorkerRoleId) => {
     requiredDocumentTypeIds = [row.workerRole.documentTypeId];
   }
   return {
-    licenseRequired: !!row?.workerRole?.licenseRequired,
     documentTypeId: requiredDocumentTypeIds[0] ?? null,
     requiredDocumentTypeIds,
     requiredDocumentTypes: required.length
@@ -454,11 +449,6 @@ export const loadWorkerRoleDocumentRequirements = async (tripWorkerRoleId) => {
       : requiredDocumentTypeIds.map((id) => ({ id })),
     requiredSpecializations: activeRequiredSpecializations(row?.workerRole),
   };
-};
-
-export const loadLicenseRequired = async (tripWorkerRoleId) => {
-  const { licenseRequired } = await loadWorkerRoleDocumentRequirements(tripWorkerRoleId);
-  return licenseRequired;
 };
 
 /** Trip end date preferred; fall back to start (date-only YYYY-MM-DD). */

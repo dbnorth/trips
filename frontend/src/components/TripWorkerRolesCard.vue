@@ -40,9 +40,7 @@ const availableRoleItems = computed(() => {
   return workerRoles.value
     .filter((r) => !usedIds.has(Number(r.id)))
     .map((r) => ({
-      title: r.licenseRequired
-        ? `${r.name} (${r.documentType?.description ? r.documentType.description + " " : ""}license required)`
-        : r.name,
+      title: r.name,
       value: r.id,
     }));
 });
@@ -196,7 +194,6 @@ onMounted(() => {
       <thead>
         <tr>
           <th>Role</th>
-          <th>License required</th>
           <th>Document type</th>
           <th style="width: 130px">Number Needed</th>
           <th style="width: 140px">Number Signed Up</th>
@@ -213,7 +210,6 @@ onMounted(() => {
             </div>
             <div class="text-caption text-medium-emphasis">Reserved emails: {{ reservedEmailsText(row) }}</div>
           </td>
-          <td>{{ row.workerRole?.licenseRequired ? "Yes" : "No" }}</td>
           <td>{{ row.workerRole?.documentType?.description || "—" }}</td>
           <td>
             <v-text-field

@@ -72,4 +72,30 @@ describe("Feature 59 — Document Type Specialization List", () => {
 
     wrapper.unmount();
   });
+
+  it("Worker role form has no License required control", async () => {
+    DocumentTypeServices.getAll.mockResolvedValue({ data: [] });
+    WorkerRoleServices.create.mockResolvedValue({ data: { id: 1 } });
+
+    const { wrapper } = await mountWithPlugins(WorkerRoleFormDialog, {
+      props: { modelValue: true, orgId: 1 },
+      global: { stubs: { VDialog: { template: "<div><slot /></div>" } } },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).not.toContain("License required");
+    await wrapper
+      .findAllComponents({ name: "VTextField" })
+      .find((c) => c.props("label") === "Name")
+      .vm.$emit("update:modelValue", "Cook");
+    await wrapper
+      .findAllComponents({ name: "VBtn" })
+      .find((b) => b.text().trim() === "Save")
+      .trigger("click");
+    await flushPromises();
+
+    expect(WorkerRoleServices.create.mock.calls.at(-1)[0]).not.toHaveProperty("licenseRequired");
+
+    wrapper.unmount();
+  });
 });

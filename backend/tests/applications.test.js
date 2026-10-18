@@ -41,7 +41,6 @@ const createActiveTripWithRole = async (
     .send({
       orgId,
       name: "General Team",
-      licenseRequired: false,
     });
   expect(workerRole.status).toBe(200);
 
@@ -260,7 +259,6 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           orgId: org.id,
           name: "Nurse",
-          licenseRequired: true,
           requiredDocumentTypeIds: [docType.id],
         });
       expect(workerRole.status).toBe(200);
@@ -360,7 +358,6 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           orgId: org.id,
           name: "Clinical",
-          licenseRequired: false,
           requiredDocumentTypeIds: [typeA.id, typeB.id],
         });
       expect(workerRole.status).toBe(200);
@@ -497,7 +494,6 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .send({
           orgId: org.id,
           name: "General Team",
-          licenseRequired: false,
         });
       expect(workerRole.status).toBe(200);
 
@@ -892,7 +888,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       const workerRole = await request(app)
         .post("/trips/worker-roles")
         .set(authHeader)
-        .send({ orgId: org.id, name: "Helper", licenseRequired: false });
+        .send({ orgId: org.id, name: "Helper" });
       expect(workerRole.status).toBe(200);
 
       const tripWorkerRole = await request(app)
@@ -1385,7 +1381,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       const workerRole = await request(app)
         .post("/trips/worker-roles")
         .set(authHeader)
-        .send({ orgId: org.id, name: "Staff Role", licenseRequired: false });
+        .send({ orgId: org.id, name: "Staff Role" });
       expect(workerRole.status).toBe(200);
 
       const tripWorkerRole = await request(app)

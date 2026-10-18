@@ -166,7 +166,7 @@ exports.findStatus = async (req, res) => {
         {
           model: db.workerRole,
           as: "workerRole",
-          attributes: ["id", "name", "description", "licenseRequired", "status"],
+          attributes: ["id", "name", "description", "status"],
         },
       ],
       order: [["id", "ASC"]],
