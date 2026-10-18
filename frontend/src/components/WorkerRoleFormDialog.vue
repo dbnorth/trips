@@ -19,6 +19,7 @@ const emptyForm = () => ({
   description: "",
   licenseRequired: false,
   requiredDocumentTypeIds: [],
+  requiredSpecializationIdsByType: {},
   status: "active",
 });
 
@@ -28,6 +29,27 @@ const documentTypes = ref([]);
 const documentTypeItems = computed(() =>
   documentTypes.value.map((d) => ({ title: d.description, value: d.id }))
 );
+
+/** One required-specializations select per selected required document whose type allows specializations. */
+const specializationGroups = computed(() =>
+  (form.value.requiredDocumentTypeIds || [])
+    .map((id) => documentTypes.value.find((d) => Number(d.id) === Number(id)))
+    .filter((d) => d?.allowSpecialization && d.specializations?.length)
+    .map((d) => ({
+      documentTypeId: Number(d.id),
+      label: `Required specializations for ${d.description}`,
+      items: d.specializations.map((s) => ({ title: s.name, value: s.id })),
+    }))
+);
+
+const groupRequiredSpecializations = (specializations) => {
+  const byType = {};
+  for (const s of specializations || []) {
+    const key = Number(s.documentTypeId);
+    (byType[key] ||= []).push(Number(s.id));
+  }
+  return byType;
+};
 
 const loadDocumentTypes = async () => {
   try {
@@ -70,6 +92,7 @@ const loadRole = async () => {
       description: row.description || "",
       licenseRequired: !!row.licenseRequired,
       requiredDocumentTypeIds: requiredIds.map(Number),
+      requiredSpecializationIdsByType: groupRequiredSpecializations(row.requiredSpecializations),
       status: row.status || "active",
     };
   } catch (e) {
@@ -100,11 +123,15 @@ const save = async () => {
   }
 
   saving.value = true;
+  const requiredDocumentTypeIds = (form.value.requiredDocumentTypeIds || []).map(Number);
   const payload = {
     name: form.value.name.trim(),
     description: form.value.description?.trim() || null,
     licenseRequired: !!form.value.licenseRequired,
-    requiredDocumentTypeIds: (form.value.requiredDocumentTypeIds || []).map(Number),
+    requiredDocumentTypeIds,
+    requiredSpecializationIds: requiredDocumentTypeIds.flatMap(
+      (id) => form.value.requiredSpecializationIdsByType[id] || []
+    ),
     status: form.value.status,
   };
   if (!isEdit.value) payload.orgId = Number(props.orgId);
@@ -159,6 +186,19 @@ const save = async () => {
           persistent-hint
           class="mb-2"
           :no-data-text="'No document types available'"
+        />
+        <v-select
+          v-for="group in specializationGroups"
+          :key="group.documentTypeId"
+          v-model="form.requiredSpecializationIdsByType[group.documentTypeId]"
+          :items="group.items"
+          :label="group.label"
+          density="compact"
+          multiple
+          chips
+          closable-chips
+          hide-details
+          class="mb-2"
         />
         <v-select
           v-model="form.status"

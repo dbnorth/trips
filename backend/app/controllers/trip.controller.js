@@ -31,6 +31,7 @@ import {
   loadPersonForCompleteness,
   loadWorkerRoleDocumentRequirements,
   missingRequiredRoleDocuments,
+  requiredRoleDocumentLabel,
   tripDocumentCompareDate,
 } from "../utils/tripParticipantApplicationStatus.js";
 import {
@@ -259,7 +260,7 @@ exports.findStatus = async (req, res) => {
       const peopleId = json.peopleId;
       const person = await loadPersonForCompleteness(peopleId);
       const personDocuments = await loadPersonDocumentsForCompleteness(peopleId);
-      const { requiredDocumentTypeIds, requiredDocumentTypes } =
+      const { requiredDocumentTypeIds, requiredDocumentTypes, requiredSpecializations } =
         await loadWorkerRoleDocumentRequirements(json.tripWorkerRoleId);
 
       const medicalAgreementRequired =
@@ -276,11 +277,13 @@ exports.findStatus = async (req, res) => {
         documents: personDocuments,
         requiredDocumentTypes,
         compareDate: documentCompareDate,
+        requiredSpecializations,
       });
       const requiredRoleDocumentUploaded = isRequiredRoleDocumentUploaded({
         documents: personDocuments,
         documentTypeIds: requiredDocumentTypeIds,
         compareDate: documentCompareDate,
+        requiredSpecializations,
       });
 
       const missingItems = getApplicationMissingItemLabels({
@@ -316,7 +319,7 @@ exports.findStatus = async (req, res) => {
         travelOptionsMessage: travelMsg,
         personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
         requiredRoleDocumentUploaded,
-        missingRoleDocumentNames: missingRoleDocs.map((d) => d.description || d.name).filter(Boolean),
+        missingRoleDocumentNames: missingRoleDocs.map(requiredRoleDocumentLabel).filter(Boolean),
         requiredPassportUploaded: isRequiredPassportUploaded({
           documents: personDocuments,
           requirePassport: !!tripJson.requirePassport,

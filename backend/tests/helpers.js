@@ -43,6 +43,8 @@ export const resetTestDatabase = async () => {
     db.tripPeopleRoleOption,
     db.tripDonation,
     db.personDocumentSpecialization,
+    db.workerRoleSpecialization,
+    db.documentTypeSpecialization,
     db.personDocument,
     db.personMedicalCondition,
     db.personLanguage,
