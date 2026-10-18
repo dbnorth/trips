@@ -185,6 +185,19 @@ const loadEligibleAssignment = async (tripId, tripPeopleRoleId) => {
   });
 };
 
+/** Staff, or the assignment's own participant when they buy their own ticket (Feature 60). */
+const canManageSegments = async (req, tripId, tripPeopleRoleId) => {
+  const manage = await canManageTripFlights(req, tripId);
+  if (manage.ok) return manage;
+  const assignment = await loadEligibleAssignment(tripId, tripPeopleRoleId);
+  const ownSelfPurchase =
+    assignment &&
+    req.user?.personId != null &&
+    Number(assignment.peopleId) === Number(req.user.personId) &&
+    assignment.flightPurchaseOption === "self";
+  return ownSelfPurchase ? { ok: true, trip: manage.trip } : manage;
+};
+
 const ensureFlight = async (tripPeopleRoleId, transaction) => {
   let flight = await TripFlight.findOne({ where: { tripPeopleRoleId }, transaction });
   if (!flight) {
@@ -364,7 +377,7 @@ exports.findSegments = async (req, res) => {
   try {
     const tripId = req.params.id;
     const tripPeopleRoleId = Number(req.params.tripPeopleRoleId);
-    const manage = await canManageTripFlights(req, tripId);
+    const manage = await canManageSegments(req, tripId, tripPeopleRoleId);
     if (!manage.ok) return forbid(res, manage);
 
     const assignment = await loadEligibleAssignment(tripId, tripPeopleRoleId);
@@ -396,7 +409,7 @@ exports.replaceSegments = async (req, res) => {
   try {
     const tripId = req.params.id;
     const tripPeopleRoleId = Number(req.params.tripPeopleRoleId);
-    const manage = await canManageTripFlights(req, tripId);
+    const manage = await canManageSegments(req, tripId, tripPeopleRoleId);
     if (!manage.ok) {
       await transaction.rollback();
       return forbid(res, manage);

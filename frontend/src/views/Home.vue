@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import Utils from "../config/utils.js";
 import DashboardServices from "../services/dashboardServices.js";
 import TripServices from "../services/tripServices.js";
@@ -12,6 +12,10 @@ import ApplyTripDialog from "../components/ApplyTripDialog.vue";
 import EditTripDialog from "../components/EditTripDialog.vue";
 import EditOrganizationDialog from "../components/EditOrganizationDialog.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import ParticipantDonateDialog from "../components/ParticipantDonateDialog.vue";
+import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
+import MyTripNextActions from "../components/MyTripNextActions.vue";
+import { hasApplicationAction } from "../utils/myTripNextActions.js";
 import {
   isProfileComplete,
 } from "../utils/personProfile.js";
@@ -271,6 +275,33 @@ const openUpdateApplication = (trip) => {
   openApplyDialog(trip);
 };
 
+const hasCompleteApplicationAction = (trip) => hasApplicationAction(trip?.nextActions);
+
+const showDonateDialog = ref(false);
+const donateTripId = ref(null);
+const donateRecipients = ref([]);
+
+const openDonate = async (trip) => {
+  browseMessage.value = "";
+  try {
+    const res = await TripServices.getBrowseTrip(trip.id);
+    donateRecipients.value = res.data?.myTripInfo?.donationRecipients || [];
+    donateTripId.value = trip.id;
+    await nextTick();
+    showDonateDialog.value = true;
+  } catch (e) {
+    browseMessage.value = e.response?.data?.message || "Unable to load trip.";
+  }
+};
+
+const showFlightsDialog = ref(false);
+const flightsTrip = ref(null);
+
+const openEnterFlights = (trip) => {
+  flightsTrip.value = trip;
+  showFlightsDialog.value = true;
+};
+
 const canCancelApplication = (trip) =>
   trip?.alreadyApplied &&
   ["incomplete", "applied", "approved"].includes(trip.applicationStatus);
@@ -325,6 +356,10 @@ const confirmUncancelApplication = async () => {
     uncancelAppSaving.value = false;
   }
 };
+
+watch(showApplyDialog, (open) => {
+  if (!open) loadBrowseTrips();
+});
 
 const onApplicationSaved = () => {
   browseMessage.value = "Application submitted. Your organization will review it.";
@@ -698,7 +733,8 @@ onUnmounted(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in displayMyTrips" :key="`my-${item.id}`">
+                <template v-for="item in displayMyTrips" :key="`my-${item.id}`">
+                <tr>
                   <td>{{ item.name }}</td>
                   <td>{{ item.location || "—" }}</td>
                   <td>{{ formatDate(item.startDate) }}</td>
@@ -716,7 +752,7 @@ onUnmounted(() => {
                     <div class="d-flex justify-end ga-2 flex-wrap">
                       <v-btn size="small" variant="tonal" @click="viewBrowseTrip(item)">View</v-btn>
                       <v-btn
-                        v-if="canUpdateApplication(item)"
+                        v-if="canUpdateApplication(item) && !hasCompleteApplicationAction(item)"
                         size="small"
                         color="primary"
                         @click="openUpdateApplication(item)"
@@ -724,7 +760,7 @@ onUnmounted(() => {
                         {{ applicationActionLabel(item) }}
                       </v-btn>
                       <v-btn
-                        v-if="canCancelApplication(item)"
+                        v-if="canCancelApplication(item) && !hasCompleteApplicationAction(item)"
                         size="small"
                         color="error"
                         variant="tonal"
@@ -744,6 +780,18 @@ onUnmounted(() => {
                     </div>
                   </td>
                 </tr>
+                <tr v-if="item.nextActions?.length" data-testid="next-actions">
+                  <td colspan="6" class="pa-0">
+                    <MyTripNextActions
+                      :actions="item.nextActions"
+                      @update="openUpdateApplication(item)"
+                      @cancel="requestCancelApplication(item)"
+                      @donate="openDonate(item)"
+                      @flights="openEnterFlights(item)"
+                    />
+                  </td>
+                </tr>
+                </template>
               </tbody>
             </v-table>
 
@@ -976,6 +1024,23 @@ onUnmounted(() => {
       v-model="showApplyDialog"
       :trip-id="applyTripId"
       @saved="onApplicationSaved"
+    />
+    <ParticipantDonateDialog
+      v-if="donateTripId"
+      v-model="showDonateDialog"
+      :trip-id="donateTripId"
+      :person-id="user?.personId"
+      :recipients="donateRecipients"
+      @saved="loadBrowseTrips"
+    />
+    <FlightSegmentsDialog
+      v-model="showFlightsDialog"
+      :trip-id="flightsTrip?.id"
+      :trip-people-role-id="flightsTrip?.tripPeopleRoleId"
+      :participant-name="[person?.firstName, person?.lastName].filter(Boolean).join(' ')"
+      :trip-start-date="flightsTrip?.startDate || ''"
+      :trip-end-date="flightsTrip?.endDate || ''"
+      @saved="loadBrowseTrips"
     />
     <ConfirmDialog
       v-model="showConfirmCancelApp"
