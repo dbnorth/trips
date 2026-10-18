@@ -47,6 +47,15 @@
 **Independent test:** A role requires Board certification with Pediatrics; an applicant with Board certification but no Pediatrics stays `incomplete` and sees the missing specialization named; after adding Pediatrics the application can reach `applied`.
 **Acceptance scenarios:** see ### US-59.4
 
+### US-59.5: Worker roles no longer have License required
+**As an** Org Admin
+**I want** worker roles to describe their requirements only through required documents and specializations
+**So that** the separate **License required** flag no longer confuses admins or applicants
+
+**Priority:** P2
+**Independent test:** The worker role form and the Worker Roles list show no **License required**; the worker roles list shows each role's required documents with their required specializations.
+**Acceptance scenarios:** see ### US-59.5
+
 ---
 
 ## Requirements
@@ -89,6 +98,11 @@
 **Schema**
 
 - **FR-016**: `ensureSchema` MUST create the document type specialization and worker role required specialization tables and link person document specializations to a list entry. When it links them, it MUST delete every existing person document specialization and its file once (today's free-text specializations are not kept). Person documents themselves are unchanged.
+
+**Worker role License required (removed)**
+
+- **FR-017**: The worker role **License required** flag (`workerRole.licenseRequired`) MUST be removed everywhere: the worker role form switch, the Worker Roles list column, the trip team roles card column, the " — License required" suffix on Apply / Edit role choices, and the "license required" hint on Add Trip / Edit Trip role choices and rows. Worker role APIs MUST NOT accept or return it, and `ensureSchema` MUST drop the column. The application's own license status answer (`tripPeopleRole.licenseStatus`) is unchanged and no longer depends on the role.
+- **FR-018**: The Worker Roles list (`WorkerRolesList`) MUST show a **Required documents** column instead of the legacy **Document type** column: each required document type's description, followed by its active required specializations (**FR-014**) in parentheses, comma-separated; "—" when there are none.
 
 ---
 
@@ -143,7 +157,7 @@
 | `GET` | `/trips/document-types`, `/trips/document-types/:id` | auth | Each type includes `specializations: [{ id, name }]` (**FR-004**) |
 | `POST` / `PUT` | `/trips/document-types`, `/trips/document-types/:id` | System Admin | Accept `specializations: [{ id?, name }]`; `400` for blank/duplicate names, none while Allow Specialization is checked, or removing one in use (**FR-001**, **FR-003**–**FR-005**) |
 | `GET` | `/trips/worker-roles`, `/trips/worker-roles/:id` | auth | Include `requiredSpecializations` and `requiredSpecializationIds` (**FR-009**) |
-| `POST` / `PUT` | `/trips/worker-roles`, `/trips/worker-roles/:id` | Org Admin | Accept `requiredSpecializationIds: number[]`; `400` when one does not belong to a required document (**FR-006**, **FR-008**) |
+| `POST` / `PUT` | `/trips/worker-roles`, `/trips/worker-roles/:id` | Org Admin | Accept `requiredSpecializationIds: number[]`; `400` when one does not belong to a required document (**FR-006**, **FR-008**). `licenseRequired` is no longer accepted or returned by any worker role payload (**FR-017**) |
 | `GET` | `/trips/people/:id/documents` | as today | Each specialization includes `documentTypeSpecializationId` and `name` |
 | `POST` / `PUT` | `/trips/people/:id/documents`, `.../documents/:documentId` | as today | `specializations` entries use `documentTypeSpecializationId` instead of `name`; `400` per **FR-012** |
 | `GET` | `/trips/trips/browse/:id`, `/trips/trips/browse/:id/application` | as today | Each role's `workerRole` includes `requiredSpecializations` so the Apply / Edit screens can check and name them (**FR-013**, **FR-015**) |
@@ -157,7 +171,9 @@
 | `DocumentTypeFormDialog` | **Specializations** list (add / remove names) shown when **Allow Specialization** is checked (**FR-002**, **FR-003**) |
 | `WorkerRoleFormDialog` | **Required specializations for <document type>** multi-select under **Required documents**, one per selected required document whose type allows specializations (**FR-007**) |
 | `PersonDocumentsCard` Add/Edit dialog (profile) | Specialization row **Name** text field becomes a **Specialization** select from the type's list; used names not offered again; **Add specialization** disabled when all are used (**FR-011**) |
-| `ApplyTripDialog` / `EditTripApplicationView` | Missing-document warning names missing specializations (**FR-015**) |
+| `ApplyTripDialog` / `EditTripApplicationView` | Missing-document warning names missing specializations (**FR-015**); role choices drop " — License required" (**FR-017**) |
+| `WorkerRoleFormDialog` / `WorkerRolesList` / `TripWorkerRolesCard` / `AddTripDialog` / `EditTripDialog` | **License required** switch, columns, and hints removed (**FR-017**) |
+| `WorkerRolesList` | **Required documents** column replaces **Document type** (**FR-018**) |
 
 ---
 
@@ -187,6 +203,12 @@
 | documentTypeSpecializationId | INTEGER | new; required FK → documentTypeSpecialization |
 | name | — | removed; the name comes from the list entry |
 | unique | `(personDocumentId, documentTypeSpecializationId)` | new |
+
+### `workerRole` (change)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| licenseRequired | — | removed (**FR-017**) |
 
 ---
 
@@ -284,6 +306,23 @@
 * **When** I open the Apply dialog and choose that role
 * **Then** the warning lists "Board certification (Pediatrics)"
 
+### US-59.5 — Worker roles no longer have License required
+
+#### Scenario: License required is removed from worker roles
+* **Given** the `workerRoles` table still has a `licenseRequired` column
+* **When** the schema is ensured and I create a worker role sending `licenseRequired: true`
+* **Then** the column is gone and the saved role has no `licenseRequired`
+
+#### Scenario: Worker role form has no License required control
+* **Given** I open the worker role form
+* **When** I save a role named Cook
+* **Then** the form shows no **License required** and the request has no `licenseRequired`
+
+#### Scenario: Required documents column lists required document types with their required specializations
+* **Given** worker role **Doctor** requires Board certification with Emergency and Pediatrics, and Passport
+* **When** I open the Worker Roles list
+* **Then** the **Required documents** column shows "Board certification (Emergency, Pediatrics), Passport" and there is no **License required** column
+
 ---
 
 ## Test Coverage Map
@@ -304,6 +343,9 @@
 | US-59.4 | Application stays incomplete until the required specialization is added | `backend/tests/document-type-specialization-list.test.js` | `Application stays incomplete until the required specialization is added` |
 | US-59.4 | Missing specializations are named in the missing items | `backend/tests/document-type-specialization-list.test.js` | `Missing specializations are named in the missing items` |
 | US-59.4 | Apply dialog names the missing specialization | `frontend/tests/ApplyTripDialog.test.js` | `Apply dialog names the missing specialization` |
+| US-59.5 | License required is removed from worker roles | `backend/tests/document-type-specialization-list.test.js` | `License required is removed from worker roles` |
+| US-59.5 | Worker role form has no License required control | `frontend/tests/WorkerRoleFormDialog.test.js` | `Worker role form has no License required control` |
+| US-59.5 | Required documents column lists required document types with their required specializations | `frontend/tests/WorkerRolesList.test.js` | `Required documents column lists required document types with their required specializations` |
 
 Existing Feature 34 tests that send free-text specialization names MUST be updated to use list entries.
 
@@ -331,6 +373,7 @@ Do not implement behavior not in this spec.
 *   [x] Person document specializations chosen from the list on the profile dialog and API (**FR-010**–**FR-012**)
 *   [x] Application checks and messages include required specializations (**FR-013**–**FR-015**)
 *   [x] Schema ensure, including the one-time removal of existing free-text specializations and their files (**FR-016**)
+*   [x] Worker role **License required** removed everywhere, column dropped; Worker Roles list shows required documents (**FR-017**, **FR-018**)
 *   [x] Automated tests for every Gherkin scenario; Feature 34 tests updated
 *   [x] Living reference updated in this PR
 *   [x] `npm test` green in backend and frontend

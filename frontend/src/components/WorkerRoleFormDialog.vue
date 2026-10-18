@@ -17,7 +17,6 @@ const formError = ref("");
 const emptyForm = () => ({
   name: "",
   description: "",
-  licenseRequired: false,
   requiredDocumentTypeIds: [],
   requiredSpecializationIdsByType: {},
   status: "active",
@@ -90,7 +89,6 @@ const loadRole = async () => {
     form.value = {
       name: row.name || "",
       description: row.description || "",
-      licenseRequired: !!row.licenseRequired,
       requiredDocumentTypeIds: requiredIds.map(Number),
       requiredSpecializationIdsByType: groupRequiredSpecializations(row.requiredSpecializations),
       status: row.status || "active",
@@ -127,7 +125,6 @@ const save = async () => {
   const payload = {
     name: form.value.name.trim(),
     description: form.value.description?.trim() || null,
-    licenseRequired: !!form.value.licenseRequired,
     requiredDocumentTypeIds,
     requiredSpecializationIds: requiredDocumentTypeIds.flatMap(
       (id) => form.value.requiredSpecializationIdsByType[id] || []
@@ -164,14 +161,6 @@ const save = async () => {
           label="Description"
           density="compact"
           rows="3"
-          class="mb-2"
-        />
-        <v-switch
-          v-model="form.licenseRequired"
-          label="License required"
-          density="compact"
-          color="primary"
-          hide-details
           class="mb-2"
         />
         <v-select

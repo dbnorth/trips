@@ -6,6 +6,7 @@
 import request from "supertest";
 import app from "../server.js";
 import db from "../app/models/index.js";
+import ensureSchema from "../app/scripts/ensureSchema.js";
 import {
   syncTestDatabase,
   resetTestDatabase,
@@ -404,6 +405,29 @@ describe("Feature 59 — Document Type Specialization List", () => {
         (p) => Number(p.peopleId) === Number(applicant.user.personId)
       );
       expect(row.missingItems).toContain("Required role document(s): Board certification (Pediatrics)");
+    });
+  });
+
+  describe("US-59.5 — Worker roles no longer have License required", () => {
+    it("License required is removed from worker roles", async () => {
+      await db.sequelize.query(
+        "ALTER TABLE workerRoles ADD COLUMN licenseRequired TINYINT(1) NOT NULL DEFAULT 0"
+      );
+      await ensureSchema();
+      const [cols] = await db.sequelize.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'workerRoles' AND COLUMN_NAME = 'licenseRequired'`
+      );
+      expect(cols).toHaveLength(0);
+
+      const { authHeader, org } = await createOrgAdminUser({ email: "no-license-admin@example.com" });
+      const create = await request(app)
+        .post("/trips/worker-roles")
+        .set(authHeader)
+        .send({ orgId: org.id, name: "Nurse", licenseRequired: true });
+
+      expect(create.status).toBe(200);
+      expect(create.body).not.toHaveProperty("licenseRequired");
     });
   });
 });

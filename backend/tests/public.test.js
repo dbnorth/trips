@@ -56,7 +56,6 @@ const createPublicTripFixture = async ({
       .send({
         orgId: org.id,
         name: "Team Member",
-        licenseRequired: false,
       });
     expect(workerRole.status).toBe(200);
 

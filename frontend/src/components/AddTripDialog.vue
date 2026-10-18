@@ -85,9 +85,7 @@ const availableRoleItems = computed(() => {
   return workerRoles.value
     .filter((r) => !usedIds.has(Number(r.id)))
     .map((r) => ({
-      title: r.licenseRequired
-        ? `${r.name} (${r.documentType?.description ? r.documentType.description + " " : ""}license required)`
-        : r.name,
+      title: r.name,
       value: r.id,
     }));
 });
@@ -171,8 +169,6 @@ const addSelectedRole = () => {
   selectedRoles.value.push({
     workerRoleId: role.id,
     name: role.name,
-    licenseRequired: !!role.licenseRequired,
-    documentTypeDescription: role.documentType?.description || "",
     quantity: qty,
     emails,
   });
@@ -493,9 +489,6 @@ const save = async () => {
               <tr class="role-row">
                 <td>
                   {{ row.name }}
-                  <span v-if="row.licenseRequired" class="text-caption text-medium-emphasis">
-                    ({{ row.documentTypeDescription ? row.documentTypeDescription + " · " : "" }}license required)
-                  </span>
                 </td>
                 <td>
                   <v-text-field

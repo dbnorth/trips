@@ -18,7 +18,7 @@ describe("Feature 56 — Reserved Role Emails", () => {
     const workerRole = await request(app)
       .post("/trips/worker-roles")
       .set(admin.authHeader)
-      .send({ orgId: admin.org.id, name, licenseRequired: false });
+      .send({ orgId: admin.org.id, name });
     expect(workerRole.status).toBe(200);
     const tripWorkerRole = await request(app)
       .post("/trips/trip-worker-roles")
@@ -148,7 +148,7 @@ describe("Feature 56 — Reserved Role Emails", () => {
           await request(app)
             .post("/trips/worker-roles")
             .set(admin.authHeader)
-            .send({ orgId: admin.org.id, name, licenseRequired: false })
+            .send({ orgId: admin.org.id, name })
         ).body;
       const addWithEmails = async (name, quantity, emails) =>
         request(app)

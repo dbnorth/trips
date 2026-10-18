@@ -49,7 +49,7 @@ const createTripWithRole = async (
   const workerRole = await request(app)
     .post("/trips/worker-roles")
     .set(authHeader)
-    .send({ orgId, name: "Nurse", licenseRequired: false, requiredDocumentTypeIds });
+    .send({ orgId, name: "Nurse", requiredDocumentTypeIds });
   expect(workerRole.status).toBe(200);
 
   const tripWorkerRole = await request(app)

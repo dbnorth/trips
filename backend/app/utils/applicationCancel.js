@@ -21,7 +21,7 @@ export const CANCELABLE_APPLICATION_STATUSES = ["incomplete", "applied", "approv
 const resolveUncancelStatus = async (assignment, orgId) => {
   const person = await loadPersonForCompleteness(assignment.peopleId);
   const personDocuments = await loadPersonDocumentsForCompleteness(assignment.peopleId);
-  const { licenseRequired, requiredDocumentTypeIds, requiredSpecializations } =
+  const { requiredDocumentTypeIds, requiredSpecializations } =
     await loadWorkerRoleDocumentRequirements(assignment.tripWorkerRoleId);
   const trip = await Trip.findByPk(assignment.tripId, {
     attributes: ["id", "startDate", "endDate", "requirePassport"],
@@ -43,7 +43,6 @@ const resolveUncancelStatus = async (assignment, orgId) => {
     licenseStatus: assignment.licenseStatus || null,
     hasPreferredRoommate: !!assignment.hasPreferredRoommate,
     preferredRoommateNames: assignment.preferredRoommateNames || null,
-    licenseRequired,
     agreementRequired,
     agreementAccepted: !!assignment.agreementAccepted,
     agreementSignatureName: assignment.agreementSignatureName || null,
