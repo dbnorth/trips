@@ -131,7 +131,7 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 |--------|------|------|---------|
 | `GET` | `/trips/trips` | auth | Scoped list + aggregates |
 | `GET` | `/trips/trips/:id` | auth | Detail if `canAccessTrip` |
-| `GET` | `/trips/trips/:id/status` | auth | Trip Status board (Trip Leader / Org Admin / System Admin): trip summary, roles with capacity counts, travel-option columns, participants with status / missing items / owed / raised / selected options — Feature 28 |
+| `GET` | `/trips/trips/:id/status` | auth | Trip Status board (Trip Leader / Org Admin / System Admin): trip summary, roles with capacity counts (incl. `reservedCount`, Feature 56), travel-option columns, participants with status / missing items / owed / raised / selected options — Feature 28 |
 | `GET` | `/trips/trips/:id/rooming` | auth | Rooming list load (staff): trip summary, hotel header, rooms, participant assignment grid + roommate prefs — Feature 29 |
 | `PUT` | `/trips/trips/:id/rooming` | auth | Upsert rooming hotel header + rooms/assignments from participant grid — Feature 29 |
 | `GET` | `/trips/trips/:id/rooming/pdf` | auth | Room list PDF (same staff access as rooming; else `403`/`404`): `application/pdf`, `Content-Disposition: attachment; filename="Room List - <trip name>.pdf"` — Feature 54 |
@@ -163,10 +163,13 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 | `POST` | `/trips/worker-roles` | auth | Create (org admin); `requiredDocumentTypeIds?: number[]` (Feature 25) |
 | `PUT` | `/trips/worker-roles/:id` | auth | Update; replace required document list when `requiredDocumentTypeIds` sent |
 | `DELETE` | `/trips/worker-roles/:id` | auth | Delete |
-| `GET` | `/trips/trip-worker-roles` | auth | Needs for `?tripId=` |
-| `POST` | `/trips/trip-worker-roles` | auth | Add role quantity |
-| `PUT` | `/trips/trip-worker-roles/:id` | auth | Update quantity |
-| `DELETE` | `/trips/trip-worker-roles/:id` | auth | Remove |
+| `GET` | `/trips/trip-worker-roles` | auth | Needs for `?tripId=`; each role has `signedUpCount`, `reservedCount`, `availableCount` (Feature 26, 56) |
+| `POST` | `/trips/trip-worker-roles` | auth | Add role quantity; optional `emails: string[]` reserved with the role (validated like `POST …/reservations`, open slots = quantity; on `400` neither the role nor reservations are saved) — Feature 56 |
+| `PUT` | `/trips/trip-worker-roles/:id` | auth | Update quantity; `400` "Remove reserved emails first." when quantity < reservations (Feature 56) |
+| `DELETE` | `/trips/trip-worker-roles/:id` | auth | Remove (also removes its reservations) |
+| `GET` | `/trips/trip-worker-roles/:id/reservations` | auth + trip staff | `[{ id, email, filled, applicantName, applicationStatus }]` ordered by email — Feature 56 |
+| `POST` | `/trips/trip-worker-roles/:id/reservations` | auth + trip staff | Body `{ emails: string[] }`; `201` with created rows; `400` for invalid emails, duplicates on the trip, emails that already applied, or more emails than open slots ("Only N open slots for this role.") — Feature 56 |
+| `DELETE` | `/trips/trip-worker-roles/:id/reservations/:reservationId` | auth + trip staff | Remove a reservation — Feature 56 |
 | `GET` | `/trips/trip-travel-options` | auth | Options for `?tripId=` |
 | `POST` | `/trips/trip-travel-options` | auth | Create |
 | `PUT` | `/trips/trip-travel-options/:id` | auth | Update |
@@ -220,10 +223,10 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 | `GET` | `/trips/trips/browse/orgs` | auth | Browse orgs |
 | `GET` | `/trips/trips/browse/mine` | auth | My trips |
 | `GET` | `/trips/trips/browse` | auth | Active trips (`?orgId=`) |
-| `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreements/options; Feature 53 `myTripInfo.donationRecipients` `[{ personId, firstName, lastName }]` (approved Trip Participants and Trip Leaders) when the caller's application is incomplete/applied/approved, else `[]` |
-| `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance; `isPregnant` / `pregnancyDueDate` on assignment); sends `application-started` / `application-submitted` event emails — Feature 45 |
-| `GET` | `/trips/trips/browse/:id/application` | auth | Own application |
-| `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields); sends `application-submitted` event emails — Feature 45 |
+| `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreements/options; Feature 53 `myTripInfo.donationRecipients` `[{ personId, firstName, lastName }]` (approved Trip Participants and Trip Leaders) when the caller's application is incomplete/applied/approved, else `[]`; roles add `reservedCount`; `myReservedTripWorkerRoleId` (caller's reserved role or `null`) — Feature 56 |
+| `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance; `isPregnant` / `pregnancyDueDate` on assignment); sends `application-started` / `application-submitted` event emails — Feature 45; a caller with a reservation is placed in the reserved role (body role ignored, no open-slot check) — Feature 56 |
+| `GET` | `/trips/trips/browse/:id/application` | auth | Own application; `myReservedTripWorkerRoleId` — Feature 56 |
+| `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields); sends `application-submitted` event emails — Feature 45; `400` "Your role on this trip is reserved." when a reserved caller picks another role — Feature 56 |
 | `POST` | `/trips/trips/browse/:id/application/cancel` | auth | Applicant cancel own application (`incomplete`/`applied`/`approved` → `cancelled`) |
 | `POST` | `/trips/trips/browse/:id/application/uncancel` | auth | Applicant uncancel → auto `incomplete`/`applied`; fails if role full |
 | `GET` | `/trips/trip-people-roles` | auth | Roster (`?tripId=`) |
@@ -267,7 +270,7 @@ No auth. Slugs: spaces → `_`.
 | `GET` | `/trips/public/orgs/by-name/:orgSlug` | none | Org + open active trips |
 | `GET` | `/trips/public/trips/:tripId` | none | Trip + approved participants |
 | `GET` | `/trips/public/trips/by-name/:tripSlug` | none | Trip by slug |
-| `GET` | `/trips/public/trips/by-name/:tripSlug/overview` | none | Overview + roles needed |
+| `GET` | `/trips/public/trips/by-name/:tripSlug/overview` | none | Overview + roles needed (with `reservedCount`; `availableCount` excludes reserved — Feature 56) |
 | `GET` | `/trips/public/trips/:tripId/participants/:personId` | none | Participant donate data |
 | `GET` | `/trips/public/trips/by-name/:tripSlug/participants/:personSlug` | none | Same by slug |
 | `POST` | `/trips/public/donations` | optional | Public donation (`tripId`, `amount`, `donor`, optional `personId`); sends donation event emails — Feature 45. Feature 53: with a valid sign-in token the signed-in person's linked donor is used (created from the entered donor details when missing); naming yourself needs an approved assignment → else `403`. `donor.personId` / `donor.id` in the body are ignored |

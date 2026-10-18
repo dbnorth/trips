@@ -228,6 +228,7 @@ onMounted(load);
             <th>Role</th>
             <th>Number Needed</th>
             <th>Positions Filled</th>
+            <th>Reserved</th>
             <th>Available</th>
           </tr>
         </thead>
@@ -241,6 +242,7 @@ onMounted(load);
             </td>
             <td>{{ row.quantity ?? 0 }}</td>
             <td>{{ row.signedUpCount ?? 0 }}</td>
+            <td>{{ row.reservedCount ?? 0 }}</td>
             <td>{{ row.availableCount ?? 0 }}</td>
           </tr>
         </tbody>

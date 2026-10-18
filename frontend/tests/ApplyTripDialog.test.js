@@ -3,6 +3,8 @@
  * Spec: features/feature-27-application-submit-unavailable-info.md
  * Feature 47 — Simplify Application Warnings
  * Spec: features/feature-47-simplify-application-warnings.md
+ * Feature 56 — Reserved Role Emails
+ * Spec: features/feature-56-reserved-role-emails.md
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -332,6 +334,25 @@ describe("Feature 47 — Simplify Application Warnings", () => {
 
       expect(TripServices.applyToTrip).toHaveBeenCalledTimes(1);
       expect(PersonServices.update).not.toHaveBeenCalled();
+      wrapper.unmount();
+    });
+  });
+
+  describe("Feature 56 — US-56.2 Reserved person applies into the reserved role", () => {
+    it("Apply dialog locks the reserved role", async () => {
+      browseTrip({
+        rolesNeeded: [{ ...OPEN_ROLE, availableCount: 0 }, { id: 4, availableCount: 1, workerRole: { name: "Driver" } }],
+        myReservedTripWorkerRoleId: OPEN_ROLE.id,
+      });
+      const wrapper = await openDialog();
+
+      const select = wrapper
+        .findAllComponents({ name: "VSelect" })
+        .find((c) => c.props("label") === "Trip role");
+      expect(select.props("items").map((i) => i.value)).toEqual([OPEN_ROLE.id]);
+      expect(select.props("modelValue")).toBe(OPEN_ROLE.id);
+      expect(select.props("disabled")).toBe(true);
+      expect(select.props("hint")).toBe("This role is reserved for you.");
       wrapper.unmount();
     });
   });

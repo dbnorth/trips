@@ -17,7 +17,7 @@ import {
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
-import { withCapacityFields } from "../utils/tripRoleCapacity.js";
+import { findReservationForPerson, withCapacityFields } from "../utils/tripRoleCapacity.js";
 import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 import { loadDonationRecipients } from "../utils/donorPerson.js";
 import {
@@ -512,9 +512,12 @@ exports.getBrowseTrip = async (req, res) => {
       };
     }
 
+    const reservation = await findReservationForPerson(trip.id, req.user?.personId);
+
     res.send({
       trip,
       rolesNeeded,
+      myReservedTripWorkerRoleId: reservation ? Number(reservation.tripWorkerRoleId) : null,
       alreadyApplied: !!assignment,
       applicationStatus: assignment?.status || null,
       myTripInfo,
@@ -557,8 +560,10 @@ exports.applyToTrip = async (req, res) => {
       });
     }
 
-    const tripWorkerRoleId =
-      req.body?.tripWorkerRoleId != null && req.body.tripWorkerRoleId !== ""
+    const reservation = await findReservationForPerson(trip.id, peopleId);
+    const tripWorkerRoleId = reservation
+      ? Number(reservation.tripWorkerRoleId)
+      : req.body?.tripWorkerRoleId != null && req.body.tripWorkerRoleId !== ""
         ? Number(req.body.tripWorkerRoleId)
         : null;
     if (!tripWorkerRoleId) {
@@ -570,7 +575,7 @@ exports.applyToTrip = async (req, res) => {
     if (!selectedRole) {
       return res.status(400).send({ message: "Worker role must belong to this trip." });
     }
-    if ((selectedRole.availableCount || 0) < 1) {
+    if (!reservation && (selectedRole.availableCount || 0) < 1) {
       return res.status(400).send({ message: "That trip role has no available positions." });
     }
 
@@ -773,9 +778,11 @@ exports.getApplication = async (req, res) => {
     const participantAgreement = await loadOrganizationAgreement(trip.orgId);
     const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const travelOptions = await loadTravelOptionsForApplication(trip.id, assignment.id);
+    const reservation = await findReservationForPerson(trip.id, peopleId);
     res.send({
       trip,
       rolesNeeded,
+      myReservedTripWorkerRoleId: reservation ? Number(reservation.tripWorkerRoleId) : null,
       application: assignment,
       applicationStatus: assignment.status,
       canEdit: EDITABLE_APPLICATION_STATUSES.includes(assignment.status),
@@ -826,8 +833,12 @@ exports.updateApplication = async (req, res) => {
     if (!selectedRole) {
       return res.status(400).send({ message: "Worker role must belong to this trip." });
     }
+    const reservation = await findReservationForPerson(trip.id, peopleId);
+    if (reservation && Number(reservation.tripWorkerRoleId) !== tripWorkerRoleId) {
+      return res.status(400).send({ message: "Your role on this trip is reserved." });
+    }
     const keepingSameRole = Number(assignment.tripWorkerRoleId) === tripWorkerRoleId;
-    if (!keepingSameRole && (selectedRole.availableCount || 0) < 1) {
+    if (!reservation && !keepingSameRole && (selectedRole.availableCount || 0) < 1) {
       return res.status(400).send({ message: "That trip role has no available positions." });
     }
 

@@ -2,6 +2,8 @@
 import { ref, computed, watch, onMounted } from "vue";
 import TripWorkerRoleServices from "../services/tripWorkerRoleServices.js";
 import WorkerRoleServices from "../services/workerRoleServices.js";
+import RoleReservationsDialog from "./RoleReservationsDialog.vue";
+import { parseEmailList, tooManyReservedEmailsError } from "../utils/emailList.js";
 
 const props = defineProps({
   tripId: { type: [Number, String], required: true },
@@ -17,8 +19,21 @@ const loading = ref(false);
 const error = ref("");
 const addRoleId = ref(null);
 const addQuantity = ref(1);
+const addEmails = ref("");
 const adding = ref(false);
+const showAddRole = ref(false);
+const addRoleError = ref("");
 const savingIds = ref(new Set());
+const showReservations = ref(false);
+const reservationsRoleId = ref(null);
+const reservationsRole = computed(
+  () => rows.value.find((r) => Number(r.id) === Number(reservationsRoleId.value)) || null
+);
+
+const openReservations = (row) => {
+  reservationsRoleId.value = row.id;
+  showReservations.value = true;
+};
 
 const availableRoleItems = computed(() => {
   const usedIds = new Set(rows.value.map((r) => Number(r.workerRoleId)));
@@ -40,9 +55,25 @@ const totalSignedUp = computed(() =>
   rows.value.reduce((sum, r) => sum + Number(r.signedUpCount || 0), 0)
 );
 
+const reservedEmailsByRoleId = ref({});
+
+const loadReservedEmails = async (roleRows) => {
+  const entries = await Promise.all(
+    roleRows.map((row) =>
+      TripWorkerRoleServices.getReservations(row.id)
+        .then((res) => [row.id, (res.data || []).map((r) => r.email)])
+        .catch(() => [row.id, []])
+    )
+  );
+  reservedEmailsByRoleId.value = Object.fromEntries(entries);
+};
+
+const reservedEmailsText = (row) => (reservedEmailsByRoleId.value[row.id] || []).join(", ") || "—";
+
 const loadRows = () =>
-  TripWorkerRoleServices.getAll(props.tripId).then((r) => {
+  TripWorkerRoleServices.getAll(props.tripId).then(async (r) => {
     rows.value = r.data || [];
+    await loadReservedEmails(rows.value);
   });
 
 const loadWorkerRoles = () => {
@@ -71,26 +102,36 @@ const load = async () => {
   }
 };
 
+const openAddRole = () => {
+  addRoleId.value = null;
+  addQuantity.value = 1;
+  addEmails.value = "";
+  addRoleError.value = "";
+  showAddRole.value = true;
+};
+
 const add = async () => {
   if (!addRoleId.value) return;
   const qty = Number(addQuantity.value);
   if (!Number.isInteger(qty) || qty < 1) {
-    error.value = "Quantity must be a positive whole number.";
+    addRoleError.value = "Quantity must be a positive whole number.";
     return;
   }
+  const emails = parseEmailList(addEmails.value);
+  addRoleError.value = tooManyReservedEmailsError(emails, qty);
+  if (addRoleError.value) return;
   adding.value = true;
-  error.value = "";
   try {
     await TripWorkerRoleServices.create({
       tripId: Number(props.tripId),
       workerRoleId: addRoleId.value,
       quantity: qty,
+      emails,
     });
-    addRoleId.value = null;
-    addQuantity.value = 1;
+    showAddRole.value = false;
     await loadRows();
   } catch (e) {
-    error.value = e.response?.data?.message || "Unable to add role.";
+    addRoleError.value = e.response?.data?.message || "Unable to add role.";
   } finally {
     adding.value = false;
   }
@@ -159,7 +200,8 @@ onMounted(() => {
           <th>Document type</th>
           <th style="width: 130px">Number Needed</th>
           <th style="width: 140px">Number Signed Up</th>
-          <th style="width: 100px">Actions</th>
+          <th style="width: 100px">Reserved</th>
+          <th style="width: 220px">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -169,6 +211,7 @@ onMounted(() => {
             <div v-if="row.workerRole?.description" class="text-caption text-medium-emphasis">
               {{ row.workerRole.description }}
             </div>
+            <div class="text-caption text-medium-emphasis">Reserved emails: {{ reservedEmailsText(row) }}</div>
           </td>
           <td>{{ row.workerRole?.licenseRequired ? "Yes" : "No" }}</td>
           <td>{{ row.workerRole?.documentType?.description || "—" }}</td>
@@ -184,7 +227,9 @@ onMounted(() => {
             />
           </td>
           <td>{{ row.signedUpCount ?? 0 }}</td>
-          <td>
+          <td>{{ row.reservedCount ?? 0 }}</td>
+          <td class="text-no-wrap">
+            <v-btn size="small" variant="text" @click="openReservations(row)">Reserved emails</v-btn>
             <v-btn size="small" variant="text" color="error" @click="remove(row)">Remove</v-btn>
           </td>
         </tr>
@@ -195,38 +240,61 @@ onMounted(() => {
       No team roles added yet.
     </p>
 
-    <div class="add-role-form pa-4 rounded">
-      <div class="text-subtitle-2 mb-3">Add Role</div>
-      <div class="d-flex align-center ga-3 flex-wrap">
-        <v-select
-          v-model="addRoleId"
-          :items="availableRoleItems"
-          label="Worker role"
-          density="compact"
-          hide-details
-          style="max-width: 320px; min-width: 220px"
-          :disabled="!availableRoleItems.length"
-          :placeholder="availableRoleItems.length ? undefined : 'No more active roles to add'"
-        />
-        <v-text-field
-          v-model.number="addQuantity"
-          type="number"
-          min="1"
-          label="Number Needed"
-          density="compact"
-          hide-details
-          style="max-width: 120px"
-        />
-        <v-btn color="primary" size="small" :loading="adding" :disabled="!addRoleId" @click="add">
-          Add role
-        </v-btn>
-      </div>
+    <div class="d-flex align-center ga-3">
+      <v-btn
+        color="primary"
+        size="small"
+        variant="tonal"
+        :disabled="loading || !availableRoleItems.length"
+        @click="openAddRole"
+      >
+        Add role
+      </v-btn>
+      <span v-if="!loading && !availableRoleItems.length" class="text-caption text-medium-emphasis">
+        No more active roles to add
+      </span>
     </div>
+
+    <v-dialog v-model="showAddRole" max-width="480">
+      <v-card>
+        <v-card-title>Add Role</v-card-title>
+        <v-card-text>
+          <v-select
+            v-model="addRoleId"
+            :items="availableRoleItems"
+            label="Worker role"
+            density="compact"
+            class="mb-2"
+          />
+          <v-text-field
+            v-model.number="addQuantity"
+            type="number"
+            min="1"
+            label="Number Needed"
+            density="compact"
+            class="mb-2"
+          />
+          <v-textarea
+            v-model="addEmails"
+            label="Reserved emails (optional)"
+            hint="Separate emails with commas, spaces, or new lines"
+            persistent-hint
+            density="compact"
+            rows="2"
+            auto-grow
+          />
+          <v-alert v-if="addRoleError" type="error" density="compact" class="mt-3">
+            {{ addRoleError }}
+          </v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showAddRole = false">Cancel</v-btn>
+          <v-btn color="primary" :loading="adding" :disabled="!addRoleId" @click="add">Add</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <RoleReservationsDialog v-model="showReservations" :role="reservationsRole" @changed="loadRows" />
   </v-card>
 </template>
-
-<style scoped>
-.add-role-form {
-  background-color: #f0f0f0;
-}
-</style>
