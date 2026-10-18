@@ -110,6 +110,18 @@ describe("Feature 60 — My Trips Next Actions", () => {
       expect(trips.find((t) => t.id === upcoming.id).tripPeopleRoleId).toBe(upcomingAssignment.id);
     });
 
+    it("Trip page returns my next actions", async () => {
+      const { org, ada } = await setupParticipant("trip-page@example.com");
+      const trip = await createTrip(org.id);
+      const assignment = await createAssignment(trip.id, ada.user.personId, { status: "applied" });
+
+      const res = await request(app).get(`/trips/trips/browse/${trip.id}`).set(ada.authHeader);
+
+      expect(res.status).toBe(200);
+      expect(res.body.myTripInfo.nextActions).toEqual([{ code: "wait-approval" }]);
+      expect(res.body.myTripInfo.tripPeopleRoleId).toBe(assignment.id);
+    });
+
     it("Cancelled application has no next actions", async () => {
       const { org, ada } = await setupParticipant("cancelled@example.com");
       const trip = await createTrip(org.id);

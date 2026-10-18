@@ -101,6 +101,8 @@ const nextActionsRowFor = (wrapper, name) => {
   return next?.attributes("data-testid") === "next-actions" ? next : undefined;
 };
 
+const toneOf = (row) => row.find('[data-testid="my-trip-next-actions"]').classes();
+
 const button = (el, text) => el.findAll("button").find((b) => b.text().trim() === text);
 
 describe("Feature 60 — My Trips Next Actions", () => {
@@ -138,10 +140,10 @@ describe("Feature 60 — My Trips Next Actions", () => {
       myTrip(3, "Peru Clinic", "approved", [{ code: "all-ready" }]),
     ]);
 
-    expect(nextActionsRowFor(wrapper, "Guatemala Clinic").classes()).toContain("next-actions-row--waiting");
-    expect(nextActionsRowFor(wrapper, "Honduras Clinic").classes()).toContain("next-actions-row--needed");
+    expect(toneOf(nextActionsRowFor(wrapper, "Guatemala Clinic"))).toContain("my-trip-next-actions--waiting");
+    expect(toneOf(nextActionsRowFor(wrapper, "Honduras Clinic"))).toContain("my-trip-next-actions--needed");
     const ready = nextActionsRowFor(wrapper, "Peru Clinic");
-    expect(ready.classes()).toContain("next-actions-row--ready");
+    expect(toneOf(ready)).toContain("my-trip-next-actions--ready");
     expect(ready.text()).toContain("You are all ready for the trip.");
     expect(ready.findAll("button")).toHaveLength(0);
 
@@ -186,7 +188,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
     ]);
 
     const actions = nextActionsRowFor(wrapper, "Guatemala Clinic");
-    expect(actions.classes()).toContain("next-actions-row--needed");
+    expect(toneOf(actions)).toContain("my-trip-next-actions--needed");
     expect(actions.text()).toContain("Submit your application.");
     expect(button(actions, "Cancel App")).toBeTruthy();
 

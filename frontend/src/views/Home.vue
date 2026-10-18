@@ -14,7 +14,8 @@ import EditOrganizationDialog from "../components/EditOrganizationDialog.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import ParticipantDonateDialog from "../components/ParticipantDonateDialog.vue";
 import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
-import { formatMoneyDisplay } from "../utils/moneyUtils.js";
+import MyTripNextActions from "../components/MyTripNextActions.vue";
+import { hasApplicationAction } from "../utils/myTripNextActions.js";
 import {
   isProfileComplete,
 } from "../utils/personProfile.js";
@@ -274,32 +275,7 @@ const openUpdateApplication = (trip) => {
   openApplyDialog(trip);
 };
 
-const hasCompleteApplicationAction = (trip) =>
-  (trip?.nextActions || []).some(
-    (a) => a.code === "complete-application" || a.code === "submit-application"
-  );
-
-const nextActionText = (action) => {
-  if (action.code === "complete-application") return "Complete your application.";
-  if (action.code === "submit-application") return "Submit your application.";
-  if (action.code === "wait-approval") return "Waiting on approval.";
-  if (action.code === "make-deposit") {
-    return `Make your deposit: ${formatMoneyDisplay(action.amountRaised)} raised of ${formatMoneyDisplay(action.deposit)}.`;
-  }
-  if (action.code === "make-donation") {
-    return `Make a donation: ${formatMoneyDisplay(action.amountOwed)} still owed.`;
-  }
-  if (action.code === "enter-flights") return "Enter your flight info.";
-  if (action.code === "all-ready") return "You are all ready for the trip.";
-  return "";
-};
-
-const nextActionsTone = (trip) => {
-  const codes = (trip?.nextActions || []).map((a) => a.code);
-  if (codes.includes("wait-approval")) return "waiting";
-  if (codes.includes("all-ready")) return "ready";
-  return "needed";
-};
+const hasCompleteApplicationAction = (trip) => hasApplicationAction(trip?.nextActions);
 
 const showDonateDialog = ref(false);
 const donateTripId = ref(null);
@@ -804,53 +780,15 @@ onUnmounted(() => {
                     </div>
                   </td>
                 </tr>
-                <tr
-                  v-if="item.nextActions?.length"
-                  :class="['next-actions-row', `next-actions-row--${nextActionsTone(item)}`]"
-                  data-testid="next-actions"
-                >
-                  <td colspan="6">
-                    <div
-                      v-for="action in item.nextActions"
-                      :key="action.code"
-                      class="d-flex align-center flex-wrap ga-2 py-1"
-                    >
-                      <span>{{ nextActionText(action) }}</span>
-                      <span v-if="action.missingDocuments?.length" class="text-medium-emphasis">
-                        Missing documents: {{ action.missingDocuments.join(", ") }}.
-                      </span>
-                      <template
-                        v-if="action.code === 'complete-application' || action.code === 'submit-application'"
-                      >
-                        <v-btn size="small" color="primary" @click="openUpdateApplication(item)">
-                          {{ action.code === "submit-application" ? "Submit App" : "Update App" }}
-                        </v-btn>
-                        <v-btn
-                          size="small"
-                          color="error"
-                          variant="tonal"
-                          @click="requestCancelApplication(item)"
-                        >
-                          Cancel App
-                        </v-btn>
-                      </template>
-                      <v-btn
-                        v-if="action.code === 'make-deposit' || action.code === 'make-donation'"
-                        size="small"
-                        color="primary"
-                        @click="openDonate(item)"
-                      >
-                        Donate
-                      </v-btn>
-                      <v-btn
-                        v-if="action.code === 'enter-flights'"
-                        size="small"
-                        color="primary"
-                        @click="openEnterFlights(item)"
-                      >
-                        Enter Flights
-                      </v-btn>
-                    </div>
+                <tr v-if="item.nextActions?.length" data-testid="next-actions">
+                  <td colspan="6" class="pa-0">
+                    <MyTripNextActions
+                      :actions="item.nextActions"
+                      @update="openUpdateApplication(item)"
+                      @cancel="requestCancelApplication(item)"
+                      @donate="openDonate(item)"
+                      @flights="openEnterFlights(item)"
+                    />
                   </td>
                 </tr>
                 </template>
@@ -1158,25 +1096,5 @@ onUnmounted(() => {
 
 .trip-table__actions {
   width: 18%;
-}
-
-.next-actions-row > td {
-  font-weight: 500;
-  border-left: 4px solid transparent;
-}
-
-.next-actions-row--waiting > td {
-  background-color: #ffe0b2;
-  border-left-color: #fb8c00;
-}
-
-.next-actions-row--needed > td {
-  background-color: #fff9c4;
-  border-left-color: #fbc02d;
-}
-
-.next-actions-row--ready > td {
-  background-color: #c8e6c9;
-  border-left-color: #43a047;
 }
 </style>
