@@ -51,8 +51,8 @@ const tripDates = computed(() => {
 
     <v-card v-if="trip" class="pa-4 mb-4">
       <v-row align="start">
-        <v-col cols="12" md="6">
-          <div class="text-h5 mb-1">{{ trip.name }}</div>
+        <v-col cols="12" md>
+          <div class="text-h5 font-weight-bold mb-1">{{ trip.name }}</div>
           <div class="text-subtitle-1 text-medium-emphasis" :class="tripDates ? 'mb-1' : 'mb-3'">
             {{ trip.city }}{{ trip.city && trip.country ? ", " : "" }}{{ countryName(trip.country) }}
           </div>
@@ -61,16 +61,20 @@ const tripDates = computed(() => {
           </div>
           <div v-if="trip.description" class="text-body-1">{{ trip.description }}</div>
         </v-col>
-        <v-col v-if="tripImageUrl" cols="12" md="6">
-          <v-img
-            :src="tripImageUrl"
-            :alt="trip.name"
-            max-height="320"
-            cover
-            class="rounded"
-          />
+        <v-col v-if="tripImageUrl" cols="12" md="auto">
+          <img :src="tripImageUrl" :alt="trip.name" class="trip-heading__image rounded" />
         </v-col>
       </v-row>
     </v-card>
   </div>
 </template>
+
+<style scoped>
+.trip-heading__image {
+  display: block;
+  height: 7.5rem;
+  width: auto;
+  max-width: 100%;
+  object-fit: cover;
+}
+</style>

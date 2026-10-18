@@ -22,6 +22,7 @@ import { findReservationForPerson, withCapacityFields } from "../utils/tripRoleC
 import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 import { loadDonationRecipients } from "../utils/donorPerson.js";
 import { loadMyTripNextActions } from "../utils/myTripNextActions.js";
+import { loadMyTripTravelDetails } from "../utils/myTripTravelDetails.js";
 import {
   cancelApplicationAssignment,
   uncancelApplicationAssignment,
@@ -525,6 +526,7 @@ exports.getBrowseTrip = async (req, res) => {
           : [],
         tripPeopleRoleId: assignment.id,
         nextActions: await loadMyTripNextActions(assignment, trip),
+        ...(await loadMyTripTravelDetails(assignment)),
       };
     }
 

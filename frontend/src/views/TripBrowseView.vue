@@ -12,8 +12,10 @@ import ParticipantDonateDialog from "../components/ParticipantDonateDialog.vue";
 import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import MyTripNextActions from "../components/MyTripNextActions.vue";
+import MyTripTravelDetails from "../components/MyTripTravelDetails.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { hasApplicationAction } from "../utils/myTripNextActions.js";
+import { donorParticipantPath } from "../utils/donateUrls.js";
 import { storeAuthenticatedUser } from "../utils/authSession.js";
 import {
   tripParticipantStatusLabel,
@@ -164,6 +166,23 @@ const confirmCancelApplication = async () => {
   }
 };
 
+const fundraisingPath = computed(() =>
+  myTripInfo.value?.status === "approved" && trip.value?.status === "active" && currentUser.value
+    ? donorParticipantPath(trip.value, currentUser.value)
+    : null
+);
+
+const copyFundraisingLink = async () => {
+  try {
+    await navigator.clipboard.writeText(`${window.location.origin}${fundraisingPath.value}`);
+    messageType.value = "success";
+    message.value = "Link copied.";
+  } catch {
+    messageType.value = "error";
+    message.value = "Unable to copy link.";
+  }
+};
+
 const participantName = computed(() =>
   [currentUser.value?.firstName, currentUser.value?.lastName].filter(Boolean).join(" ")
 );
@@ -292,7 +311,15 @@ onMounted(load);
 
     <v-card v-if="myTripInfo" class="pa-4 mb-4" variant="outlined">
       <div class="d-flex align-center justify-space-between flex-wrap ga-2 mb-3">
-        <h2 class="text-h6 mb-0">My Trip Info</h2>
+        <div class="d-flex align-baseline flex-wrap ga-2">
+          <h2 class="text-h6 mb-0">My Trip Info</h2>
+          <template v-if="fundraisingPath">
+            <a :href="fundraisingPath" target="_blank" rel="noopener" class="text-body-1 ml-4">
+              My fundraising page
+            </a>
+            <v-btn size="small" variant="text" @click="copyFundraisingLink">Copy link</v-btn>
+          </template>
+        </div>
         <div class="d-flex flex-wrap ga-2">
           <v-btn v-if="canDonate" color="primary" variant="flat" @click="showDonateDialog = true">
             Donate
@@ -355,6 +382,7 @@ onMounted(load);
           <div>{{ formatMoneyDisplay(myTripInfo.donationTotal || 0) }}</div>
         </v-col>
       </v-row>
+      <MyTripTravelDetails :info="myTripInfo" @edit-flights="showFlightsDialog = true" />
     </v-card>
 
     <ApplyTripDialog
