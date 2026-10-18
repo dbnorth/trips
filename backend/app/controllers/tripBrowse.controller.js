@@ -21,6 +21,7 @@ import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import { findReservationForPerson, withCapacityFields } from "../utils/tripRoleCapacity.js";
 import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 import { loadDonationRecipients } from "../utils/donorPerson.js";
+import { loadMyTripNextActions } from "../utils/myTripNextActions.js";
 import {
   cancelApplicationAssignment,
   uncancelApplicationAssignment,
@@ -406,7 +407,6 @@ exports.listMyTrips = async (req, res) => {
         peopleId,
         status: { [Op.in]: ["incomplete", "applied", "approved", "cancelled"] },
       },
-      attributes: ["id", "tripId", "status"],
       include: [
         {
           model: Trip,
@@ -422,16 +422,19 @@ exports.listMyTrips = async (req, res) => {
       ],
     });
 
-    res.send(
-      links.map((link) => {
-        const trip = link.trip;
-        return {
-          ...trip.toJSON(),
-          alreadyApplied: true,
-          applicationStatus: link.status || null,
-        };
-      })
-    );
+    const cache = {};
+    const trips = [];
+    for (const link of links) {
+      const trip = link.trip;
+      trips.push({
+        ...trip.toJSON(),
+        alreadyApplied: true,
+        applicationStatus: link.status || null,
+        tripPeopleRoleId: link.id,
+        nextActions: await loadMyTripNextActions(link, trip, cache),
+      });
+    }
+    res.send(trips);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

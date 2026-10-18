@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import Utils from "../config/utils.js";
 import DashboardServices from "../services/dashboardServices.js";
 import TripServices from "../services/tripServices.js";
@@ -12,6 +12,9 @@ import ApplyTripDialog from "../components/ApplyTripDialog.vue";
 import EditTripDialog from "../components/EditTripDialog.vue";
 import EditOrganizationDialog from "../components/EditOrganizationDialog.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import ParticipantDonateDialog from "../components/ParticipantDonateDialog.vue";
+import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
+import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import {
   isProfileComplete,
 } from "../utils/personProfile.js";
@@ -271,6 +274,58 @@ const openUpdateApplication = (trip) => {
   openApplyDialog(trip);
 };
 
+const hasCompleteApplicationAction = (trip) =>
+  (trip?.nextActions || []).some(
+    (a) => a.code === "complete-application" || a.code === "submit-application"
+  );
+
+const nextActionText = (action) => {
+  if (action.code === "complete-application") return "Complete your application.";
+  if (action.code === "submit-application") return "Submit your application.";
+  if (action.code === "wait-approval") return "Waiting on approval.";
+  if (action.code === "make-deposit") {
+    return `Make your deposit: ${formatMoneyDisplay(action.amountRaised)} raised of ${formatMoneyDisplay(action.deposit)}.`;
+  }
+  if (action.code === "make-donation") {
+    return `Make a donation: ${formatMoneyDisplay(action.amountOwed)} still owed.`;
+  }
+  if (action.code === "enter-flights") return "Enter your flight info.";
+  if (action.code === "all-ready") return "You are all ready for the trip.";
+  return "";
+};
+
+const nextActionsTone = (trip) => {
+  const codes = (trip?.nextActions || []).map((a) => a.code);
+  if (codes.includes("wait-approval")) return "waiting";
+  if (codes.includes("all-ready")) return "ready";
+  return "needed";
+};
+
+const showDonateDialog = ref(false);
+const donateTripId = ref(null);
+const donateRecipients = ref([]);
+
+const openDonate = async (trip) => {
+  browseMessage.value = "";
+  try {
+    const res = await TripServices.getBrowseTrip(trip.id);
+    donateRecipients.value = res.data?.myTripInfo?.donationRecipients || [];
+    donateTripId.value = trip.id;
+    await nextTick();
+    showDonateDialog.value = true;
+  } catch (e) {
+    browseMessage.value = e.response?.data?.message || "Unable to load trip.";
+  }
+};
+
+const showFlightsDialog = ref(false);
+const flightsTrip = ref(null);
+
+const openEnterFlights = (trip) => {
+  flightsTrip.value = trip;
+  showFlightsDialog.value = true;
+};
+
 const canCancelApplication = (trip) =>
   trip?.alreadyApplied &&
   ["incomplete", "applied", "approved"].includes(trip.applicationStatus);
@@ -325,6 +380,10 @@ const confirmUncancelApplication = async () => {
     uncancelAppSaving.value = false;
   }
 };
+
+watch(showApplyDialog, (open) => {
+  if (!open) loadBrowseTrips();
+});
 
 const onApplicationSaved = () => {
   browseMessage.value = "Application submitted. Your organization will review it.";
@@ -698,7 +757,8 @@ onUnmounted(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in displayMyTrips" :key="`my-${item.id}`">
+                <template v-for="item in displayMyTrips" :key="`my-${item.id}`">
+                <tr>
                   <td>{{ item.name }}</td>
                   <td>{{ item.location || "—" }}</td>
                   <td>{{ formatDate(item.startDate) }}</td>
@@ -716,7 +776,7 @@ onUnmounted(() => {
                     <div class="d-flex justify-end ga-2 flex-wrap">
                       <v-btn size="small" variant="tonal" @click="viewBrowseTrip(item)">View</v-btn>
                       <v-btn
-                        v-if="canUpdateApplication(item)"
+                        v-if="canUpdateApplication(item) && !hasCompleteApplicationAction(item)"
                         size="small"
                         color="primary"
                         @click="openUpdateApplication(item)"
@@ -724,7 +784,7 @@ onUnmounted(() => {
                         {{ applicationActionLabel(item) }}
                       </v-btn>
                       <v-btn
-                        v-if="canCancelApplication(item)"
+                        v-if="canCancelApplication(item) && !hasCompleteApplicationAction(item)"
                         size="small"
                         color="error"
                         variant="tonal"
@@ -744,6 +804,56 @@ onUnmounted(() => {
                     </div>
                   </td>
                 </tr>
+                <tr
+                  v-if="item.nextActions?.length"
+                  :class="['next-actions-row', `next-actions-row--${nextActionsTone(item)}`]"
+                  data-testid="next-actions"
+                >
+                  <td colspan="6">
+                    <div
+                      v-for="action in item.nextActions"
+                      :key="action.code"
+                      class="d-flex align-center flex-wrap ga-2 py-1"
+                    >
+                      <span>{{ nextActionText(action) }}</span>
+                      <span v-if="action.missingDocuments?.length" class="text-medium-emphasis">
+                        Missing documents: {{ action.missingDocuments.join(", ") }}.
+                      </span>
+                      <template
+                        v-if="action.code === 'complete-application' || action.code === 'submit-application'"
+                      >
+                        <v-btn size="small" color="primary" @click="openUpdateApplication(item)">
+                          {{ action.code === "submit-application" ? "Submit App" : "Update App" }}
+                        </v-btn>
+                        <v-btn
+                          size="small"
+                          color="error"
+                          variant="tonal"
+                          @click="requestCancelApplication(item)"
+                        >
+                          Cancel App
+                        </v-btn>
+                      </template>
+                      <v-btn
+                        v-if="action.code === 'make-deposit' || action.code === 'make-donation'"
+                        size="small"
+                        color="primary"
+                        @click="openDonate(item)"
+                      >
+                        Donate
+                      </v-btn>
+                      <v-btn
+                        v-if="action.code === 'enter-flights'"
+                        size="small"
+                        color="primary"
+                        @click="openEnterFlights(item)"
+                      >
+                        Enter Flights
+                      </v-btn>
+                    </div>
+                  </td>
+                </tr>
+                </template>
               </tbody>
             </v-table>
 
@@ -977,6 +1087,23 @@ onUnmounted(() => {
       :trip-id="applyTripId"
       @saved="onApplicationSaved"
     />
+    <ParticipantDonateDialog
+      v-if="donateTripId"
+      v-model="showDonateDialog"
+      :trip-id="donateTripId"
+      :person-id="user?.personId"
+      :recipients="donateRecipients"
+      @saved="loadBrowseTrips"
+    />
+    <FlightSegmentsDialog
+      v-model="showFlightsDialog"
+      :trip-id="flightsTrip?.id"
+      :trip-people-role-id="flightsTrip?.tripPeopleRoleId"
+      :participant-name="[person?.firstName, person?.lastName].filter(Boolean).join(' ')"
+      :trip-start-date="flightsTrip?.startDate || ''"
+      :trip-end-date="flightsTrip?.endDate || ''"
+      @saved="loadBrowseTrips"
+    />
     <ConfirmDialog
       v-model="showConfirmCancelApp"
       title="Are you sure?"
@@ -1031,5 +1158,25 @@ onUnmounted(() => {
 
 .trip-table__actions {
   width: 18%;
+}
+
+.next-actions-row > td {
+  font-weight: 500;
+  border-left: 4px solid transparent;
+}
+
+.next-actions-row--waiting > td {
+  background-color: #ffe0b2;
+  border-left-color: #fb8c00;
+}
+
+.next-actions-row--needed > td {
+  background-color: #fff9c4;
+  border-left-color: #fbc02d;
+}
+
+.next-actions-row--ready > td {
+  background-color: #c8e6c9;
+  border-left-color: #43a047;
 }
 </style>
