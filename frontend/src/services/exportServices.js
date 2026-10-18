@@ -52,4 +52,11 @@ export default {
       "Unable to download flights PDF."
     );
   },
+  participantDocumentsPdf(tripId, assignmentId, participantName) {
+    return downloadFile(
+      `trips/${tripId}/participants/${assignmentId}/documents/pdf`,
+      `Documents - ${participantName}.pdf`,
+      "Unable to download documents PDF."
+    );
+  },
 };

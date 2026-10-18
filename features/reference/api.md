@@ -137,6 +137,7 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 | `GET` | `/trips/trips/:id/rooming/pdf` | auth | Room list PDF (same staff access as rooming; else `403`/`404`): `application/pdf`, `Content-Disposition: attachment; filename="Room List - <trip name>.pdf"` — Feature 54 |
 | `GET` | `/trips/trips/:id/flights` | auth | Participant flights board (staff) — Feature 30 |
 | `GET` | `/trips/trips/:id/flights/pdf` | auth | Flights PDF (same staff access as flights; else `403`/`404`): `application/pdf`, `Content-Disposition: attachment; filename="Flights - <trip name>.pdf"` — Feature 55 |
+| `GET` | `/trips/trips/:id/participants/:assignmentId/documents/pdf` | auth | Participant documents PDF (Trip Leader of the trip, Org Admin of the trip org, or System Admin; else `403`; unknown trip or assignment not on the trip → `404`): `application/pdf`, `Content-Disposition: attachment; filename="Documents - <first last>.pdf"` — Feature 58 |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId` | auth | Upsert flight header (purchased, cost, comments) — Feature 30 |
 | `GET` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | List flight segments — Feature 30 |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | Replace flight segments — Feature 30 |
