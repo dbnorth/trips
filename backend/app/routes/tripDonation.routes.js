@@ -6,6 +6,7 @@ const router = Router();
 
 router.get("/", [authenticate], donations.findAll);
 router.post("/", [authenticate], donations.create);
+router.post("/participant", [authenticate], donations.createByParticipant);
 router.put("/:id", [authenticate], donations.update);
 router.delete("/:id", [authenticate], donations.delete);
 

@@ -142,6 +142,26 @@ const ensureOrganizationTestMode = async () => {
   logger.info("organizations.testMode column added.");
 };
 
+const ensureDonorPersonId = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'donors'
+       AND COLUMN_NAME = 'personId'`
+  );
+  if (rows.length) return;
+
+  await db.sequelize.query("ALTER TABLE donors ADD COLUMN personId INT NULL AFTER status");
+  await db.sequelize.query("ALTER TABLE donors ADD UNIQUE INDEX donors_personId_unique (personId)");
+  await db.sequelize.query(
+    `ALTER TABLE donors
+     ADD CONSTRAINT donors_personId_fk
+     FOREIGN KEY (personId) REFERENCES people(id)
+     ON DELETE SET NULL ON UPDATE CASCADE`
+  );
+  logger.info("donors.personId column added (unique, ON DELETE SET NULL).");
+};
+
 const ensureTripPeopleRoleTripWorkerRoleId = async () => {
   const [rows] = await db.sequelize.query(
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -539,6 +559,21 @@ const ensureDocumentTypesTable = async () => {
     logger.info("documentTypes.allowSpecialization column added.");
   }
 
+  const [expirationCols] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'documentTypes'
+       AND COLUMN_NAME = 'hasExpirationDate'`
+  );
+  if (!expirationCols.length) {
+    await db.sequelize.query(
+      `ALTER TABLE documentTypes
+       ADD COLUMN hasExpirationDate TINYINT(1) NOT NULL DEFAULT 1
+       AFTER allowSpecialization`
+    );
+    logger.info("documentTypes.hasExpirationDate column added.");
+  }
+
   const seeds = [
     ["Medical Licence", "medical_licence"],
     ["Passport", "passport"],
@@ -577,7 +612,7 @@ const ensurePersonDocumentsTable = async () => {
         countryIssued VARCHAR(2) NULL,
         documentNumber VARCHAR(100) NULL,
         issueDate DATE NULL,
-        expirationDate DATE NOT NULL,
+        expirationDate DATE NULL,
         documentFileName VARCHAR(500) NULL,
         createdAt DATETIME NOT NULL,
         updatedAt DATETIME NOT NULL,
@@ -634,6 +669,20 @@ const ensurePersonDocumentsTable = async () => {
          MODIFY COLUMN documentFileName VARCHAR(500) NULL`
       );
       logger.info("personDocuments.documentFileName made nullable.");
+    }
+
+    const [expirationCols] = await db.sequelize.query(
+      `SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'personDocuments'
+         AND COLUMN_NAME = 'expirationDate'`
+    );
+    if (expirationCols.length && expirationCols[0].IS_NULLABLE === "NO") {
+      await db.sequelize.query(
+        `ALTER TABLE personDocuments
+         MODIFY COLUMN expirationDate DATE NULL`
+      );
+      logger.info("personDocuments.expirationDate made nullable.");
     }
   }
 };
@@ -1273,6 +1322,7 @@ export const ensureSchema = async () => {
   await ensureOrganizationAgreementFileName();
   await ensureOrganizationMedicalAgreementFileName();
   await ensureOrganizationTestMode();
+  await ensureDonorPersonId();
   await ensureTripPeopleRoleTripWorkerRoleId();
   await ensurePersonProfileFields();
   await ensureTripPeopleRoleApplicationFields();

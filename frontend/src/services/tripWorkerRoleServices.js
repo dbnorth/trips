@@ -13,4 +13,13 @@ export default {
   delete(id) {
     return apiClient.delete(`/trip-worker-roles/${id}`);
   },
+  getReservations(id) {
+    return apiClient.get(`/trip-worker-roles/${id}/reservations`);
+  },
+  addReservations(id, emails) {
+    return apiClient.post(`/trip-worker-roles/${id}/reservations`, { emails });
+  },
+  deleteReservation(id, reservationId) {
+    return apiClient.delete(`/trip-worker-roles/${id}/reservations/${reservationId}`);
+  },
 };

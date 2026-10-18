@@ -1,68 +1,78 @@
 import "dotenv/config";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import db from "../models/index.js";
 import { recipientsAreValid, senderIsValid } from "../utils/emailTokenValues.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataFile = path.join(__dirname, "../data/emailTemplates.json");
 
+/**
+ * Add each seed template that is missing for the seed organization.
+ * Returns null when the organization is not found, otherwise the counts.
+ */
+export const seedEmailTemplates = async () => {
+  const { organizationName, templates } = JSON.parse(fs.readFileSync(dataFile, "utf8"));
+
+  const org = await db.organization.findOne({ where: { name: organizationName } });
+  if (!org) return { organizationName, org: null };
+
+  let inserted = 0;
+  let toAddressSet = 0;
+  let scheduleSet = 0;
+  for (const template of templates) {
+    const emailType = await db.emailType.findOne({ where: { typeCode: template.typeCode } });
+    if (!emailType) throw new Error(`Email type ${template.typeCode} not found. Run seedEmailTypes.js first.`);
+    if (!(await senderIsValid(template.fromEmail))) {
+      throw new Error(`From email "${template.fromEmail}" for ${template.typeCode} is not valid. Run seedEmailTokens.js first.`);
+    }
+    if (!(await recipientsAreValid(template.toAddress))) {
+      throw new Error(`To "${template.toAddress}" for ${template.typeCode} is not valid. Run seedEmailTokens.js first.`);
+    }
+
+    const [row, created] = await db.emailTemplate.findOrCreate({
+      where: { orgId: org.id, tripId: null, emailTypeId: emailType.id },
+      defaults: {
+        functionCode: template.functionCode,
+        fromEmail: template.fromEmail,
+        toAddress: template.toAddress,
+        subject: template.subject,
+        emailBody: template.emailBody,
+        scheduleRule: template.scheduleRule ?? null,
+        scheduleDaysBefore: template.scheduleDaysBefore ?? null,
+      },
+    });
+    if (created) {
+      inserted += 1;
+      continue;
+    }
+    if (!row.toAddress?.trim()) {
+      await row.update({ toAddress: template.toAddress });
+      toAddressSet += 1;
+    }
+    if (template.scheduleRule && row.functionCode === "Scheduled" && !row.scheduleRule) {
+      await row.update({
+        scheduleRule: template.scheduleRule,
+        scheduleDaysBefore: template.scheduleDaysBefore ?? null,
+      });
+      scheduleSet += 1;
+    }
+  }
+
+  return { organizationName, org, total: templates.length, inserted, toAddressSet, scheduleSet };
+};
+
 const run = async () => {
   try {
     await db.sequelize.authenticate();
-    const { organizationName, templates } = JSON.parse(fs.readFileSync(dataFile, "utf8"));
-
-    const org = await db.organization.findOne({ where: { name: organizationName } });
-    if (!org) {
-      console.log(`Email templates: organization "${organizationName}" not found, skipped.`);
+    const result = await seedEmailTemplates();
+    if (!result.org) {
+      console.log(`Email templates: organization "${result.organizationName}" not found, skipped.`);
       process.exit(0);
     }
-
-    let inserted = 0;
-    let toAddressSet = 0;
-    let scheduleSet = 0;
-    for (const template of templates) {
-      const emailType = await db.emailType.findOne({ where: { typeCode: template.typeCode } });
-      if (!emailType) throw new Error(`Email type ${template.typeCode} not found. Run seedEmailTypes.js first.`);
-      if (!(await senderIsValid(template.fromEmail))) {
-        throw new Error(`From email "${template.fromEmail}" for ${template.typeCode} is not valid. Run seedEmailTokens.js first.`);
-      }
-      if (!(await recipientsAreValid(template.toAddress))) {
-        throw new Error(`To "${template.toAddress}" for ${template.typeCode} is not valid. Run seedEmailTokens.js first.`);
-      }
-
-      const [row, created] = await db.emailTemplate.findOrCreate({
-        where: { orgId: org.id, tripId: null, emailTypeId: emailType.id },
-        defaults: {
-          functionCode: template.functionCode,
-          fromEmail: template.fromEmail,
-          toAddress: template.toAddress,
-          subject: template.subject,
-          emailBody: template.emailBody,
-          scheduleRule: template.scheduleRule ?? null,
-          scheduleDaysBefore: template.scheduleDaysBefore ?? null,
-        },
-      });
-      if (created) {
-        inserted += 1;
-        continue;
-      }
-      if (!row.toAddress?.trim()) {
-        await row.update({ toAddress: template.toAddress });
-        toAddressSet += 1;
-      }
-      if (template.scheduleRule && row.functionCode === "Scheduled" && !row.scheduleRule) {
-        await row.update({
-          scheduleRule: template.scheduleRule,
-          scheduleDaysBefore: template.scheduleDaysBefore ?? null,
-        });
-        scheduleSet += 1;
-      }
-    }
-
     console.log(
-      `Email templates for ${organizationName}: ${templates.length} in seed file, ${inserted} inserted, ${toAddressSet} existing given a To address, ${scheduleSet} existing given a schedule.`
+      `Email templates for ${result.organizationName}: ${result.total} in seed file, ${result.inserted} inserted, ${result.toAddressSet} existing given a To address, ${result.scheduleSet} existing given a schedule.`
     );
     process.exit(0);
   } catch (err) {
@@ -71,4 +81,4 @@ const run = async () => {
   }
 };
 
-run();
+if (import.meta.url === pathToFileURL(process.argv[1] || "").href) run();

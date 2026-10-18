@@ -20,6 +20,16 @@ export const VALUE_SOURCES = [
   { valueSource: "participant.amountRaised", label: "Participant amount raised" },
   { valueSource: "participant.amountOwed", label: "Participant amount owed" },
   { valueSource: "participant.tripRole", label: "Participant trip role" },
+  { valueSource: "participant.tripCost", label: "Participant trip cost" },
+  { valueSource: "participant.tripOptions", label: "Participant trip options" },
+  { valueSource: "participant.tripOptionsTotal", label: "Participant trip options total" },
+  { valueSource: "participant.airfare", label: "Participant trip airfare" },
+  { valueSource: "participant.totalTripCost", label: "Participant total trip cost" },
+  { valueSource: "participant.donations", label: "Participant donations" },
+  { valueSource: "participant.donationsTotal", label: "Participant donations total" },
+  { valueSource: "participant.tripDonations", label: "Participant trip donations" },
+  { valueSource: "participant.tripDonationsTotal", label: "Participant trip donations total" },
+  { valueSource: "participant.balanceDue", label: "Participant balance due" },
   { valueSource: "primaryLeader.firstName", label: "Primary trip leader first name" },
   { valueSource: "primaryLeader.lastName", label: "Primary trip leader last name" },
   { valueSource: "primaryLeader.preferredName", label: "Primary trip leader preferred name" },
@@ -138,6 +148,102 @@ export const participantAmounts = async (trip, personId, assignment) => {
   return { raised, owed: cost == null ? null : Math.max(0, cost - raised) };
 };
 
+/** Calendar date (`YYYY-MM-DD`) of a timestamp in the app's email time zone. */
+const localDate = (value) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: process.env.SCHEDULED_EMAIL_TIMEZONE || "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+
+const sumAmounts = (amounts) => amounts.reduce((total, amount) => total + amount, 0);
+
+/** Selected trip options on an assignment, ordered by set number, then option order. */
+const loadSelectedTripOptions = async (assignmentId) => {
+  const rows = await db.tripPeopleRoleOption.findAll({
+    where: { tripPeopleRoleId: assignmentId, selected: true },
+    include: [{ model: db.tripTravelOption, as: "tripTravelOption" }],
+  });
+  return rows
+    .map((row) => row.tripTravelOption)
+    .filter(Boolean)
+    .sort((a, b) => a.setNumber - b.setNumber || a.id - b.id)
+    .map((option) => ({ description: option.description, amount: Number(option.priceAdjustment) || 0 }));
+};
+
+/** Flight cost when the application says the organization buys the flight; otherwise 0. */
+const loadAirfare = async (assignment) => {
+  if (assignment.flightPurchaseOption !== "organization") return 0;
+  const flight = await db.tripFlight.findOne({ where: { tripPeopleRoleId: assignment.id } });
+  return flight?.cost != null ? Number(flight.cost) : 0;
+};
+
+/**
+ * The participant's donations for a trip, oldest first, split into participant donations
+ * (donor email matches the participant's email) and trip donations (all others).
+ */
+const loadDonationsBySource = async (tripId, person) => {
+  const rows = await db.tripDonation.findAll({
+    where: { tripId, personId: person.id },
+    include: [{ model: db.donor, as: "donor", attributes: ["personId"] }],
+    order: [
+      ["dateTime", "ASC"],
+      ["id", "ASC"],
+    ],
+  });
+  const own = [];
+  const others = [];
+  for (const row of rows) {
+    const entry = { date: localDate(row.dateTime), amount: Number(row.amount) || 0 };
+    (Number(row.donor?.personId) === Number(person.id) ? own : others).push(entry);
+  }
+  return { own, others };
+};
+
+const amountLines = (entries, label) =>
+  entries.map((entry) => `${label(entry)}: ${formatMoney(entry.amount)}`).join("\n");
+
+/** Financial statement values for a participant's assignment on a trip. */
+const buildFinancialValues = async (trip, person, assignment) => {
+  const cost = participantCost(trip, assignment);
+  const options = assignment ? await loadSelectedTripOptions(assignment.id) : [];
+  const airfare = assignment ? await loadAirfare(assignment) : 0;
+  const { own, others } = await loadDonationsBySource(trip.id, person);
+
+  const optionsTotal = sumAmounts(options.map((option) => option.amount));
+  const ownTotal = sumAmounts(own.map((entry) => entry.amount));
+  const othersTotal = sumAmounts(others.map((entry) => entry.amount));
+  const totalCost = cost == null ? null : cost + optionsTotal + airfare;
+
+  return {
+    "participant.tripCost": formatMoney(cost),
+    "participant.tripOptions": amountLines(options, (option) => option.description),
+    "participant.tripOptionsTotal": formatMoney(optionsTotal),
+    "participant.airfare": formatMoney(airfare),
+    "participant.totalTripCost": formatMoney(totalCost),
+    "participant.donations": amountLines(own, (entry) => formatDate(entry.date)),
+    "participant.donationsTotal": formatMoney(ownTotal),
+    "participant.tripDonations": amountLines(others, (entry) => formatDate(entry.date)),
+    "participant.tripDonationsTotal": formatMoney(othersTotal),
+    "participant.balanceDue":
+      totalCost == null ? "" : formatMoney(Math.max(0, totalCost - ownTotal - othersTotal)),
+  };
+};
+
+const EMPTY_FINANCIAL_VALUES = {
+  "participant.tripCost": "",
+  "participant.tripOptions": "",
+  "participant.tripOptionsTotal": "",
+  "participant.airfare": "",
+  "participant.totalTripCost": "",
+  "participant.donations": "",
+  "participant.donationsTotal": "",
+  "participant.tripDonations": "",
+  "participant.tripDonationsTotal": "",
+  "participant.balanceDue": "",
+};
+
 /**
  * Build the value for every value source from an organization and an optional trip and participant.
  * Missing data yields empty text.
@@ -151,6 +257,7 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
   let amountRaised = "";
   let amountOwed = "";
   let tripRole = "";
+  let financialValues = EMPTY_FINANCIAL_VALUES;
   if (trip && person) {
     tripRole = await loadParticipantTripRole(trip.id, person.id);
     const assignment = await db.tripPeopleRole.findOne({
@@ -160,6 +267,7 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
     const { raised, owed } = await participantAmounts(trip, person.id, assignment);
     amountRaised = formatMoney(raised);
     if (owed != null) amountOwed = formatMoney(owed);
+    financialValues = await buildFinancialValues(trip, person, assignment);
   }
 
   return {
@@ -180,6 +288,7 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
     "participant.amountRaised": amountRaised,
     "participant.amountOwed": amountOwed,
     "participant.tripRole": tripRole,
+    ...financialValues,
     "primaryLeader.firstName": text(leader?.firstName),
     "primaryLeader.lastName": text(leader?.lastName),
     "primaryLeader.preferredName": preferredName(leader),

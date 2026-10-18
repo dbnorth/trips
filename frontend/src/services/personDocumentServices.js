@@ -15,7 +15,7 @@ export default {
     if (data.countryIssued) form.append("countryIssued", data.countryIssued);
     if (data.documentNumber) form.append("documentNumber", data.documentNumber);
     if (data.issueDate) form.append("issueDate", data.issueDate);
-    form.append("expirationDate", data.expirationDate);
+    if (data.expirationDate) form.append("expirationDate", data.expirationDate);
     if (data.file) form.append("document", data.file);
     if (data.specializations) {
       form.append("specializations", JSON.stringify(data.specializations));
@@ -31,7 +31,7 @@ export default {
     if (data.countryIssued) form.append("countryIssued", data.countryIssued);
     if (data.documentNumber) form.append("documentNumber", data.documentNumber);
     if (data.issueDate) form.append("issueDate", data.issueDate);
-    form.append("expirationDate", data.expirationDate);
+    if (data.expirationDate) form.append("expirationDate", data.expirationDate);
     if (data.file) form.append("document", data.file);
     if (data.specializations) {
       form.append("specializations", JSON.stringify(data.specializations));

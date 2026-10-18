@@ -27,7 +27,7 @@
 | `/users`, `/roles`, `/people`, `/org-people-roles` | 2, **11** (all-orgs people list) |
 | `/organizations` | 3 |
 | `/document-types`, `/people/:id/documents` | 4 |
-| `/trips` CRUD + image, `/dashboard/*` | 5, **28** (trip status board), **29** (rooming), **30** (flights) |
+| `/trips` CRUD + image, `/dashboard/*` | 5, **28** (trip status board), **29** (rooming), **30** (flights), **54** (room list PDF), **55** (flights PDF) |
 | `/worker-roles`, `/trip-worker-roles`, `/trip-travel-options` | 6 |
 | `/medical-conditions` | 17 |
 | `/languages` | 31 |
@@ -105,18 +105,18 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 
 ---
 
-## Document types & person documents — Features 4, 22, 24
+## Document types & person documents — Features 4, 22, 24, 57
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/document-types` | auth | Catalog (any auth user); includes `documentNumberRequired`, `instructions`, `allowSpecialization` (Feature 34); `type` may be `medical_licence`, `passport`, `certification`, or `diploma` |
+| `GET` | `/trips/document-types` | auth | Catalog (any auth user); includes `documentNumberRequired`, `instructions`, `allowSpecialization` (Feature 34), `hasExpirationDate` (Feature 57); `type` may be `medical_licence`, `passport`, `certification`, or `diploma` |
 | `GET` | `/trips/document-types/:id` | auth | Get (sysadmin gate in controller) |
-| `POST` | `/trips/document-types` | auth | Create (sysadmin); optional `documentNumberRequired`, `instructions`, `allowSpecialization`; `type` includes `diploma` (Feature 24) |
+| `POST` | `/trips/document-types` | auth | Create (sysadmin); optional `documentNumberRequired`, `instructions`, `allowSpecialization`, `hasExpirationDate` (default `true`, Feature 57); `type` includes `diploma` (Feature 24) |
 | `PUT` | `/trips/document-types/:id` | auth | Update (sysadmin) |
 | `DELETE` | `/trips/document-types/:id` | auth | Delete (sysadmin) |
-| `GET` | `/trips/people/:id/documents` | auth | List; includes `specializations` (`id`, `name`, `date`, `documentFileName`) when present |
-| `POST` | `/trips/people/:id/documents` | auth | Upload (`multipart` field `document`); optional `documentNumber` (required when type says so); `specializations` JSON plus `specializationFiles` when the type allows them (Feature 34) |
-| `PUT` | `/trips/people/:id/documents/:documentId` | auth | Update/replace; specialization list replaces stored rows when sent and the type allows them |
+| `GET` | `/trips/people/:id/documents` | auth | List; includes `specializations` (`id`, `name`, `date`, `documentFileName`) when present; `expirationDate` may be null and `documentType` includes `hasExpirationDate` (Feature 57) |
+| `POST` | `/trips/people/:id/documents` | auth | Upload (`multipart` field `document`); optional `documentNumber` (required when type says so); `expirationDate` required only when the type has `hasExpirationDate`, otherwise stored null and any value sent is ignored (`400` "Expiration date is required.", Feature 57); `specializations` JSON plus `specializationFiles` when the type allows them (Feature 34) |
+| `PUT` | `/trips/people/:id/documents/:documentId` | auth | Update/replace; same `expirationDate` rule as `POST`; specialization list replaces stored rows when sent and the type allows them |
 | `DELETE` | `/trips/people/:id/documents/:documentId` | auth | Delete |
 | `GET` | `/trips/people/:id/documents/:documentId/view` | auth | Inline view |
 | `GET` | `/trips/people/:id/documents/:documentId/download` | auth | Download |
@@ -131,10 +131,13 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 |--------|------|------|---------|
 | `GET` | `/trips/trips` | auth | Scoped list + aggregates |
 | `GET` | `/trips/trips/:id` | auth | Detail if `canAccessTrip` |
-| `GET` | `/trips/trips/:id/status` | auth | Trip Status board (Trip Leader / Org Admin / System Admin): trip summary, roles with capacity counts, travel-option columns, participants with status / missing items / owed / raised / selected options — Feature 28 |
+| `GET` | `/trips/trips/:id/status` | auth | Trip Status board (Trip Leader / Org Admin / System Admin): trip summary, roles with capacity counts (incl. `reservedCount`, Feature 56), travel-option columns, participants with status / missing items / owed / raised / selected options — Feature 28 |
 | `GET` | `/trips/trips/:id/rooming` | auth | Rooming list load (staff): trip summary, hotel header, rooms, participant assignment grid + roommate prefs — Feature 29 |
 | `PUT` | `/trips/trips/:id/rooming` | auth | Upsert rooming hotel header + rooms/assignments from participant grid — Feature 29 |
+| `GET` | `/trips/trips/:id/rooming/pdf` | auth | Room list PDF (same staff access as rooming; else `403`/`404`): `application/pdf`, `Content-Disposition: attachment; filename="Room List - <trip name>.pdf"` — Feature 54 |
 | `GET` | `/trips/trips/:id/flights` | auth | Participant flights board (staff) — Feature 30 |
+| `GET` | `/trips/trips/:id/flights/pdf` | auth | Flights PDF (same staff access as flights; else `403`/`404`): `application/pdf`, `Content-Disposition: attachment; filename="Flights - <trip name>.pdf"` — Feature 55 |
+| `GET` | `/trips/trips/:id/participants/:assignmentId/documents/pdf` | auth | Participant documents PDF (Trip Leader of the trip, Org Admin of the trip org, or System Admin; else `403`; unknown trip or assignment not on the trip → `404`): `application/pdf`, `Content-Disposition: attachment; filename="Documents - <first last>.pdf"` — Feature 58 |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId` | auth | Upsert flight header (purchased, cost, comments) — Feature 30 |
 | `GET` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | List flight segments — Feature 30 |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | Replace flight segments — Feature 30 |
@@ -161,10 +164,13 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 | `POST` | `/trips/worker-roles` | auth | Create (org admin); `requiredDocumentTypeIds?: number[]` (Feature 25) |
 | `PUT` | `/trips/worker-roles/:id` | auth | Update; replace required document list when `requiredDocumentTypeIds` sent |
 | `DELETE` | `/trips/worker-roles/:id` | auth | Delete |
-| `GET` | `/trips/trip-worker-roles` | auth | Needs for `?tripId=` |
-| `POST` | `/trips/trip-worker-roles` | auth | Add role quantity |
-| `PUT` | `/trips/trip-worker-roles/:id` | auth | Update quantity |
-| `DELETE` | `/trips/trip-worker-roles/:id` | auth | Remove |
+| `GET` | `/trips/trip-worker-roles` | auth | Needs for `?tripId=`; each role has `signedUpCount`, `reservedCount`, `availableCount` (Feature 26, 56) |
+| `POST` | `/trips/trip-worker-roles` | auth | Add role quantity; optional `emails: string[]` reserved with the role (validated like `POST …/reservations`, open slots = quantity; on `400` neither the role nor reservations are saved) — Feature 56 |
+| `PUT` | `/trips/trip-worker-roles/:id` | auth | Update quantity; `400` "Remove reserved emails first." when quantity < reservations (Feature 56) |
+| `DELETE` | `/trips/trip-worker-roles/:id` | auth | Remove (also removes its reservations) |
+| `GET` | `/trips/trip-worker-roles/:id/reservations` | auth + trip staff | `[{ id, email, filled, applicantName, applicationStatus }]` ordered by email — Feature 56 |
+| `POST` | `/trips/trip-worker-roles/:id/reservations` | auth + trip staff | Body `{ emails: string[] }`; `201` with created rows; `400` for invalid emails, duplicates on the trip, emails that already applied, or more emails than open slots ("Only N open slots for this role.") — Feature 56 |
+| `DELETE` | `/trips/trip-worker-roles/:id/reservations/:reservationId` | auth + trip staff | Remove a reservation — Feature 56 |
 | `GET` | `/trips/trip-travel-options` | auth | Options for `?tripId=` |
 | `POST` | `/trips/trip-travel-options` | auth | Create |
 | `PUT` | `/trips/trip-travel-options/:id` | auth | Update |
@@ -218,10 +224,10 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 | `GET` | `/trips/trips/browse/orgs` | auth | Browse orgs |
 | `GET` | `/trips/trips/browse/mine` | auth | My trips |
 | `GET` | `/trips/trips/browse` | auth | Active trips (`?orgId=`) |
-| `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreements/options |
-| `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance; `isPregnant` / `pregnancyDueDate` on assignment); sends `application-started` / `application-submitted` event emails — Feature 45 |
-| `GET` | `/trips/trips/browse/:id/application` | auth | Own application |
-| `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields); sends `application-submitted` event emails — Feature 45 |
+| `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreements/options; Feature 53 `myTripInfo.donationRecipients` `[{ personId, firstName, lastName }]` (approved Trip Participants and Trip Leaders) when the caller's application is incomplete/applied/approved, else `[]`; roles add `reservedCount`; `myReservedTripWorkerRoleId` (caller's reserved role or `null`) — Feature 56 |
+| `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance; `isPregnant` / `pregnancyDueDate` on assignment); sends `application-started` / `application-submitted` event emails — Feature 45; a caller with a reservation is placed in the reserved role (body role ignored, no open-slot check) — Feature 56 |
+| `GET` | `/trips/trips/browse/:id/application` | auth | Own application; `myReservedTripWorkerRoleId` — Feature 56 |
+| `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields); sends `application-submitted` event emails — Feature 45; `400` "Your role on this trip is reserved." when a reserved caller picks another role — Feature 56 |
 | `POST` | `/trips/trips/browse/:id/application/cancel` | auth | Applicant cancel own application (`incomplete`/`applied`/`approved` → `cancelled`) |
 | `POST` | `/trips/trips/browse/:id/application/uncancel` | auth | Applicant uncancel → auto `incomplete`/`applied`; fails if role full |
 | `GET` | `/trips/trip-people-roles` | auth | Roster (`?tripId=`) |
@@ -243,12 +249,13 @@ Browse/apply UI is blocked for system admins (router); see `behavior.md`.
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | `GET` | `/trips/donations` | auth | List (`?tripId=` required); participants see own rows only |
-| `POST` | `/trips/donations` | auth | Staff create (nested `donor` / `donorId`); sends donation event emails — Feature 45 |
-| `PUT` | `/trips/donations/:id` | auth | Update |
+| `POST` | `/trips/donations` | auth | Staff create (nested `donor` / `donorId`); sends donation event emails — Feature 45. Feature 53: `donor.personId` with no `donorId` uses or creates that person's linked donor (person must be in the trip's organization, System Admin any) → otherwise `400` "Person not found." |
+| `POST` | `/trips/donations/participant` | auth | Feature 53. Body `{ tripId, personId, amount, paymentInfo }` (`personId` = recipient). Caller needs an incomplete/applied/approved application on the trip → else `403` "Forbidden."; amount above 0 → else `400` "Donation amount is required."; self only when approved → else `403` "You can donate to yourself only on trips where you are approved."; recipient must be an approved Trip Participant or Trip Leader → else `400` "Choose a participant on this trip." Uses the caller's linked donor (created from their person when missing), current date/time; sends donation event emails |
+| `PUT` | `/trips/donations/:id` | auth | Update; Feature 53 `donor.personId` as on create |
 | `DELETE` | `/trips/donations/:id` | auth | Delete |
-| `GET` | `/trips/donors/lookup` | auth | Lookup `?email=` |
+| `GET` | `/trips/donors/lookup` | auth | Lookup `?email=`; Feature 53 adds optional `tripId`. Donor by email → donor + `source: "donor"`. Otherwise, for staff who manage donations on `tripId`, a person with the email in the trip's organization (System Admin any): their linked donor (`source: "donor"`) or `{ id: null, personId, firstName, lastName, email, address, phone, status: "active", source: "person" }`. Else `404` "Donor not found." |
 | `GET` | `/trips/donors` | auth | List donors |
-| `POST` | `/trips/donors` | auth | Create donor |
+| `POST` | `/trips/donors` | auth | Create donor (`personId` ignored) |
 | `PUT` | `/trips/donors/:id` | auth | Update donor |
 | `GET` | `/trips/export/trips/:tripId/donors.csv` | auth | Donors CSV |
 | `GET` | `/trips/export/trips/:tripId/donations.csv` | auth | Donations CSV |
@@ -264,10 +271,10 @@ No auth. Slugs: spaces → `_`.
 | `GET` | `/trips/public/orgs/by-name/:orgSlug` | none | Org + open active trips |
 | `GET` | `/trips/public/trips/:tripId` | none | Trip + approved participants |
 | `GET` | `/trips/public/trips/by-name/:tripSlug` | none | Trip by slug |
-| `GET` | `/trips/public/trips/by-name/:tripSlug/overview` | none | Overview + roles needed |
+| `GET` | `/trips/public/trips/by-name/:tripSlug/overview` | none | Overview + roles needed (with `reservedCount`; `availableCount` excludes reserved — Feature 56) |
 | `GET` | `/trips/public/trips/:tripId/participants/:personId` | none | Participant donate data |
 | `GET` | `/trips/public/trips/by-name/:tripSlug/participants/:personSlug` | none | Same by slug |
-| `POST` | `/trips/public/donations` | none | Public donation (`tripId`, `amount`, `donor`, optional `personId`); sends donation event emails — Feature 45 |
+| `POST` | `/trips/public/donations` | optional | Public donation (`tripId`, `amount`, `donor`, optional `personId`); sends donation event emails — Feature 45. Feature 53: with a valid sign-in token the signed-in person's linked donor is used (created from the entered donor details when missing); naming yourself needs an approved assignment → else `403`. `donor.personId` / `donor.id` in the body are ignored |
 
 ---
 
@@ -304,7 +311,7 @@ Duplicate `typeCode`, a blank required field, or deleting a type a template stil
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | `GET` | `/trips/email-tokens` | System Admin, Org Admin, or Trip Leader | List (`id`, `tokenCode`, `description`, `valueSource`) ordered by token code |
-| `GET` | `/trips/email-tokens/value-sources` | System Admin | Fixed value sources `[{ valueSource, label }]`; includes `participant.tripRole` "Participant trip role" (Feature 48) |
+| `GET` | `/trips/email-tokens/value-sources` | System Admin | Fixed value sources `[{ valueSource, label }]`; includes `participant.tripRole` "Participant trip role" (Feature 48) and the Feature 52 financial sources `participant.tripCost`, `participant.tripOptions`, `participant.tripOptionsTotal`, `participant.airfare`, `participant.totalTripCost`, `participant.donations`, `participant.donationsTotal`, `participant.tripDonations`, `participant.tripDonationsTotal`, `participant.balanceDue` |
 | `GET` | `/trips/email-tokens/:id` | System Admin | Get one |
 | `POST` | `/trips/email-tokens` | System Admin | Create `{ tokenCode, description, valueSource }` |
 | `PUT` | `/trips/email-tokens/:id` | System Admin | Update |

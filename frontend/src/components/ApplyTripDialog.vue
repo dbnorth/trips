@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import TripServices from "../services/tripServices.js";
 import PersonServices from "../services/personServices.js";
 import PersonDocumentServices from "../services/personDocumentServices.js";
+import DocumentTypeServices from "../services/documentTypeServices.js";
 import Utils from "../config/utils.js";
 import DonorTripHeading from "./DonorTripHeading.vue";
 import ParticipantAgreementSection from "./ParticipantAgreementSection.vue";
@@ -24,6 +25,7 @@ import {
   isRequiredPassportUploaded,
   isRequiredRoleDocumentUploaded,
   missingRequiredRoleDocuments,
+  needsExpirationWording,
   validateTravelOptionSelections,
 } from "../utils/tripApplicationForm.js";
 import {
@@ -44,7 +46,9 @@ const saving = ref(false);
 const formError = ref("");
 const trip = ref(null);
 const rolesNeeded = ref([]);
+const myReservedRoleId = ref(null);
 const personDocuments = ref([]);
+const documentTypes = ref([]);
 const person = ref(null);
 const healthForm = ref({
   gender: null,
@@ -112,6 +116,9 @@ const medicalAgreementRequired = computed(
 const participantUnder18 = computed(() => isUnder18(person.value?.birthDate));
 
 const availableRoles = computed(() => {
+  if (myReservedRoleId.value) {
+    return (rolesNeeded.value || []).filter((r) => Number(r.id) === myReservedRoleId.value);
+  }
   const currentId = Number(form.value.tripWorkerRoleId);
   return (rolesNeeded.value || []).filter(
     (r) => (r.availableCount || 0) > 0 || (editingApplication.value && Number(r.id) === currentId)
@@ -182,6 +189,10 @@ const documentRequirementWarning = computed(() => {
     return "Upload a file for every document on your profile before submitting your application.";
   }
   if (trip.value?.requirePassport && !hasRequiredPassportForTrip.value) {
+    const passportTypes = documentTypes.value.filter((t) => t.type === "passport");
+    if (!needsExpirationWording(passportTypes)) {
+      return "Upload a passport before submitting your application.";
+    }
     const endDate = dateOnly(trip.value?.endDate);
     const endPart = endDate ? ` (${endDate})` : "";
     return `Upload a passport with an expiration date past the end of the trip${endPart} before submitting your application.`;
@@ -195,6 +206,9 @@ const documentRequirementWarning = computed(() => {
   if (!missing.length) return "";
 
   const names = missing.map((d) => d.description || "required document").join(", ");
+  if (!needsExpirationWording(missing)) {
+    return `Upload the following required documents before submitting your application: ${names}.`;
+  }
   const endDate = dateOnly(trip.value?.endDate);
   const endPart = endDate ? ` (${endDate})` : "";
   return `Upload the following required documents with an expiration date past the end of the trip${endPart} before submitting your application: ${names}.`;
@@ -434,6 +448,15 @@ const loadPersonDocuments = async () => {
   }
 };
 
+const loadDocumentTypes = async () => {
+  try {
+    const res = await DocumentTypeServices.getAll();
+    documentTypes.value = res.data || [];
+  } catch {
+    documentTypes.value = [];
+  }
+};
+
 const applyHealthFromPerson = (data) => {
   healthForm.value = {
     gender: data?.gender || null,
@@ -490,6 +513,7 @@ const loadExistingApplication = async () => {
   canEdit.value = !!res.data?.canEdit;
   applicationStatus.value = res.data?.applicationStatus || res.data?.application?.status || null;
   applyFormFromApplication(res.data?.application);
+  applyReservedRole(res.data?.myReservedTripWorkerRoleId);
   if (!canEdit.value) {
     const status = applicationStatus.value || "unknown";
     if (status === "cancelled") {
@@ -502,10 +526,16 @@ const loadExistingApplication = async () => {
   }
 };
 
+const applyReservedRole = (roleId) => {
+  myReservedRoleId.value = roleId ? Number(roleId) : null;
+  if (myReservedRoleId.value) form.value.tripWorkerRoleId = myReservedRoleId.value;
+};
+
 const loadNewApplication = async () => {
   const res = await TripServices.getBrowseTrip(props.tripId);
   trip.value = res.data?.trip || null;
   rolesNeeded.value = res.data?.rolesNeeded || [];
+  applyReservedRole(res.data?.myReservedTripWorkerRoleId);
   travelOptions.value = res.data?.travelOptions || [];
   selectedTravelOptionIds.value = (res.data?.travelOptions || [])
     .filter((o) => o.selected)
@@ -542,6 +572,7 @@ const load = async () => {
   resetForm();
   try {
     await loadPersonDocuments();
+    await loadDocumentTypes();
     await loadNewApplication();
     // Load person after trip so medical-condition org context is known (Feature 17).
     await loadPerson();
@@ -819,8 +850,8 @@ const confirmUncancelApplication = async () => {
             :items="roleItems"
             label="Trip role"
             density="compact"
-            :disabled="!canEdit || !availableRoles.length"
-            hint="Only roles with open positions are listed"
+            :disabled="!canEdit || !availableRoles.length || !!myReservedRoleId"
+            :hint="myReservedRoleId ? 'This role is reserved for you.' : 'Only roles with open positions are listed'"
             persistent-hint
             class="mb-2"
           />

@@ -112,22 +112,44 @@ export const authenticate = (req, res, next) => {
       if (!u) {
         return res.status(401).send({ message: "Unauthorized! User not found." });
       }
-      const ctx = await loadUserContext(u.id);
-      req.user = {
-        id: u.id,
-        email: u.email,
-        isAdmin: u.isAdmin,
-        personId: ctx.personId,
-        person: ctx.person,
-        orgRoles: ctx.orgRoles,
-        tripRoles: ctx.tripRoles,
-      };
+      req.user = await buildRequestUser(u);
       next();
     })
     .catch((err) => {
       logger.error(`Authentication error: ${err.message}`);
       return res.status(500).send({ message: "Error during authentication" });
     });
+};
+
+const buildRequestUser = async (u) => {
+  const ctx = await loadUserContext(u.id);
+  return {
+    id: u.id,
+    email: u.email,
+    isAdmin: u.isAdmin,
+    personId: ctx.personId,
+    person: ctx.person,
+    orgRoles: ctx.orgRoles,
+    tripRoles: ctx.tripRoles,
+  };
+};
+
+/** Sets `req.user` when the request has a valid session token; otherwise continues signed out. */
+export const optionalAuthenticate = async (req, res, next) => {
+  const authHeader = req.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) return next();
+  try {
+    const session = await Session.findOne({
+      where: { token: authHeader.slice(7) },
+      include: [{ model: User, attributes: ["id", "email", "isAdmin"] }],
+    });
+    if (session?.user && session.expirationDate >= Date.now()) {
+      req.user = await buildRequestUser(session.user);
+    }
+  } catch (err) {
+    logger.error(`Optional authentication error: ${err.message}`);
+  }
+  next();
 };
 
 export const requireSystemAdmin = (req, res, next) => {

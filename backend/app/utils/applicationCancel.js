@@ -11,10 +11,7 @@ import {
 } from "./tripParticipantApplicationStatus.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "./organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "./pregnancyFields.js";
-import {
-  availableCountForRole,
-  signedUpCountsByTripWorkerRoleId,
-} from "./tripRoleCapacity.js";
+import { findReservationForPerson, withCapacityFields } from "./tripRoleCapacity.js";
 
 const Trip = db.trip;
 const TripWorkerRole = db.tripWorkerRole;
@@ -107,13 +104,14 @@ export const uncancelApplicationAssignment = async (assignment, { orgId } = {}) 
     };
   }
 
-  const counts = await signedUpCountsByTripWorkerRoleId(assignment.tripId);
-  const signedUpCount = counts.get(Number(tripWorkerRoleId)) || 0;
   const twr = await TripWorkerRole.findByPk(tripWorkerRoleId, { attributes: ["id", "quantity"] });
   if (!twr) {
     return { ok: false, status: 400, message: "Role is no longer available on this trip." };
   }
-  if (availableCountForRole(twr.quantity, signedUpCount) < 1) {
+  const reservation = await findReservationForPerson(assignment.tripId, assignment.peopleId);
+  const reservedForRole = Number(reservation?.tripWorkerRoleId) === Number(tripWorkerRoleId);
+  const [role] = await withCapacityFields(assignment.tripId, [twr]);
+  if (!reservedForRole && role.availableCount < 1) {
     return {
       ok: false,
       status: 400,

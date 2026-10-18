@@ -6,6 +6,8 @@ import {
   isTripLeaderForTrip,
 } from "../authorization/accessControl.js";
 import { TRIP_ROOM_TYPES } from "../models/tripRoom.model.js";
+import { buildRoomListData, renderRoomListPdf } from "../utils/roomListPdf.js";
+import { sendPdf } from "../utils/pdf.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
@@ -209,6 +211,20 @@ exports.findRooming = async (req, res) => {
     const payload = await buildRoomingPayload(tripId);
     if (!payload) return res.status(404).send({ message: "Trip not found." });
     res.send(payload);
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.roomingPdf = async (req, res) => {
+  try {
+    const tripId = req.params.id;
+    const manage = await canManageTripRooming(req, tripId);
+    if (!manage.ok) return forbid(res, manage);
+
+    const data = await buildRoomListData(tripId);
+    if (!data) return res.status(404).send({ message: "Trip not found." });
+    sendPdf(res, await renderRoomListPdf(data), `Room List - ${data.trip.name}.pdf`);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

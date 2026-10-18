@@ -4,6 +4,7 @@ import tripBrowse from "../controllers/tripBrowse.controller.js";
 import tripRooming from "../controllers/tripRooming.controller.js";
 import tripFlight from "../controllers/tripFlight.controller.js";
 import tripTeamEmail from "../controllers/tripTeamEmail.controller.js";
+import participantDocumentsPdf from "../controllers/participantDocumentsPdf.controller.js";
 import authenticate from "../authorization/accessControl.js";
 import { uploadTripImage } from "../config/multer.js";
 
@@ -32,8 +33,10 @@ router.post("/browse/:id/application/uncancel", [authenticate], tripBrowse.uncan
 router.get("/", [authenticate], trips.findAll);
 router.get("/:id/status", [authenticate], trips.findStatus);
 router.get("/:id/rooming", [authenticate], tripRooming.findRooming);
+router.get("/:id/rooming/pdf", [authenticate], tripRooming.roomingPdf);
 router.put("/:id/rooming", [authenticate], tripRooming.updateRooming);
 router.get("/:id/flights", [authenticate], tripFlight.findFlights);
+router.get("/:id/flights/pdf", [authenticate], tripFlight.flightsPdf);
 router.put("/:id/flights/:tripPeopleRoleId", [authenticate], tripFlight.updateFlightHeader);
 router.get(
   "/:id/flights/:tripPeopleRoleId/segments",
@@ -44,6 +47,11 @@ router.put(
   "/:id/flights/:tripPeopleRoleId/segments",
   [authenticate],
   tripFlight.replaceSegments
+);
+router.get(
+  "/:id/participants/:assignmentId/documents/pdf",
+  [authenticate],
+  participantDocumentsPdf.documentsPdf
 );
 router.get("/:id/team-email/templates", [authenticate], tripTeamEmail.findTemplates);
 router.post("/:id/team-email/preview", [authenticate], tripTeamEmail.preview);

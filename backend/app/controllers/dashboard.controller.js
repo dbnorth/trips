@@ -10,6 +10,7 @@ import {
 } from "../authorization/accessControl.js";
 import { withCapacityFields } from "../utils/tripRoleCapacity.js";
 import { sendDonationEventEmails } from "../utils/eventEmails.js";
+import { findOrCreateLinkedDonor, isApprovedTripMember } from "../utils/donorPerson.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
@@ -218,10 +219,20 @@ exports.createPublicDonation = async (req, res) => {
     if (!donor?.firstName || !amount) {
       return res.status(400).send({ message: "Donor first name and amount are required." });
     }
-    const donorRecord = await db.donor.create({
-      ...donor,
-      status: donor.status || "active",
-    });
+    const { id: _id, personId: _personId, ...donorDetails } = donor;
+    const signedInPersonId = req.user?.personId ?? null;
+    if (
+      signedInPersonId &&
+      Number(personId) === Number(signedInPersonId) &&
+      !(await isApprovedTripMember(tripId, signedInPersonId))
+    ) {
+      return res
+        .status(403)
+        .send({ message: "You can donate to yourself only on trips where you are approved." });
+    }
+    const donorRecord = signedInPersonId
+      ? await findOrCreateLinkedDonor(signedInPersonId, donorDetails)
+      : await db.donor.create({ ...donorDetails, status: donorDetails.status || "active" });
     const donation = await TripDonation.create({
       tripId,
       personId: personId || null,
@@ -304,6 +315,7 @@ const loadPublicTripRolesNeeded = async (tripId) => {
     id: json.id,
     quantity: Number(json.quantity) || 0,
     signedUpCount: json.signedUpCount || 0,
+    reservedCount: json.reservedCount || 0,
     availableCount: json.availableCount || 0,
     workerRole: json.workerRole
       ? {

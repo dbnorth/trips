@@ -33,7 +33,7 @@ export const isRequiredRoleDocumentUploaded = ({
     (documents || []).some((doc) => {
       if (Number(doc.documentTypeId) !== id) return false;
       if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
-      if (!compareDate) return true;
+      if (!compareDate || doc.documentType?.hasExpirationDate === false) return true;
       const expirationDate = String(doc.expirationDate || "").slice(0, 10);
       return expirationDate && expirationDate > compareDate;
     })
@@ -72,11 +72,15 @@ export const isRequiredPassportUploaded = ({
     const type = doc.documentType?.type ?? doc.type ?? null;
     if (type !== "passport") return false;
     if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
-    if (!compareDate) return true;
+    if (!compareDate || doc.documentType?.hasExpirationDate === false) return true;
     const expirationDate = String(doc.expirationDate || "").slice(0, 10);
     return expirationDate && expirationDate > compareDate;
   });
 };
+
+/** Missing-document messages mention expiration unless every listed type has none. */
+export const needsExpirationWording = (documentTypes = []) =>
+  !documentTypes.length || documentTypes.some((t) => t?.hasExpirationDate !== false);
 
 /**
  * Application fields excluding the participant agreement.
