@@ -699,19 +699,98 @@ const ensurePersonDocumentSpecializationsTable = async () => {
     CREATE TABLE personDocumentSpecializations (
       id INT NOT NULL AUTO_INCREMENT,
       personDocumentId INT NOT NULL,
-      name VARCHAR(255) NOT NULL,
+      documentTypeSpecializationId INT NOT NULL,
       specializationDate DATE NOT NULL,
       documentFileName VARCHAR(500) NOT NULL,
       createdAt DATETIME NOT NULL,
       updatedAt DATETIME NOT NULL,
       PRIMARY KEY (id),
-      KEY personDocumentSpecializations_personDocumentId_idx (personDocumentId),
+      UNIQUE KEY personDocumentSpecializations_document_specialization_unique
+        (personDocumentId, documentTypeSpecializationId),
+      KEY personDocumentSpecializations_documentTypeSpecializationId_idx (documentTypeSpecializationId),
       CONSTRAINT personDocumentSpecializations_personDocumentId_fk
         FOREIGN KEY (personDocumentId) REFERENCES personDocuments(id)
-        ON DELETE CASCADE ON UPDATE CASCADE
+        ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT personDocumentSpecializations_documentTypeSpecializationId_fk
+        FOREIGN KEY (documentTypeSpecializationId) REFERENCES documentTypeSpecializations(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
   logger.info("personDocumentSpecializations table created.");
+};
+
+const ensureDocumentTypeSpecializationsTable = async () => {
+  await db.sequelize.query(`
+    CREATE TABLE IF NOT EXISTS documentTypeSpecializations (
+      id INT NOT NULL AUTO_INCREMENT,
+      documentTypeId INT NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY documentTypeSpecializations_type_name_unique (documentTypeId, name),
+      CONSTRAINT documentTypeSpecializations_documentTypeId_fk
+        FOREIGN KEY (documentTypeId) REFERENCES documentTypes(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+};
+
+/** Link person specializations to a list entry; existing free-text specializations are removed once. */
+const ensurePersonDocumentSpecializationListLink = async () => {
+  const [cols] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'personDocumentSpecializations'
+       AND COLUMN_NAME = 'documentTypeSpecializationId'`
+  );
+  if (cols.length) return;
+
+  const [rows] = await db.sequelize.query(
+    `SELECT documentFileName FROM personDocumentSpecializations`
+  );
+  for (const row of rows) {
+    try {
+      fs.unlinkSync(`documents/${row.documentFileName}`);
+    } catch {
+      // File already gone.
+    }
+  }
+  await db.sequelize.query(`DELETE FROM personDocumentSpecializations`);
+  await db.sequelize.query(`ALTER TABLE personDocumentSpecializations DROP COLUMN name`);
+  await db.sequelize.query(`
+    ALTER TABLE personDocumentSpecializations
+      ADD COLUMN documentTypeSpecializationId INT NOT NULL AFTER personDocumentId,
+      ADD UNIQUE KEY personDocumentSpecializations_document_specialization_unique
+        (personDocumentId, documentTypeSpecializationId),
+      ADD CONSTRAINT personDocumentSpecializations_documentTypeSpecializationId_fk
+        FOREIGN KEY (documentTypeSpecializationId) REFERENCES documentTypeSpecializations(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+  `);
+  logger.info(
+    `personDocumentSpecializations linked to the specialization list; ${rows.length} free-text specialization(s) removed.`
+  );
+};
+
+const ensureWorkerRoleSpecializationsTable = async () => {
+  await db.sequelize.query(`
+    CREATE TABLE IF NOT EXISTS workerRoleSpecializations (
+      id INT NOT NULL AUTO_INCREMENT,
+      workerRoleId INT NOT NULL,
+      documentTypeSpecializationId INT NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY workerRoleSpecializations_role_specialization_unique
+        (workerRoleId, documentTypeSpecializationId),
+      CONSTRAINT workerRoleSpecializations_workerRoleId_fk
+        FOREIGN KEY (workerRoleId) REFERENCES workerRoles(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT workerRoleSpecializations_documentTypeSpecializationId_fk
+        FOREIGN KEY (documentTypeSpecializationId) REFERENCES documentTypeSpecializations(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 };
 
 const ensureWorkerRoleDocumentType = async () => {
@@ -1330,9 +1409,12 @@ export const ensureSchema = async () => {
   await ensureTripApplicantRoleRemoved();
   await ensureDocumentTypesTable();
   await ensurePersonDocumentsTable();
+  await ensureDocumentTypeSpecializationsTable();
   await ensurePersonDocumentSpecializationsTable();
+  await ensurePersonDocumentSpecializationListLink();
   await ensureWorkerRoleDocumentType();
   await ensureWorkerRoleRequiredDocuments();
+  await ensureWorkerRoleSpecializationsTable();
   await ensureTripTravelOptionsTable();
   await ensureTripPeopleRoleOptionsTable();
   await ensureMedicalConditionsTable();

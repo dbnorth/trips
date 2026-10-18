@@ -24,6 +24,8 @@ import TripPeopleRoleOption from "./tripPeopleRoleOption.model.js";
 import DocumentType from "./documentType.model.js";
 import PersonDocument from "./personDocument.model.js";
 import PersonDocumentSpecialization from "./personDocumentSpecialization.model.js";
+import DocumentTypeSpecialization from "./documentTypeSpecialization.model.js";
+import WorkerRoleSpecialization from "./workerRoleSpecialization.model.js";
 import MedicalCondition from "./medicalCondition.model.js";
 import PersonMedicalCondition from "./personMedicalCondition.model.js";
 import WorkerRoleDocumentType from "./workerRoleDocumentType.model.js";
@@ -64,6 +66,8 @@ db.tripPeopleRoleOption = TripPeopleRoleOption;
 db.documentType = DocumentType;
 db.personDocument = PersonDocument;
 db.personDocumentSpecialization = PersonDocumentSpecialization;
+db.documentTypeSpecialization = DocumentTypeSpecialization;
+db.workerRoleSpecialization = WorkerRoleSpecialization;
 db.medicalCondition = MedicalCondition;
 db.personMedicalCondition = PersonMedicalCondition;
 db.workerRoleDocumentType = WorkerRoleDocumentType;
@@ -213,6 +217,49 @@ db.personDocumentSpecialization.belongsTo(db.personDocument, {
   foreignKey: "personDocumentId",
   as: "personDocument",
   onDelete: "CASCADE",
+});
+
+db.documentType.hasMany(db.documentTypeSpecialization, {
+  foreignKey: "documentTypeId",
+  as: "specializations",
+  onDelete: "CASCADE",
+});
+db.documentTypeSpecialization.belongsTo(db.documentType, {
+  foreignKey: "documentTypeId",
+  as: "documentType",
+  onDelete: "CASCADE",
+});
+db.documentTypeSpecialization.hasMany(db.personDocumentSpecialization, {
+  foreignKey: "documentTypeSpecializationId",
+  onDelete: "RESTRICT",
+});
+db.personDocumentSpecialization.belongsTo(db.documentTypeSpecialization, {
+  foreignKey: "documentTypeSpecializationId",
+  as: "documentTypeSpecialization",
+  onDelete: "RESTRICT",
+});
+
+db.workerRole.belongsToMany(db.documentTypeSpecialization, {
+  through: db.workerRoleSpecialization,
+  foreignKey: "workerRoleId",
+  otherKey: "documentTypeSpecializationId",
+  as: "requiredSpecializations",
+  uniqueKey: "workerRoleSpecializations_role_specialization_unique",
+});
+db.workerRole.hasMany(db.workerRoleSpecialization, { foreignKey: "workerRoleId", onDelete: "CASCADE" });
+db.workerRoleSpecialization.belongsTo(db.workerRole, {
+  foreignKey: "workerRoleId",
+  as: "workerRole",
+  onDelete: "CASCADE",
+});
+db.documentTypeSpecialization.hasMany(db.workerRoleSpecialization, {
+  foreignKey: "documentTypeSpecializationId",
+  onDelete: "RESTRICT",
+});
+db.workerRoleSpecialization.belongsTo(db.documentTypeSpecialization, {
+  foreignKey: "documentTypeSpecializationId",
+  as: "documentTypeSpecialization",
+  onDelete: "RESTRICT",
 });
 
 db.trip.hasMany(db.tripWorkerRole, { foreignKey: "tripId", onDelete: "CASCADE" });

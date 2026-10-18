@@ -6,15 +6,65 @@ export const arePersonDocumentsUploaded = (documents = []) =>
     (doc) => doc.documentFileName && String(doc.documentFileName).trim() !== ""
   );
 
+const meetsRoleDocumentRule = (doc, compareDate) => {
+  if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
+  if (!compareDate || doc.documentType?.hasExpirationDate === false) return true;
+  const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+  return !!expirationDate && expirationDate > compareDate;
+};
+
+/**
+ * Required specialization names the person still needs for one document type: all of them when
+ * no document of the type meets the rule, otherwise the fewest missing on any qualifying document.
+ */
+const missingSpecializationNames = (documents, documentTypeId, requiredSpecializations, compareDate) => {
+  const needed = (requiredSpecializations || []).filter(
+    (s) => Number(s.documentTypeId) === documentTypeId
+  );
+  const qualifying = (documents || []).filter(
+    (doc) => Number(doc.documentTypeId) === documentTypeId && meetsRoleDocumentRule(doc, compareDate)
+  );
+  if (!qualifying.length) return { documentMet: false, names: needed.map((s) => s.name) };
+  let best = null;
+  for (const doc of qualifying) {
+    const have = new Set(
+      (doc.specializations || []).map((s) => Number(s.documentTypeSpecializationId))
+    );
+    const missing = needed.filter((s) => !have.has(Number(s.id))).map((s) => s.name);
+    if (!best || missing.length < best.length) best = missing;
+  }
+  return { documentMet: true, names: best };
+};
+
+/** Required specializations that apply: their type is required and allows specializations. */
+export const activeRequiredSpecializations = (workerRole) => {
+  const types = workerRole?.requiredDocumentTypes || [];
+  const allowed = new Set(
+    types.filter((t) => t.allowSpecialization !== false).map((t) => Number(t.id))
+  );
+  return (workerRole?.requiredSpecializations || [])
+    .filter((s) => allowed.has(Number(s.documentTypeId)))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+};
+
+/** "Board certification (Pediatrics, Emergency)" for a missing required role document. */
+export const requiredRoleDocumentLabel = (docType) => {
+  const name = docType?.description || "required document";
+  const missing = docType?.missingSpecializations || [];
+  return missing.length ? `${name} (${missing.join(", ")})` : name;
+};
+
 /**
  * When the worker role requires document type(s), the person must have each type
  * with a file. If compareDate is set, expiration must be after it.
+ * That document must also have every required specialization for its type.
  */
 export const isRequiredRoleDocumentUploaded = ({
   documents = [],
   documentTypeId = null,
   documentTypeIds = null,
   compareDate = null,
+  requiredSpecializations = [],
 }) => {
   const ids =
     documentTypeIds != null
@@ -29,33 +79,33 @@ export const isRequiredRoleDocumentUploaded = ({
         ? []
         : [Number(documentTypeId)];
   if (!ids.length) return true;
-  return ids.every((id) =>
-    (documents || []).some((doc) => {
-      if (Number(doc.documentTypeId) !== id) return false;
-      if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
-      if (!compareDate || doc.documentType?.hasExpirationDate === false) return true;
-      const expirationDate = String(doc.expirationDate || "").slice(0, 10);
-      return expirationDate && expirationDate > compareDate;
-    })
-  );
+  return ids.every((id) => {
+    const result = missingSpecializationNames(documents, id, requiredSpecializations, compareDate);
+    return result.documentMet && !result.names.length;
+  });
 };
 
-/** Required document types that are missing or invalid for the trip compare date. */
+/**
+ * Required document types that are missing or invalid for the trip compare date, each with
+ * `missingSpecializations` (names) for the message.
+ */
 export const missingRequiredRoleDocuments = ({
   documents = [],
   requiredDocumentTypes = [],
   compareDate = null,
+  requiredSpecializations = [],
 }) => {
   const required = requiredDocumentTypes || [];
   if (!required.length) return [];
-  return required.filter((docType) => {
+  const missing = [];
+  for (const docType of required) {
     const id = Number(docType.id ?? docType);
-    return !isRequiredRoleDocumentUploaded({
-      documents,
-      documentTypeIds: [id],
-      compareDate,
-    });
-  });
+    const result = missingSpecializationNames(documents, id, requiredSpecializations, compareDate);
+    if (result.documentMet && !result.names.length) continue;
+    const base = typeof docType === "object" ? docType : { id };
+    missing.push({ ...base, missingSpecializations: result.names });
+  }
+  return missing;
 };
 
 /**

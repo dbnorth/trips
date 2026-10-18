@@ -89,11 +89,30 @@ const allowSpecialization = computed(() => !!selectedDocumentType.value?.allowSp
 
 const hasExpirationDate = computed(() => selectedDocumentType.value?.hasExpirationDate !== false);
 
+const specializationOptions = computed(() => selectedDocumentType.value?.specializations || []);
+
+/** The type's list minus names already chosen on other rows of this document. */
+const specializationItems = (index) => {
+  const usedElsewhere = new Set(
+    form.value.specializations
+      .filter((_, i) => i !== index)
+      .map((row) => row.documentTypeSpecializationId)
+      .filter(Boolean)
+  );
+  return specializationOptions.value
+    .filter((s) => !usedElsewhere.has(s.id))
+    .map((s) => ({ title: s.name, value: s.id }));
+};
+
+const allSpecializationsUsed = computed(
+  () => form.value.specializations.length >= specializationOptions.value.length
+);
+
 let specializationKey = 0;
 const newSpecialization = (row = {}) => ({
   key: row.id || `new-${++specializationKey}`,
   id: row.id || null,
-  name: row.name || "",
+  documentTypeSpecializationId: row.documentTypeSpecializationId || null,
   date: row.date || "",
   file: null,
 });
@@ -157,7 +176,7 @@ const validateForm = () => {
   }
   if (allowSpecialization.value) {
     const incomplete = form.value.specializations.some(
-      (row) => !String(row.name || "").trim() || !row.date || (!row.file && !row.id)
+      (row) => !row.documentTypeSpecializationId || !row.date || (!row.file && !row.id)
     );
     if (incomplete) {
       errors.specializations = "Each specialization needs a name, a date, and a file.";
@@ -256,7 +275,7 @@ const saveDocument = async () => {
   if (allowSpecialization.value) {
     payload.specializations = form.value.specializations.map((row) => ({
       id: row.id || undefined,
-      name: String(row.name || "").trim(),
+      documentTypeSpecializationId: row.documentTypeSpecializationId,
       date: row.date,
       replaceFile: !!row.file,
     }));
@@ -530,7 +549,12 @@ onMounted(load);
         >
           <v-row dense>
             <v-col cols="12" sm="4">
-              <v-text-field v-model="spec.name" label="Name" density="compact" />
+              <v-select
+                v-model="spec.documentTypeSpecializationId"
+                :items="specializationItems(index)"
+                label="Specialization"
+                density="compact"
+              />
             </v-col>
             <v-col cols="12" sm="4">
               <v-text-field v-model="spec.date" label="Date" type="date" density="compact" />
@@ -556,7 +580,14 @@ onMounted(load);
         <div v-if="fieldErrors.specializations" class="text-error text-caption mb-2">
           {{ fieldErrors.specializations }}
         </div>
-        <v-btn size="small" color="primary" @click="addSpecialization">Add specialization</v-btn>
+        <v-btn
+          size="small"
+          color="primary"
+          :disabled="allSpecializationsUsed"
+          @click="addSpecialization"
+        >
+          Add specialization
+        </v-btn>
       </div>
 
       </v-card-text>

@@ -356,6 +356,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
             type: "certification",
             description: "Board certification",
             allowSpecialization: true,
+            specializations: [{ name: "Pediatrics" }],
           });
 
         expect(create.status).toBe(200);
@@ -380,6 +381,14 @@ describe("Feature 4 — Document Types & Person Documents", () => {
           description: "Medical specialty",
           allowSpecialization: true,
         });
+        const cardiology = await db.documentTypeSpecialization.create({
+          documentTypeId: docType.id,
+          name: "Cardiology",
+        });
+        const pediatrics = await db.documentTypeSpecialization.create({
+          documentTypeId: docType.id,
+          name: "Pediatrics",
+        });
 
         const upload = await request(app)
           .post(`/trips/people/${user.personId}/documents`)
@@ -391,8 +400,8 @@ describe("Feature 4 — Document Types & Person Documents", () => {
           .field(
             "specializations",
             JSON.stringify([
-              { name: "Cardiology", date: "2024-03-01" },
-              { name: "Pediatrics", date: "2024-06-15" },
+              { documentTypeSpecializationId: cardiology.id, date: "2024-03-01" },
+              { documentTypeSpecializationId: pediatrics.id, date: "2024-06-15" },
             ])
           )
           .attach("specializationFiles", TINY_PNG, {
@@ -444,6 +453,10 @@ describe("Feature 4 — Document Types & Person Documents", () => {
           description: "Specialty without file",
           allowSpecialization: true,
         });
+        const cardiology = await db.documentTypeSpecialization.create({
+          documentTypeId: docType.id,
+          name: "Cardiology",
+        });
 
         const upload = await request(app)
           .post(`/trips/people/${user.personId}/documents`)
@@ -452,7 +465,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
           .field("expirationDate", "2030-01-15")
           .field(
             "specializations",
-            JSON.stringify([{ name: "Cardiology", date: "2024-03-01" }])
+            JSON.stringify([{ documentTypeSpecializationId: cardiology.id, date: "2024-03-01" }])
           );
 
         expect(upload.status).toBe(400);

@@ -105,18 +105,18 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 
 ---
 
-## Document types & person documents — Features 4, 22, 24, 57
+## Document types & person documents — Features 4, 22, 24, 57, 59
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/document-types` | auth | Catalog (any auth user); includes `documentNumberRequired`, `instructions`, `allowSpecialization` (Feature 34), `hasExpirationDate` (Feature 57); `type` may be `medical_licence`, `passport`, `certification`, or `diploma` |
-| `GET` | `/trips/document-types/:id` | auth | Get (sysadmin gate in controller) |
-| `POST` | `/trips/document-types` | auth | Create (sysadmin); optional `documentNumberRequired`, `instructions`, `allowSpecialization`, `hasExpirationDate` (default `true`, Feature 57); `type` includes `diploma` (Feature 24) |
-| `PUT` | `/trips/document-types/:id` | auth | Update (sysadmin) |
+| `GET` | `/trips/document-types` | auth | Catalog (any auth user); includes `documentNumberRequired`, `instructions`, `allowSpecialization` (Feature 34), `hasExpirationDate` (Feature 57), `specializations` (`[{ id, name }]` ordered by name, Feature 59); `type` may be `medical_licence`, `passport`, `certification`, or `diploma` |
+| `GET` | `/trips/document-types/:id` | auth | Get (sysadmin gate in controller); includes `specializations` |
+| `POST` | `/trips/document-types` | auth | Create (sysadmin); optional `documentNumberRequired`, `instructions`, `allowSpecialization`, `hasExpirationDate` (default `true`, Feature 57); `type` includes `diploma` (Feature 24); optional `specializations: [{ name }]` — names required, trimmed, ≤ 100 chars, unique ignoring case; `400` "Add at least one specialization." when `allowSpecialization` is true and the list is empty (Feature 59) |
+| `PUT` | `/trips/document-types/:id` | auth | Update (sysadmin); `specializations: [{ id?, name }]` replaces the list when sent — with `id` keeps (and renames) the entry, without adds, left out removes; removing one used by a person document or worker role → `400` "<name> is in use and cannot be removed." and nothing is saved; same name and "Add at least one specialization." rules as `POST` (Feature 59) |
 | `DELETE` | `/trips/document-types/:id` | auth | Delete (sysadmin) |
-| `GET` | `/trips/people/:id/documents` | auth | List; includes `specializations` (`id`, `name`, `date`, `documentFileName`) when present; `expirationDate` may be null and `documentType` includes `hasExpirationDate` (Feature 57) |
-| `POST` | `/trips/people/:id/documents` | auth | Upload (`multipart` field `document`); optional `documentNumber` (required when type says so); `expirationDate` required only when the type has `hasExpirationDate`, otherwise stored null and any value sent is ignored (`400` "Expiration date is required.", Feature 57); `specializations` JSON plus `specializationFiles` when the type allows them (Feature 34) |
-| `PUT` | `/trips/people/:id/documents/:documentId` | auth | Update/replace; same `expirationDate` rule as `POST`; specialization list replaces stored rows when sent and the type allows them |
+| `GET` | `/trips/people/:id/documents` | auth | List; includes `specializations` (`id`, `documentTypeSpecializationId`, `name` from the list entry, `date`, `documentFileName`) when present; `expirationDate` may be null and `documentType` includes `hasExpirationDate` (Feature 57) |
+| `POST` | `/trips/people/:id/documents` | auth | Upload (`multipart` field `document`); optional `documentNumber` (required when type says so); `expirationDate` required only when the type has `hasExpirationDate`, otherwise stored null and any value sent is ignored (`400` "Expiration date is required.", Feature 57); `specializations` JSON (`[{ id?, documentTypeSpecializationId, date, replaceFile }]`) plus `specializationFiles` when the type allows them (Feature 34). `400` "Specialization is not in the list for this document type." / "Each specialization can be added only once per document." (Feature 59) |
+| `PUT` | `/trips/people/:id/documents/:documentId` | auth | Update/replace; same `expirationDate` and specialization rules as `POST`; specialization list replaces stored rows when sent and the type allows them |
 | `DELETE` | `/trips/people/:id/documents/:documentId` | auth | Delete |
 | `GET` | `/trips/people/:id/documents/:documentId/view` | auth | Inline view |
 | `GET` | `/trips/people/:id/documents/:documentId/download` | auth | Download |
@@ -155,14 +155,14 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 
 ---
 
-## Worker roles & travel options — Features 6, 25
+## Worker roles & travel options — Features 6, 25, 59
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/worker-roles` | auth | Org worker-role catalog (`?orgId=`); includes `requiredDocumentTypes` / `requiredDocumentTypeIds` (Feature 25) |
+| `GET` | `/trips/worker-roles` | auth | Org worker-role catalog (`?orgId=`); includes `requiredDocumentTypes` / `requiredDocumentTypeIds` (Feature 25) and `requiredSpecializations` (`[{ id, name, documentTypeId }]`) / `requiredSpecializationIds` (Feature 59) |
 | `GET` | `/trips/worker-roles/:id` | auth | Get |
-| `POST` | `/trips/worker-roles` | auth | Create (org admin); `requiredDocumentTypeIds?: number[]` (Feature 25) |
-| `PUT` | `/trips/worker-roles/:id` | auth | Update; replace required document list when `requiredDocumentTypeIds` sent |
+| `POST` | `/trips/worker-roles` | auth | Create (org admin); `requiredDocumentTypeIds?: number[]` (Feature 25); `requiredSpecializationIds?: number[]` — each must belong to a required document type, else `400` "Required specializations must belong to a required document." (Feature 59) |
+| `PUT` | `/trips/worker-roles/:id` | auth | Update; replace required document list when `requiredDocumentTypeIds` sent; replace required specializations when `requiredSpecializationIds` sent (same `400`); removing a required document also removes its required specializations (Feature 59) |
 | `DELETE` | `/trips/worker-roles/:id` | auth | Delete |
 | `GET` | `/trips/trip-worker-roles` | auth | Needs for `?tripId=`; each role has `signedUpCount`, `reservedCount`, `availableCount` (Feature 26, 56) |
 | `POST` | `/trips/trip-worker-roles` | auth | Add role quantity; optional `emails: string[]` reserved with the role (validated like `POST …/reservations`, open slots = quantity; on `400` neither the role nor reservations are saved) — Feature 56 |
@@ -224,9 +224,9 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 | `GET` | `/trips/trips/browse/orgs` | auth | Browse orgs |
 | `GET` | `/trips/trips/browse/mine` | auth | My trips |
 | `GET` | `/trips/trips/browse` | auth | Active trips (`?orgId=`) |
-| `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreements/options; Feature 53 `myTripInfo.donationRecipients` `[{ personId, firstName, lastName }]` (approved Trip Participants and Trip Leaders) when the caller's application is incomplete/applied/approved, else `[]`; roles add `reservedCount`; `myReservedTripWorkerRoleId` (caller's reserved role or `null`) — Feature 56 |
+| `GET` | `/trips/trips/browse/:id` | auth | Browse detail + roles/agreements/options; Feature 53 `myTripInfo.donationRecipients` `[{ personId, firstName, lastName }]` (approved Trip Participants and Trip Leaders) when the caller's application is incomplete/applied/approved, else `[]`; roles add `reservedCount`; `myReservedTripWorkerRoleId` (caller's reserved role or `null`) — Feature 56; each role's `workerRole` includes `requiredSpecializations` and `requiredDocumentTypes[].allowSpecialization` — Feature 59 |
 | `POST` | `/trips/trips/browse/:id/apply` | auth | Apply (incl. medical agreement acceptance; `isPregnant` / `pregnancyDueDate` on assignment); sends `application-started` / `application-submitted` event emails — Feature 45; a caller with a reservation is placed in the reserved role (body role ignored, no open-slot check) — Feature 56 |
-| `GET` | `/trips/trips/browse/:id/application` | auth | Own application; `myReservedTripWorkerRoleId` — Feature 56 |
+| `GET` | `/trips/trips/browse/:id/application` | auth | Own application; `myReservedTripWorkerRoleId` — Feature 56; role `workerRole` includes `requiredSpecializations` — Feature 59 |
 | `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields); sends `application-submitted` event emails — Feature 45; `400` "Your role on this trip is reserved." when a reserved caller picks another role — Feature 56 |
 | `POST` | `/trips/trips/browse/:id/application/cancel` | auth | Applicant cancel own application (`incomplete`/`applied`/`approved` → `cancelled`) |
 | `POST` | `/trips/trips/browse/:id/application/uncancel` | auth | Applicant uncancel → auto `incomplete`/`applied`; fails if role full |

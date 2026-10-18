@@ -20,9 +20,32 @@ const emptyForm = () => ({
   allowSpecialization: false,
   hasExpirationDate: true,
   instructions: "",
+  specializations: [],
 });
 
 const form = ref(emptyForm());
+const newSpecializationName = ref("");
+const specializationError = ref("");
+
+const addSpecialization = () => {
+  specializationError.value = "";
+  const name = newSpecializationName.value.trim();
+  if (!name) return;
+  if (name.length > 100) {
+    specializationError.value = "Specialization names must be 100 characters or fewer.";
+    return;
+  }
+  if (form.value.specializations.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
+    specializationError.value = "Specialization names must be unique.";
+    return;
+  }
+  form.value.specializations.push({ id: null, name });
+  newSpecializationName.value = "";
+};
+
+const removeSpecialization = (index) => {
+  form.value.specializations.splice(index, 1);
+};
 
 const isEdit = computed(() => props.documentTypeId != null && props.documentTypeId !== "");
 const title = computed(() => (isEdit.value ? "Edit document type" : "Add document type"));
@@ -33,6 +56,8 @@ const open = computed({
 
 const loadRow = async () => {
   formError.value = "";
+  specializationError.value = "";
+  newSpecializationName.value = "";
   if (!isEdit.value) {
     form.value = emptyForm();
     return;
@@ -47,6 +72,7 @@ const loadRow = async () => {
       allowSpecialization: !!row.allowSpecialization,
       hasExpirationDate: row.hasExpirationDate !== false,
       instructions: row.instructions || "",
+      specializations: (row.specializations || []).map((s) => ({ id: s.id, name: s.name })),
     };
   } catch (e) {
     formError.value = e.response?.data?.message || "Unable to load document type.";
@@ -74,6 +100,10 @@ const save = async () => {
     formError.value = "Type is required.";
     return;
   }
+  if (form.value.allowSpecialization && !form.value.specializations.length) {
+    formError.value = "Add at least one specialization.";
+    return;
+  }
 
   saving.value = true;
   const payload = {
@@ -83,6 +113,7 @@ const save = async () => {
     allowSpecialization: !!form.value.allowSpecialization,
     hasExpirationDate: !!form.value.hasExpirationDate,
     instructions: form.value.instructions?.trim() || null,
+    specializations: form.value.specializations.map((s) => ({ id: s.id, name: s.name })),
   };
 
   try {
@@ -136,6 +167,35 @@ const save = async () => {
           hide-details
           class="mb-2"
         />
+        <div v-if="form.allowSpecialization" class="mb-4 ml-8" data-testid="specialization-list">
+          <div class="text-subtitle-2 mb-1">Specializations</div>
+          <div
+            v-for="(item, index) in form.specializations"
+            :key="item.id ?? `new-${item.name}`"
+            class="d-flex align-center"
+          >
+            <span class="flex-grow-1">{{ item.name }}</span>
+            <v-btn
+              icon="mdi-delete"
+              size="small"
+              variant="text"
+              :aria-label="`Remove ${item.name}`"
+              @click="removeSpecialization(index)"
+            />
+          </div>
+          <div class="d-flex align-center ga-2 mt-1">
+            <v-text-field
+              v-model="newSpecializationName"
+              label="Specialization name"
+              density="compact"
+              maxlength="100"
+              :error-messages="specializationError"
+              hide-details="auto"
+              @keydown.enter.prevent="addSpecialization"
+            />
+            <v-btn variant="tonal" @click="addSpecialization">Add</v-btn>
+          </div>
+        </div>
         <v-checkbox
           v-model="form.hasExpirationDate"
           label="Has Expiration Date"

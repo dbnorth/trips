@@ -20,12 +20,14 @@ import {
   otherLanguageFieldsFromPerson,
 } from "../utils/personProfile.js";
 import {
+  activeRequiredSpecializations,
   arePersonDocumentsUploaded,
   isApplicationFormComplete,
   isRequiredPassportUploaded,
   isRequiredRoleDocumentUploaded,
   missingRequiredRoleDocuments,
   needsExpirationWording,
+  requiredRoleDocumentLabel,
   validateTravelOptionSelections,
 } from "../utils/tripApplicationForm.js";
 import {
@@ -150,6 +152,10 @@ const requiredDocumentTypes = computed(() => {
   return [];
 });
 
+const requiredSpecializations = computed(() =>
+  activeRequiredSpecializations(selectedRole.value?.workerRole)
+);
+
 const dateOnly = (value) => {
   if (!value) return null;
   return String(value).slice(0, 10);
@@ -161,6 +167,7 @@ const hasRequiredDocumentForTrip = computed(() => {
     documents: personDocuments.value,
     documentTypeIds: requiredDocumentTypes.value.map((d) => d.id),
     compareDate,
+    requiredSpecializations: requiredSpecializations.value,
   });
 });
 
@@ -202,10 +209,11 @@ const documentRequirementWarning = computed(() => {
     documents: personDocuments.value,
     requiredDocumentTypes: requiredDocumentTypes.value,
     compareDate,
+    requiredSpecializations: requiredSpecializations.value,
   });
   if (!missing.length) return "";
 
-  const names = missing.map((d) => d.description || "required document").join(", ");
+  const names = missing.map(requiredRoleDocumentLabel).join(", ");
   if (!needsExpirationWording(missing)) {
     return `Upload the following required documents before submitting your application: ${names}.`;
   }
@@ -310,6 +318,7 @@ const submitUnavailableReasons = computed(() => {
     documents: personDocuments.value,
     requiredDocumentTypes: requiredDocumentTypes.value,
     compareDate,
+    requiredSpecializations: requiredSpecializations.value,
   });
   const travelError = validateTravelOptionSelections(
     travelOptions.value,
@@ -346,7 +355,7 @@ const submitUnavailableReasons = computed(() => {
     travelOptionsMessage: travelError,
     personDocumentsUploaded: personDocumentsUploaded.value,
     requiredRoleDocumentUploaded: hasRequiredDocumentForTrip.value,
-    missingRoleDocumentNames: missingRoleDocs.map((d) => d.description || "required document"),
+    missingRoleDocumentNames: missingRoleDocs.map(requiredRoleDocumentLabel),
     requiredPassportUploaded: hasRequiredPassportForTrip.value,
     requirePassport: !!trip.value?.requirePassport,
   });
