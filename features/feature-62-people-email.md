@@ -58,6 +58,7 @@
 - **FR-001**: **Function code** MUST add **Person** (after **Trip Participant**) in the template form and the template API. A **Person** template is saved with no schedule (like **Send Now**) and is sent only from the People page **Email** dialog.
 - **FR-002**: **Person** MUST be allowed only on organization templates (no trip). Saving a trip template with **Person** → `400` "Person templates cannot belong to a trip."; the template form does not offer **Person** for a trip template.
 - **FR-003**: When a **Person** template is sent, its tokens MUST be filled from the template's organization and the recipient person only. Trip, participant trip (trip role, costs, donations, amounts), and primary trip leader tokens come out empty. No trip is used.
+- **FR-019**: The email type seed MUST add `people-update` (**People update**, event code `team-email`, which nothing sends automatically). The template seed MUST add, for the seed organization, a **Person** template of that type with **From email** `{{ORG_EMAIL}}`, **To** `{{PARTICIPANT_EMAIL}}`, subject `An update from {{ORG_NAME}}`, and a body using only organization and participant name tokens (no trip tokens).
 
 **Email button and access**
 
@@ -203,6 +204,12 @@ None — `emailTemplate.functionCode` stores **Person**; `emailLog.tripId` is al
 * **When** I save a trip template with function code "Person"
 * **Then** the response is `400` "Person templates cannot belong to a trip."
 
+#### Scenario: Seed adds the people update type and Person template
+* **Given** the seed organization exists
+* **When** the email type, token, and template seeds run
+* **Then** email type `people-update` exists with event code `team-email`
+* **And** the seed organization has a Person template of that type with subject `An update from {{ORG_NAME}}` and no trip tokens in its body
+
 ### US-62.2 — Choose people by trip and role
 
 #### Scenario: Options list the organization's Person templates, trips, and roles
@@ -282,6 +289,7 @@ None — `emailTemplate.functionCode` stores **Person**; `emailLog.tripId` is al
 |-------|----------|----------------------|------------------------|
 | US-62.1 | Org Admin saves a Person template | `backend/tests/people-email.test.js` | `Org Admin saves a Person template` |
 | US-62.1 | Person template cannot belong to a trip | `backend/tests/people-email.test.js` | `Person template cannot belong to a trip` |
+| US-62.1 | Seed adds the people update type and Person template | `backend/tests/people-email.test.js` | `Seed adds the people update type and Person template` |
 | US-62.2 | Options list the organization's Person templates, trips, and roles | `backend/tests/people-email.test.js` | `Options list the organization's Person templates, trips, and roles` |
 | US-62.2 | Recipients by selected trips and roles | `backend/tests/people-email.test.js` | `Recipients by selected trips and roles` |
 | US-62.2 | All trips and all roles list each approved participant once | `backend/tests/people-email.test.js` | `All trips and all roles list each approved participant once` |
@@ -300,13 +308,15 @@ None — `emailTemplate.functionCode` stores **Person**; `emailLog.tripId` is al
 ## Reference Updates
 
 - `features/reference/api.md` — People email endpoints; template function code **Person**
-- `features/reference/behavior.md` — People page **Email** row; Feature 39 row function codes add **Person**; Feature 43 / 49 rows note the template organization is used when no trip is sent
+- `backend/app/data/README.md` — seeded Person template
+- `features/reference/behavior.md` — People page **Email** row (seeded type and template); Feature 39 row function codes add **Person**; Feature 43 / 49 rows note the template organization is used when no trip is sent
 
 ---
 
 ## Definition of Done
 
 *   [x] Function code **Person** on organization templates (**FR-001**–**FR-003**)
+*   [x] Seeded `people-update` email type and Person template (**FR-019**)
 *   [x] People page **Email** button and access rules (**FR-004**, **FR-005**)
 *   [x] **Email people** dialog: template, Trips and Roles multi-selects with **All**, recipient count (**FR-006**–**FR-010**)
 *   [x] Preview, confirmation, send, and results (**FR-011**–**FR-015**)

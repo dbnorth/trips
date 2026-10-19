@@ -93,6 +93,14 @@
       "toAddress": "{{PARTICIPANT_EMAIL}}",
       "subject": "Your {{TRIP_NAME}} financial statement",
       "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nHere is an update on where your trip finances stand.\n\nTRIP\nTrip: {{TRIP_NAME}}\nLocation: {{TRIP_LOCATION}}\nDates: {{TRIP_START_DATE}} to {{TRIP_END_DATE}}\nYour role: {{PARTICIPANT_TRIP_ROLE}}\n\nTRIP COSTS\nTrip cost: {{PARTICIPANT_TRIP_COST}}\n\nTrip options:\n{{PARTICIPANT_TRIP_OPTIONS}}\nTrip options total: {{PARTICIPANT_TRIP_OPTIONS_TOTAL}}\n\nAirfare: {{PARTICIPANT_TRIP_AIRFARE}}\n\nTotal trip cost: {{PARTICIPANT_TOTAL_TRIP_COST}}\n\nPAYMENTS AND DONATIONS\nYour donations:\n{{PARTICIPANT_DONATIONS}}\nYour donations total: {{PARTICIPANT_DONATIONS_TOTAL}}\n\nDonations from others:\n{{PARTICIPANT_TRIP_DONATIONS}}\nDonations from others total: {{PARTICIPANT_TRIP_DONATIONS_TOTAL}}\n\nBALANCE DUE: {{PARTICIPANT_BALANCE_DUE}}\n\nPlease plan to have your balance paid before the trip begins on {{TRIP_START_DATE}}. Giving and payment information is at {{ORG_WEBSITE}}.\n\nIf anything looks wrong, contact your trip leader, {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}}, at {{LEADER_EMAIL}}.\n\nThank you,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "people-update",
+      "functionCode": "Person",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "An update from {{ORG_NAME}}",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nThank you for serving with {{ORG_NAME}}. We wanted to share some news with you.\n\n[Write your update here.]\n\nIf you have any questions, reply to this email or contact us at {{ORG_EMAIL}} or {{ORG_PHONE}}. You can find more information at {{ORG_WEBSITE}}.\n\nThank you,\n{{ORG_NAME}}"
     }
   ]
 }
