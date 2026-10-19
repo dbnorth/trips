@@ -7,6 +7,9 @@ import request from "supertest";
 import { Op } from "sequelize";
 import app from "../server.js";
 import db from "../app/models/index.js";
+import { seedEmailTokens } from "../app/scripts/seedEmailTokens.js";
+import { seedEmailTypes } from "../app/scripts/seedEmailTypes.js";
+import { seedEmailTemplates } from "../app/scripts/seedEmailTemplates.js";
 import {
   syncTestDatabase,
   resetTestDatabase,
@@ -155,6 +158,31 @@ describe("Feature 62 — Email People", () => {
 
       expect(create.status).toBe(400);
       expect(create.body.message).toBe("Person templates cannot belong to a trip.");
+    });
+
+    it("Seed adds the people update type and Person template", async () => {
+      await db.emailToken.destroy({ where: {} });
+      const seedOrg = await db.organization.create({
+        name: "Health Talents International",
+        email: "info@example.org",
+      });
+
+      await seedEmailTypes();
+      await seedEmailTokens();
+      await seedEmailTemplates();
+
+      const emailType = await db.emailType.findOne({ where: { typeCode: "people-update" } });
+      expect(emailType.description).toBe("People update");
+      expect(emailType.eventCode).toBe("team-email");
+      const template = await db.emailTemplate.findOne({
+        where: { orgId: seedOrg.id, tripId: null, emailTypeId: emailType.id },
+      });
+      expect(template.functionCode).toBe("Person");
+      expect(template.fromEmail).toBe("{{ORG_EMAIL}}");
+      expect(template.toAddress).toBe("{{PARTICIPANT_EMAIL}}");
+      expect(template.subject).toBe("An update from {{ORG_NAME}}");
+      expect(template.emailBody).toContain("{{PARTICIPANT_FIRST_NAME}}");
+      expect(template.emailBody).not.toMatch(/\{\{(TRIP|LEADER)_|\{\{PARTICIPANT_(TRIP|AMOUNT|DONATIONS|BALANCE|TOTAL)/);
     });
   });
 
