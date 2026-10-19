@@ -100,6 +100,7 @@ describe("Feature 39 — Email Types and Organization Email Templates", () => {
       "Scheduled",
       "Send Now",
       "Trip Participant",
+      "Person",
     ]);
 
     wrapper.unmount();
@@ -317,7 +318,7 @@ describe("Feature 42 — Email Template Schedule", () => {
 
       expect(
         selectByLabel(wrapper, "Function code").props("items").map((item) => item.title)
-      ).toEqual(["Scheduled", "Send Now", "Trip Participant"]);
+      ).toEqual(["Scheduled", "Send Now", "Trip Participant", "Person"]);
 
       await choose(wrapper, "Function code", "Trip Participant");
       expect(selectByLabel(wrapper, "Schedule")).toBeUndefined();

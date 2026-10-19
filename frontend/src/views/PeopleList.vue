@@ -5,12 +5,14 @@ import TripServices from "../services/tripServices.js";
 import OrganizationServices from "../services/organizationServices.js";
 import AddPersonDialog from "../components/AddPersonDialog.vue";
 import EditPersonDialog from "../components/EditPersonDialog.vue";
+import PeopleEmailDialog from "../components/PeopleEmailDialog.vue";
 import Utils from "../config/utils.js";
 
 const people = ref([]);
 const trips = ref([]);
 const message = ref("");
 const showAddDialog = ref(false);
+const showEmailDialog = ref(false);
 const showEditDialog = ref(false);
 const editPersonId = ref(null);
 const user = ref(null);
@@ -161,7 +163,10 @@ onUnmounted(() => {
   <v-container>
     <div class="d-flex align-center justify-space-between mb-4">
       <h1 class="text-h5">People</h1>
-      <v-btn color="primary" :disabled="!canAddPerson" @click="showAddDialog = true">Add person</v-btn>
+      <div class="d-flex ga-2">
+        <v-btn variant="tonal" :disabled="!canAddPerson" @click="showEmailDialog = true">Email</v-btn>
+        <v-btn color="primary" :disabled="!canAddPerson" @click="showAddDialog = true">Add person</v-btn>
+      </div>
     </div>
 
     <v-alert v-if="showOrgScopeNotice && isAllOrgsView" type="info" variant="tonal" density="compact" class="mb-4">
@@ -213,6 +218,7 @@ onUnmounted(() => {
     </v-data-table>
 
     <AddPersonDialog v-model="showAddDialog" @saved="onPersonSaved" />
+    <PeopleEmailDialog v-model="showEmailDialog" />
     <EditPersonDialog
       v-model="showEditDialog"
       :person-id="editPersonId"

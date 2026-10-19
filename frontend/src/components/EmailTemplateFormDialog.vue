@@ -12,6 +12,7 @@ const FUNCTION_CODE_ITEMS = [
   { title: "Scheduled", value: "Scheduled" },
   { title: "Send Now", value: "Send Now" },
   { title: "Trip Participant", value: "Trip Participant" },
+  { title: "Person", value: "Person" },
 ];
 const FUNCTION_CODES = FUNCTION_CODE_ITEMS.map((item) => item.value);
 
@@ -75,6 +76,15 @@ const isTripLeaderAdd = computed(
   () => !isEdit.value && props.fixedTripId != null && props.fixedTripId !== ""
 );
 const showCopyFromPicker = computed(() => !isEdit.value && form.value.orgId != null);
+const isTripTemplate = computed(() => isTripLeaderAdd.value || form.value.tripId != null);
+const functionCodeItems = computed(() =>
+  isTripTemplate.value
+    ? FUNCTION_CODE_ITEMS.filter((item) => item.value !== "Person")
+    : FUNCTION_CODE_ITEMS
+);
+watch(isTripTemplate, (tripTemplate) => {
+  if (tripTemplate && form.value.functionCode === "Person") form.value.functionCode = null;
+});
 const isScheduled = computed(() => form.value.functionCode === "Scheduled");
 const showDaysBefore = computed(() => isScheduled.value && form.value.scheduleRule === "before-start");
 const title = computed(() => (isEdit.value ? "Edit template" : "Add template"));
@@ -489,7 +499,7 @@ const save = async () => {
         />
         <v-select
           v-model="form.functionCode"
-          :items="FUNCTION_CODE_ITEMS"
+          :items="functionCodeItems"
           label="Function code"
           density="compact"
           class="mb-2"

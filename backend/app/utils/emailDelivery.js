@@ -46,9 +46,9 @@ const fullName = (firstName, lastName) =>
  * Name of whoever owns the template's From email: the token's owner, or for a typed address
  * the first of organization, primary trip leader, participant whose email matches. "" when none.
  */
-const senderName = async ({ fromEntry, fromAddress, tripId, personId }) => {
-  const trip = await db.trip.findByPk(tripId, { attributes: ["orgId"] });
-  const values = await buildSourceValues({ orgId: trip?.orgId ?? null, tripId, personId });
+const senderName = async ({ fromEntry, fromAddress, tripId, personId, orgId }) => {
+  const trip = tripId != null ? await db.trip.findByPk(tripId, { attributes: ["orgId"] }) : null;
+  const values = await buildSourceValues({ orgId: trip?.orgId ?? orgId ?? null, tripId, personId });
   const owners = [
     { emailSource: "organization.email", name: values["organization.name"].trim() },
     {
@@ -158,6 +158,7 @@ export const buildTemplateMessage = async ({
     fromAddress: templateFrom,
     tripId,
     personId,
+    orgId: template.orgId,
   });
   const message = {
     from: senderFrom(name),
@@ -170,13 +171,15 @@ export const buildTemplateMessage = async ({
 };
 
 /**
- * When the trip's organization is in test mode, send to the organization email instead,
- * naming the real recipients on the first line. Returns `{ message }` or `{ reason }`.
+ * When the trip's organization (the template's with no trip) is in test mode, send to the
+ * organization email instead, naming the real recipients on the first line.
+ * Returns `{ message }` or `{ reason }`.
  */
-const applyOrganizationTestMode = async (tripId, message) => {
-  const trip = await db.trip.findByPk(tripId, { attributes: ["orgId"] });
-  const org = trip?.orgId
-    ? await db.organization.findByPk(trip.orgId, { attributes: ["testMode", "email"] })
+const applyOrganizationTestMode = async (tripId, templateOrgId, message) => {
+  const trip = tripId != null ? await db.trip.findByPk(tripId, { attributes: ["orgId"] }) : null;
+  const orgId = trip ? trip.orgId : templateOrgId;
+  const org = orgId
+    ? await db.organization.findByPk(orgId, { attributes: ["testMode", "email"] })
     : null;
   if (!org?.testMode) return { message };
   const orgEmail = (org.email || "").trim();
@@ -200,7 +203,7 @@ export const sendTemplateEmail = async (options) => {
   const { template, tripId, personId } = options;
   const built = await buildTemplateMessage(options);
   if (!built.message) return { status: "skipped", reason: built.reason };
-  const { message, reason } = await applyOrganizationTestMode(tripId, built.message);
+  const { message, reason } = await applyOrganizationTestMode(tripId, template.orgId, built.message);
   if (!message) return { status: "skipped", reason };
   const { to } = message;
   const settings = readSettings();

@@ -21,7 +21,8 @@ const EmailTemplate = db.emailTemplate;
 const EmailType = db.emailType;
 const Trip = db.trip;
 const Organization = db.organization;
-const FUNCTION_CODES = ["Scheduled", "Send Now", "Trip Participant"];
+const FUNCTION_CODES = ["Scheduled", "Send Now", "Trip Participant", "Person"];
+const PERSON_ON_TRIP = "Person templates cannot belong to a trip.";
 const SCHEDULE_RULES = ["daily", "weekly", "before-start"];
 const templateFields = [
   "tripId",
@@ -174,7 +175,7 @@ const validateOrganizationTemplateFields = async (body) => {
   }
   const functionCode = trimRequired(body.functionCode);
   if (!FUNCTION_CODES.includes(functionCode)) {
-    return { error: { status: 400, message: "Function code must be Scheduled, Send Now, or Trip Participant." } };
+    return { error: { status: 400, message: "Function code must be Scheduled, Send Now, Trip Participant, or Person." } };
   }
   const { schedule, error: scheduleError } = validateSchedule(body, functionCode);
   if (scheduleError) return { error: scheduleError };
@@ -391,6 +392,9 @@ exports.create = async (req, res) => {
     const payload = { ...pickTemplatePayload(req.body), ...schedule };
     if (orgId == null) payload.tripId = null;
     if (isLeaderCreate && !isOrgAdmin) payload.tripId = tripId;
+    if (payload.functionCode === "Person" && payload.tripId != null) {
+      return res.status(400).send({ message: PERSON_ON_TRIP });
+    }
 
     const data = await EmailTemplate.create({ ...payload, orgId });
     res.send(await loadTemplate(data.id));
@@ -453,6 +457,11 @@ exports.update = async (req, res) => {
     const payload = { ...pickTemplatePayload(req.body), ...schedule };
     if (feature39) payload.orgId = orgId;
     if ((feature39 ? orgId : template.orgId) == null) payload.tripId = null;
+    const functionCode = payload.functionCode ?? template.functionCode;
+    const savedTripId = payload.tripId !== undefined ? payload.tripId : template.tripId;
+    if (functionCode === "Person" && savedTripId != null) {
+      return res.status(400).send({ message: PERSON_ON_TRIP });
+    }
 
     await template.update(payload);
     res.send(await loadTemplate(template.id));
