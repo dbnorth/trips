@@ -37,6 +37,7 @@
 | `/public/*` | 9 |
 | `/email-templates` | 10, **39** |
 | `/email-types` | **39** |
+| `/people-email` | **62** |
 
 ---
 
@@ -286,9 +287,22 @@ No auth. Slugs: spaces → `_`.
 | `GET` | `/trips/email-templates/copy-sources` | auth | Copy sources (`?tripId=` optional). Includes `toAddress` (Feature 41), `scheduleRule`, and `scheduleDaysBefore` (Feature 42) |
 | `POST` | `/trips/email-templates/preview` | System Admin, Org Admin, or Trip Leader of the trip | Body `{ orgId, tripId, personId?, fromEmail?, toAddress?, subject, emailBody }` → `{ fromEmail, toAddress, subject, emailBody }` with `{{TOKEN_CODE}}` tokens replaced. In `toAddress`, recipients that come out empty are left out and the rest are joined with `, ` (Feature 41). Trip not in the organization or person without a participant application on the trip → `400`. Sends no email — Feature 40 |
 | `GET` | `/trips/email-templates/:id` | auth | Get |
-| `POST` | `/trips/email-templates` | auth | Create. Feature 39 body adds `emailTypeId`, `functionCode` (`Scheduled`, `Send Now`, or `Trip Participant` — Feature 46), and `emailBody`. Feature 41 adds required `toAddress`: comma-separated email addresses or `{{TOKEN_CODE}}` tokens whose value source is an email; blank → `400` "To is required.", any other recipient → `400`. `fromEmail` must be exactly one email address or email token → otherwise `400`. Feature 42 adds `scheduleRule` (`daily`, `weekly`, `before-start`) and `scheduleDaysBefore`: a `Scheduled` template needs a valid `scheduleRule` → otherwise `400` "Schedule is required for scheduled templates."; `before-start` needs `scheduleDaysBefore` 1–365 → otherwise `400` "Days before trip start must be a whole number from 1 to 365." `Send Now` saves both as `null`; `daily` and `weekly` save `scheduleDaysBefore` as `null` |
-| `PUT` | `/trips/email-templates/:id` | auth | Update. Same Feature 39, 41, and 42 fields when present |
+| `POST` | `/trips/email-templates` | auth | Create. Feature 39 body adds `emailTypeId`, `functionCode` (`Scheduled`, `Send Now`, `Trip Participant` — Feature 46, or `Person` — Feature 62; `Person` on a trip template → `400` "Person templates cannot belong to a trip."), and `emailBody`. Feature 41 adds required `toAddress`: comma-separated email addresses or `{{TOKEN_CODE}}` tokens whose value source is an email; blank → `400` "To is required.", any other recipient → `400`. `fromEmail` must be exactly one email address or email token → otherwise `400`. Feature 42 adds `scheduleRule` (`daily`, `weekly`, `before-start`) and `scheduleDaysBefore`: a `Scheduled` template needs a valid `scheduleRule` → otherwise `400` "Schedule is required for scheduled templates."; `before-start` needs `scheduleDaysBefore` 1–365 → otherwise `400` "Days before trip start must be a whole number from 1 to 365." `Send Now` saves both as `null`; `daily` and `weekly` save `scheduleDaysBefore` as `null` |
+| `PUT` | `/trips/email-templates/:id` | auth | Update. Same Feature 39, 41, 42, and 62 fields when present |
 | `DELETE` | `/trips/email-templates/:id` | auth | Delete |
+
+---
+
+## People email — Feature 62
+
+Acting organization: the `X-Acting-Organization-Id` header, or the Org Admin's only organization. System Admin or Org Admin of the acting organization; anyone else → `403` "Forbidden."; no acting organization → `400` "Select an organization in the menu bar.". `tripIds` and `workerRoleIds` are each `"all"` or a non-empty array of ids; trips outside the acting organization → `400` "Trips must belong to this organization."; roles not on the selected trips → `400` "Roles must be on the selected trips.".
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/trips/people-email/options` | see above | `{ templates, trips }`: the acting organization's **Person** templates (`id`, `subject`, `emailBody`, `fromEmail`, `emailTypeId`) by subject, and its trips (`id`, `name`, `startDate`, `roles: [{ workerRoleId, name }]` by name) newest start date first |
+| `POST` | `/trips/people-email/recipients` | same | Body `{ tripIds, workerRoleIds }` → `[{ personId, name }]` by last then first name: approved Trip Participants on the selected trips with a selected worker role (`"all"` roles includes those with none), each person once |
+| `POST` | `/trips/people-email/preview` | same | Body `{ emailTemplateId, subject, emailBody, tripIds, workerRoleIds, personId }` → `{ from, replyTo, to, subject, body }`; `personId` not a recipient → `400` "Preview person must be one of the recipients."; sends nothing |
+| `POST` | `/trips/people-email` | same | Body `{ emailTemplateId, subject, emailBody, tripIds, workerRoleIds }` → `{ sent, skipped, failed, results: [{ personId, name, status, reason }] }`, one email per recipient to their email. `emailTemplateId` is a **Person** template of the acting organization (tokens from organization and person; logged with no trip) or, when `tripIds` comes to exactly one trip, a **Trip Participant** template of that trip or its organization (filled as Email team for that trip) — otherwise `400` "Choose a template for this organization." / "Trip Participant templates need exactly one trip selected.". Blank subject / body or no recipients → `400` |
 
 ---
 
@@ -302,7 +316,7 @@ No auth. Slugs: spaces → `_`.
 | `PUT` | `/trips/email-types/:id` | System Admin | Update |
 | `DELETE` | `/trips/email-types/:id` | System Admin | Delete when no template uses it |
 
-Duplicate `typeCode`, a blank required field, or deleting a type a template still uses → `400`. A caller who is not a System Admin writing a type → `403`. Template save with a function code other than `Scheduled` or `Send Now` → `400`.
+Duplicate `typeCode`, a blank required field, or deleting a type a template still uses → `400`. A caller who is not a System Admin writing a type → `403`. Template save with a function code other than `Scheduled`, `Send Now`, `Trip Participant` (Feature 46), or `Person` (Feature 62) → `400`.
 
 ---
 
