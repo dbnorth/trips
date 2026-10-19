@@ -1,0 +1,360 @@
+<script setup>
+import { ref, computed, watch } from "vue";
+import PeopleEmailServices from "../services/peopleEmailServices.js";
+import TripServices from "../services/tripServices.js";
+import ConfirmDialog from "./ConfirmDialog.vue";
+
+const ALL = "all";
+
+const props = defineProps({
+  modelValue: { type: Boolean, default: false },
+});
+
+const emit = defineEmits(["update:modelValue"]);
+
+const personTemplates = ref([]);
+const tripTemplates = ref([]);
+const trips = ref([]);
+const optionsLoading = ref(false);
+const emailTemplateId = ref(null);
+const subject = ref("");
+const emailBody = ref("");
+const tripSelection = ref([ALL]);
+const roleSelection = ref([ALL]);
+const recipients = ref([]);
+const preview = ref(null);
+const previewPersonId = ref(null);
+const showPreview = ref(false);
+const previewLoading = ref(false);
+const showConfirm = ref(false);
+const sending = ref(false);
+const result = ref(null);
+const error = ref("");
+let recipientsRequest = 0;
+
+/** "All" alone, or the specific choices: picking All clears the rest, picking another clears All. */
+const withAll = (next, prev) => {
+  if (next.includes(ALL) && !prev.includes(ALL)) return [ALL];
+  if (next.includes(ALL) && next.length > 1) return next.filter((v) => v !== ALL);
+  return next;
+};
+
+const setTrips = (next) => {
+  tripSelection.value = withAll(next, tripSelection.value);
+};
+const setRoles = (next) => {
+  roleSelection.value = withAll(next, roleSelection.value);
+};
+
+const tripItems = computed(() => [
+  { title: "All", value: ALL },
+  ...trips.value.map((trip) => ({ title: trip.name, value: trip.id })),
+]);
+
+const selectedTrips = computed(() =>
+  tripSelection.value.includes(ALL)
+    ? trips.value
+    : trips.value.filter((trip) => tripSelection.value.includes(trip.id))
+);
+
+const singleTripId = computed(() =>
+  selectedTrips.value.length === 1 ? selectedTrips.value[0].id : null
+);
+
+const availableRoles = computed(() => {
+  const byId = new Map();
+  for (const trip of selectedTrips.value) {
+    for (const role of trip.roles || []) byId.set(role.workerRoleId, role);
+  }
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+});
+
+const roleItems = computed(() => [
+  { title: "All", value: ALL },
+  ...availableRoles.value.map((role) => ({ title: role.name, value: role.workerRoleId })),
+]);
+
+const templates = computed(() => [...personTemplates.value, ...tripTemplates.value]);
+
+const templateItems = computed(() => [
+  ...personTemplates.value.map((t) => ({ title: t.subject, value: t.id })),
+  ...tripTemplates.value.map((t) => ({ title: `Trip Participant — ${t.subject}`, value: t.id })),
+]);
+
+const selectionBody = () => ({
+  tripIds: tripSelection.value.includes(ALL) ? ALL : tripSelection.value,
+  workerRoleIds: roleSelection.value.includes(ALL) ? ALL : roleSelection.value,
+});
+
+const recipientItems = computed(() =>
+  recipients.value.map((r) => ({ title: r.name || "Person", value: r.personId }))
+);
+
+const recipientLabel = (count) => `${count} ${count === 1 ? "person" : "people"}`;
+
+const canSubmit = computed(
+  () =>
+    !!emailTemplateId.value &&
+    !!subject.value.trim() &&
+    !!emailBody.value.trim() &&
+    recipients.value.length > 0
+);
+
+const requestBody = () => ({
+  emailTemplateId: emailTemplateId.value,
+  subject: subject.value,
+  emailBody: emailBody.value,
+  ...selectionBody(),
+});
+
+const loadOptions = async () => {
+  optionsLoading.value = true;
+  try {
+    const res = await PeopleEmailServices.getOptions();
+    personTemplates.value = res.data?.templates || [];
+    trips.value = res.data?.trips || [];
+  } catch (e) {
+    personTemplates.value = [];
+    trips.value = [];
+    error.value = e.response?.data?.message || "Unable to load email options.";
+  } finally {
+    optionsLoading.value = false;
+  }
+};
+
+const loadRecipients = async () => {
+  const requestId = ++recipientsRequest;
+  if (!tripSelection.value.length || !roleSelection.value.length) {
+    recipients.value = [];
+    return;
+  }
+  try {
+    const res = await PeopleEmailServices.getRecipients(selectionBody());
+    if (requestId === recipientsRequest) recipients.value = res.data || [];
+  } catch (e) {
+    if (requestId !== recipientsRequest) return;
+    recipients.value = [];
+    error.value = e.response?.data?.message || "Unable to load recipients.";
+  }
+};
+
+const loadTripTemplates = async (tripId) => {
+  tripTemplates.value = [];
+  if (tripId == null) return;
+  try {
+    const res = await TripServices.getTeamEmailTemplates(tripId);
+    if (singleTripId.value === tripId) tripTemplates.value = res.data || [];
+  } catch (e) {
+    error.value = e.response?.data?.message || "Unable to load trip templates.";
+  }
+};
+
+const loadPreview = async () => {
+  preview.value = null;
+  if (!previewPersonId.value) return;
+  previewLoading.value = true;
+  error.value = "";
+  try {
+    const res = await PeopleEmailServices.preview({
+      ...requestBody(),
+      personId: previewPersonId.value,
+    });
+    preview.value = res.data;
+  } catch (e) {
+    error.value = e.response?.data?.message || "Unable to build preview.";
+  } finally {
+    previewLoading.value = false;
+  }
+};
+
+const openPreview = () => {
+  showPreview.value = true;
+  previewPersonId.value = recipients.value[0]?.personId ?? null;
+  loadPreview();
+};
+
+const confirmSend = async () => {
+  sending.value = true;
+  error.value = "";
+  try {
+    const res = await PeopleEmailServices.send(requestBody());
+    result.value = res.data;
+  } catch (e) {
+    error.value = e.response?.data?.message || "Unable to send email.";
+  } finally {
+    sending.value = false;
+    showConfirm.value = false;
+  }
+};
+
+const reset = () => {
+  personTemplates.value = [];
+  tripTemplates.value = [];
+  trips.value = [];
+  emailTemplateId.value = null;
+  subject.value = "";
+  emailBody.value = "";
+  tripSelection.value = [ALL];
+  roleSelection.value = [ALL];
+  recipients.value = [];
+  preview.value = null;
+  previewPersonId.value = null;
+  showPreview.value = false;
+  showConfirm.value = false;
+  result.value = null;
+  error.value = "";
+};
+
+watch(
+  () => props.modelValue,
+  async (open) => {
+    reset();
+    if (!open) return;
+    await loadOptions();
+    loadRecipients();
+  },
+  { immediate: true }
+);
+
+watch(availableRoles, (roles) => {
+  const ids = new Set(roles.map((r) => r.workerRoleId));
+  const kept = roleSelection.value.filter((v) => v === ALL || ids.has(v));
+  if (kept.length !== roleSelection.value.length) roleSelection.value = kept;
+});
+
+watch(singleTripId, (tripId) => {
+  if (tripTemplates.value.some((t) => t.id === emailTemplateId.value)) emailTemplateId.value = null;
+  loadTripTemplates(tripId);
+});
+
+watch([tripSelection, roleSelection], () => {
+  if (props.modelValue && !optionsLoading.value) loadRecipients();
+});
+
+watch(emailTemplateId, (id) => {
+  const template = templates.value.find((t) => t.id === id);
+  subject.value = template?.subject ?? "";
+  emailBody.value = template?.emailBody ?? "";
+});
+
+watch([subject, emailBody, tripSelection, roleSelection], () => {
+  showPreview.value = false;
+  preview.value = null;
+  result.value = null;
+});
+
+watch(previewPersonId, () => {
+  if (showPreview.value) loadPreview();
+});
+
+const close = () => emit("update:modelValue", false);
+</script>
+
+<template>
+  <v-dialog :model-value="modelValue" max-width="760" scrollable @update:model-value="(v) => !v && close()">
+    <v-card>
+      <v-card-title>Email people</v-card-title>
+      <v-card-text style="max-height: 75vh">
+        <v-select
+          v-model="emailTemplateId"
+          :items="templateItems"
+          label="Template"
+          density="compact"
+          :loading="optionsLoading"
+          no-data-text="No Person templates. Add one under Email templates."
+          class="mb-2"
+        />
+        <v-text-field
+          v-model="subject"
+          label="Subject"
+          density="compact"
+          :disabled="!emailTemplateId"
+          class="mb-2"
+        />
+        <v-textarea
+          v-model="emailBody"
+          label="Email body"
+          density="compact"
+          rows="8"
+          auto-grow
+          :disabled="!emailTemplateId"
+          class="mb-2"
+        />
+        <v-select
+          :model-value="tripSelection"
+          :items="tripItems"
+          label="Trips"
+          density="compact"
+          multiple
+          chips
+          closable-chips
+          class="mb-2"
+          @update:model-value="setTrips"
+        />
+        <v-select
+          :model-value="roleSelection"
+          :items="roleItems"
+          label="Roles"
+          density="compact"
+          multiple
+          chips
+          closable-chips
+          class="mb-2"
+          @update:model-value="setRoles"
+        />
+        <div class="text-body-2 mb-2">Recipients: {{ recipientLabel(recipients.length) }}</div>
+
+        <v-alert v-if="error" type="error" density="compact" class="mb-2">{{ error }}</v-alert>
+
+        <div v-if="showPreview" class="border rounded pa-3 mb-2">
+          <v-select
+            v-model="previewPersonId"
+            :items="recipientItems"
+            label="Preview as"
+            density="compact"
+            class="mb-2"
+          />
+          <v-progress-linear v-if="previewLoading" indeterminate class="mb-2" />
+          <div v-if="preview" class="email-preview">
+            <div class="mb-2"><strong>From:</strong> {{ preview.from }}</div>
+            <div v-if="preview.replyTo" class="mb-2"><strong>Reply-To:</strong> {{ preview.replyTo }}</div>
+            <div class="mb-2"><strong>To:</strong> {{ preview.to }}</div>
+            <div class="mb-2"><strong>Subject:</strong> {{ preview.subject }}</div>
+            <div class="email-preview-body border rounded pa-3">{{ preview.body }}</div>
+          </div>
+        </div>
+
+        <v-alert v-if="result" type="info" density="compact" class="mb-2">
+          <div>Sent {{ result.sent }}, skipped {{ result.skipped }}, failed {{ result.failed }}</div>
+          <div
+            v-for="row in result.results.filter((r) => r.status !== 'sent')"
+            :key="row.personId"
+          >
+            {{ row.name || "Person" }}: {{ row.status }} — {{ row.reason }}
+          </div>
+        </v-alert>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="close">Cancel</v-btn>
+        <v-btn variant="tonal" :disabled="!canSubmit" @click="openPreview">Preview</v-btn>
+        <v-btn color="primary" :disabled="!canSubmit" @click="showConfirm = true">Send</v-btn>
+      </v-card-actions>
+    </v-card>
+    <ConfirmDialog
+      v-model="showConfirm"
+      title="Are you sure?"
+      :message="`Send this email to ${recipientLabel(recipients.length)}?`"
+      confirm-text="Send"
+      cancel-text="Cancel"
+      :loading="sending"
+      @confirm="confirmSend"
+    />
+  </v-dialog>
+</template>
+
+<style scoped>
+.email-preview-body {
+  white-space: pre-wrap;
+}
+</style>

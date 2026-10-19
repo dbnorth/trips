@@ -251,7 +251,7 @@ const EMPTY_FINANCIAL_VALUES = {
 export const buildSourceValues = async ({ orgId, tripId = null, personId = null }) => {
   const org = orgId != null ? await db.organization.findByPk(orgId) : null;
   const trip = tripId != null ? await db.trip.findByPk(tripId) : null;
-  const person = trip && personId != null ? await db.person.findByPk(personId) : null;
+  const person = personId != null ? await db.person.findByPk(personId) : null;
   const leader = trip ? await loadPrimaryLeader(trip.id) : null;
 
   let amountRaised = "";
