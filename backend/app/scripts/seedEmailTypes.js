@@ -15,6 +15,7 @@ const emailTypes = [
   { typeCode: "pre-departure", description: "Pre-departure information", eventCode: "pre-departure" },
   { typeCode: "team-update", description: "Trip team update", eventCode: "team-email" },
   { typeCode: "financial-statement", description: "Trip financial statement", eventCode: "team-email" },
+  { typeCode: "people-update", description: "People update", eventCode: "team-email" },
 ];
 
 /** Add each seed email type that is missing. Returns how many were inserted. */
