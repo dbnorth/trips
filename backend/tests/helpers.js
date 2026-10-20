@@ -1,6 +1,7 @@
 import request from "supertest";
 import app from "../server.js";
 import db from "../app/models/index.js";
+import { loadPersonalDataKey } from "../app/utils/personalDataEncryption.js";
 
 const CATALOG_ROLES = [
   { roleName: "Org Admin", roleDescription: "Organization administrator" },
@@ -21,6 +22,9 @@ const assertTestDatabase = () => {
 
 export const syncTestDatabase = async () => {
   assertTestDatabase();
+  await loadPersonalDataKey();
+  // Removed by Feature 64; its foreign key to people would block the forced sync.
+  await db.sequelize.query("DROP TABLE IF EXISTS personMedicalConditions");
   await db.sequelize.sync({ force: true });
   await seedRoles();
 };
@@ -46,7 +50,6 @@ export const resetTestDatabase = async () => {
     db.workerRoleSpecialization,
     db.documentTypeSpecialization,
     db.personDocument,
-    db.personMedicalCondition,
     db.personLanguage,
     db.tripPeopleRole,
     db.tripWorkerRoleReservation,

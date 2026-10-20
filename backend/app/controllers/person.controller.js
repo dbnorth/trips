@@ -24,6 +24,11 @@ import {
   clearPersonLanguages,
   loadPersonLanguages,
 } from "../utils/personLanguages.js";
+import {
+  loadMedicalConditions,
+  readMedicalConditionIds,
+  saveMedicalConditionIds,
+} from "../utils/personMedicalConditions.js";
 
 const Person = db.person;
 const User = db.user;
@@ -32,7 +37,6 @@ const OrgPeopleRole = db.orgPeopleRole;
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
 const MedicalCondition = db.medicalCondition;
-const PersonMedicalCondition = db.personMedicalCondition;
 const Op = db.Sequelize.Op;
 const exports = {};
 
@@ -182,26 +186,7 @@ const canManagePerson = async (req, personId) => {
 
 const enrichPersonPayload = async (person, queryOrgId = null) => {
   const payload = person.toJSON ? person.toJSON() : { ...person };
-  const links = await PersonMedicalCondition.findAll({
-    where: { personId: person.id },
-    include: [
-      {
-        model: MedicalCondition,
-        as: "medicalCondition",
-        attributes: ["id", "name", "orgId"],
-      },
-    ],
-  });
-  let medicalConditions = links
-    .map((link) => link.medicalCondition)
-    .filter(Boolean)
-    .map((c) => ({ id: c.id, name: c.name, orgId: c.orgId }));
-
-  if (queryOrgId != null && queryOrgId !== "") {
-    const orgId = Number(queryOrgId);
-    medicalConditions = medicalConditions.filter((c) => Number(c.orgId) === orgId);
-  }
-
+  const medicalConditions = await loadMedicalConditions(person.id, queryOrgId);
   payload.medicalConditions = medicalConditions;
   payload.medicalConditionIds = medicalConditions.map((c) => c.id);
   payload.speaksOtherLanguage = normalizeTriState(payload.speaksOtherLanguage);
@@ -244,9 +229,9 @@ const stripLanguageInput = (data) => {
 };
 
 /**
- * Sync person↔condition links for one org.
- * When takesMedication is false, clears that org's links.
- * When true, replaces that org's links with medicalConditionIds (must belong to orgId).
+ * Sync the person's condition list for one org.
+ * When takesMedication is false, removes that org's IDs.
+ * When true, replaces that org's IDs with medicalConditionIds (must belong to orgId).
  */
 const syncPersonMedicalConditions = async ({
   personId,
@@ -267,16 +252,12 @@ const syncPersonMedicalConditions = async ({
     attributes: ["id"],
   });
   const orgConditionIds = orgConditionRows.map((r) => Number(r.id));
+  const otherOrgIds = (await readMedicalConditionIds(personId)).filter(
+    (id) => !orgConditionIds.includes(id)
+  );
 
   if (!takesMedication) {
-    if (orgConditionIds.length) {
-      await PersonMedicalCondition.destroy({
-        where: {
-          personId,
-          medicalConditionId: { [Op.in]: orgConditionIds },
-        },
-      });
-    }
+    await saveMedicalConditionIds(personId, otherOrgIds);
     return { ok: true };
   }
 
@@ -292,18 +273,7 @@ const syncPersonMedicalConditions = async ({
     };
   }
 
-  await PersonMedicalCondition.destroy({
-    where: {
-      personId,
-      medicalConditionId: { [Op.in]: orgConditionIds },
-    },
-  });
-
-  if (requested.length) {
-    await PersonMedicalCondition.bulkCreate(
-      requested.map((medicalConditionId) => ({ personId, medicalConditionId }))
-    );
-  }
+  await saveMedicalConditionIds(personId, [...otherOrgIds, ...requested]);
 
   return { ok: true };
 };

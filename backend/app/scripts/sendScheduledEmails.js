@@ -2,6 +2,7 @@ import "dotenv/config";
 import db from "../models/index.js";
 import logger from "../config/logger.js";
 import { isValidJobDate, runScheduledEmails, todayInTimeZone } from "../utils/scheduledEmails.js";
+import { loadPersonalDataKey } from "../utils/personalDataEncryption.js";
 
 const args = process.argv.slice(2);
 const dateArg = args.find((arg) => arg.startsWith("--date="))?.slice("--date=".length);
@@ -15,6 +16,7 @@ if (dateArg !== undefined && !isValidJobDate(dateArg)) {
 const date = dateArg ?? todayInTimeZone(process.env.SCHEDULED_EMAIL_TIMEZONE || "America/Chicago");
 
 try {
+  await loadPersonalDataKey();
   await db.sequelize.authenticate();
   await runScheduledEmails({ date, dryRun });
   await db.sequelize.close();

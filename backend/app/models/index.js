@@ -27,7 +27,6 @@ import PersonDocumentSpecialization from "./personDocumentSpecialization.model.j
 import DocumentTypeSpecialization from "./documentTypeSpecialization.model.js";
 import WorkerRoleSpecialization from "./workerRoleSpecialization.model.js";
 import MedicalCondition from "./medicalCondition.model.js";
-import PersonMedicalCondition from "./personMedicalCondition.model.js";
 import WorkerRoleDocumentType from "./workerRoleDocumentType.model.js";
 import TripRoomingList from "./tripRoomingList.model.js";
 import TripRoom from "./tripRoom.model.js";
@@ -69,7 +68,6 @@ db.personDocumentSpecialization = PersonDocumentSpecialization;
 db.documentTypeSpecialization = DocumentTypeSpecialization;
 db.workerRoleSpecialization = WorkerRoleSpecialization;
 db.medicalCondition = MedicalCondition;
-db.personMedicalCondition = PersonMedicalCondition;
 db.workerRoleDocumentType = WorkerRoleDocumentType;
 db.tripRoomingList = TripRoomingList;
 db.tripRoom = TripRoom;
@@ -313,34 +311,6 @@ db.organization.hasMany(db.medicalCondition, { foreignKey: "orgId", onDelete: "C
 db.medicalCondition.belongsTo(db.organization, {
   foreignKey: "orgId",
   as: "organization",
-  onDelete: "CASCADE",
-});
-
-db.person.belongsToMany(db.medicalCondition, {
-  through: db.personMedicalCondition,
-  foreignKey: "personId",
-  otherKey: "medicalConditionId",
-  as: "medicalConditions",
-});
-db.medicalCondition.belongsToMany(db.person, {
-  through: db.personMedicalCondition,
-  foreignKey: "medicalConditionId",
-  otherKey: "personId",
-  as: "people",
-});
-db.person.hasMany(db.personMedicalCondition, { foreignKey: "personId", onDelete: "CASCADE" });
-db.personMedicalCondition.belongsTo(db.person, {
-  foreignKey: "personId",
-  as: "person",
-  onDelete: "CASCADE",
-});
-db.medicalCondition.hasMany(db.personMedicalCondition, {
-  foreignKey: "medicalConditionId",
-  onDelete: "CASCADE",
-});
-db.personMedicalCondition.belongsTo(db.medicalCondition, {
-  foreignKey: "medicalConditionId",
-  as: "medicalCondition",
   onDelete: "CASCADE",
 });
 

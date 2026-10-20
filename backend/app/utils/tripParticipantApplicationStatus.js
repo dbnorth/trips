@@ -1,5 +1,6 @@
 import db from "../models/index.js";
 import { isFlightPurchaseComplete } from "./flightPurchaseFields.js";
+import { loadMedicalConditions } from "./personMedicalConditions.js";
 
 const Person = db.person;
 const TripWorkerRole = db.tripWorkerRole;
@@ -352,12 +353,6 @@ export const loadPersonForCompleteness = async (peopleId) => {
   const person = await Person.findByPk(peopleId, {
     include: [
       {
-        model: db.medicalCondition,
-        as: "medicalConditions",
-        attributes: ["id", "name", "orgId"],
-        through: { attributes: [] },
-      },
-      {
         model: db.personLanguage,
         as: "personLanguages",
         include: [
@@ -372,7 +367,8 @@ export const loadPersonForCompleteness = async (peopleId) => {
   });
   if (!person) return null;
   const payload = person.toJSON();
-  payload.medicalConditionIds = (payload.medicalConditions || []).map((c) => c.id);
+  payload.medicalConditions = await loadMedicalConditions(peopleId);
+  payload.medicalConditionIds = payload.medicalConditions.map((c) => c.id);
   payload.languages = (payload.personLanguages || [])
     .filter((row) => row.language)
     .map((row) => ({
