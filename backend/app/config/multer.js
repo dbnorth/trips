@@ -47,7 +47,7 @@ const safeFilePart = (value) =>
 
 export const uploadOrgLogo = multer({
   storage: makeStorage("images/logos", (req, file, cb) => {
-    cb(null, `org-${req.params.id}${imageExtension(file.mimetype)}`);
+    cb(null, `org-${req.params.id}-${Date.now()}${imageExtension(file.mimetype)}`);
   }),
   fileFilter: imageFilter,
   limits: { fileSize: 2 * 1024 * 1024 },
@@ -55,7 +55,7 @@ export const uploadOrgLogo = multer({
 
 export const uploadPersonPicture = multer({
   storage: makeStorage("images/people", (req, file, cb) => {
-    cb(null, `person-${req.params.id}${imageExtension(file.mimetype)}`);
+    cb(null, `person-${req.params.id}-${Date.now()}${imageExtension(file.mimetype)}`);
   }),
   fileFilter: imageFilter,
   limits: { fileSize: 2 * 1024 * 1024 },
@@ -63,7 +63,7 @@ export const uploadPersonPicture = multer({
 
 export const uploadTripImage = multer({
   storage: makeStorage("images/trips", (req, file, cb) => {
-    cb(null, `trip-${req.params.id}${imageExtension(file.mimetype)}`);
+    cb(null, `trip-${req.params.id}-${Date.now()}${imageExtension(file.mimetype)}`);
   }),
   fileFilter: imageFilter,
   limits: { fileSize: 2 * 1024 * 1024 },
