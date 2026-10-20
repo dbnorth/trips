@@ -2,7 +2,7 @@ import { Router } from "express";
 import people from "../controllers/person.controller.js";
 import personDocuments from "../controllers/personDocument.controller.js";
 import authenticate, { requireSystemAdmin } from "../authorization/accessControl.js";
-import { uploadPersonDocument, uploadPersonPicture } from "../config/multer.js";
+import { nameDocumentFiles, uploadPersonDocument, uploadPersonPicture } from "../config/multer.js";
 
 const router = Router();
 
@@ -21,7 +21,10 @@ const handleDocumentUpload = (req, res, next) => {
     { name: "document", maxCount: 1 },
     { name: "specializationFiles", maxCount: 30 },
   ])(req, res, (err) => {
-    if (!err) return next();
+    if (!err) {
+      nameDocumentFiles(req);
+      return next();
+    }
     if (err.code === "LIMIT_FILE_SIZE") {
       return res.status(400).send({ message: "Document must be 10MB or smaller." });
     }

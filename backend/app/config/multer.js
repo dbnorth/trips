@@ -69,12 +69,20 @@ export const uploadTripImage = multer({
   limits: { fileSize: 2 * 1024 * 1024 },
 });
 
+/** Kept in memory: the controller writes document files to `documents/people` only encrypted. */
 export const uploadPersonDocument = multer({
-  storage: makeStorage("documents/people", (req, file, cb) => {
-    const ext = path.extname(file.originalname || "");
-    const base = safeFilePart(path.basename(file.originalname || "document", ext));
-    cb(null, `person-${req.params.id}-${Date.now()}-${base}${ext}`);
-  }),
+  storage: multer.memoryStorage(),
   fileFilter: documentFilter,
   limits: { fileSize: 10 * 1024 * 1024 },
 });
+
+/** Give each uploaded person document file the name it will have under `documents/people`. */
+export const nameDocumentFiles = (req) => {
+  for (const group of Object.values(req.files || {})) {
+    for (const file of group) {
+      const ext = path.extname(file.originalname || "");
+      const base = safeFilePart(path.basename(file.originalname || "document", ext));
+      file.filename = `person-${req.params.id}-${Date.now()}-${base}${ext}`;
+    }
+  }
+};

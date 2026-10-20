@@ -2,7 +2,7 @@
 
 **Feature ID:** 12
 **Branch pattern:** `feature/12-encrypt-person-media`
-**Status:** Ready
+**Status:** Superseded by [Feature 63 — Encrypt Person Documents on Disk](feature-63-encrypt-person-documents.md) (never implemented; do not implement this spec)
 **Created:** 2026-08-02
 **Input:** Protect person profile pictures and uploaded person documents (passports / medical licences) with encryption at rest on the server filesystem
 **Depends on:** [Feature 2 — People & Org Membership](feature-2-people-and-org-membership.md), [Feature 4 — Document Types & Person Documents](feature-4-document-types-and-person-documents.md)
