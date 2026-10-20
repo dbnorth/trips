@@ -11,6 +11,8 @@ import { emergencyContactRelationshipLabel } from "../utils/emergencyContactRela
 import { displayPreferredName } from "../utils/preferredName.js";
 import { countryName } from "../utils/locationData.js";
 import { formatCountryCode, formatPhoneForDisplay } from "../utils/phoneUtils.js";
+import LabelValueTable from "./LabelValueTable.vue";
+import LabelValueRow from "./LabelValueRow.vue";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -225,17 +227,22 @@ const close = () => emit("update:modelValue", false);
             <v-avatar v-else size="72" rounded="lg" color="grey-lighten-3" />
           </div>
 
-          <div v-for="(row, index) in fieldRows" :key="`${row.label}-${index}`" class="mb-3">
-            <div class="text-caption text-medium-emphasis">{{ row.label }}</div>
-            <div class="d-flex align-center ga-2">
-              <span :class="{ 'text-error font-weight-medium': isRowMissing(row) }">
-                {{ displayValue(row) || (isRowMissing(row) ? "Missing" : "—") }}
-              </span>
-              <v-chip v-if="isRowMissing(row)" size="x-small" color="error" variant="tonal">
-                Missing
-              </v-chip>
-            </div>
-          </div>
+          <LabelValueTable>
+            <LabelValueRow
+              v-for="(row, index) in fieldRows"
+              :key="`${row.label}-${index}`"
+              :label="row.label"
+            >
+              <div class="d-flex align-center ga-2">
+                <span :class="{ 'text-error font-weight-medium': isRowMissing(row) }">
+                  {{ displayValue(row) || (isRowMissing(row) ? "Missing" : "—") }}
+                </span>
+                <v-chip v-if="isRowMissing(row)" size="x-small" color="error" variant="tonal">
+                  Missing
+                </v-chip>
+              </div>
+            </LabelValueRow>
+          </LabelValueTable>
         </template>
       </v-card-text>
 

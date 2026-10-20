@@ -142,3 +142,57 @@ describe("Feature 26 — Cancel / Uncancel confirmation", () => {
     wrapper.unmount();
   });
 });
+
+const rowValue = (wrapper, label) => {
+  const row = wrapper.findAll("tr").find((tr) => tr.find("th").exists() && tr.find("th").text() === label);
+  return row ? row.find("td").text() : null;
+};
+
+const openApplication = async (data) => {
+  TripPeopleRoleServices.get.mockResolvedValue({ data });
+  const { wrapper } = await mountWithPlugins(ViewTripApplicationDialog, {
+    props: { modelValue: false, participantId: data.id, mode: "view" },
+    global: { stubs: { VDialog: { template: "<div><slot /></div>" } } },
+  });
+  await wrapper.setProps({ modelValue: true });
+  await flushPromises();
+  await nextTick();
+  return wrapper;
+};
+
+describe("Feature 67 — Two-column application dialog", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("Application answers show the label beside the value", async () => {
+    const wrapper = await openApplication(application);
+
+    expect(rowValue(wrapper, "Worker role")).toBe("Nurse");
+    expect(rowValue(wrapper, "Will self-fund")).toBe("Yes");
+    wrapper.unmount();
+  });
+
+  it("Section headings stay above their rows", async () => {
+    const wrapper = await openApplication(application);
+
+    const heading = wrapper.findAll("div.text-subtitle-2").find((d) => d.text() === "Funding");
+    expect(heading).toBeTruthy();
+    const table = heading.element.nextElementSibling;
+    const labels = [...table.querySelectorAll("th")].map((th) => th.textContent.trim());
+    expect(labels).toEqual(["Will self-fund", "Will raise funds"]);
+    wrapper.unmount();
+  });
+
+  it("Selected travel options show as label and value rows", async () => {
+    const wrapper = await openApplication({
+      ...application,
+      travelOptions: [{ id: 7, setNumber: 1, description: "Extra night", priceAdjustment: 50, selected: true }],
+    });
+
+    const value = rowValue(wrapper, "Trip Option 1");
+    expect(value).toContain("Extra night");
+    expect(value).toContain("+$50.00");
+    wrapper.unmount();
+  });
+});
