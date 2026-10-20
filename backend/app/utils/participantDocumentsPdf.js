@@ -4,6 +4,7 @@ import heicConvert from "heic-convert";
 import { PDFDocument as PdfLibDocument } from "pdf-lib";
 import db from "../models/index.js";
 import { formatDate } from "./emailTokenValues.js";
+import { decryptDocument, isEncryptedDocument, readDocumentKey } from "./documentEncryption.js";
 import {
   orBlank,
   joinParts,
@@ -28,11 +29,20 @@ const countryName = (code) => {
   }
 };
 
-const readDocumentFile = (fileName) => {
+/** Decrypted file bytes, or null when missing or undecryptable; throws when the key cannot be read. */
+const readDocumentFile = async (fileName) => {
   const file = path.resolve(DOCUMENTS_DIR, fileName);
   if (!file.startsWith(DOCUMENTS_DIR + path.sep)) return null;
+  let data;
   try {
-    return fs.readFileSync(file);
+    data = await fs.promises.readFile(file);
+  } catch {
+    return null;
+  }
+  if (!isEncryptedDocument(data)) return data;
+  const key = await readDocumentKey();
+  try {
+    return decryptDocument(key, data);
   } catch {
     return null;
   }
@@ -48,7 +58,7 @@ const isHeic = (data) =>
 /** The uploaded file as an image, a PDF to append, or a message. */
 const loadUploadedFile = async (fileName) => {
   if (!fileName) return { kind: "message", message: NO_FILE };
-  const data = readDocumentFile(fileName);
+  const data = await readDocumentFile(fileName);
   if (!data) return { kind: "message", message: UNREADABLE };
   try {
     if (isPng(data) || isJpeg(data)) return { kind: "image", data };

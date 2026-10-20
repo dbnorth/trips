@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
 import db from "../models/index.js";
 import logger from "../config/logger.js";
+import { readSecret, secretsAgentTokenFile } from "./awsSecrets.js";
 import {
   SINGLE_TOKEN_PATTERN,
   buildSourceValues,
@@ -31,7 +32,7 @@ const readSettings = () => {
     user: env.SMTP_USER || "",
     password: env.SMTP_PASSWORD || "",
     passwordSecretId: (env.SMTP_PASSWORD_SECRET_ID || "").trim(),
-    secretsTokenFile: (env.SECRETS_AGENT_TOKEN_FILE || "").trim() || "/var/run/awssmatoken",
+    secretsTokenFile: secretsAgentTokenFile(),
   };
 };
 
@@ -77,22 +78,7 @@ const quoteDisplayName = (name) => `"${name.replace(/(["\\])/g, "\\$1")}"`;
 const senderFrom = (name) =>
   `${quoteDisplayName(name ? `${name} via ${SENDER_APP_NAME}` : SENDER_APP_NAME)} <${SENDER_ADDRESS}>`;
 
-const SECRETS_AGENT_URL = "http://localhost:2773/secretsmanager/get";
 const SECRET_READ_FAILED = "Could not read the SMTP password from AWS Secrets Manager.";
-
-/** Read a plain-text secret from the AWS Secrets Manager Agent running on this server. */
-const readSecret = async (secretId, tokenFile) => {
-  const token = (await fs.readFile(tokenFile, "utf8")).trim();
-  const response = await fetch(`${SECRETS_AGENT_URL}?secretId=${encodeURIComponent(secretId)}`, {
-    headers: { "X-Aws-Parameters-Secrets-Token": token },
-  });
-  if (!response.ok) throw new Error(`Secrets Manager Agent returned status ${response.status}.`);
-  const { SecretString } = await response.json();
-  if (typeof SecretString !== "string" || !SecretString) {
-    throw new Error("Secret has no SecretString.");
-  }
-  return SecretString;
-};
 
 const smtpPassword = async (settings) => {
   if (!settings.passwordSecretId) return settings.password;

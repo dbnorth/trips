@@ -2,7 +2,7 @@ import apiClient from "./services.js";
 
 const filenameFromDisposition = (disposition) => {
   const match = /filename="?([^"]+)"?/i.exec(disposition || "");
-  return match?.[1] || "document";
+  return match?.[1] || null;
 };
 
 export default {
