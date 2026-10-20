@@ -3,6 +3,16 @@ import logger from "../config/logger.js";
 import fs from "fs";
 import { LANGUAGE_SEED } from "../data/languages.js";
 
+export const tableExists = async (table) => {
+  const [rows] = await db.sequelize.query(
+    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = :table`,
+    { replacements: { table } }
+  );
+  return rows.length > 0;
+};
+
 const ensureEmailTemplateOrgNullable = async () => {
   const [rows] = await db.sequelize.query(
     `SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
@@ -259,7 +269,7 @@ const ensurePersonProfileFields = async () => {
       if (result?.affectedRows) {
         logger.info(`people.hasAllergies default No→unset for ${result.affectedRows} row(s).`);
       }
-    } else {
+    } else if (await tableExists("personMedicalConditions")) {
       const [result] = await db.sequelize.query(
         `UPDATE people p
          SET p.takesMedication = NULL
@@ -1003,34 +1013,47 @@ const ensureMedicalConditionsTable = async () => {
   logger.info("medicalConditions table created.");
 };
 
-const ensurePersonMedicalConditionsTable = async () => {
-  const [tables] = await db.sequelize.query(
-    `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = 'personMedicalConditions'`
-  );
-  if (tables.length) return;
+/** Feature 64: table → columns stored encrypted (`enc1:` text). */
+export const ENCRYPTED_COLUMNS = {
+  people: [
+    "birthDate",
+    "addLine1",
+    "addLine2",
+    "city",
+    "state_prov",
+    "postalCode",
+    "phoneNumber",
+    "emergencyContactName",
+    "emergencyContactPhoneNumber",
+    "hasAllergies",
+    "allergiesDescription",
+    "takesMedication",
+    "medicalConditionIds",
+  ],
+  tripPeopleRoles: ["isPregnant", "pregnancyDueDate"],
+  personDocuments: ["documentNumber"],
+  donors: ["addLine1", "addLine2", "city", "state_prov", "postalCode", "phoneNumber"],
+};
 
-  await db.sequelize.query(`
-    CREATE TABLE personMedicalConditions (
-      id INT NOT NULL AUTO_INCREMENT,
-      personId INT NOT NULL,
-      medicalConditionId INT NOT NULL,
-      createdAt DATETIME NOT NULL,
-      updatedAt DATETIME NOT NULL,
-      PRIMARY KEY (id),
-      UNIQUE KEY personMedicalConditions_person_condition_unique (personId, medicalConditionId),
-      KEY personMedicalConditions_personId_idx (personId),
-      KEY personMedicalConditions_medicalConditionId_idx (medicalConditionId),
-      CONSTRAINT personMedicalConditions_personId_fk
-        FOREIGN KEY (personId) REFERENCES people (id)
-        ON DELETE CASCADE ON UPDATE CASCADE,
-      CONSTRAINT personMedicalConditions_medicalConditionId_fk
-        FOREIGN KEY (medicalConditionId) REFERENCES medicalConditions (id)
-        ON DELETE CASCADE ON UPDATE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-  logger.info("personMedicalConditions table created.");
+const ensureEncryptedColumns = async () => {
+  for (const [table, columns] of Object.entries(ENCRYPTED_COLUMNS)) {
+    for (const column of columns) {
+      const [rows] = await db.sequelize.query(
+        `SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = :table
+           AND COLUMN_NAME = :column`,
+        { replacements: { table, column } }
+      );
+      if (!rows.length) {
+        await db.sequelize.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` TEXT NULL`);
+        logger.info(`${table}.${column} column added.`);
+      } else if (rows[0].DATA_TYPE !== "text") {
+        await db.sequelize.query(`ALTER TABLE \`${table}\` MODIFY COLUMN \`${column}\` TEXT NULL`);
+        logger.info(`${table}.${column} column changed to TEXT for encryption.`);
+      }
+    }
+  }
 };
 
 const ensureTripRequirePassport = async () => {
@@ -1429,7 +1452,7 @@ export const ensureSchema = async () => {
   await ensureTripTravelOptionsTable();
   await ensureTripPeopleRoleOptionsTable();
   await ensureMedicalConditionsTable();
-  await ensurePersonMedicalConditionsTable();
+  await ensureEncryptedColumns();
   await ensureLanguageCatalog();
 };
 

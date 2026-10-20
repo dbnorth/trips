@@ -8,6 +8,7 @@ Notes:
 - Fields are those declared on models. Sequelize also adds `createdAt` / `updatedAt` unless disabled.
 - Where `allowNull` is omitted → Sequelize default **true**.
 - Typo `phoneContryCode` / `assiginmentDateTime` match shipped column names.
+- **Encrypted** (Feature 64): `TEXT NULL` column holding `enc1:` + base64(12-byte nonce, AES-256-GCM ciphertext, 16-byte tag); the model encrypts on write and decrypts on read, so the API sees the original type (string, Yes/No as `true`/`false`, `YYYY-MM-DD`). Never filtered, sorted, or joined in SQL. Values without `enc1:` (written before Feature 64) are read as stored.
 
 ## Table index
 
@@ -29,7 +30,6 @@ Notes:
 | `workerRoleSpecialization` | 59 | Worker role ↔ required specializations |
 | `personDocumentSpecialization` | 34, 59 | Specializations (list entry, date, file) on a person document |
 | `medicalCondition` | 17 | Org medical-condition catalog (name ≤ 50) |
-| `personMedicalCondition` | 17 | Person selected medical conditions |
 | `language` | 31 | Global language catalog |
 | `personLanguage` | 31 | Person other-language fluency and medical terminology |
 | `tripWorkerRole` | 6 | Per-trip role quantities |
@@ -81,7 +81,7 @@ Notes:
 
 ---
 
-## `person` — Features 2, 11
+## `person` — Features 2, 11, 64
 
 | Field | Type | Rules |
 |-------|------|--------|
@@ -91,19 +91,20 @@ Notes:
 | middleName | STRING | nullable; optional (Feature 20) |
 | preferredName | STRING | nullable; blank save stores first name + last name (Feature 33) |
 | email | STRING | |
-| addLine1, addLine2, city, state_prov, postalCode | STRING | |
+| addLine1, addLine2, city, state_prov, postalCode | Encrypted text | Feature 64 |
 | country | STRING(2) | |
 | phoneContryCode | STRING(10) | |
-| phoneNumber | STRING(30) | |
-| birthDate | DATEONLY | |
+| phoneNumber | Encrypted text | Feature 64 |
+| birthDate | Encrypted date | `YYYY-MM-DD` (Feature 64) |
 | gender | ENUM(`male`,`female`) | |
-| emergencyContactName | STRING(255) | |
+| emergencyContactName | Encrypted text | Feature 64 |
 | emergencyContactPhoneCountryCode | STRING(10) | |
-| emergencyContactPhoneNumber | STRING(30) | |
+| emergencyContactPhoneNumber | Encrypted text | Feature 64 |
 | emergencyContactRelationship | ENUM(`spouse`,`father`,`mother`,`child`,`grandmother`,`grandfather`,`other`) | nullable; labels Spouse, Father, Mother, Child, Grand Mother, Grand Father, Other (Feature 32) |
-| hasAllergies | BOOLEAN | nullable; `null` = unanswered |
-| allergiesDescription | TEXT | |
-| takesMedication | BOOLEAN | nullable; `null` = unanswered |
+| hasAllergies | Encrypted Yes/No | nullable; `null` = unanswered; stored as encrypted `1`/`0` (Feature 64) |
+| allergiesDescription | Encrypted text | Feature 64 |
+| takesMedication | Encrypted Yes/No | nullable; `null` = unanswered (Feature 64) |
+| medicalConditionIds | Encrypted ID list | JSON array of `medicalCondition` ids from any organization, ascending; replaces `personMedicalCondition` (Feature 64). Excluded by the default scope; read with `person.unscoped()`. Ids no longer in `medicalCondition` are ignored |
 | speaksOtherLanguage | BOOLEAN | nullable; `null` = unanswered (Feature 31) |
 | currentChurchHome | STRING(255) | |
 | currentChurchHomeCity | STRING(100) | |
@@ -207,7 +208,7 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | personId | INTEGER | required FK → person |
 | documentTypeId | INTEGER | required FK → documentType |
 | countryIssued | STRING(2) | |
-| documentNumber | STRING(100) | nullable; required by API when type.`documentNumberRequired` (Feature 22) |
+| documentNumber | Encrypted text | nullable; required by API when type.`documentNumberRequired` (Feature 22); encrypted (Feature 64) |
 | issueDate | DATEONLY | |
 | expirationDate | DATEONLY | nullable; required by API when type.`hasExpirationDate`, stored null otherwise (Feature 57) |
 | documentFileName | STRING(500) | nullable; optional upload (Feature 22) |
@@ -286,8 +287,8 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | agreementAdultRelationship | STRING(100) | |
 | medicalAgreementAccepted | BOOLEAN | required, default `false` |
 | medicalAgreementDate | DATE | |
-| isPregnant | BOOLEAN | nullable; `null` = unanswered; application-scoped (Feature 19) |
-| pregnancyDueDate | DATEONLY | cleared unless `isPregnant` is true |
+| isPregnant | Encrypted Yes/No | nullable; `null` = unanswered; application-scoped (Feature 19); encrypted (Feature 64) |
+| pregnancyDueDate | Encrypted date | cleared unless `isPregnant` is true; encrypted (Feature 64) |
 | assiginmentDateTime | DATE | |
 | medicalAgreementDate | DATE | |
 | assiginmentDateTime | DATE | |
@@ -456,20 +457,7 @@ Seeded from `backend/app/data/airlines.json` (OpenFlights active IATA set) via `
 | orgId | INTEGER | required FK → organization |
 | name | STRING(50) | required; unique per org (case-insensitive) |
 
-**Associations:** `belongsTo` organization; `belongsToMany` person through `personMedicalCondition`.
-
----
-
-## `personMedicalCondition` — Feature 17
-
-| Field | Type | Rules |
-|-------|------|--------|
-| id | INTEGER PK | autoIncrement |
-| personId | INTEGER | required FK → person |
-| medicalConditionId | INTEGER | required FK → medicalCondition |
-| unique | `(personId, medicalConditionId)` | |
-
-**Associations:** `belongsTo` person, medicalCondition. Deleting a condition cascades join rows.
+**Associations:** `belongsTo` organization. People's selections are in the encrypted `person.medicalConditionIds` list (Feature 64; the `personMedicalConditions` table is removed by `npm run encrypt-personal-data`). Deleting a condition does not change people's lists; the id is ignored when read.
 
 ---
 
@@ -555,17 +543,17 @@ A reservation is **filled** when an `incomplete` / `applied` / `approved` applic
 
 ---
 
-## `donor` — Features 8, 9
+## `donor` — Features 8, 9, 64
 
 | Field | Type | Rules |
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
 | firstName | STRING | required |
 | lastName | STRING | |
-| addLine1, addLine2, city, state_prov, postalCode | STRING | |
+| addLine1, addLine2, city, state_prov, postalCode | Encrypted text | Feature 64 |
 | country | STRING(2) | |
 | phoneContryCode | STRING(10) | |
-| phoneNumber | STRING(30) | |
+| phoneNumber | Encrypted text | Feature 64 |
 | email | STRING | |
 | status | ENUM(`active`,`inactive`,`dontcontact`) | required, default `active` |
 | personId | INTEGER | optional FK → person, unique (`donors_personId_unique`), `ON DELETE SET NULL`; the person's linked donor (Feature 53) |

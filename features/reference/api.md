@@ -14,6 +14,7 @@
 | Org scope | Optional `X-Acting-Organization-Id` — system admin list/emulate scope; may narrow multi-org lists for non-admins |
 | Optimistic updates | Many PUT bodies include `version`; conflict → `409` |
 | Static files | `/trips/images`, `/trips/uploads` |
+| Encrypted personal data | Any route that reads an encrypted column (Feature 64) returns `500` "Personal data could not be decrypted." when a stored value cannot be decrypted; request and response shapes are unchanged |
 
 **Auth legend:** **none** · **auth** (`authenticate`) · **sysadmin** (`authenticate` + `requireSystemAdmin`). Finer org/trip gates live in controllers (not repeated on every row).
 
@@ -189,9 +190,9 @@ Uploaded document and specialization files are stored encrypted and returned dec
 | `GET` | `/trips/medical-conditions/:id` | auth | Get one |
 | `POST` | `/trips/medical-conditions` | auth | Create (org admin) — `name` ≤ 50, unique per org (CI) |
 | `PUT` | `/trips/medical-conditions/:id` | auth | Update name |
-| `DELETE` | `/trips/medical-conditions/:id` | auth | Delete (cascades person selections) |
-| `GET` | `/trips/people/:id` | auth | Includes `medicalConditions` / `medicalConditionIds` (`?orgId=` filters) |
-| `PUT` | `/trips/people/:id` | auth | Accepts `medicalConditionIds` + `orgId`; clears org links when `takesMedication` is false |
+| `DELETE` | `/trips/medical-conditions/:id` | auth | Delete; people's lists keep the id, which is ignored when read (Feature 64) |
+| `GET` | `/trips/people/:id` | auth | Includes `medicalConditions` / `medicalConditionIds` from the person's encrypted list (`?orgId=` filters; removed conditions ignored) |
+| `PUT` | `/trips/people/:id` | auth | Accepts `medicalConditionIds` + `orgId`; replaces only that org's ids in the list, or removes them when `takesMedication` is false |
 
 ---
 

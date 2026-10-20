@@ -1,5 +1,6 @@
 import Sequelize from "sequelize";
 import SequelizeInstance from "../config/sequelizeInstance.js";
+import { encryptedColumn } from "../utils/personalDataEncryption.js";
 
 export const TRIP_PARTICIPANT_STATUSES = [
   "incomplete",
@@ -49,8 +50,8 @@ const TripPeopleRole = SequelizeInstance.define("tripPeopleRole", {
   agreementAdultRelationship: { type: Sequelize.STRING(100), allowNull: true },
   medicalAgreementAccepted: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
   medicalAgreementDate: { type: Sequelize.DATE, allowNull: true },
-  isPregnant: { type: Sequelize.BOOLEAN, allowNull: true, defaultValue: null },
-  pregnancyDueDate: { type: Sequelize.DATEONLY, allowNull: true },
+  isPregnant: encryptedColumn("yesNo"),
+  pregnancyDueDate: encryptedColumn("date"),
   assiginmentDateTime: { type: Sequelize.DATE },
   isPrimaryLeader: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
   version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
