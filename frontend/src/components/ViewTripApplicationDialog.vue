@@ -8,6 +8,8 @@ import {
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { isUnder18, personDisplayName } from "../utils/personProfile.js";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import LabelValueTable from "./LabelValueTable.vue";
+import LabelValueRow from "./LabelValueRow.vue";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -220,45 +222,33 @@ const confirmUncancelApplication = async () => {
         <template v-else-if="application">
           <div class="text-h6 mb-3">{{ participantName }}</div>
 
-          <div class="mb-3">
-            <div class="text-caption text-medium-emphasis">Trip role</div>
-            <div>{{ application.role?.roleName || "—" }}</div>
-          </div>
-
-          <div class="mb-3">
-            <div class="text-caption text-medium-emphasis">Worker role</div>
-            <div>{{ workerRoleName }}</div>
-          </div>
-
-          <div class="mb-3">
-            <div class="text-caption text-medium-emphasis">Participant cost</div>
-            <div>{{ formatCost(application.participantCost) }}</div>
-          </div>
+          <LabelValueTable>
+            <LabelValueRow label="Trip role">{{ application.role?.roleName || "—" }}</LabelValueRow>
+            <LabelValueRow label="Worker role">{{ workerRoleName }}</LabelValueRow>
+            <LabelValueRow label="Participant cost">
+              {{ formatCost(application.participantCost) }}
+            </LabelValueRow>
+          </LabelValueTable>
 
           <div class="text-subtitle-2 mb-2 mt-4">Funding</div>
-          <div class="mb-2">
-            <div class="text-caption text-medium-emphasis">Will self-fund</div>
-            <div>{{ yesNo(application.willSelfFund) }}</div>
-          </div>
-          <div class="mb-3">
-            <div class="text-caption text-medium-emphasis">Will raise funds</div>
-            <div>{{ yesNo(application.willRaiseFunds) }}</div>
-          </div>
+          <LabelValueTable>
+            <LabelValueRow label="Will self-fund">{{ yesNo(application.willSelfFund) }}</LabelValueRow>
+            <LabelValueRow label="Will raise funds">{{ yesNo(application.willRaiseFunds) }}</LabelValueRow>
+          </LabelValueTable>
 
           <div class="text-subtitle-2 mb-2 mt-4">Roommate preference</div>
-          <div class="mb-2">
-            <div class="text-caption text-medium-emphasis">Has preferred roommate</div>
-            <div>{{ yesNo(application.hasPreferredRoommate) }}</div>
-          </div>
-          <div v-if="application.hasPreferredRoommate" class="mb-3">
-            <div class="text-caption text-medium-emphasis">Preferred roommate name(s)</div>
-            <div>{{ application.preferredRoommateNames || "—" }}</div>
-          </div>
+          <LabelValueTable>
+            <LabelValueRow label="Has preferred roommate">
+              {{ yesNo(application.hasPreferredRoommate) }}
+            </LabelValueRow>
+            <LabelValueRow v-if="application.hasPreferredRoommate" label="Preferred roommate name(s)">
+              {{ application.preferredRoommateNames || "—" }}
+            </LabelValueRow>
+          </LabelValueTable>
 
           <div class="text-subtitle-2 mb-2 mt-4">Flight purchase</div>
-          <div class="mb-2">
-            <div class="text-caption text-medium-emphasis">Option</div>
-            <div>
+          <LabelValueTable>
+            <LabelValueRow label="Option">
               {{
                 application.flightPurchaseOption === "self"
                   ? "Arrange for and purchase my own air travel"
@@ -266,36 +256,26 @@ const confirmUncancelApplication = async () => {
                     ? "Organization arranges and purchases air travel"
                     : "—"
               }}
-            </div>
-          </div>
-          <template v-if="application.flightPurchaseOption === 'organization'">
-            <div class="mb-2">
-              <div class="text-caption text-medium-emphasis">Preferred departure airport</div>
-              <div>
+            </LabelValueRow>
+            <template v-if="application.flightPurchaseOption === 'organization'">
+              <LabelValueRow label="Preferred departure airport">
                 {{
                   application.preferredDepartureAirport?.code ||
                   application.preferredDepartureAirportCode ||
                   "—"
                 }}
-              </div>
-            </div>
-            <div class="mb-2">
-              <div class="text-caption text-medium-emphasis">Preferred return airport</div>
-              <div>
+              </LabelValueRow>
+              <LabelValueRow label="Preferred return airport">
                 {{
                   application.preferredReturnAirport?.code ||
                   application.preferredReturnAirportCode ||
                   "—"
                 }}
-              </div>
-            </div>
-            <div class="mb-2">
-              <div class="text-caption text-medium-emphasis">Class of travel</div>
-              <div>{{ application.preferredCabinClass || "—" }}</div>
-            </div>
-            <div class="mb-2">
-              <div class="text-caption text-medium-emphasis">Refundable ticket</div>
-              <div>
+              </LabelValueRow>
+              <LabelValueRow label="Class of travel">
+                {{ application.preferredCabinClass || "—" }}
+              </LabelValueRow>
+              <LabelValueRow label="Refundable ticket">
                 {{
                   application.preferredRefundableTicket === true
                     ? "Yes"
@@ -303,103 +283,92 @@ const confirmUncancelApplication = async () => {
                       ? "No"
                       : "—"
                 }}
-              </div>
-            </div>
-            <div class="mb-3">
-              <div class="text-caption text-medium-emphasis">Preferred airline</div>
-              <div>
+              </LabelValueRow>
+              <LabelValueRow label="Preferred airline">
                 {{
                   application.preferredAirline?.code ||
                   application.preferredAirlineCode ||
                   "—"
                 }}
-              </div>
-            </div>
-          </template>
+              </LabelValueRow>
+            </template>
+          </LabelValueTable>
 
           <div class="text-subtitle-2 mb-2 mt-4">Selected travel options</div>
           <div v-if="!selectedTravelOptions.length" class="mb-3 text-medium-emphasis">
             None selected
           </div>
-          <div
-            v-for="option in selectedTravelOptions"
-            :key="option.id"
-            class="d-flex justify-space-between ga-3 mb-2"
-          >
-            <span>
-              <span class="text-medium-emphasis">Trip Option {{ option.setNumber }}:</span>
+          <LabelValueTable v-else>
+            <LabelValueRow
+              v-for="option in selectedTravelOptions"
+              :key="option.id"
+              :label="`Trip Option ${option.setNumber}`"
+            >
               {{ option.description }}
-            </span>
-            <span class="text-no-wrap">{{ formatAdjustment(option.priceAdjustment) }}</span>
-          </div>
+              <span class="text-no-wrap">{{ formatAdjustment(option.priceAdjustment) }}</span>
+            </LabelValueRow>
+          </LabelValueTable>
 
           <div class="text-subtitle-2 mb-2 mt-4">Agreement</div>
-          <div class="mb-2">
-            <div class="text-caption text-medium-emphasis">Participation agreed</div>
-            <div>{{ yesNo(application.agreementAccepted) }}</div>
-          </div>
-          <div class="mb-2">
-            <div class="text-caption text-medium-emphasis">Signature name</div>
-            <div>{{ application.agreementSignatureName || "—" }}</div>
-          </div>
-          <div class="mb-2">
-            <div class="text-caption text-medium-emphasis">Agreement date</div>
-            <div>{{ formatDateTime(application.agreementDate) }}</div>
-          </div>
-          <template
-            v-if="
-              application.person?.takesMedication === true ||
-              application.person?.takesMedication === 1 ||
-              application.medicalAgreementAccepted
-            "
-          >
-            <div class="mb-2">
-              <div class="text-caption text-medium-emphasis">Medical agreement agreed</div>
-              <div>{{ yesNo(application.medicalAgreementAccepted) }}</div>
-            </div>
-            <div class="mb-2">
-              <div class="text-caption text-medium-emphasis">Medical agreement date</div>
-              <div>{{ formatDateTime(application.medicalAgreementDate) }}</div>
-            </div>
-          </template>
+          <LabelValueTable>
+            <LabelValueRow label="Participation agreed">
+              {{ yesNo(application.agreementAccepted) }}
+            </LabelValueRow>
+            <LabelValueRow label="Signature name">
+              {{ application.agreementSignatureName || "—" }}
+            </LabelValueRow>
+            <LabelValueRow label="Agreement date">
+              {{ formatDateTime(application.agreementDate) }}
+            </LabelValueRow>
+            <template
+              v-if="
+                application.person?.takesMedication === true ||
+                application.person?.takesMedication === 1 ||
+                application.medicalAgreementAccepted
+              "
+            >
+              <LabelValueRow label="Medical agreement agreed">
+                {{ yesNo(application.medicalAgreementAccepted) }}
+              </LabelValueRow>
+              <LabelValueRow label="Medical agreement date">
+                {{ formatDateTime(application.medicalAgreementDate) }}
+              </LabelValueRow>
+            </template>
+          </LabelValueTable>
+
           <template v-if="application.person?.gender === 'female'">
             <div class="text-subtitle-2 mb-2 mt-4">Pregnancy</div>
-            <div class="mb-2">
-              <div class="text-caption text-medium-emphasis">Are you pregnant?</div>
-              <div>{{ yesNo(application.isPregnant) }}</div>
-            </div>
-            <div v-if="application.isPregnant === true || application.isPregnant === 1" class="mb-2">
-              <div class="text-caption text-medium-emphasis">Due date</div>
-              <div>{{ application.pregnancyDueDate || "—" }}</div>
-            </div>
+            <LabelValueTable>
+              <LabelValueRow label="Are you pregnant?">{{ yesNo(application.isPregnant) }}</LabelValueRow>
+              <LabelValueRow
+                v-if="application.isPregnant === true || application.isPregnant === 1"
+                label="Due date"
+              >
+                {{ application.pregnancyDueDate || "—" }}
+              </LabelValueRow>
+            </LabelValueTable>
           </template>
 
           <template v-if="under18 || application.agreementAdultFirstName || application.agreementAdultLastName">
             <div class="text-subtitle-2 mb-2 mt-4">Adult signer</div>
-            <div class="mb-2">
-              <div class="text-caption text-medium-emphasis">Name</div>
-              <div>
+            <LabelValueTable>
+              <LabelValueRow label="Name">
                 {{
                   [application.agreementAdultFirstName, application.agreementAdultLastName]
                     .filter(Boolean)
                     .join(" ") || "—"
                 }}
-              </div>
-            </div>
-            <div class="mb-2">
-              <div class="text-caption text-medium-emphasis">Email</div>
-              <div>{{ application.agreementAdultEmail || "—" }}</div>
-            </div>
-            <div class="mb-3">
-              <div class="text-caption text-medium-emphasis">Relationship</div>
-              <div>{{ application.agreementAdultRelationship || "—" }}</div>
-            </div>
+              </LabelValueRow>
+              <LabelValueRow label="Email">{{ application.agreementAdultEmail || "—" }}</LabelValueRow>
+              <LabelValueRow label="Relationship">
+                {{ application.agreementAdultRelationship || "—" }}
+              </LabelValueRow>
+            </LabelValueTable>
           </template>
 
-          <div v-if="application.whygoText" class="mb-3 mt-4">
-            <div class="text-caption text-medium-emphasis">Why go</div>
-            <div class="text-body-2">{{ application.whygoText }}</div>
-          </div>
+          <LabelValueTable v-if="application.whygoText" class="mt-4">
+            <LabelValueRow label="Why go">{{ application.whygoText }}</LabelValueRow>
+          </LabelValueTable>
 
           <v-alert v-if="actionError" type="error" density="compact" class="mt-3">
             {{ actionError }}
