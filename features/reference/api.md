@@ -124,6 +124,8 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 | `GET` | `/trips/people/:id/documents/:documentId/specializations/:specializationId/view` | auth | Inline view of one specialization file |
 | `GET` | `/trips/people/:id/documents/:documentId/specializations/:specializationId/download` | auth | Download one specialization file |
 
+Uploaded document and specialization files are stored encrypted and returned decrypted (Feature 63). Upload, view, download, and the participant documents PDF return `500` "Could not read the document encryption key." when the key cannot be read; view and download return `500` "The document could not be decrypted." for a wrong key or damaged file.
+
 ---
 
 ## Trips (catalog) — Feature 5

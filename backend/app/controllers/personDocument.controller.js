@@ -1,6 +1,11 @@
 import db from "../models/index.js";
 import fs from "fs";
 import path from "path";
+import {
+  encryptDocument,
+  readDocumentFile,
+  readDocumentKey,
+} from "../utils/documentEncryption.js";
 
 const Person = db.person;
 const PersonDocument = db.personDocument;
@@ -87,6 +92,21 @@ const cleanupUploadedFile = (req) => {
 
 const storedFileName = (file) => path.join("people", file.filename).replace(/\\/g, "/");
 
+/** Encrypt and write the uploaded files that will be saved; `cleanupUploadedFile` removes them. */
+const writeEncryptedFiles = async (files) => {
+  const toWrite = files.filter(Boolean);
+  if (!toWrite.length) return;
+  const key = await readDocumentKey();
+  for (const file of toWrite) {
+    const filePath = documentPath(storedFileName(file));
+    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.promises.writeFile(filePath, encryptDocument(key, file.buffer));
+    file.path = filePath;
+  }
+};
+
+const planFiles = (plan) => (plan.skip ? [] : plan.prepared.map((item) => item.file));
+
 const SPECIALIZATION_INVALID =
   "Each specialization needs a name, a date, and a file.";
 
@@ -150,7 +170,7 @@ const prepareSpecializations = (rows, files, existingById, listIds) => {
       file,
     });
   }
-  return { prepared, unusedFiles: files.slice(fileIndex) };
+  return { prepared };
 };
 
 const persistSpecializations = async (personDocumentId, prepared, existingRows) => {
@@ -181,16 +201,6 @@ const persistSpecializations = async (personDocumentId, prepared, existingRows) 
   }
 };
 
-const discardUnusedFiles = (files) => {
-  for (const file of files || []) {
-    try {
-      fs.unlinkSync(file.path);
-    } catch {
-      /* ignore cleanup errors */
-    }
-  }
-};
-
 const resolveSpecializationPlan = async (body, documentType, files, personDocumentId) => {
   const parsed = parseSpecializations(body);
   if (parsed.error) return parsed;
@@ -213,7 +223,7 @@ const resolveSpecializationPlan = async (body, documentType, files, personDocume
   const listIds = new Set(list.map((row) => Number(row.id)));
   const prepared = prepareSpecializations(parsed.rows, files, existingById, listIds);
   if (prepared.error) return prepared;
-  return { skip: false, prepared: prepared.prepared, existing, unusedFiles: prepared.unusedFiles };
+  return { skip: false, prepared: prepared.prepared, existing };
 };
 
 const serializeDocument = (row) => {
@@ -326,6 +336,7 @@ exports.create = async (req, res) => {
     }
 
     const documentFile = primaryDocumentFile(req);
+    await writeEncryptedFiles([documentFile, ...planFiles(plan)]);
     const data = await PersonDocument.create({
       personId: person.id,
       ...result.payload,
@@ -334,7 +345,6 @@ exports.create = async (req, res) => {
 
     if (!plan.skip) {
       await persistSpecializations(data.id, plan.prepared, []);
-      discardUnusedFiles(plan.unusedFiles);
     }
 
     res.send(serializeDocument(await loadForPerson(data.id, person.id)));
@@ -372,10 +382,7 @@ exports.update = async (req, res) => {
 
     const payload = { ...result.payload };
     const documentFile = primaryDocumentFile(req);
-    if (documentFile) {
-      removeDocumentFile(row.documentFileName);
-      payload.documentFileName = storedFileName(documentFile);
-    }
+    if (documentFile) payload.documentFileName = storedFileName(documentFile);
 
     const plan = await resolveSpecializationPlan(
       req.body,
@@ -388,16 +395,34 @@ exports.update = async (req, res) => {
       return res.status(400).send({ message: plan.error });
     }
 
+    await writeEncryptedFiles([documentFile, ...planFiles(plan)]);
+    if (documentFile) removeDocumentFile(row.documentFileName);
     await row.update(payload);
     if (!plan.skip) {
       await persistSpecializations(row.id, plan.prepared, plan.existing);
-      discardUnusedFiles(plan.unusedFiles);
     }
     res.send(serializeDocument(await loadForPerson(row.id, person.id)));
   } catch (err) {
     cleanupUploadedFile(req);
     res.status(500).send({ message: err.message });
   }
+};
+
+const sendDocumentFile = async (res, documentFileName, { inline }) => {
+  const filePath = documentPath(documentFileName);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send({ message: "Document file not found." });
+  }
+
+  const data = await readDocumentFile(filePath);
+  const fileName = path.basename(documentFileName);
+  if (inline) {
+    res.type(path.extname(fileName));
+    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+  } else {
+    res.attachment(fileName);
+  }
+  return res.send(data);
 };
 
 const serveDocument = async (req, res, { inline }) => {
@@ -412,18 +437,7 @@ const serveDocument = async (req, res, { inline }) => {
   });
   if (!row) return res.status(404).send({ message: "Document not found." });
 
-  const filePath = documentPath(row.documentFileName);
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).send({ message: "Document file not found." });
-  }
-
-  const fileName = path.basename(row.documentFileName);
-  if (inline) {
-    const disposition = `inline; filename="${fileName}"`;
-    res.setHeader("Content-Disposition", disposition);
-    return res.sendFile(path.resolve(filePath));
-  }
-  return res.download(filePath, fileName);
+  return sendDocumentFile(res, row.documentFileName, { inline });
 };
 
 exports.view = async (req, res) => {
@@ -459,17 +473,7 @@ const serveSpecialization = async (req, res, { inline }) => {
   });
   if (!row) return res.status(404).send({ message: "Specialization not found." });
 
-  const filePath = documentPath(row.documentFileName);
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).send({ message: "Document file not found." });
-  }
-
-  const fileName = path.basename(row.documentFileName);
-  if (inline) {
-    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
-    return res.sendFile(path.resolve(filePath));
-  }
-  return res.download(filePath, fileName);
+  return sendDocumentFile(res, row.documentFileName, { inline });
 };
 
 exports.viewSpecialization = async (req, res) => {
