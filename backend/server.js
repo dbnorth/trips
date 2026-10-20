@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 import db from "./app/models/index.js";
 import logger from "./app/config/logger.js";
 import { ensureSchema } from "./app/scripts/ensureSchema.js";
+import { loadPersonalDataKey } from "./app/utils/personalDataEncryption.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,21 +16,6 @@ const syncOptions =
   process.env.SEQUELIZE_SYNC_ALTER === "true" || process.env.SEQUELIZE_SYNC_ALTER === "1"
     ? { alter: true }
     : {};
-
-if (process.env.NODE_ENV !== "test") {
-  db.sequelize
-    .sync(syncOptions)
-    .then(() => ensureSchema())
-    .then(() => {
-      if (syncOptions.alter) {
-        logger.info("Database sync completed with alter: true.");
-      }
-    })
-    .catch((err) => {
-      logger.error(`Database sync failed: ${err.message}`);
-      process.exit(1);
-    });
-}
 
 const app = express();
 
@@ -50,11 +36,35 @@ app.use("/trips/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/trips", routes);
 
 const PORT = process.env.PORT || 3200;
-if (process.env.NODE_ENV !== "test") {
+
+export const startServer = async () => {
+  try {
+    await loadPersonalDataKey();
+  } catch (err) {
+    logger.error(err.message);
+    process.exit(1);
+    return;
+  }
+
+  db.sequelize
+    .sync(syncOptions)
+    .then(() => ensureSchema())
+    .then(() => {
+      if (syncOptions.alter) {
+        logger.info("Database sync completed with alter: true.");
+      }
+    })
+    .catch((err) => {
+      logger.error(`Database sync failed: ${err.message}`);
+      process.exit(1);
+    });
+
   app.listen(PORT, () => {
     logger.info(`Trips API running on port ${PORT}`);
   });
-}
+};
+
+if (process.env.NODE_ENV !== "test") startServer();
 
 export { logger };
 export default app;
