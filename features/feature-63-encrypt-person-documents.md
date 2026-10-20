@@ -13,6 +13,7 @@
 ## User Stories
 
 ### US-63.1: Store uploaded documents encrypted on disk
+
 **As a** system administrator
 **I want** every uploaded person document and specialization file written to disk only in encrypted form
 **So that** someone who can read the server's files cannot see passports, licences, or other documents
@@ -22,6 +23,7 @@
 **Acceptance scenarios:** see ### US-63.1
 
 ### US-63.2: Documents still open, download, and print
+
 **As a** person or authorized staff member
 **I want** view, download, and the Documents PDF to keep working with encrypted files
 **So that** nothing changes for the people who use documents
@@ -31,6 +33,7 @@
 **Acceptance scenarios:** see ### US-63.2
 
 ### US-63.3: Read the encryption key from AWS Secrets Manager
+
 **As a** system administrator
 **I want** the backend to get the document encryption key from AWS Secrets Manager
 **So that** the key is not stored in GitHub, the production `.env` file, or the source code
@@ -89,10 +92,10 @@
 
 ## Data Ownership & Isolation
 
-| Rule | Requirement |
-|------|-------------|
-| **Who may see documents** | Unchanged (Feature 4 person access rules; Feature 58 trip staff rules) |
-| **Key** | Held only by the server; used only to encrypt and decrypt document files; never logged, stored in the database, or returned by an API |
+| Rule                      | Requirement                                                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Who may see documents** | Unchanged (Feature 4 person access rules; Feature 58 trip staff rules)                                                                |
+| **Key**                   | Held only by the server; used only to encrypt and decrypt document files; never logged, stored in the database, or returned by an API |
 
 ---
 
@@ -107,12 +110,12 @@
 
 No new endpoints. Changed behavior:
 
-| Method | Endpoint | Change |
-|--------|----------|--------|
-| `POST` / `PUT` | `/trips/people/:id/documents[/:documentId]` | Files stored encrypted; `500` "Could not read the document encryption key." when the key cannot be read |
-| `GET` | `/trips/people/:id/documents/:documentId/view` and `/download` | Decrypt before sending; `500` key or decrypt messages (FR-011, FR-012) |
-| `GET` | `/trips/people/:id/documents/:documentId/specializations/:specializationId/view` and `/download` | Same as above |
-| `GET` | `/trips/trips/:id/participants/:assignmentId/documents/pdf` (Feature 58) | Decrypt each file; `500` when the key cannot be read |
+| Method         | Endpoint                                                                                         | Change                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `POST` / `PUT` | `/trips/people/:id/documents[/:documentId]`                                                      | Files stored encrypted; `500` "Could not read the document encryption key." when the key cannot be read |
+| `GET`          | `/trips/people/:id/documents/:documentId/view` and `/download`                                   | Decrypt before sending; `500` key or decrypt messages (FR-011, FR-012)                                  |
+| `GET`          | `/trips/people/:id/documents/:documentId/specializations/:specializationId/view` and `/download` | Same as above                                                                                           |
+| `GET`          | `/trips/trips/:id/participants/:assignmentId/documents/pdf` (Feature 58)                         | Decrypt each file; `500` when the key cannot be read                                                    |
 
 ---
 
@@ -130,11 +133,11 @@ No database changes.
 
 ## Configuration
 
-| Setting | Where | Example | Notes |
-|---------|-------|---------|-------|
-| `FILE_ENCRYPTION_KEY_SECRET_ID` | `.env`; GitHub secret for deploy | `DOC_ENCRIPTION_KEY` | Set → key from the Secrets Manager Agent |
-| `FILE_ENCRYPTION_KEY` | `.env` (development and tests only) | output of `openssl rand -base64 32` | Used only when `FILE_ENCRYPTION_KEY_SECRET_ID` is blank |
-| `SECRETS_AGENT_TOKEN_FILE` | `.env` (optional) | `/var/run/awssmatoken` | Shared with Feature 50 |
+| Setting                         | Where                               | Example                             | Notes                                                   |
+| ------------------------------- | ----------------------------------- | ----------------------------------- | ------------------------------------------------------- |
+| `FILE_ENCRYPTION_KEY_SECRET_ID` | `.env`; GitHub secret for deploy    | `DOC_ENCRIPTION_KEY`                | Set → key from the Secrets Manager Agent                |
+| `FILE_ENCRYPTION_KEY`           | `.env` (development and tests only) | output of `openssl rand -base64 32` | Used only when `FILE_ENCRYPTION_KEY_SECRET_ID` is blank |
+| `SECRETS_AGENT_TOKEN_FILE`      | `.env` (optional)                   | `/var/run/awssmatoken`              | Shared with Feature 50                                  |
 
 ---
 
@@ -143,113 +146,127 @@ No database changes.
 ### US-63.1 — Store uploaded documents encrypted on disk
 
 #### Scenario: Uploaded document is encrypted on disk
-* **Given** `FILE_ENCRYPTION_KEY` is a valid key and I can manage person P
-* **When** I upload a PDF document for P
-* **Then** the stored file under `documents/people/` starts with `TRIPSENC`
-* **And** it does not start with `%PDF` and does not contain the uploaded bytes
-* **And** `documentFileName` keeps the original extension
+
+- **Given** `FILE_ENCRYPTION_KEY` is a valid key and I can manage person P
+- **When** I upload a PDF document for P
+- **Then** the stored file under `documents/people/` starts with `TRIPSENC`
+- **And** it does not start with `%PDF` and does not contain the uploaded bytes
+- **And** `documentFileName` keeps the original extension
 
 #### Scenario: Uploaded specialization file is encrypted on disk
-* **Given** `FILE_ENCRYPTION_KEY` is a valid key and a document type that allows specializations
-* **When** I upload a person document with a specialization file
-* **Then** the stored specialization file starts with `TRIPSENC` and does not contain the uploaded bytes
+
+- **Given** `FILE_ENCRYPTION_KEY` is a valid key and a document type that allows specializations
+- **When** I upload a person document with a specialization file
+- **Then** the stored specialization file starts with `TRIPSENC` and does not contain the uploaded bytes
 
 #### Scenario: Upload fails and keeps nothing when the key cannot be read
-* **Given** `FILE_ENCRYPTION_KEY_SECRET_ID` and `FILE_ENCRYPTION_KEY` are both blank
-* **When** I upload a document for person P
-* **Then** the response is `500` with "Could not read the document encryption key."
-* **And** no new file is in `documents/people/`
-* **And** no person document row is added
+
+- **Given** `FILE_ENCRYPTION_KEY_SECRET_ID` and `FILE_ENCRYPTION_KEY` are both blank
+- **When** I upload a document for person P
+- **Then** the response is `500` with "Could not read the document encryption key."
+- **And** no new file is in `documents/people/`
+- **And** no person document row is added
 
 ### US-63.2 — Documents still open, download, and print
 
 #### Scenario: Download returns the original document
-* **Given** I uploaded a document for person P with the current key
-* **When** I download it
-* **Then** the response body equals the uploaded bytes
-* **And** the file name in `Content-Disposition` is the same as before this feature
+
+- **Given** I uploaded a document for person P with the current key
+- **When** I download it
+- **Then** the response body equals the uploaded bytes
+- **And** the file name in `Content-Disposition` is the same as before this feature
 
 #### Scenario: View returns the original specialization file inline
-* **Given** I uploaded a PNG specialization file with the current key
-* **When** I view it
-* **Then** the response body equals the uploaded bytes with `Content-Type` `image/png` and an inline `Content-Disposition`
+
+- **Given** I uploaded a PNG specialization file with the current key
+- **When** I view it
+- **Then** the response body equals the uploaded bytes with `Content-Type` `image/png` and an inline `Content-Disposition`
 
 #### Scenario: Unencrypted file from before this feature still downloads
-* **Given** a person document whose file on disk is an unencrypted PDF
-* **When** I download it
-* **Then** the response body equals the file on disk
+
+- **Given** a person document whose file on disk is an unencrypted PDF
+- **When** I download it
+- **Then** the response body equals the file on disk
 
 #### Scenario: Unauthorized user still cannot download
-* **Given** an encrypted document for person P
-* **When** a user who cannot manage P downloads it
-* **Then** the response is `403`
+
+- **Given** an encrypted document for person P
+- **When** a user who cannot manage P downloads it
+- **Then** the response is `403`
 
 #### Scenario: Wrong key fails without partial content
-* **Given** a document encrypted with one key
-* **And** `FILE_ENCRYPTION_KEY` is changed to a different valid key
-* **When** I download it
-* **Then** the response is `500` with "The document could not be decrypted."
+
+- **Given** a document encrypted with one key
+- **And** `FILE_ENCRYPTION_KEY` is changed to a different valid key
+- **When** I download it
+- **Then** the response is `500` with "The document could not be decrypted."
 
 #### Scenario: Downloaded file is saved with its file extension
-* **Given** a person document whose `documentFileName` is `people/person-26-1-passport.pdf`
-* **And** the download response's `Content-Disposition` cannot be read by the browser
-* **When** I click **Download**
-* **Then** the file is saved as `person-26-1-passport.pdf`
+
+- **Given** a person document whose `documentFileName` is `people/person-26-1-passport.pdf`
+- **And** the download response's `Content-Disposition` cannot be read by the browser
+- **When** I click **Download**
+- **Then** the file is saved as `person-26-1-passport.pdf`
 
 #### Scenario: Documents PDF includes decrypted files
-* **Given** an approved participant with an encrypted PDF document and an encrypted PNG specialization file
-* **When** trip staff build that participant's Documents PDF
-* **Then** the PDF includes the document's pages and the specialization image, not "The file could not be read."
+
+- **Given** an approved participant with an encrypted PDF document and an encrypted PNG specialization file
+- **When** trip staff build that participant's Documents PDF
+- **Then** the PDF includes the document's pages and the specialization image, not "The file could not be read."
 
 ### US-63.3 — Read the encryption key from AWS Secrets Manager
 
 #### Scenario: Key comes from AWS Secrets Manager
-* **Given** `FILE_ENCRYPTION_KEY_SECRET_ID` is `DOC_ENCRIPTION_KEY` and `FILE_ENCRYPTION_KEY` is a different valid key
-* **And** the token file contains `agent-token`
-* **And** the agent returns a valid base64 key as `SecretString` for `DOC_ENCRIPTION_KEY`
-* **When** I upload a document and then download it
-* **Then** the agent is asked for `secretId=DOC_ENCRIPTION_KEY` with header `X-Aws-Parameters-Secrets-Token: agent-token`
-* **And** the stored file decrypts with the agent's key, not with `FILE_ENCRYPTION_KEY`
-* **And** the download returns the uploaded bytes
+
+- **Given** `FILE_ENCRYPTION_KEY_SECRET_ID` is `DOC_ENCRIPTION_KEY` and `FILE_ENCRYPTION_KEY` is a different valid key
+- **And** the token file contains `agent-token`
+- **And** the agent returns a valid base64 key as `SecretString` for `DOC_ENCRIPTION_KEY`
+- **When** I upload a document and then download it
+- **Then** the agent is asked for `secretId=DOC_ENCRIPTION_KEY` with header `X-Aws-Parameters-Secrets-Token: agent-token`
+- **And** the stored file decrypts with the agent's key, not with `FILE_ENCRYPTION_KEY`
+- **And** the download returns the uploaded bytes
 
 #### Scenario: Env key is used when no secret is named
-* **Given** `FILE_ENCRYPTION_KEY_SECRET_ID` is blank and `FILE_ENCRYPTION_KEY` is a valid key
-* **When** I upload a document
-* **Then** the agent is not called
-* **And** the stored file decrypts with `FILE_ENCRYPTION_KEY`
+
+- **Given** `FILE_ENCRYPTION_KEY_SECRET_ID` is blank and `FILE_ENCRYPTION_KEY` is a valid key
+- **When** I upload a document
+- **Then** the agent is not called
+- **And** the stored file decrypts with `FILE_ENCRYPTION_KEY`
 
 #### Scenario: Upload fails when the agent returns an error
-* **Given** `FILE_ENCRYPTION_KEY_SECRET_ID` is `DOC_ENCRIPTION_KEY`
-* **And** the agent returns an error
-* **When** I upload a document
-* **Then** the response is `500` with "Could not read the document encryption key."
-* **And** no new file is in `documents/people/`
+
+- **Given** `FILE_ENCRYPTION_KEY_SECRET_ID` is `DOC_ENCRIPTION_KEY`
+- **And** the agent returns an error
+- **When** I upload a document
+- **Then** the response is `500` with "Could not read the document encryption key."
+- **And** no new file is in `documents/people/`
 
 #### Scenario: Key of the wrong length is rejected
-* **Given** `FILE_ENCRYPTION_KEY_SECRET_ID` is blank and `FILE_ENCRYPTION_KEY` decodes to 16 bytes
-* **When** I upload a document
-* **Then** the response is `500` with "Could not read the document encryption key."
+
+- **Given** `FILE_ENCRYPTION_KEY_SECRET_ID` is blank and `FILE_ENCRYPTION_KEY` decodes to 16 bytes
+- **When** I upload a document
+- **Then** the response is `500` with "Could not read the document encryption key."
 
 ---
 
 ## Test Coverage Map
 
-| Story | Scenario | Test location | `it` / test name |
-|-------|----------|---------------|------------------|
-| US-63.1 | Uploaded document is encrypted on disk | `backend/tests/document-encryption.test.js` | `Uploaded document is encrypted on disk` |
-| US-63.1 | Uploaded specialization file is encrypted on disk | `backend/tests/document-encryption.test.js` | `Uploaded specialization file is encrypted on disk` |
-| US-63.1 | Upload fails and keeps nothing when the key cannot be read | `backend/tests/document-encryption.test.js` | `Upload fails and keeps nothing when the key cannot be read` |
-| US-63.2 | Download returns the original document | `backend/tests/document-encryption.test.js` | `Download returns the original document` |
-| US-63.2 | View returns the original specialization file inline | `backend/tests/document-encryption.test.js` | `View returns the original specialization file inline` |
-| US-63.2 | Unencrypted file from before this feature still downloads | `backend/tests/document-encryption.test.js` | `Unencrypted file from before this feature still downloads` |
-| US-63.2 | Unauthorized user still cannot download | `backend/tests/document-encryption.test.js` | `Unauthorized user still cannot download` |
-| US-63.2 | Wrong key fails without partial content | `backend/tests/document-encryption.test.js` | `Wrong key fails without partial content` |
-| US-63.2 | Downloaded file is saved with its file extension | `frontend/tests/personDocumentServices.test.js` | `Downloaded file is saved with its file extension` |
-| US-63.2 | Documents PDF includes decrypted files | `backend/tests/document-encryption.test.js` | `Documents PDF includes decrypted files` |
-| US-63.3 | Key comes from AWS Secrets Manager | `backend/tests/document-encryption.test.js` | `Key comes from AWS Secrets Manager` |
-| US-63.3 | Env key is used when no secret is named | `backend/tests/document-encryption.test.js` | `Env key is used when no secret is named` |
-| US-63.3 | Upload fails when the agent returns an error | `backend/tests/document-encryption.test.js` | `Upload fails when the agent returns an error` |
-| US-63.3 | Key of the wrong length is rejected | `backend/tests/document-encryption.test.js` | `Key of the wrong length is rejected` |
+| Story   | Scenario                                                   | Test location                                   | `it` / test name                                             |
+| ------- | ---------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------ |
+| US-63.1 | Uploaded document is encrypted on disk                     | `backend/tests/document-encryption.test.js`     | `Uploaded document is encrypted on disk`                     |
+| US-63.1 | Uploaded specialization file is encrypted on disk          | `backend/tests/document-encryption.test.js`     | `Uploaded specialization file is encrypted on disk`          |
+| US-63.1 | Upload fails and keeps nothing when the key cannot be read | `backend/tests/document-encryption.test.js`     | `Upload fails and keeps nothing when the key cannot be read` |
+| US-63.2 | Download returns the original document                     | `backend/tests/document-encryption.test.js`     | `Download returns the original document`                     |
+| US-63.2 | View returns the original specialization file inline       | `backend/tests/document-encryption.test.js`     | `View returns the original specialization file inline`       |
+| US-63.2 | Unencrypted file from before this feature still downloads  | `backend/tests/document-encryption.test.js`     | `Unencrypted file from before this feature still downloads`  |
+| US-63.2 | Unauthorized user still cannot download                    | `backend/tests/document-encryption.test.js`     | `Unauthorized user still cannot download`                    |
+| US-63.2 | Wrong key fails without partial content                    | `backend/tests/document-encryption.test.js`     | `Wrong key fails without partial content`                    |
+| US-63.2 | Downloaded file is saved with its file extension           | `frontend/tests/personDocumentServices.test.js` | `Downloaded file is saved with its file extension`           |
+| US-63.2 | Documents PDF includes decrypted files                     | `backend/tests/document-encryption.test.js`     | `Documents PDF includes decrypted files`                     |
+| US-63.3 | Key comes from AWS Secrets Manager                         | `backend/tests/document-encryption.test.js`     | `Key comes from AWS Secrets Manager`                         |
+| US-63.3 | Env key is used when no secret is named                    | `backend/tests/document-encryption.test.js`     | `Env key is used when no secret is named`                    |
+| US-63.3 | Upload fails when the agent returns an error               | `backend/tests/document-encryption.test.js`     | `Upload fails when the agent returns an error`               |
+| US-63.3 | Key of the wrong length is rejected                        | `backend/tests/document-encryption.test.js`     | `Key of the wrong length is rejected`                        |
 
 Tests replace `fetch` so nothing reaches AWS, point `SECRETS_AGENT_TOKEN_FILE` at a temporary file, and set `FILE_ENCRYPTION_KEY` per test. Existing person document, specialization, and Documents PDF tests set a valid `FILE_ENCRYPTION_KEY` and must keep passing, as must the Feature 50 tests in `backend/tests/aws-secrets.test.js`.
 
@@ -275,17 +292,17 @@ Do not implement behavior not in this spec.
 
 ## Definition of Done
 
-*   [x] Document and specialization uploads stored encrypted, never unencrypted on disk (**FR-001**–**FR-003**)
-*   [x] View, download, and Documents PDF decrypt; old unencrypted files still served (**FR-004**–**FR-006**)
-*   [x] Key from the Secrets Manager Agent when `FILE_ENCRYPTION_KEY_SECRET_ID` is set, otherwise `FILE_ENCRYPTION_KEY`; shared agent call (**FR-007**–**FR-010**)
-*   [x] Key and decrypt failures return the FR-011 / FR-012 messages; no unencrypted fallback; key never logged (**FR-011**–**FR-013**)
-*   [x] Deploy workflow and `backend/.env.example` updated (**FR-014**)
-*   [x] Browser download keeps the file name and extension (**FR-015**)
-*   [x] Automated tests for every Gherkin scenario; Feature 50 tests still pass
-*   [x] Living reference updated in this PR
-*   [x] `npm test` green in backend
-*   [ ] On `feature/63-encrypt-person-documents`; PR → `dev`
-*   [ ] Ops: create the `DOC_ENCRIPTION_KEY` secret (`openssl rand -base64 32`), grant the server's IAM role read access, set the GitHub secret `FILE_ENCRYPTION_KEY_SECRET_ID` to `DOC_ENCRIPTION_KEY`, and back up the key (losing it makes every encrypted document unreadable)
+- [x] Document and specialization uploads stored encrypted, never unencrypted on disk (**FR-001**–**FR-003**)
+- [x] View, download, and Documents PDF decrypt; old unencrypted files still served (**FR-004**–**FR-006**)
+- [x] Key from the Secrets Manager Agent when `FILE_ENCRYPTION_KEY_SECRET_ID` is set, otherwise `FILE_ENCRYPTION_KEY`; shared agent call (**FR-007**–**FR-010**)
+- [x] Key and decrypt failures return the FR-011 / FR-012 messages; no unencrypted fallback; key never logged (**FR-011**–**FR-013**)
+- [x] Deploy workflow and `backend/.env.example` updated (**FR-014**)
+- [x] Browser download keeps the file name and extension (**FR-015**)
+- [x] Automated tests for every Gherkin scenario; Feature 50 tests still pass
+- [x] Living reference updated in this PR
+- [x] `npm test` green in backend
+- [ ] On `feature/63-encrypt-person-documents`; PR → `dev`
+- [ ] Ops: create the `DOC_ENCRIPTION_KEY` secret (`openssl rand -base64 32`), grant the server's IAM role read access, set the GitHub secret `FILE_ENCRYPTION_KEY_SECRET_ID` to `DOC_ENCRIPTION_KEY`, and back up the key (losing it makes every encrypted document unreadable)
 
 ---
 
@@ -297,3 +314,5 @@ Do not implement behavior not in this spec.
 - Installing or configuring the Secrets Manager Agent, the IAM role, or the secret itself
 - Calling AWS Secrets Manager directly with the AWS SDK
 - Encrypting database columns
+
+redeploy
