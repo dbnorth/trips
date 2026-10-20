@@ -61,6 +61,16 @@ const canManageTripStatus = async (req, tripId) => {
   return { ok: false, status: 403, trip: access.trip };
 };
 
+/** Delete a trip's image file unless another trip still uses it (copied trips share the file). */
+const deleteTripImageFile = async (trip) => {
+  if (!trip?.image) return;
+  const sharedWith = await Trip.count({ where: { image: trip.image, id: { [Op.ne]: trip.id } } });
+  if (sharedWith > 0) return;
+  for (const filePath of [path.join("images", trip.image), path.join("uploads", trip.image)]) {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  }
+};
+
 const personDisplayName = (person) => {
   if (!person) return "—";
   const name = [person.firstName, person.middleName, person.lastName].filter(Boolean).join(" ").trim();
@@ -575,11 +585,7 @@ exports.uploadImage = async (req, res) => {
     if (!canManage) return res.status(403).send({ message: "Forbidden." });
     if (!req.file) return res.status(400).send({ message: "No image uploaded." });
 
-    if (trip.image) {
-      for (const filePath of [path.join("images", trip.image), path.join("uploads", trip.image)]) {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      }
-    }
+    await deleteTripImageFile(trip);
 
     const image = path.join("trips", req.file.filename).replace(/\\/g, "/");
     await Trip.update({ image }, { where: { id: req.params.id } });
@@ -597,11 +603,7 @@ exports.delete = async (req, res) => {
       return res.status(403).send({ message: "Forbidden." });
     }
     const trip = await Trip.findByPk(req.params.id);
-    if (trip?.image) {
-      for (const filePath of [path.join("images", trip.image), path.join("uploads", trip.image)]) {
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      }
-    }
+    await deleteTripImageFile(trip);
     await Trip.destroy({ where: { id: req.params.id } });
     res.send({ message: "Trip deleted." });
   } catch (err) {
