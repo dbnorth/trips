@@ -413,6 +413,20 @@ exports.update = async (req, res) => {
       return res.status(403).send({ message: "Forbidden." });
     }
 
+    const isSelf = req.user?.personId && Number(req.user.personId) === Number(person.id);
+    if (!isSelf && !isSystemAdmin(req)) {
+      if (Object.prototype.hasOwnProperty.call(req.body, "password") && req.body.password) {
+        return res.status(403).send({ message: "Forbidden. System admin required to set a password." });
+      }
+      if (
+        Object.prototype.hasOwnProperty.call(req.body, "email") &&
+        person.userId &&
+        normalizeEmail(req.body.email) !== normalizeEmail(person.email)
+      ) {
+        return res.status(403).send({ message: "Forbidden. System admin required to change a login email." });
+      }
+    }
+
     const body = { ...req.body };
     const languageInput = stripLanguageInput(body);
     if (Object.prototype.hasOwnProperty.call(body, "middleName")) {
@@ -492,6 +506,7 @@ exports.update = async (req, res) => {
         return res.status(400).send({ message: "No user account is linked to this person." });
       }
       await updateUserPassword(linkedUser.id, body.password);
+      await Session.update({ token: "" }, { where: { userId: linkedUser.id } });
       delete body.password;
     }
 

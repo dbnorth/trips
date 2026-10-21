@@ -163,7 +163,13 @@ const canChangePassword = computed(() => !!form.value.userId);
 
 const showChangePasswordButton = computed(() => isSelfProfile.value && canChangePassword.value);
 
-const showAdminPasswordField = computed(() => !isSelfProfile.value && canChangePassword.value);
+const showAdminPasswordField = computed(
+  () => isSystemAdmin.value && !isSelfProfile.value && canChangePassword.value
+);
+
+const loginEmailLocked = computed(
+  () => !isSystemAdmin.value && !isSelfProfile.value && !!form.value.userId
+);
 
 const hasDuplicateOrgRole = (orgId, roleId) =>
   orgRoles.value.some(
@@ -518,7 +524,14 @@ const save = async () => {
             type="email"
             density="compact"
             autocomplete="off"
-            :hint="form.userId ? 'Updates the linked user login email' : ''"
+            :readonly="loginEmailLocked"
+            :hint="
+              loginEmailLocked
+                ? 'Only a System Admin can change a login email.'
+                : form.userId
+                  ? 'Updates the linked user login email'
+                  : ''
+            "
             persistent-hint
           />
           <v-switch
