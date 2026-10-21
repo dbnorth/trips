@@ -234,15 +234,15 @@ Uploaded document and specialization files are stored encrypted and returned dec
 | `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields); sends `application-submitted` event emails — Feature 45; `400` "Your role on this trip is reserved." when a reserved caller picks another role — Feature 56 |
 | `POST` | `/trips/trips/browse/:id/application/cancel` | auth | Applicant cancel own application (`incomplete`/`applied`/`approved` → `cancelled`) |
 | `POST` | `/trips/trips/browse/:id/application/uncancel` | auth | Applicant uncancel → auto `incomplete`/`applied`; fails if role full |
-| `GET` | `/trips/trip-people-roles` | auth | Roster (`?tripId=`) |
+| `GET` | `/trips/trip-people-roles` | auth | Roster (`?tripId=`); trip staff only (System Admin, Org Admin of the trip's organization, approved Trip Leader of the trip), everyone else → `403` "Forbidden." — Feature 69 |
 | `GET` | `/trips/trips/:id/status` | auth | Trip Status board — Feature 28 (also listed under Trips catalog) |
-| `GET` | `/trips/trip-people-roles/:id` | auth | One assignment |
+| `GET` | `/trips/trip-people-roles/:id` | auth | One assignment; trip staff only, everyone else (including the applicant, who uses `GET /trips/trips/browse/:id/application`) → `403` "Forbidden." — Feature 69 |
 | `POST` | `/trips/trip-people-roles` | auth | Staff add participant; sends application event emails for Trip Participants — Feature 45 |
 | `POST` | `/trips/trip-people-roles/:id/cancel` | auth | Staff cancel (`incomplete`/`applied`/`approved`) |
 | `POST` | `/trips/trip-people-roles/:id/uncancel` | auth | Staff uncancel → auto `incomplete`/`applied`; fails if role full |
 | `PUT` | `/trips/trip-people-roles/:id` | auth | Update / approve / decline; sends `application-submitted` / `application-approved` event emails for Trip Participants — Feature 45 |
 | `DELETE` | `/trips/trip-people-roles/:id` | auth | Delete |
-| `GET` | `/trips/export/trips/:tripId/participants.csv` | auth | Participants CSV; **Preferred Name** column after **Last Name** (Feature 33) |
+| `GET` | `/trips/export/trips/:tripId/participants.csv` | auth | Participants CSV; **Preferred Name** column after **Last Name** (Feature 33); trip staff only — approved Trip Participant → `403` "Forbidden.", no trip access → `404` "Trip not found." (Feature 69) |
 
 Browse/apply UI is blocked for system admins (router); see `behavior.md`.
 
