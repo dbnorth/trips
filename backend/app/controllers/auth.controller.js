@@ -98,21 +98,18 @@ const sendAuthPayload = async (res, user, token) => {
   res.send(payload);
 };
 
-const createOrReuseSession = async (user, res) => {
+/** Every sign-in gets its own session; the user's expired or ended sessions are removed. */
+const createSession = async (user, res) => {
   const email = user.email;
 
-  const existing = await Session.findOne({
-    where: { email, token: { [Op.ne]: "" } },
+  await Session.destroy({
+    where: {
+      userId: user.id,
+      [Op.or]: [{ token: "" }, { expirationDate: { [Op.lt]: new Date() } }],
+    },
   });
 
-  if (existing && existing.expirationDate >= Date.now()) {
-    return sendAuthPayload(res, user, existing.token);
-  }
-  if (existing) {
-    await Session.update({ token: "" }, { where: { id: existing.id } });
-  }
-
-  const token = jwt.sign({ id: email, sub: user.id }, authconfig.secret, {
+  const token = jwt.sign({ id: email, sub: user.id, jti: crypto.randomUUID() }, authconfig.secret, {
     expiresIn: authconfig.sessionHours * 3600,
   });
   const expirationDate = new Date(Date.now() + SESSION_MS);
@@ -216,7 +213,7 @@ exports.login = async (req, res) => {
     if (user.failedLoginCount || user.lockedUntil) {
       await User.update({ failedLoginCount: 0, lockedUntil: null }, { where: { id: user.id } });
     }
-    await createOrReuseSession(user, res);
+    await createSession(user, res);
   } catch (err) {
     logger.error(`Login error: ${err.message}`);
     res.status(500).send({ message: err.message });
@@ -294,7 +291,7 @@ exports.register = async (req, res) => {
       await ensureOrgPeopleRole(orgId, person.id, participantRole.id);
     }
 
-    await createOrReuseSession(user, res);
+    await createSession(user, res);
   } catch (err) {
     logger.error(`Register error: ${err.message}`);
     res.status(500).send({ message: err.message });

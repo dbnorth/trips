@@ -47,10 +47,10 @@ Adopt a **layered security model** with the **API as the sole enforcement point*
 |---------|----------------|
 | Credentials | **Email** + password; email normalized |
 | Password storage | bcrypt; min length 8; excluded from User defaultScope |
-| Session | JWT value stored in `sessions` with `expirationDate` |
+| Session | JWT value stored in `sessions` with `expirationDate`; a new row and unique token (`jti`) for every sign-in, never reused; the user's expired or ended rows are deleted at sign-in (Feature 72) |
 | Lifetime | **4 hours** (`auth.config.js` `sessionHours`) |
 | Request proof | `Authorization: Bearer <token>` |
-| Logout | Clear token on Session row |
+| Logout | Clear token on that Session row only; other devices stay signed in |
 | Password reset | Emailed one-time token (1 hour, hash stored); success clears every Session row's token for the user (Feature 70) |
 | Lockout | 5 wrong passwords in a row → account locked 15 minutes (`users.lockedUntil`), `429` (Feature 70) |
 | Rate limiting | `express-rate-limit` (in memory): 20 failed sign-ins and 10 forgot/reset requests per IP per 15 minutes → `429`; `trust proxy` 1 for Apache (Feature 70) |
