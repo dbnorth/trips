@@ -2,6 +2,7 @@ import request from "supertest";
 import app from "../server.js";
 import db from "../app/models/index.js";
 import { loadPersonalDataKey } from "../app/utils/personalDataEncryption.js";
+import { resetRateLimits } from "../app/authorization/rateLimits.js";
 
 const CATALOG_ROLES = [
   { roleName: "Org Admin", roleDescription: "Organization administrator" },
@@ -67,6 +68,7 @@ export const resetTestDatabase = async () => {
     db.donor,
     db.person,
     db.session,
+    db.passwordResetToken,
     db.user,
     db.organization,
     db.documentType,
@@ -80,6 +82,7 @@ export const resetTestDatabase = async () => {
   }
 
   await seedRoles();
+  await resetRateLimits();
 };
 
 export const registerUser = async (overrides = {}) => {

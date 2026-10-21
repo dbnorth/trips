@@ -118,6 +118,31 @@ const deliver = async (settings, message) => {
 };
 
 /**
+ * Send a fixed system message (not a template) from Mission Trips and record it in `emailLog`.
+ * `logText` is stored instead of `text` when the message holds something the log must not keep.
+ * Returns `{ status: "sent", emailLogId }` or `{ status: "failed", reason }`.
+ */
+export const sendSystemEmail = async ({ to, subject, text, logText = text, personId = null }) => {
+  const message = { from: senderFrom(""), to, subject, text };
+  let emailId;
+  try {
+    emailId = await deliver(readSettings(), message);
+  } catch (err) {
+    logger.error(`Email to ${to} failed: ${err.message}`);
+    return { status: "failed", reason: err.message };
+  }
+  const log = await db.emailLog.create({
+    toEmail: to,
+    fromEmail: message.from,
+    subject,
+    content: logText,
+    emailId,
+    personId,
+  });
+  return { status: "sent", emailLogId: log.id };
+};
+
+/**
  * The email one template sends to one trip participant, with tokens filled in.
  * `toEmail`, `subject`, and `emailBody` replace the template's when given.
  * Returns `{ message }`, or `{ reason }` when there is no recipient or sender.

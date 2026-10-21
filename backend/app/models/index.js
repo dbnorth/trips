@@ -3,6 +3,7 @@ import sequelize from "../config/sequelizeInstance.js";
 
 import User from "./user.model.js";
 import Session from "./session.model.js";
+import PasswordResetToken from "./passwordResetToken.model.js";
 import Person from "./person.model.js";
 import Role from "./role.model.js";
 import Organization from "./organization.model.js";
@@ -44,6 +45,7 @@ db.sequelize = sequelize;
 
 db.user = User;
 db.session = Session;
+db.passwordResetToken = PasswordResetToken;
 db.person = Person;
 db.role = Role;
 db.organization = Organization;
@@ -81,6 +83,8 @@ db.personLanguage = PersonLanguage;
 
 db.user.hasMany(db.session, { foreignKey: "userId", onDelete: "CASCADE" });
 db.session.belongsTo(db.user, { foreignKey: "userId", onDelete: "CASCADE" });
+db.user.hasMany(db.passwordResetToken, { foreignKey: "userId", onDelete: "CASCADE" });
+db.passwordResetToken.belongsTo(db.user, { foreignKey: "userId", onDelete: "CASCADE" });
 
 db.user.hasOne(db.person, { foreignKey: "userId", onDelete: "SET NULL" });
 db.person.belongsTo(db.user, { foreignKey: "userId", onDelete: "SET NULL" });

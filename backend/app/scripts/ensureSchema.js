@@ -1318,6 +1318,26 @@ const ensureTripDeposit = async () => {
   logger.info("trips.deposit column added.");
 };
 
+const ensureUserLoginLockFields = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME IN ('failedLoginCount', 'lockedUntil')`
+  );
+  const existing = new Set(rows.map((r) => r.COLUMN_NAME));
+  if (!existing.has("failedLoginCount")) {
+    await db.sequelize.query(
+      "ALTER TABLE users ADD COLUMN failedLoginCount INT NOT NULL DEFAULT 0 AFTER passwordSetByUser"
+    );
+    logger.info("users.failedLoginCount column added.");
+  }
+  if (!existing.has("lockedUntil")) {
+    await db.sequelize.query("ALTER TABLE users ADD COLUMN lockedUntil DATETIME NULL AFTER failedLoginCount");
+    logger.info("users.lockedUntil column added.");
+  }
+};
+
 const ensureTripFlightSegmentCabinAndSeat = async () => {
   const [tables] = await db.sequelize.query(
     `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -1417,6 +1437,7 @@ const ensureLanguageCatalog = async () => {
 
 export const ensureSchema = async () => {
   await ensureNamedUniqueIndexes();
+  await ensureUserLoginLockFields();
   await ensureEmailTemplateOrgNullable();
   await ensureTripPeopleRoleParticipantCost();
   await ensureTripRequirePassport();
