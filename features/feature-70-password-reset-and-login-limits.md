@@ -2,7 +2,7 @@
 
 **Feature ID:** 70
 **Branch pattern:** `feature/70-password-reset-and-login-limits`
-**Status:** Ready
+**Status:** Implemented
 **Created:** 2026-10-20
 **Input:** "Add an email password reset for users and also add a limit to failed password attempts (recommended plan for this)." Today a user who forgets their password has no way back in, and the only reset endpoint (`POST /trips/reset-password`) sets a password from an email alone and is merely switched off in production. Sign-in has no limit on attempts (ADR-0002: "Rate limiting / lockout — Not implemented"; security audit issue 3), so passwords can be guessed online.
 **Depends on:** [Feature 1 — User Authentication](feature-1-user-authentication.md), [Feature 43 — Email Delivery](feature-43-email-delivery.md)
@@ -359,15 +359,15 @@ Do not implement behavior not in this spec.
 
 ## Definition of Done
 
-*   [ ] Forgot password request and email per **FR-001**..**FR-007**
-*   [ ] Token reset per **FR-008**..**FR-011**
-*   [ ] Account lockout and per-IP limits per **FR-012**..**FR-016**
-*   [ ] `users` columns and `passwordResetTokens` table per Data Model Requirements
-*   [ ] `APP_URL` in `.env.example` and the deploy workflow
-*   [ ] Automated tests for every Gherkin scenario
-*   [ ] Backend and frontend `npm test` green
-*   [ ] `features/reference/*`, ADR-0002, and quality attributes updated
-*   [ ] PR to `dev`
+*   [x] Forgot password request and email per **FR-001**..**FR-007**
+*   [x] Token reset per **FR-008**..**FR-011**
+*   [x] Account lockout and per-IP limits per **FR-012**..**FR-016**
+*   [x] `users` columns and `passwordResetTokens` table per Data Model Requirements
+*   [x] `APP_URL` in `.env.example` and the deploy workflow
+*   [x] Automated tests for every Gherkin scenario
+*   [x] Backend and frontend `npm test` green
+*   [x] `features/reference/*`, ADR-0002, and quality attributes updated
+*   [x] PR to `dev`
 
 ## Out of Scope
 

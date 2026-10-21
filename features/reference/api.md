@@ -46,13 +46,14 @@
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `POST` | `/trips/login` | none | Sign in; session token |
+| `POST` | `/trips/login` | none | Sign in; session token. 5 wrong passwords in a row lock the account for 15 minutes: `429` "Too many failed sign-in attempts. Try again in 15 minutes or reset your password." (right password refused too); a successful sign-in clears the count. At most 20 failed attempts per IP per 15 minutes → `429` "Too many attempts. Please try again later." (Feature 70) |
 | `POST` | `/trips/register` | none | Register user + person; optional `orgIds`; optional `subdomain` (Feature 15 — binds Trip Participant to matching org); optional `middleName` (Feature 20); optional `preferredName` (Feature 33 — blank or omitted stores first name + last name). Email already used by a user or person (trimmed, lower-cased) → `409` "An account with this email already exists. Please log in instead." with no changes and no session (Feature 68) |
 | `GET` | `/trips/register/organizations` | none | Orgs for registration UI |
 | `GET` | `/trips/register/organizations/by-subdomain/:subdomain` | none | Resolve `{ id, name, subdomain }` or `404` (Feature 15) |
 | `POST` | `/trips/logout` | none | Invalidate session (token in body) |
 | `POST` | `/trips/change-password` | auth | Change password |
-| `POST` | `/trips/reset-password` | none | Dev reset; **403 in production** |
+| `POST` | `/trips/forgot-password` | none | `{ email }` → always `200` "If an account exists for that email, we sent a link to reset your password. The link expires in 1 hour."; emails a one-time reset link (`<APP_URL>/reset-password?token=…`, 1 hour, max 3 per user per hour) when a user has that email; `400` "Email is required."; shares a 10-requests-per-IP-per-15-minutes limit with reset-password → `429` (Feature 70) |
+| `POST` | `/trips/reset-password` | none | `{ token, newPassword }` → `200` "Your password has been reset. Please sign in.": sets the password, uses the token, ends **all** the user's sessions, clears the sign-in lock. `400` "Password must be at least 8 characters." or "This reset link is invalid or has expired. Please request a new one." (missing, unknown, used, replaced, or expired token); per-IP limit `429`. The email-only form is gone in every environment (Feature 70) |
 | `GET` | `/trips/me` | auth | Current user context |
 
 ---
@@ -76,7 +77,7 @@
 | `GET` | `/trips/people/org-trip-leaders` | auth | People with Trip Leader org role for `?orgId=` |
 | `GET` | `/trips/people/:id` | auth | Person detail |
 | `POST` | `/trips/people` | auth | Create person (+ optional org/role); omitted or blank `preferredName` stores first name + last name (Feature 33). Email already used by a user or person (trimmed, lower-cased) → `409` "A person with this email already exists." and nothing changes; success → `{ person, message }` (Feature 68) |
-| `PUT` | `/trips/people/:id` | auth | Update person (`version`); accepts `emergencyContactRelationship` (`spouse`, `father`, `mother`, `child`, `grandmother`, `grandfather`, `other`); `preferredName` blank stores first name + last name, omitted leaves the stored value (Feature 33) |
+| `PUT` | `/trips/people/:id` | auth | Update person (`version`); accepts `emergencyContactRelationship` (`spouse`, `father`, `mother`, `child`, `grandmother`, `grandfather`, `other`); `preferredName` blank stores first name + last name, omitted leaves the stored value (Feature 33). `password` for someone else → `403` "Forbidden. System admin required to set a password." unless System Admin (your own → `400`, use change-password); a System Admin setting it ends all that user's sessions. Changing the email of a person with a login account (`userId`; trimmed, lower-cased compare) → `403` "Forbidden. System admin required to change a login email." unless System Admin or the person themselves. Refused requests change nothing (Feature 71) |
 | `PUT` | `/trips/people/:id/picture` | auth | Upload picture (`multipart` field `picture`) |
 | `DELETE` | `/trips/people/:id` | sysadmin | Delete person |
 | `GET` | `/trips/org-people-roles` | auth | List org memberships |

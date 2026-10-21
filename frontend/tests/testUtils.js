@@ -11,6 +11,8 @@ const Stub = { template: "<div />" };
 
 const feature1Routes = [
   { path: "/", alias: "/login", name: "login", component: Stub },
+  { path: "/forgot-password", name: "forgotPassword", component: Stub },
+  { path: "/reset-password", name: "resetPassword", component: Stub },
   { path: "/home", name: "home", component: Stub },
   { path: "/browse-trips/:tripId", name: "tripBrowse", component: Stub, props: true },
   {
