@@ -22,6 +22,7 @@ const selectedOrgIds = ref([]);
 const organizations = ref([]);
 const orgsLoading = ref(false);
 const formError = ref("");
+const resetNotice = route.query.reset === "1" ? "Your password has been reset. Please sign in." : "";
 const loading = ref(false);
 const hostSubdomain = ref(getRegistrationHostSubdomain());
 const subdomainOrg = ref(null);
@@ -176,11 +177,17 @@ onMounted(() => {
           </v-card-subtitle>
           <v-card-text>
             <template v-if="mode === 'login'">
+              <v-alert v-if="resetNotice && !formError" type="info" density="compact" class="mb-4">{{ resetNotice }}</v-alert>
               <v-text-field v-model="email" label="Email" type="email" autocomplete="username" />
               <v-text-field v-model="password" label="Password" type="password" autocomplete="current-password" />
               <v-alert v-if="formError" type="error" density="compact" class="mb-2">{{ formError }}</v-alert>
               <v-btn color="primary" block :loading="loading" @click="login">Sign in</v-btn>
-              <div class="text-center mt-4">
+              <div class="text-center mt-2">
+                <v-btn variant="text" size="small" :to="{ name: 'forgotPassword', query: email ? { email } : {} }">
+                  Forgot password?
+                </v-btn>
+              </div>
+              <div class="text-center mt-2">
                 <v-btn variant="text" size="small" @click="showRegister">Add person / create account</v-btn>
               </div>
             </template>

@@ -27,11 +27,15 @@ import OrganizationTripsPage from "./views/OrganizationTripsPage.vue";
 import PublicTripPage from "./views/PublicTripPage.vue";
 import ApplyAuthView from "./views/ApplyAuthView.vue";
 import ApplyCreateAccountView from "./views/ApplyCreateAccountView.vue";
+import ForgotPasswordView from "./views/ForgotPasswordView.vue";
+import ResetPasswordView from "./views/ResetPasswordView.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: "/", alias: "/login", name: "login", component: Login },
+    { path: "/forgot-password", name: "forgotPassword", component: ForgotPasswordView },
+    { path: "/reset-password", name: "resetPassword", component: ResetPasswordView },
     { path: "/home", name: "home", component: Home },
     { path: "/people", name: "people", component: PeopleList },
     { path: "/organizations", name: "organizations", component: OrganizationsList },
@@ -117,6 +121,8 @@ export function applyAuthGuards(router) {
       "publicTrip",
       "applyAuth",
       "applyCreateAccount",
+      "forgotPassword",
+      "resetPassword",
     ];
     const applyAuthRoutes = ["applyAuth", "applyCreateAccount"];
     if (publicRoutes.includes(to.name)) {

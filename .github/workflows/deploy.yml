@@ -64,6 +64,7 @@ jobs:
       FILE_ENCRYPTION_KEY_SECRET_ID: ${{ secrets.FILE_ENCRYPTION_KEY_SECRET_ID }}
       PII_ENCRYPTION_KEY_SECRET_ID: ${{ secrets.PII_ENCRYPTION_KEY_SECRET_ID }}
       SCHEDULED_EMAIL_TIMEZONE: ${{ secrets.SCHEDULED_EMAIL_TIMEZONE }}
+      APP_URL: ${{ secrets.APP_URL }}
 
     defaults:
       run:
@@ -106,6 +107,7 @@ jobs:
           printf 'FILE_ENCRYPTION_KEY_SECRET_ID=%s\n' "$FILE_ENCRYPTION_KEY_SECRET_ID" >> .env
           printf 'PII_ENCRYPTION_KEY_SECRET_ID=%s\n' "$PII_ENCRYPTION_KEY_SECRET_ID" >> .env
           printf 'SCHEDULED_EMAIL_TIMEZONE=%s\n' "$SCHEDULED_EMAIL_TIMEZONE" >> .env
+          printf 'APP_URL=%s\n' "$APP_URL" >> .env
           # Confirm key is present without printing the secret value
           grep -q '^DB_PW=.\+' .env || { echo "::error::DB_PW line missing or empty in .env"; exit 1; }
 

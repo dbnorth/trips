@@ -9,9 +9,11 @@ const User = SequelizeInstance.define(
     password: { type: Sequelize.STRING(255), allowNull: false },
     isAdmin: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
     passwordSetByUser: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
+    failedLoginCount: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
+    lockedUntil: { type: Sequelize.DATE, allowNull: true },
   },
   {
-    defaultScope: { attributes: { exclude: ["password"] } },
+    defaultScope: { attributes: { exclude: ["password", "failedLoginCount", "lockedUntil"] } },
     indexes: [{ name: "users_email_unique", unique: true, fields: ["email"] }],
   }
 );

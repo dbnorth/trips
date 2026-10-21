@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import db from "../models/index.js";
 import authconfig from "../config/auth.config.js";
 import jwt from "jsonwebtoken";
@@ -19,9 +20,11 @@ import {
   findOrganizationBySubdomain,
 } from "../utils/organizationSubdomain.js";
 import { resolvePreferredName } from "../utils/preferredName.js";
+import { sendSystemEmail } from "../utils/emailDelivery.js";
 
 const User = db.user;
 const Session = db.session;
+const PasswordResetToken = db.passwordResetToken;
 const Person = db.person;
 const Organization = db.organization;
 const OrgPeopleRole = db.orgPeopleRole;
@@ -29,7 +32,6 @@ const TripPeopleRole = db.tripPeopleRole;
 const Role = db.role;
 const Op = db.Sequelize.Op;
 
-const SALT_ROUNDS = 10;
 const SESSION_MS = authconfig.sessionHours * 60 * 60 * 1000;
 
 const buildAuthPayload = async (user, token) => {
@@ -126,6 +128,71 @@ const createOrReuseSession = async (user, res) => {
   sendAuthPayload(res, user, token);
 };
 
+const LOCKED_MESSAGE =
+  "Too many failed sign-in attempts. Try again in 15 minutes or reset your password.";
+const RESET_SENT_MESSAGE =
+  "If an account exists for that email, we sent a link to reset your password. The link expires in 1 hour.";
+const RESET_INVALID_MESSAGE = "This reset link is invalid or has expired. Please request a new one.";
+const MINUTE_MS = 60 * 1000;
+
+/** Count a wrong password; the last allowed one locks the account and starts the count again. */
+const recordFailedLogin = async (user) => {
+  const count = (user.failedLoginCount || 0) + 1;
+  if (count >= authconfig.maxFailedLogins) {
+    const lockedUntil = new Date(Date.now() + authconfig.lockMinutes * MINUTE_MS);
+    await User.update({ failedLoginCount: 0, lockedUntil }, { where: { id: user.id } });
+  } else {
+    await User.update({ failedLoginCount: count }, { where: { id: user.id } });
+  }
+};
+
+const hashResetToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
+
+const appUrl = () => (process.env.APP_URL || "http://localhost:8082").replace(/\/+$/, "");
+
+const resetEmailText = (firstName, link) =>
+  [
+    firstName ? `Hi ${firstName},` : "Hi,",
+    "",
+    "We received a request to reset the password for your Mission Trips account. To choose a new password, open this link within 1 hour:",
+    "",
+    link,
+    "",
+    "If you did not ask to reset your password, you can ignore this email. Your password will not change.",
+    "",
+    "Mission Trips",
+  ].join("\n");
+
+const sendResetEmail = async (user) => {
+  const hourAgo = new Date(Date.now() - 60 * MINUTE_MS);
+  const recent = await PasswordResetToken.count({
+    where: { userId: user.id, createdAt: { [Op.gte]: hourAgo } },
+  });
+  if (recent >= authconfig.maxResetEmailsPerHour) return;
+
+  const token = crypto.randomBytes(32).toString("base64url");
+  await PasswordResetToken.update(
+    { usedAt: new Date() },
+    { where: { userId: user.id, usedAt: null } }
+  );
+  await PasswordResetToken.create({
+    userId: user.id,
+    tokenHash: hashResetToken(token),
+    expiresAt: new Date(Date.now() + authconfig.resetLinkMinutes * MINUTE_MS),
+  });
+
+  const person = await Person.findOne({ where: { userId: user.id }, attributes: ["id", "firstName"] });
+  const firstName = person?.firstName?.trim() || "";
+  const link = `${appUrl()}/reset-password?token=${token}`;
+  await sendSystemEmail({
+    to: user.email,
+    subject: "Reset your Mission Trips password",
+    text: resetEmailText(firstName, link),
+    logText: resetEmailText(firstName, "[reset link]"),
+    personId: person?.id ?? null,
+  });
+};
+
 const exports = {};
 
 exports.login = async (req, res) => {
@@ -137,10 +204,17 @@ exports.login = async (req, res) => {
   try {
     const user = await User.unscoped().findOne({
       where: { email: emailNorm },
-      attributes: ["id", "email", "password", "isAdmin"],
+      attributes: ["id", "email", "password", "isAdmin", "failedLoginCount", "lockedUntil"],
     });
+    if (user?.lockedUntil && user.lockedUntil > new Date()) {
+      return res.status(429).send({ message: LOCKED_MESSAGE });
+    }
     if (!user || !(await bcrypt.compare(password, user.password))) {
+      if (user) await recordFailedLogin(user);
       return res.status(401).send({ message: "Invalid email or password." });
+    }
+    if (user.failedLoginCount || user.lockedUntil) {
+      await User.update({ failedLoginCount: 0, lockedUntil: null }, { where: { id: user.id } });
     }
     await createOrReuseSession(user, res);
   } catch (err) {
@@ -302,23 +376,45 @@ exports.changePassword = async (req, res) => {
   }
 };
 
-exports.resetPassword = async (req, res) => {
-  if (process.env.NODE_ENV === "production") {
-    return res.status(403).send({ message: "Password reset is disabled in production." });
+exports.forgotPassword = async (req, res) => {
+  const email = req.body?.email;
+  if (typeof email !== "string" || !email.trim()) {
+    return res.status(400).send({ message: "Email is required." });
   }
-  const { email, newPassword } = req.body;
-  if (!email?.trim() || !newPassword || newPassword.length < 8) {
-    return res.status(400).send({ message: "Email and new password (min 8 chars) are required." });
-  }
-  const emailNorm = email.trim().toLowerCase();
   try {
-    const user = await User.unscoped().findOne({ where: { email: emailNorm } });
-    if (!user) return res.status(404).send({ message: "User not found." });
-    const hash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-    await User.update({ password: hash, passwordSetByUser: true }, { where: { id: user.id } });
-    res.send({ message: "Password updated." });
+    const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
+    if (user) await sendResetEmail(user);
+    res.send({ message: RESET_SENT_MESSAGE });
   } catch (err) {
-    res.status(500).send({ message: err.message });
+    logger.error(`Forgot password error: ${err.message}`);
+    res.status(500).send({ message: "Unable to send the reset link. Please try again." });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body || {};
+  if (typeof newPassword !== "string" || newPassword.length < 8) {
+    return res.status(400).send({ message: "Password must be at least 8 characters." });
+  }
+  try {
+    const row =
+      typeof token === "string" && token
+        ? await PasswordResetToken.findOne({ where: { tokenHash: hashResetToken(token) } })
+        : null;
+    if (!row || row.usedAt || row.expiresAt < new Date()) {
+      return res.status(400).send({ message: RESET_INVALID_MESSAGE });
+    }
+    await updateUserPassword(row.userId, newPassword);
+    await PasswordResetToken.update(
+      { usedAt: new Date() },
+      { where: { userId: row.userId, usedAt: null } }
+    );
+    await Session.update({ token: "" }, { where: { userId: row.userId } });
+    await User.update({ failedLoginCount: 0, lockedUntil: null }, { where: { id: row.userId } });
+    res.send({ message: "Your password has been reset. Please sign in." });
+  } catch (err) {
+    logger.error(`Reset password error: ${err.message}`);
+    res.status(500).send({ message: "Unable to reset the password. Please try again." });
   }
 };
 
