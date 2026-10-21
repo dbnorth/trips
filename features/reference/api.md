@@ -47,7 +47,7 @@
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | `POST` | `/trips/login` | none | Sign in; session token |
-| `POST` | `/trips/register` | none | Register user + person; optional `orgIds`; optional `subdomain` (Feature 15 — binds Trip Participant to matching org); optional `middleName` (Feature 20); optional `preferredName` (Feature 33 — blank or omitted stores first name + last name) |
+| `POST` | `/trips/register` | none | Register user + person; optional `orgIds`; optional `subdomain` (Feature 15 — binds Trip Participant to matching org); optional `middleName` (Feature 20); optional `preferredName` (Feature 33 — blank or omitted stores first name + last name). Email already used by a user or person (trimmed, lower-cased) → `409` "An account with this email already exists. Please log in instead." with no changes and no session (Feature 68) |
 | `GET` | `/trips/register/organizations` | none | Orgs for registration UI |
 | `GET` | `/trips/register/organizations/by-subdomain/:subdomain` | none | Resolve `{ id, name, subdomain }` or `404` (Feature 15) |
 | `POST` | `/trips/logout` | none | Invalidate session (token in body) |
@@ -75,7 +75,7 @@
 | `GET` | `/trips/people` | auth | List people. **Feature 11:** system admin with **no** acting-org header returns **all** persons; with acting org → membership in that org; Org Admin / Trip Leader → Feature 2 scoping |
 | `GET` | `/trips/people/org-trip-leaders` | auth | People with Trip Leader org role for `?orgId=` |
 | `GET` | `/trips/people/:id` | auth | Person detail |
-| `POST` | `/trips/people` | auth | Create person (+ optional org/role); omitted or blank `preferredName` stores first name + last name (Feature 33) |
+| `POST` | `/trips/people` | auth | Create person (+ optional org/role); omitted or blank `preferredName` stores first name + last name (Feature 33). Email already used by a user or person (trimmed, lower-cased) → `409` "A person with this email already exists." and nothing changes; success → `{ person, message }` (Feature 68) |
 | `PUT` | `/trips/people/:id` | auth | Update person (`version`); accepts `emergencyContactRelationship` (`spouse`, `father`, `mother`, `child`, `grandmother`, `grandfather`, `other`); `preferredName` blank stores first name + last name, omitted leaves the stored value (Feature 33) |
 | `PUT` | `/trips/people/:id/picture` | auth | Upload picture (`multipart` field `picture`) |
 | `DELETE` | `/trips/people/:id` | sysadmin | Delete person |

@@ -8,6 +8,7 @@ import { flushPromises } from "@vue/test-utils";
 import AddPersonDialog from "../src/components/AddPersonDialog.vue";
 import RoleServices from "../src/services/roleServices.js";
 import OrganizationServices from "../src/services/organizationServices.js";
+import PersonServices from "../src/services/personServices.js";
 import Utils from "../src/config/utils.js";
 import { mountWithPlugins, vuetify } from "./testUtils.js";
 
@@ -312,6 +313,67 @@ describe("Feature 37 — Person Bio Below Birthdate", () => {
     expect(birth).toBeGreaterThan(-1);
     expect(bio).toBeGreaterThan(birth);
     expect(emergency).toBeGreaterThan(bio);
+
+    wrapper.unmount();
+  });
+});
+
+describe("Feature 68 — Add Person Refuses an Email That Already Exists", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    Utils.setStore("user", {
+      userId: 1,
+      personId: 1,
+      email: "admin@example.com",
+      isAdmin: true,
+      token: "t",
+      orgRoles: [],
+      tripRoles: [],
+      currentOrgId: 3,
+    });
+    RoleServices.getAll.mockResolvedValue({ data: roles });
+    OrganizationServices.getAll.mockResolvedValue({
+      data: [{ id: 3, name: "Hope Mission" }],
+    });
+  });
+
+  it("Add person dialog shows the existing-email message and stays open", async () => {
+    const message = "A person with this email already exists.";
+    PersonServices.create.mockRejectedValue({ response: { status: 409, data: { message } } });
+
+    const { wrapper } = await mountWithPlugins(AddPersonDialog, {
+      props: { modelValue: false },
+      global: {
+        plugins: [vuetify],
+        stubs: {
+          VSelect: VSelectStub,
+          PersonProfileFields: profileFieldsStub,
+          VDialog: { template: "<div><slot /></div>" },
+        },
+      },
+    });
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+
+    const field = (label) =>
+      wrapper.findAllComponents({ name: "VTextField" }).find((c) => c.props("label") === label);
+    await field("First name").find("input").setValue("Pat");
+    await field("Last name").find("input").setValue("Taken");
+    await field("Email").find("input").setValue("taken@example.com");
+
+    const addBtn = wrapper.findAllComponents({ name: "VBtn" }).find((b) => b.text().trim() === "Add");
+    await addBtn.trigger("click");
+    await flushPromises();
+
+    expect(PersonServices.create).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain(message);
+    expect(wrapper.find(".v-card-text").text()).not.toContain(message);
+    const html = wrapper.html();
+    expect(html.indexOf(message)).toBeGreaterThan(html.indexOf("v-card-text"));
+    expect(html.indexOf(message)).toBeLessThan(html.lastIndexOf("v-card-actions"));
+    expect(wrapper.emitted("saved")).toBeUndefined();
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
 
     wrapper.unmount();
   });

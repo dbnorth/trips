@@ -9,7 +9,6 @@ import {
   normalizeEmail,
   findUserByEmail,
   findPersonByEmail,
-  findPersonForUser,
   ensureUserForEmail,
   updateUserPassword,
   upsertPersonForUser,
@@ -345,18 +344,11 @@ exports.create = async (req, res) => {
     let person;
 
     if (emailNorm) {
-      const existingUser = await findUserByEmail(emailNorm);
-      const existingPerson = existingUser
-        ? await findPersonForUser(existingUser.id)
-        : await findPersonByEmail(emailNorm);
-      const isExisting = !!(existingUser || existingPerson);
-
-      let linkedUser = existingUser;
-      if (!linkedUser) {
-        linkedUser = await ensureUserForEmail(emailNorm, password);
-      } else if (password && password.length >= 8) {
-        await updateUserPassword(linkedUser.id, password);
+      if ((await findUserByEmail(emailNorm)) || (await findPersonByEmail(emailNorm))) {
+        return res.status(409).send({ message: "A person with this email already exists." });
       }
+
+      const linkedUser = await ensureUserForEmail(emailNorm, password);
 
       if (isSystemAdmin(req) && Object.prototype.hasOwnProperty.call(req.body, "isAdmin")) {
         await User.update({ isAdmin: !!isAdmin }, { where: { id: linkedUser.id } });
@@ -392,36 +384,8 @@ exports.create = async (req, res) => {
           currentChurchHomeCity: personData.currentChurchHomeCity,
           currentChurchHomeStateProv: personData.currentChurchHomeStateProv,
           bioText: personData.bioText,
-        },
-        { mergeOptional: isExisting }
+        }
       );
-
-      let orgRoleResult = null;
-      if (orgId) {
-        orgRoleResult = await ensureOrgPeopleRole(orgId, person.id, roleId);
-      }
-
-      const languageResult = await applyLanguageFields(
-        person.id,
-        languageInput,
-        languageInput
-      );
-      if (!languageResult.ok) {
-        return res.status(languageResult.status).send({ message: languageResult.message });
-      }
-
-      const message = isExisting
-        ? orgRoleResult?.created
-          ? "Existing person updated and assigned to the organization."
-          : "Existing person updated."
-        : "Person created.";
-
-      return res.send({
-        person,
-        existingPerson: isExisting,
-        orgRoleCreated: !!orgRoleResult?.created,
-        message,
-      });
     } else {
       person = await Person.create(personData);
     }
@@ -435,7 +399,7 @@ exports.create = async (req, res) => {
       return res.status(languageResult.status).send({ message: languageResult.message });
     }
 
-    res.send({ person, existingPerson: false, message: "Person created." });
+    res.send({ person, message: "Person created." });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
