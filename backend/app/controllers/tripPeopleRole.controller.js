@@ -195,7 +195,7 @@ exports.findAll = async (req, res) => {
   try {
     const tripId = req.query.tripId;
     if (!tripId) return res.status(400).send({ message: "tripId query param required." });
-    if (!(await canManageTripPeople(req, tripId)) && !(await canAccessTrip(req, tripId)).ok) {
+    if (!(await canManageTripPeople(req, tripId))) {
       return res.status(403).send({ message: "Forbidden." });
     }
     const data = await TripPeopleRole.findAll({
@@ -252,7 +252,7 @@ exports.findOne = async (req, res) => {
   try {
     const row = await TripPeopleRole.findByPk(req.params.id, { include: listIncludes });
     if (!row) return res.status(404).send({ message: "Record not found." });
-    if (!(await canManageTripPeople(req, row.tripId)) && !(await canAccessTrip(req, row.tripId)).ok) {
+    if (!(await canManageTripPeople(req, row.tripId))) {
       return res.status(403).send({ message: "Forbidden." });
     }
 
