@@ -1,5 +1,10 @@
 import db from "../models/index.js";
-import { canAccessTrip } from "../authorization/accessControl.js";
+import {
+  canAccessTrip,
+  isOrgAdminForOrg,
+  isSystemAdmin,
+  isTripLeaderForTrip,
+} from "../authorization/accessControl.js";
 import { toCsv, sendCsv } from "../utils/csvExport.js";
 import { emergencyContactRelationshipLabel } from "../utils/emergencyContactRelationship.js";
 import { displayPreferredName } from "../utils/preferredName.js";
@@ -16,6 +21,15 @@ const assertTripAccess = async (req, tripId) => {
   const access = await canAccessTrip(req, tripId);
   if (!access.ok) return { ok: false, status: 404, message: "Trip not found." };
   return { ok: true, trip: access.trip };
+};
+
+const assertTripStaff = async (req, tripId) => {
+  const access = await assertTripAccess(req, tripId);
+  if (!access.ok) return access;
+  if (isSystemAdmin(req) || isOrgAdminForOrg(req, access.trip.orgId) || isTripLeaderForTrip(req, tripId)) {
+    return access;
+  }
+  return { ok: false, status: 403, message: "Forbidden." };
 };
 
 const yesNo = (value) => {
@@ -91,7 +105,7 @@ const PARTICIPANT_COLUMNS = [
 exports.participantsCsv = async (req, res) => {
   try {
     const tripId = req.params.tripId;
-    const access = await assertTripAccess(req, tripId);
+    const access = await assertTripStaff(req, tripId);
     if (!access.ok) return res.status(access.status).send({ message: access.message });
 
     const rows = await TripPeopleRole.findAll({

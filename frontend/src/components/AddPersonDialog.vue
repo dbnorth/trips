@@ -275,7 +275,7 @@ const save = () => {
           type="email"
           density="compact"
           autocomplete="off"
-          hint="A user login account is created for this email. If the email already exists, the person is updated and assigned to the organization."
+          hint="A user login account is created for this email."
           persistent-hint
         />
         <v-text-field
@@ -355,9 +355,11 @@ const save = () => {
         <PersonProfileFields v-model="form" :org-id="form.orgId" />
 
         <PersonDocumentsCard />
-
-        <v-alert v-if="formError" type="error" density="compact" class="mt-2">{{ formError }}</v-alert>
       </v-card-text>
+
+      <div v-if="formError" class="px-4 pt-2">
+        <v-alert type="error" density="compact">{{ formError }}</v-alert>
+      </div>
 
       <v-card-actions>
         <v-spacer />

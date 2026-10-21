@@ -27,6 +27,13 @@ const selectedTrip = computed(() =>
   trips.value.find((t) => Number(t.id) === Number(selectedTripId.value))
 );
 
+const isTripStaff = (trip) =>
+  !!trip && (Utils.isOrgAdmin(user.value, trip.orgId) || Utils.isTripLeader(user.value, trip.id));
+
+const isStaffForSelectedTrip = computed(() => isTripStaff(selectedTrip.value));
+
+const staffTrips = computed(() => trips.value.filter(isTripStaff));
+
 const sumDonations = (rows) =>
   rows.reduce((total, row) => total + Number(row.amount || 0), 0);
 
@@ -86,14 +93,19 @@ const loadDonations = () => {
     participantCount.value = 0;
     return Promise.resolve();
   }
-  return Promise.all([
+  const requests = [
     DonationServices.getAll(selectedTripId.value).then((r) => {
       donations.value = r.data || [];
     }),
-    TripPeopleRoleServices.getAll(selectedTripId.value).then((r) => {
-      participantCount.value = (r.data || []).length;
-    }),
-  ]);
+  ];
+  if (isStaffForSelectedTrip.value) {
+    requests.push(
+      TripPeopleRoleServices.getAll(selectedTripId.value).then((r) => {
+        participantCount.value = (r.data || []).length;
+      })
+    );
+  }
+  return Promise.all(requests);
 };
 
 watch(selectedTripId, () => {
@@ -141,7 +153,7 @@ onUnmounted(() => {
   <v-container>
     <div class="d-flex align-center justify-space-between mb-4">
       <h1 class="text-h5">Donations</h1>
-      <v-btn color="primary" @click="openAddDonation">Add donation</v-btn>
+      <v-btn v-if="isStaffForSelectedTrip" color="primary" @click="openAddDonation">Add donation</v-btn>
     </div>
 
     <v-alert v-if="message" type="info" density="compact" class="mb-4">{{ message }}</v-alert>
@@ -157,7 +169,7 @@ onUnmounted(() => {
 
     <v-card v-if="selectedTripId" variant="tonal" class="mb-4 pa-4">
       <v-row dense>
-        <v-col cols="12" sm="6" md="3">
+        <v-col v-if="isStaffForSelectedTrip" cols="12" sm="6" md="3">
           <div class="text-caption text-medium-emphasis">Participants</div>
           <div class="text-body-1">{{ participantCount }}</div>
         </v-col>
@@ -198,14 +210,14 @@ onUnmounted(() => {
       <template #item.amount="{ item }">{{ formatAmount(item.amount) }}</template>
       <template #item.participant="{ item }">{{ participantName(item) }}</template>
       <template #item.actions="{ item }">
-        <v-btn size="small" variant="text" @click="openEditDonation(item)">Edit</v-btn>
+        <v-btn v-if="isStaffForSelectedTrip" size="small" variant="text" @click="openEditDonation(item)">Edit</v-btn>
       </template>
     </v-data-table>
 
     <DonationFormDialog
       v-model="showDonationForm"
       :trip-id="selectedTripId"
-      :trips="trips"
+      :trips="staffTrips"
       allow-trip-select
       :donation="editingDonation"
       @saved="onDonationSaved"

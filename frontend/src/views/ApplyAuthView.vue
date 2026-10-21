@@ -118,6 +118,11 @@ const login = () => {
               Log in
             </v-btn>
           </v-form>
+          <div class="text-center mt-2">
+            <v-btn variant="text" size="small" :to="{ name: 'forgotPassword', query: email ? { email } : {} }">
+              Forgot password?
+            </v-btn>
+          </div>
         </v-card>
       </v-col>
     </v-row>

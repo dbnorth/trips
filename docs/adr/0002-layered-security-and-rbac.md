@@ -47,10 +47,13 @@ Adopt a **layered security model** with the **API as the sole enforcement point*
 |---------|----------------|
 | Credentials | **Email** + password; email normalized |
 | Password storage | bcrypt; min length 8; excluded from User defaultScope |
-| Session | JWT value stored in `sessions` with `expirationDate` |
+| Session | JWT value stored in `sessions` with `expirationDate`; a new row and unique token (`jti`) for every sign-in, never reused; the user's expired or ended rows are deleted at sign-in (Feature 72) |
 | Lifetime | **4 hours** (`auth.config.js` `sessionHours`) |
 | Request proof | `Authorization: Bearer <token>` |
-| Logout | Clear token on Session row |
+| Logout | Clear token on that Session row only; other devices stay signed in |
+| Password reset | Emailed one-time token (1 hour, hash stored); success clears every Session row's token for the user (Feature 70) |
+| Lockout | 5 wrong passwords in a row → account locked 15 minutes (`users.lockedUntil`), `429` (Feature 70) |
+| Rate limiting | `express-rate-limit` (in memory): 20 failed sign-ins and 10 forgot/reset requests per IP per 15 minutes → `429`; `trust proxy` 1 for Apache (Feature 70) |
 | Payload | `userId`, `personId`, `isAdmin`, `orgRoles[]`, `tripRoles[]` (approved only) |
 
 ### Layer 2 — Authorization (who may do what?)
@@ -85,13 +88,13 @@ Central helpers (non-exhaustive): `authenticate`, `requireSystemAdmin`, `canAcce
 | Secret | Location |
 |--------|----------|
 | `AUTH_SECRET`, DB_* | `backend/.env` (not committed) |
-| `reset-password` | Disabled when `NODE_ENV === "production"` |
+| `reset-password` | Requires a one-time emailed token (only its SHA-256 hash stored, 1 hour); no email-only reset in any environment (Feature 70) |
+| `APP_URL` | `backend/.env`; builds the reset link (Feature 70) |
 
 ### Explicitly out of scope (current codebase)
 
 | Control | Status |
 |---------|--------|
-| Rate limiting / lockout | Not implemented |
 | OAuth / SSO | Not implemented |
 | CSRF tokens | Not required for Bearer SPA (no cookie session) |
 | Field-level encryption at rest | Not implemented |
@@ -110,7 +113,7 @@ Central helpers (non-exhaustive): `authenticate`, `requireSystemAdmin`, `canAcce
 - Bearer in `localStorage` is XSS-sensitive.
 - Role matrix is harder to teach than Todo’s per-user `userId`.
 - List endpoints sometimes return empty when multi-org users have not selected an acting org (by design of `peopleListOrgIds`).
-- No rate limiting on login in the imported code.
+- Sign-in lockout (5 wrong passwords → 15 minutes) and per-IP limits (Feature 70) use an in-memory store: counts reset when the API restarts, and the IP comes from the one reverse proxy (`trust proxy` 1), so adding a load balancer or CDN means changing that setting. Someone who knows an email can lock that account for 15 minutes.
 
 ## Alternatives considered
 

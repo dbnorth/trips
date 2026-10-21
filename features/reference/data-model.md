@@ -16,6 +16,7 @@ Notes:
 |---------------|----------|---------|
 | `user` | 1, 2 | Accounts |
 | `sessions` | 1 | Session tokens (TTL ~4h) |
+| `passwordResetTokens` | 70 | Hashed one-time password reset tokens |
 | `person` | 2, 11 | Profiles |
 | `role` | 2 | Role catalog |
 | `orgPeopleRole` | 2 | Person ↔ org ↔ role |
@@ -53,7 +54,7 @@ Notes:
 
 ---
 
-## `user` — Features 1, 2
+## `user` — Features 1, 2, 70
 
 | Field | Type | Rules |
 |-------|------|--------|
@@ -62,8 +63,28 @@ Notes:
 | password | STRING(255) | required; excluded by `defaultScope` |
 | isAdmin | BOOLEAN | required, default `false` |
 | passwordSetByUser | BOOLEAN | required, default `false` |
+| failedLoginCount | INTEGER | required, default `0`; wrong passwords in a row (Feature 70); excluded by `defaultScope` |
+| lockedUntil | DATE | nullable; sign-in refused until then (Feature 70); excluded by `defaultScope` |
 
-**Associations:** `hasMany` sessions; `hasOne` person (`userId`, SET NULL).
+`failedLoginCount` and `lockedUntil` are added to existing databases by `ensureSchema`.
+
+**Associations:** `hasMany` sessions; `hasMany` passwordResetTokens (CASCADE); `hasOne` person (`userId`, SET NULL).
+
+---
+
+## `passwordResetTokens` — Feature 70
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| userId | INTEGER | required FK → user (CASCADE) |
+| tokenHash | CHAR(64) | required, unique (`passwordResetTokens_tokenHash_unique`); SHA-256 hex of the emailed token — the token itself is never stored |
+| expiresAt | DATE | required; created + 1 hour |
+| usedAt | DATE | nullable; set when used or replaced by a newer link |
+
+`createdAt` counts reset emails per user per hour (max 3).
+
+**Associations:** `belongsTo` user.
 
 ---
 

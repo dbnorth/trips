@@ -19,6 +19,9 @@ const syncOptions =
 
 const app = express();
 
+// Production runs behind one reverse proxy (Apache); use the visitor IP it forwards.
+app.set("trust proxy", 1);
+
 app.use(morgan("combined", { stream: logger.stream }));
 
 app.use(

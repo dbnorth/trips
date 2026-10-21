@@ -46,13 +46,14 @@
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `POST` | `/trips/login` | none | Sign in; session token |
-| `POST` | `/trips/register` | none | Register user + person; optional `orgIds`; optional `subdomain` (Feature 15 — binds Trip Participant to matching org); optional `middleName` (Feature 20); optional `preferredName` (Feature 33 — blank or omitted stores first name + last name) |
+| `POST` | `/trips/login` | none | Sign in; always creates a **new** session with a new, unique token (JWT `jti`) — an existing session is never returned; the user's other live sessions stay valid; the user's expired or signed-out sessions are deleted (Feature 72). 5 wrong passwords in a row lock the account for 15 minutes: `429` "Too many failed sign-in attempts. Try again in 15 minutes or reset your password." (right password refused too); a successful sign-in clears the count. At most 20 failed attempts per IP per 15 minutes → `429` "Too many attempts. Please try again later." (Feature 70) |
+| `POST` | `/trips/register` | none | Register user + person; optional `orgIds`; optional `subdomain` (Feature 15 — binds Trip Participant to matching org); optional `middleName` (Feature 20); optional `preferredName` (Feature 33 — blank or omitted stores first name + last name). Email already used by a user or person (trimmed, lower-cased) → `409` "An account with this email already exists. Please log in instead." with no changes and no session (Feature 68). The new account's session is created like sign-in (Feature 72) |
 | `GET` | `/trips/register/organizations` | none | Orgs for registration UI |
 | `GET` | `/trips/register/organizations/by-subdomain/:subdomain` | none | Resolve `{ id, name, subdomain }` or `404` (Feature 15) |
-| `POST` | `/trips/logout` | none | Invalidate session (token in body) |
+| `POST` | `/trips/logout` | none | Invalidate session (token in body); only that token's session ends — the user's other sessions stay signed in (Feature 72) |
 | `POST` | `/trips/change-password` | auth | Change password |
-| `POST` | `/trips/reset-password` | none | Dev reset; **403 in production** |
+| `POST` | `/trips/forgot-password` | none | `{ email }` → always `200` "If an account exists for that email, we sent a link to reset your password. The link expires in 1 hour."; emails a one-time reset link (`<APP_URL>/reset-password?token=…`, 1 hour, max 3 per user per hour) when a user has that email; `400` "Email is required."; shares a 10-requests-per-IP-per-15-minutes limit with reset-password → `429` (Feature 70) |
+| `POST` | `/trips/reset-password` | none | `{ token, newPassword }` → `200` "Your password has been reset. Please sign in.": sets the password, uses the token, ends **all** the user's sessions, clears the sign-in lock. `400` "Password must be at least 8 characters." or "This reset link is invalid or has expired. Please request a new one." (missing, unknown, used, replaced, or expired token); per-IP limit `429`. The email-only form is gone in every environment (Feature 70) |
 | `GET` | `/trips/me` | auth | Current user context |
 
 ---
@@ -75,8 +76,8 @@
 | `GET` | `/trips/people` | auth | List people. **Feature 11:** system admin with **no** acting-org header returns **all** persons; with acting org → membership in that org; Org Admin / Trip Leader → Feature 2 scoping |
 | `GET` | `/trips/people/org-trip-leaders` | auth | People with Trip Leader org role for `?orgId=` |
 | `GET` | `/trips/people/:id` | auth | Person detail |
-| `POST` | `/trips/people` | auth | Create person (+ optional org/role); omitted or blank `preferredName` stores first name + last name (Feature 33) |
-| `PUT` | `/trips/people/:id` | auth | Update person (`version`); accepts `emergencyContactRelationship` (`spouse`, `father`, `mother`, `child`, `grandmother`, `grandfather`, `other`); `preferredName` blank stores first name + last name, omitted leaves the stored value (Feature 33) |
+| `POST` | `/trips/people` | auth | Create person (+ optional org/role); omitted or blank `preferredName` stores first name + last name (Feature 33). Email already used by a user or person (trimmed, lower-cased) → `409` "A person with this email already exists." and nothing changes; success → `{ person, message }` (Feature 68) |
+| `PUT` | `/trips/people/:id` | auth | Update person (`version`); accepts `emergencyContactRelationship` (`spouse`, `father`, `mother`, `child`, `grandmother`, `grandfather`, `other`); `preferredName` blank stores first name + last name, omitted leaves the stored value (Feature 33). `password` for someone else → `403` "Forbidden. System admin required to set a password." unless System Admin (your own → `400`, use change-password); a System Admin setting it ends all that user's sessions. Changing the email of a person with a login account (`userId`; trimmed, lower-cased compare) → `403` "Forbidden. System admin required to change a login email." unless System Admin or the person themselves. Refused requests change nothing (Feature 71) |
 | `PUT` | `/trips/people/:id/picture` | auth | Upload picture (`multipart` field `picture`) |
 | `DELETE` | `/trips/people/:id` | sysadmin | Delete person |
 | `GET` | `/trips/org-people-roles` | auth | List org memberships |
@@ -234,15 +235,15 @@ Uploaded document and specialization files are stored encrypted and returned dec
 | `PUT` | `/trips/trips/browse/:id/application` | auth | Update application (incl. pregnancy fields); sends `application-submitted` event emails — Feature 45; `400` "Your role on this trip is reserved." when a reserved caller picks another role — Feature 56 |
 | `POST` | `/trips/trips/browse/:id/application/cancel` | auth | Applicant cancel own application (`incomplete`/`applied`/`approved` → `cancelled`) |
 | `POST` | `/trips/trips/browse/:id/application/uncancel` | auth | Applicant uncancel → auto `incomplete`/`applied`; fails if role full |
-| `GET` | `/trips/trip-people-roles` | auth | Roster (`?tripId=`) |
+| `GET` | `/trips/trip-people-roles` | auth | Roster (`?tripId=`); trip staff only (System Admin, Org Admin of the trip's organization, approved Trip Leader of the trip), everyone else → `403` "Forbidden." — Feature 69 |
 | `GET` | `/trips/trips/:id/status` | auth | Trip Status board — Feature 28 (also listed under Trips catalog) |
-| `GET` | `/trips/trip-people-roles/:id` | auth | One assignment |
+| `GET` | `/trips/trip-people-roles/:id` | auth | One assignment; trip staff only, everyone else (including the applicant, who uses `GET /trips/trips/browse/:id/application`) → `403` "Forbidden." — Feature 69 |
 | `POST` | `/trips/trip-people-roles` | auth | Staff add participant; sends application event emails for Trip Participants — Feature 45 |
 | `POST` | `/trips/trip-people-roles/:id/cancel` | auth | Staff cancel (`incomplete`/`applied`/`approved`) |
 | `POST` | `/trips/trip-people-roles/:id/uncancel` | auth | Staff uncancel → auto `incomplete`/`applied`; fails if role full |
 | `PUT` | `/trips/trip-people-roles/:id` | auth | Update / approve / decline; sends `application-submitted` / `application-approved` event emails for Trip Participants — Feature 45 |
 | `DELETE` | `/trips/trip-people-roles/:id` | auth | Delete |
-| `GET` | `/trips/export/trips/:tripId/participants.csv` | auth | Participants CSV; **Preferred Name** column after **Last Name** (Feature 33) |
+| `GET` | `/trips/export/trips/:tripId/participants.csv` | auth | Participants CSV; **Preferred Name** column after **Last Name** (Feature 33); trip staff only — approved Trip Participant → `403` "Forbidden.", no trip access → `404` "Trip not found." (Feature 69) |
 
 Browse/apply UI is blocked for system admins (router); see `behavior.md`.
 

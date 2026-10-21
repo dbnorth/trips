@@ -9,7 +9,6 @@ import {
   normalizeEmail,
   findUserByEmail,
   findPersonByEmail,
-  findPersonForUser,
   ensureUserForEmail,
   updateUserPassword,
   upsertPersonForUser,
@@ -345,18 +344,11 @@ exports.create = async (req, res) => {
     let person;
 
     if (emailNorm) {
-      const existingUser = await findUserByEmail(emailNorm);
-      const existingPerson = existingUser
-        ? await findPersonForUser(existingUser.id)
-        : await findPersonByEmail(emailNorm);
-      const isExisting = !!(existingUser || existingPerson);
-
-      let linkedUser = existingUser;
-      if (!linkedUser) {
-        linkedUser = await ensureUserForEmail(emailNorm, password);
-      } else if (password && password.length >= 8) {
-        await updateUserPassword(linkedUser.id, password);
+      if ((await findUserByEmail(emailNorm)) || (await findPersonByEmail(emailNorm))) {
+        return res.status(409).send({ message: "A person with this email already exists." });
       }
+
+      const linkedUser = await ensureUserForEmail(emailNorm, password);
 
       if (isSystemAdmin(req) && Object.prototype.hasOwnProperty.call(req.body, "isAdmin")) {
         await User.update({ isAdmin: !!isAdmin }, { where: { id: linkedUser.id } });
@@ -392,36 +384,8 @@ exports.create = async (req, res) => {
           currentChurchHomeCity: personData.currentChurchHomeCity,
           currentChurchHomeStateProv: personData.currentChurchHomeStateProv,
           bioText: personData.bioText,
-        },
-        { mergeOptional: isExisting }
+        }
       );
-
-      let orgRoleResult = null;
-      if (orgId) {
-        orgRoleResult = await ensureOrgPeopleRole(orgId, person.id, roleId);
-      }
-
-      const languageResult = await applyLanguageFields(
-        person.id,
-        languageInput,
-        languageInput
-      );
-      if (!languageResult.ok) {
-        return res.status(languageResult.status).send({ message: languageResult.message });
-      }
-
-      const message = isExisting
-        ? orgRoleResult?.created
-          ? "Existing person updated and assigned to the organization."
-          : "Existing person updated."
-        : "Person created.";
-
-      return res.send({
-        person,
-        existingPerson: isExisting,
-        orgRoleCreated: !!orgRoleResult?.created,
-        message,
-      });
     } else {
       person = await Person.create(personData);
     }
@@ -435,7 +399,7 @@ exports.create = async (req, res) => {
       return res.status(languageResult.status).send({ message: languageResult.message });
     }
 
-    res.send({ person, existingPerson: false, message: "Person created." });
+    res.send({ person, message: "Person created." });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
@@ -447,6 +411,20 @@ exports.update = async (req, res) => {
     if (!person) return res.status(404).send({ message: "Person not found." });
     if (!(await canManagePerson(req, person.id))) {
       return res.status(403).send({ message: "Forbidden." });
+    }
+
+    const isSelf = req.user?.personId && Number(req.user.personId) === Number(person.id);
+    if (!isSelf && !isSystemAdmin(req)) {
+      if (Object.prototype.hasOwnProperty.call(req.body, "password") && req.body.password) {
+        return res.status(403).send({ message: "Forbidden. System admin required to set a password." });
+      }
+      if (
+        Object.prototype.hasOwnProperty.call(req.body, "email") &&
+        person.userId &&
+        normalizeEmail(req.body.email) !== normalizeEmail(person.email)
+      ) {
+        return res.status(403).send({ message: "Forbidden. System admin required to change a login email." });
+      }
     }
 
     const body = { ...req.body };
@@ -528,6 +506,7 @@ exports.update = async (req, res) => {
         return res.status(400).send({ message: "No user account is linked to this person." });
       }
       await updateUserPassword(linkedUser.id, body.password);
+      await Session.update({ token: "" }, { where: { userId: linkedUser.id } });
       delete body.password;
     }
 

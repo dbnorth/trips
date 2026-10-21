@@ -19,6 +19,12 @@ export default {
   changePassword(data) {
     return apiClient.post("/change-password", data);
   },
+  forgotPassword(email) {
+    return apiClient.post("/forgot-password", { email });
+  },
+  resetPassword(token, newPassword) {
+    return apiClient.post("/reset-password", { token, newPassword });
+  },
   me() {
     return apiClient.get("/me");
   },
