@@ -14,6 +14,7 @@ import TripWorkerRolesCard from "../components/TripWorkerRolesCard.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TripTeamEmailDialog from "../components/TripTeamEmailDialog.vue";
 import TripCostBreakdown from "../components/TripCostBreakdown.vue";
+import TripDateAdjustment from "../components/TripDateAdjustment.vue";
 import TripArrivalInfo from "../components/TripArrivalInfo.vue";
 import ExportServices from "../services/exportServices.js";
 import TripTravelOptionServices from "../services/tripTravelOptionServices.js";
@@ -456,6 +457,8 @@ onMounted(refresh);
         { title: 'Role', key: 'roleName' },
         { title: 'Worker role', key: 'workerRoleName' },
         { title: 'Status', key: 'status' },
+        { title: 'Arrives', key: 'arrivalDate' },
+        { title: 'Departs', key: 'departureDate' },
         { title: 'Participant cost', key: 'participantCost' },
         { title: 'Total cost', key: 'totalTripCost' },
         { title: 'Total donations', key: 'donationTotal' },
@@ -483,6 +486,12 @@ onMounted(refresh);
       </template>
       <template #item.roleName="{ item }">{{ item.roleName || "—" }}</template>
       <template #item.workerRoleName="{ item }">{{ item.workerRoleName || "—" }}</template>
+      <template #item.arrivalDate="{ item }">
+        <TripDateAdjustment :date="item.arrivalDate" :adjustments="item.arrivalAdjustments" direction="before" />
+      </template>
+      <template #item.departureDate="{ item }">
+        <TripDateAdjustment :date="item.departureDate" :adjustments="item.departureAdjustments" direction="after" />
+      </template>
       <template #item.participantCost="{ item }">{{ rowParticipantCost(item) }}</template>
       <template #item.totalTripCost="{ item }">
         <TripCostBreakdown :breakdown="item.costBreakdown" />

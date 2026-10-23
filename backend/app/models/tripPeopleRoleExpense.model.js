@@ -6,6 +6,8 @@ const TripPeopleRoleExpense = SequelizeInstance.define("tripPeopleRoleExpense", 
   tripPeopleRoleId: { type: Sequelize.INTEGER, allowNull: false },
   description: { type: Sequelize.STRING(255), allowNull: false },
   cost: { type: Sequelize.DECIMAL(10, 2), allowNull: false },
+  daysBefore: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
+  daysAfter: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
 });
 
 export default TripPeopleRoleExpense;

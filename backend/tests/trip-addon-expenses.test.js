@@ -424,7 +424,9 @@ describe("Feature 74 — Trip Add-on Expenses", () => {
         .set(nora.authHeader);
 
       expect(response.status).toBe(200);
-      expect(response.body.myTripInfo.addonExpenses).toEqual(ADDONS);
+      expect(response.body.myTripInfo.addonExpenses).toEqual(
+        ADDONS.map((expense) => ({ ...expense, daysBefore: 0, daysAfter: 0 }))
+      );
       expect(response.body.myTripInfo.totalTripCost).toBe(3575);
     });
   });

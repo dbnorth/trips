@@ -1008,6 +1008,24 @@ const ensureTripPeopleRoleExpensesTable = async () => {
   logger.info("tripPeopleRoleExpenses table created.");
 };
 
+const ensureTripDaysBeforeAfter = async () => {
+  for (const table of ["tripTravelOptions", "tripPeopleRoleExpenses"]) {
+    for (const name of ["daysBefore", "daysAfter"]) {
+      const [cols] = await db.sequelize.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = :table
+           AND COLUMN_NAME = :name`,
+        { replacements: { table, name } }
+      );
+      if (!cols.length) {
+        await db.sequelize.query(`ALTER TABLE ${table} ADD COLUMN ${name} INT NOT NULL DEFAULT 0`);
+        logger.info(`${table}.${name} column added.`);
+      }
+    }
+  }
+};
+
 const ensureEmailPicturesTable = async () => {
   if (await tableExists("emailPictures")) return;
 
@@ -1535,6 +1553,7 @@ export const ensureSchema = async () => {
   await ensureTripTravelOptionsTable();
   await ensureTripPeopleRoleOptionsTable();
   await ensureTripPeopleRoleExpensesTable();
+  await ensureTripDaysBeforeAfter();
   await ensureEmailPicturesTable();
   await ensureMedicalConditionsTable();
   await ensureEncryptedColumns();

@@ -52,6 +52,17 @@ const optionLabel = (option) => {
 </script>
 
 <template>
+  <v-row v-if="info.arrivalDate || info.departureDate" dense class="mt-2" data-testid="my-trip-dates">
+    <v-col cols="6" sm="3">
+      <div class="text-caption text-medium-emphasis">Arrive</div>
+      <div data-testid="my-trip-arrive">{{ formatDate(info.arrivalDate) }}</div>
+    </v-col>
+    <v-col cols="6" sm="3">
+      <div class="text-caption text-medium-emphasis">Depart</div>
+      <div data-testid="my-trip-depart">{{ formatDate(info.departureDate) }}</div>
+    </v-col>
+  </v-row>
+
   <div v-if="info.hasArrivalPdf && trip" class="mt-4" data-testid="my-trip-arrival-info">
     <h3 class="text-subtitle-1 font-weight-bold mb-2">Trip arrival info</h3>
     <a href="#" data-testid="my-trip-arrival-link" @click.prevent="openArrivalPdf">

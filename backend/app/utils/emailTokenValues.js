@@ -3,6 +3,7 @@ import db from "../models/index.js";
 import { ROLE_TRIP_LEADER } from "../authorization/accessControl.js";
 import { amountOwed, loadSelectedTripOptions, participantTotals } from "./participantTotals.js";
 import { arrivalPdfName, loadTripWithArrivalPdf } from "./tripArrivalPdf.js";
+import { participantTravelDates } from "./tripDays.js";
 
 export const VALUE_SOURCES = [
   { valueSource: "organization.name", label: "Organization name" },
@@ -35,6 +36,8 @@ export const VALUE_SOURCES = [
   { valueSource: "participant.tripDonations", label: "Participant trip donations" },
   { valueSource: "participant.tripDonationsTotal", label: "Participant trip donations total" },
   { valueSource: "participant.balanceDue", label: "Participant balance due" },
+  { valueSource: "participant.arrivalDate", label: "Participant arrival date" },
+  { valueSource: "participant.departureDate", label: "Participant departure date" },
   { valueSource: "primaryLeader.firstName", label: "Primary trip leader first name" },
   { valueSource: "primaryLeader.lastName", label: "Primary trip leader last name" },
   { valueSource: "primaryLeader.preferredName", label: "Primary trip leader preferred name" },
@@ -246,6 +249,7 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
   let amountOwed = "";
   let tripRole = "";
   let financialValues = EMPTY_FINANCIAL_VALUES;
+  let travelDates = { arrivalDate: null, departureDate: null };
   if (trip && person) {
     tripRole = await loadParticipantTripRole(trip.id, person.id);
     const assignment = await db.tripPeopleRole.findOne({
@@ -256,6 +260,7 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
     amountRaised = formatMoney(raised);
     if (owed != null) amountOwed = formatMoney(owed);
     financialValues = await buildFinancialValues(trip, person, assignment);
+    if (assignment) travelDates = await participantTravelDates(trip, assignment.id);
   }
 
   return {
@@ -278,6 +283,8 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
     "participant.amountOwed": amountOwed,
     "participant.tripRole": tripRole,
     ...financialValues,
+    "participant.arrivalDate": formatDate(travelDates.arrivalDate),
+    "participant.departureDate": formatDate(travelDates.departureDate),
     "primaryLeader.firstName": text(leader?.firstName),
     "primaryLeader.lastName": text(leader?.lastName),
     "primaryLeader.preferredName": preferredName(leader),

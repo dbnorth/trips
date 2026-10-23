@@ -27,6 +27,11 @@ import { loadMyTripTravelDetails } from "../utils/myTripTravelDetails.js";
 import { participantTotals } from "../utils/participantTotals.js";
 import { loadTripWithArrivalPdf } from "../utils/tripArrivalPdf.js";
 import {
+  TRIP_OPTION_DAYS_MESSAGES,
+  daysLimitMessage,
+  participantTravelDates,
+} from "../utils/tripDays.js";
+import {
   cancelApplicationAssignment,
   uncancelApplicationAssignment,
 } from "../utils/applicationCancel.js";
@@ -114,7 +119,18 @@ const validateSelectedTravelOptionIds = (travelOptions, selectedIds) => {
     }
   }
 
+  const daysMessage = daysLimitMessage(
+    (travelOptions || []).filter((o) => selected.has(Number(o.id))),
+    TRIP_OPTION_DAYS_MESSAGES
+  );
+  if (daysMessage) return { ok: false, message: daysMessage };
+
   return { ok: true, missingSelection };
+};
+
+const myTravelDates = async (trip, assignmentId) => {
+  const { arrivalDate, departureDate } = await participantTravelDates(trip, assignmentId);
+  return { arrivalDate, departureDate };
 };
 
 const syncTripPeopleRoleOptions = async (tripPeopleRoleId, travelOptions, selectedIds) => {
@@ -525,7 +541,15 @@ exports.getBrowseTrip = async (req, res) => {
               ? Number(trip.participantCost)
               : null,
         totalTripCost: totals.totalTripCost,
-        addonExpenses: totals.addonExpenses.map(({ description, cost }) => ({ description, cost })),
+        addonExpenses: totals.addonExpenses.map(({ description, cost, daysBefore, daysAfter }) => ({
+          description,
+          cost,
+          daysBefore,
+          daysAfter,
+        })),
+        ...(["incomplete", "applied", "approved"].includes(assignment.status)
+          ? await myTravelDates(trip, assignment.id)
+          : { arrivalDate: null, departureDate: null }),
         donationTotal: Number(donationTotal) || 0,
         donationRecipients: ["incomplete", "applied", "approved"].includes(assignment.status)
           ? await loadDonationRecipients(trip.id)

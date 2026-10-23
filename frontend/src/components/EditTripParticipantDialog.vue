@@ -7,6 +7,7 @@ import MoneyInput from "./MoneyInput.vue";
 import { formatMoneyDisplay, parseMoneyAmount } from "../utils/moneyUtils.js";
 import { TRIP_PARTICIPANT_STATUS_OPTIONS } from "../utils/tripParticipantStatus.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
+import { DAYS_MESSAGE, parseDays } from "../utils/tripDays.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -37,7 +38,8 @@ const addonTotal = computed(() =>
   form.value.addonExpenses.reduce((sum, expense) => sum + (parseMoneyAmount(expense.cost) || 0), 0)
 );
 
-const addAddonExpense = () => form.value.addonExpenses.push({ description: "", cost: "" });
+const addAddonExpense = () =>
+  form.value.addonExpenses.push({ description: "", cost: "", daysBefore: "", daysAfter: "" });
 const removeAddonExpense = (index) => form.value.addonExpenses.splice(index, 1);
 
 const participantName = computed(() => {
@@ -61,6 +63,8 @@ const applyParticipant = (row) => {
     addonExpenses: (row.addonExpenses || []).map((expense) => ({
       description: expense.description || "",
       cost: expense.cost != null ? Number(expense.cost).toFixed(2) : "",
+      daysBefore: expense.daysBefore ? String(expense.daysBefore) : "",
+      daysAfter: expense.daysAfter ? String(expense.daysAfter) : "",
     })),
     whygoText: row.whygoText || "",
     version: row.version ?? 0,
@@ -132,7 +136,21 @@ const save = async () => {
       formError.value = ADDON_EXPENSE_MESSAGE;
       return;
     }
-    addonExpenses.push({ description, cost });
+    const daysBefore = parseDays(expense.daysBefore);
+    const daysAfter = parseDays(expense.daysAfter);
+    if (daysBefore == null || daysAfter == null) {
+      formError.value = DAYS_MESSAGE;
+      return;
+    }
+    addonExpenses.push({ description, cost, daysBefore, daysAfter });
+  }
+  if (addonExpenses.filter((expense) => expense.daysBefore > 0).length > 1) {
+    formError.value = "Only one add-on expense can have days before the trip.";
+    return;
+  }
+  if (addonExpenses.filter((expense) => expense.daysAfter > 0).length > 1) {
+    formError.value = "Only one add-on expense can have days after the trip.";
+    return;
   }
 
   saving.value = true;
@@ -166,7 +184,7 @@ const save = async () => {
 </script>
 
 <template>
-  <v-dialog :model-value="modelValue" max-width="480" @update:model-value="(v) => !v && close()">
+  <v-dialog :model-value="modelValue" max-width="720" @update:model-value="(v) => !v && close()">
     <v-card>
       <v-card-title>Edit participant</v-card-title>
       <v-card-subtitle class="px-4 pb-2">{{ participantName }}</v-card-subtitle>
@@ -220,6 +238,22 @@ const save = async () => {
             density="compact"
             hide-details
             style="max-width: 130px"
+          />
+          <v-text-field
+            v-model="expense.daysBefore"
+            label="Days before"
+            inputmode="numeric"
+            density="compact"
+            hide-details
+            style="max-width: 110px"
+          />
+          <v-text-field
+            v-model="expense.daysAfter"
+            label="Days after"
+            inputmode="numeric"
+            density="compact"
+            hide-details
+            style="max-width: 110px"
           />
           <v-btn
             icon="mdi-delete"

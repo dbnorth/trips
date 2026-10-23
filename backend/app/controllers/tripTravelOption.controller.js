@@ -5,6 +5,7 @@ import {
   isSystemAdmin,
   isTripLeaderForTrip,
 } from "../authorization/accessControl.js";
+import { DAYS_MESSAGE, parseDays } from "../utils/tripDays.js";
 
 const TripTravelOption = db.tripTravelOption;
 
@@ -76,11 +77,19 @@ exports.create = async (req, res) => {
       return res.status(400).send({ message: "Set number must be a positive whole number." });
     }
 
+    const daysBefore = parseDays(req.body?.daysBefore);
+    const daysAfter = parseDays(req.body?.daysAfter);
+    if (daysBefore == null || daysAfter == null) {
+      return res.status(400).send({ message: DAYS_MESSAGE });
+    }
+
     const data = await TripTravelOption.create({
       tripId: Number(tripId),
       description,
       priceAdjustment,
       setNumber,
+      daysBefore,
+      daysAfter,
     });
     res.send(data);
   } catch (err) {
@@ -116,6 +125,12 @@ exports.update = async (req, res) => {
         return res.status(400).send({ message: "Set number must be a positive whole number." });
       }
       updates.setNumber = setNumber;
+    }
+    for (const key of ["daysBefore", "daysAfter"]) {
+      if (!Object.prototype.hasOwnProperty.call(req.body || {}, key)) continue;
+      const days = parseDays(req.body[key]);
+      if (days == null) return res.status(400).send({ message: DAYS_MESSAGE });
+      updates[key] = days;
     }
 
     await row.update(updates);
