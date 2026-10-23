@@ -23,6 +23,7 @@ import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 import { loadDonationRecipients } from "../utils/donorPerson.js";
 import { loadMyTripNextActions } from "../utils/myTripNextActions.js";
 import { loadMyTripTravelDetails } from "../utils/myTripTravelDetails.js";
+import { participantTotals } from "../utils/participantTotals.js";
 import {
   cancelApplicationAssignment,
   uncancelApplicationAssignment,
@@ -511,6 +512,7 @@ exports.getBrowseTrip = async (req, res) => {
         (await TripDonation.sum("amount", {
           where: { tripId: trip.id, personId: assignment.peopleId },
         })) || 0;
+      const totals = await participantTotals(trip, assignment);
       myTripInfo = {
         status: assignment.status || null,
         workerRoleName: assignment.tripWorkerRole?.workerRole?.name || null,
@@ -520,6 +522,8 @@ exports.getBrowseTrip = async (req, res) => {
             : trip.participantCost != null
               ? Number(trip.participantCost)
               : null,
+        totalTripCost: totals.totalTripCost,
+        addonExpenses: totals.addonExpenses.map(({ description, cost }) => ({ description, cost })),
         donationTotal: Number(donationTotal) || 0,
         donationRecipients: ["incomplete", "applied", "approved"].includes(assignment.status)
           ? await loadDonationRecipients(trip.id)

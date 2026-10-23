@@ -37,6 +37,7 @@ Notes:
 | `tripWorkerRoleReservation` | 56 | Trip-role slot reserved for an email |
 | `tripTravelOption` | 6 | Travel/cost option sets |
 | `tripPeopleRoleOption` | 7 | Selected travel options on an application |
+| `tripPeopleRoleExpense` | 74 | Add-on expenses on an application |
 | `tripRoomingList` | 29 | Per-trip hotel / check-in / notes |
 | `tripRoom` | 29 | Room number, type, nights |
 | `tripRoomAssignment` | 29 | Participant ↔ room |
@@ -316,7 +317,7 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | isPrimaryLeader | BOOLEAN | required, default `false`; exactly one Trip Leader row per trip with leaders is `true` (Feature 40) |
 | version | INTEGER | required, default `0` |
 
-**Associations:** `belongsTo` trip, person, role, tripWorkerRole; `hasMany` tripPeopleRoleOption; `hasOne` tripRoomAssignment (Feature 29); `hasOne` tripFlight (Feature 30).
+**Associations:** `belongsTo` trip, person, role, tripWorkerRole; `hasMany` tripPeopleRoleOption; `hasOne` tripRoomAssignment (Feature 29); `hasOne` tripFlight (Feature 30); `hasMany` tripPeopleRoleExpense as `addonExpenses` (Feature 74).
 
 ---
 
@@ -564,6 +565,21 @@ A reservation is **filled** when an `incomplete` / `applied` / `approved` applic
 
 ---
 
+## `tripPeopleRoleExpense` — Feature 74
+
+Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement; list order |
+| tripPeopleRoleId | INTEGER | required FK → tripPeopleRole, `ON DELETE CASCADE` |
+| description | STRING(255) | required, trimmed |
+| cost | DECIMAL(10,2) | required, ≥ 0 |
+
+**Associations:** `belongsTo` tripPeopleRole. No dedicated REST resource; saved as a whole list through `PUT /trips/trip-people-roles/:id` `addonExpenses`.
+
+---
+
 ## `donor` — Features 8, 9, 64
 
 | Field | Type | Rules |
@@ -649,6 +665,8 @@ A reservation is **filled** when an `incomplete` / `applied` / `approved` applic
 
 **Associations:** none. Templates write tokens as `{{TOKEN_CODE}}` text.
 
+`seedEmailTokens` adds missing token codes only; Feature 74 adds `ADDON_EXPENSE` → `participant.addonExpenses` and `ADDON_EXPENSE_TOTAL` → `participant.addonExpensesTotal`.
+
 ---
 
 ## `emailLog` — Features 1, 43, 45
@@ -703,6 +721,7 @@ organization ──1:N── trip ──1:N── tripPeopleRole ──N:1──
                   └──1:1── tripRoomingList ──1:N── tripRoom ──1:N── tripRoomAssignment ──N:1── tripPeopleRole
 
 tripPeopleRole ──1:N── tripPeopleRoleOption ──N:1── tripTravelOption
+tripPeopleRole ──1:N── tripPeopleRoleExpense
 person ──1:N── personDocument ──N:1── documentType
 workerRole ──N:1── documentType (optional)
 organization ──1:N── emailTemplate ──N:1── trip (optional)

@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import PersonContactDialog from "../components/PersonContactDialog.vue";
+import TripCostBreakdown from "../components/TripCostBreakdown.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { countryName } from "../utils/locationData.js";
 import { tripParticipantStatusLabel } from "../utils/tripParticipantStatus.js";
@@ -59,8 +60,9 @@ const headers = computed(() => {
     { title: "Role", key: "workerRoleName", sortable: true },
     { title: "Booked by", key: "bookedBy", sortable: true },
     { title: "Missing items", key: "missingItems", sortable: false },
-    { title: "Amount owed", key: "amountOwed", sortable: true },
+    { title: "Total cost", key: "totalTripCost", sortable: true },
     { title: "Amount raised", key: "amountRaised", sortable: true },
+    { title: "Amount owed", key: "amountOwed", sortable: true },
   ];
   for (const option of travelOptions.value) {
     const setLabel =
@@ -226,6 +228,9 @@ onMounted(load);
           </template>
           <template #item.missingItems="{ item }">
             {{ item.missingItemsLabel }}
+          </template>
+          <template #item.totalTripCost="{ item }">
+            <TripCostBreakdown :breakdown="item.costBreakdown" />
           </template>
           <template #item.amountOwed="{ item }">
             {{ formatMoney(item.amountOwed) }}

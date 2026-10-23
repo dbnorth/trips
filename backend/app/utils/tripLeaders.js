@@ -47,7 +47,7 @@ const getActiveTripMemberRows = async (tripIds) => {
 
   return db.tripPeopleRole.findAll({
     where: { tripId: ids, status: "approved", roleId: roleIds },
-    attributes: ["tripId", "peopleId", "participantCost"],
+    attributes: ["id", "tripId", "peopleId", "participantCost", "flightPurchaseOption"],
     raw: true,
   });
 };
@@ -125,7 +125,7 @@ export const getActiveParticipantCountsByTripIds = async (tripIds) => {
   return map;
 };
 
-/** Map tripId -> sum of effective costs for active trip leaders and participants. */
+/** Map tripId -> sum of total trip costs (cost + organization-booked airfare + add-ons) for active members. */
 export const getActiveParticipantTotalCostsByTripIds = async (trips) => {
   const list = trips || [];
   const ids = list.map((t) => Number(t.id)).filter((id) => !Number.isNaN(id));
@@ -140,6 +140,27 @@ export const getActiveParticipantTotalCostsByTripIds = async (trips) => {
   );
 
   const rows = await getActiveTripMemberRows(ids);
+  const rowIds = rows.map((row) => row.id);
+  const orgBookedIds = rows.filter((row) => row.flightPurchaseOption === "organization").map((row) => row.id);
+  const addonRows = rowIds.length
+    ? await db.tripPeopleRoleExpense.findAll({
+        where: { tripPeopleRoleId: rowIds },
+        attributes: ["tripPeopleRoleId", "cost"],
+        raw: true,
+      })
+    : [];
+  const flightRows = orgBookedIds.length
+    ? await db.tripFlight.findAll({
+        where: { tripPeopleRoleId: orgBookedIds },
+        attributes: ["tripPeopleRoleId", "cost"],
+        raw: true,
+      })
+    : [];
+  const extrasByRowId = new Map();
+  for (const extra of [...addonRows, ...flightRows]) {
+    const id = Number(extra.tripPeopleRoleId);
+    extrasByRowId.set(id, (extrasByRowId.get(id) || 0) + (Number(extra.cost) || 0));
+  }
 
   for (const id of ids) map.set(id, 0);
   for (const row of rows) {
@@ -149,7 +170,8 @@ export const getActiveParticipantTotalCostsByTripIds = async (trips) => {
         ? Number(row.participantCost)
         : defaultCostByTripId.get(tid);
     if (cost == null || Number.isNaN(cost)) continue;
-    map.set(tid, (map.get(tid) || 0) + cost);
+    const total = cost + (extrasByRowId.get(Number(row.id)) || 0);
+    map.set(tid, Math.round(((map.get(tid) || 0) + total) * 100) / 100);
   }
 
   return map;

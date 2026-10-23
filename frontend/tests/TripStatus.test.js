@@ -353,4 +353,73 @@ describe("Feature 28 — View Trip Status", () => {
       expect(rowText("Hank Booked")).toContain("Not chosen");
     });
   });
+
+  describe("Feature 74 — US-74.2 Every total includes add-on expenses", () => {
+    it("Trip Status shows each participant's total cost with its details", async () => {
+      const costBreakdown = {
+        tripCost: 2000,
+        tripOptions: [{ description: "Private room", amount: 250 }],
+        adjustment: 0,
+        addonExpenses: [{ description: "Travel insurance", amount: 75 }],
+        airfare: 850,
+        totalTripCost: 3175,
+      };
+      TripServices.getStatus.mockResolvedValue({
+        data: {
+          trip: { id: 42, name: "Guatemala Hospital Ezel", status: "active", participantCost: 2000 },
+          rolesNeeded: [],
+          travelOptions: [],
+          participants: [
+            {
+              id: 1,
+              peopleId: 1,
+              displayName: "Nora Diaz",
+              status: "approved",
+              missingItems: [],
+              participantCost: 2250,
+              totalTripCost: 3175,
+              costBreakdown,
+              amountOwed: 2175,
+              amountRaised: 1000,
+              selectedTravelOptionIds: [],
+            },
+          ],
+        },
+      });
+      const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [
+          { path: "/trips/:tripId/status", name: "tripStatus", component: TripStatusView, props: true },
+          { path: "/home", name: "home", component: Stub },
+        ],
+      });
+      await router.push({ name: "tripStatus", params: { tripId: "42" } });
+      await router.isReady();
+
+      const { wrapper } = await mountWithPlugins(TripStatusView, {
+        props: { tripId: "42" },
+        router,
+        global: {
+          stubs: { VTooltip: { template: '<div><slot name="activator" :props="{}" /><slot /></div>' } },
+        },
+      });
+      await flushPromises();
+
+      const headers = wrapper.findAll("th").map((th) => th.text().trim());
+      const totalIndex = headers.indexOf("Total cost");
+      expect(headers.slice(totalIndex + 1, totalIndex + 3)).toEqual(["Amount raised", "Amount owed"]);
+      const cell = wrapper.find("tbody tr").findAll("td")[totalIndex];
+      expect(cell.find('[data-testid="total-cost-info"]').exists()).toBe(true);
+      const lines = cell
+        .findAll('[data-testid="total-cost-breakdown"] > div')
+        .map((line) => line.findAll("span").map((s) => s.text().trim()));
+      expect(lines).toEqual([
+        ["Trip cost", "$2,000.00"],
+        ["Trip option: Private room", "$250.00"],
+        ["Add-on: Travel insurance", "$75.00"],
+        ["Flight", "$850.00"],
+        ["Total", "$3,175.00"],
+      ]);
+    });
+  });
 });

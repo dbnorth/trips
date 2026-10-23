@@ -31,6 +31,8 @@ const tokens = [
   { tokenCode: "PARTICIPANT_TRIP_DONATIONS", valueSource: "participant.tripDonations" },
   { tokenCode: "PARTICIPANT_TRIP_DONATIONS_TOTAL", valueSource: "participant.tripDonationsTotal" },
   { tokenCode: "PARTICIPANT_BALANCE_DUE", valueSource: "participant.balanceDue" },
+  { tokenCode: "ADDON_EXPENSE", valueSource: "participant.addonExpenses" },
+  { tokenCode: "ADDON_EXPENSE_TOTAL", valueSource: "participant.addonExpensesTotal" },
   { tokenCode: "LEADER_FIRST_NAME", valueSource: "primaryLeader.firstName" },
   { tokenCode: "LEADER_LAST_NAME", valueSource: "primaryLeader.lastName" },
   { tokenCode: "LEADER_PREFERRED_NAME", valueSource: "primaryLeader.preferredName" },
