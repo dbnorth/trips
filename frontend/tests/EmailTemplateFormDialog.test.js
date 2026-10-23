@@ -44,6 +44,10 @@ vi.mock("../src/services/tripServices.js", () => ({
   default: { getAll: vi.fn() },
 }));
 
+vi.mock("../src/services/emailPictureServices.js", () => ({
+  default: { getAll: vi.fn().mockResolvedValue({ data: [] }), fileUrl: () => "" },
+}));
+
 import EmailTypeServices from "../src/services/emailTypeServices.js";
 import EmailTokenServices from "../src/services/emailTokenServices.js";
 import TripServices from "../src/services/tripServices.js";
@@ -140,10 +144,12 @@ describe("Feature 40 — Email Template Tokens and Preview", () => {
     });
     await flushPromises();
 
-    const body = wrapper.find("textarea");
-    await body.setValue("Hello  team");
-    body.element.setSelectionRange(6, 6);
-    await body.trigger("blur");
+    const body = wrapper.findComponent({ name: "RichTextEditor" });
+    body.vm.editor.commands.setContent("<p>Hello  team</p>", {
+      parseOptions: { preserveWhitespace: "full" },
+    });
+    body.vm.editor.commands.setTextSelection(7);
+    await flushPromises();
 
     const insertSelects = wrapper
       .findAllComponents({ name: "VSelect" })
@@ -155,7 +161,7 @@ describe("Feature 40 — Email Template Tokens and Preview", () => {
     bodyInsert.vm.$emit("update:modelValue", "TRIP_NAME");
     await flushPromises();
 
-    expect(body.element.value).toBe("Hello {{TRIP_NAME}} team");
+    expect(body.props("modelValue")).toBe("<p>Hello {{TRIP_NAME}} team</p>");
     expect(bodyInsert.props("modelValue")).toBeNull();
 
     wrapper.unmount();

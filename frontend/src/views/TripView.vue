@@ -578,6 +578,7 @@ onMounted(refresh);
     <TripTeamEmailDialog
       v-model="showTeamEmail"
       :trip-id="tripId"
+      :org-id="trip?.orgId"
       :participants="participants"
     />
   </v-container>

@@ -50,6 +50,7 @@ Notes:
 | `emailTemplate` | 10, 39, 41, 42 | Email templates |
 | `emailType` | 39 | Email type catalog |
 | `emailToken` | 40 | Email template token catalog |
+| `emailPicture` | 77 | Organization picture library for email bodies |
 | `emailLog` | 1, 43, 45 | Login / email audit; template sends record template, trip, and participant |
 | `scheduledEmailSend` | 44 | One row per scheduled template, trip, participant, and job date handled |
 
@@ -631,7 +632,7 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 | content | TEXT | |
 | attachment | STRING(500) | optional; attachment tokens separated by commas, e.g. `{{TRIP_ARRIVAL_PDF}}`; empty or null means no attachments (Feature 76) |
 | emailTypeId | INTEGER | optional FK → emailType; required when the template form saves (Feature 39) |
-| emailBody | TEXT | optional in the table; required when the template form saves (Feature 39) |
+| emailBody | TEXT | optional in the table; required when the template form saves (Feature 39). HTML cleaned on save to paragraphs (only style kept: `text-align:center`), line breaks, bold, italic, underline, lists, links (http, https, mailto), and library pictures as `<img data-picture-id="N" alt="…">` with an optional `width` (whole pixels, at most 600); a body with no HTML tags is read as plain text (Feature 77) |
 | toAddress | STRING(1000) | optional in the table; required when the template form saves. Comma-separated email addresses and email tokens (Feature 41) |
 | scheduleRule | STRING(20) | optional; `daily`, `weekly` (Tuesday), or `before-start`. Required when the template form saves a `Scheduled` template; empty for `Send Now` (Feature 42) |
 | scheduleDaysBefore | INTEGER | optional; 1–365 when `scheduleRule` is `before-start`, otherwise empty (Feature 42) |
@@ -670,6 +671,23 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 
 ---
 
+## `emailPicture` — Feature 77
+
+Table `emailPictures`, created by `ensureSchema` when missing.
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement; referenced from template bodies as `data-picture-id` |
+| orgId | INTEGER | required FK → organization, `ON DELETE CASCADE` |
+| name | STRING(100) | required, trimmed; defaults to the uploaded file name without its extension |
+| fileName | STRING(255) | required; random name of the file in `backend/images/email-pictures/` (served at `/trips/images/email-pictures/`) |
+| contentType | STRING(50) | required; `image/png`, `image/jpeg`, or `image/gif` |
+| sizeBytes | INTEGER | required; at most 2 MB |
+
+**Associations:** `belongsTo` organization. Not deletable while any template body of its organization uses it.
+
+---
+
 ## `emailLog` — Features 1, 43, 45
 
 | Field | Type | Rules |
@@ -679,7 +697,7 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 | fromEmail | STRING | For template sends, the address the email was sent From |
 | dateTime | DATE | required, default NOW |
 | subject | STRING(500) | |
-| content | TEXT | For template sends, the plain-text body |
+| content | TEXT | For template sends, the plain-text body (the plain-text version of HTML emails, Feature 77) |
 | emailId | STRING(255) | For template sends, the mail server message ID (smtp mode) or the file name (file mode) |
 | emailTemplateId | INTEGER | optional; FK → emailTemplate (SET NULL). For template sends, the template sent (Feature 45) |
 | tripId | INTEGER | optional; FK → trip (SET NULL). For template sends, the trip (Feature 45) |

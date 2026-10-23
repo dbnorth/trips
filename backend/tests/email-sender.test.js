@@ -24,7 +24,7 @@ describe('Feature 51 — Send Email "via Mission Trips"', () => {
   let mailDir;
 
   const readOnlyMailFile = () => {
-    const files = fs.readdirSync(mailDir);
+    const files = fs.readdirSync(mailDir).filter((name) => name.endsWith(".txt"));
     expect(files).toHaveLength(1);
     return fs.readFileSync(path.join(mailDir, files[0]), "utf8");
   };

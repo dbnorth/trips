@@ -2,6 +2,8 @@
 import { ref, computed, watch, nextTick } from "vue";
 import EmailTemplateServices from "../services/emailTemplateServices.js";
 import EmailTemplatePreviewDialog from "./EmailTemplatePreviewDialog.vue";
+import RichTextEditor from "./RichTextEditor.vue";
+import { emailBodyIsBlank } from "../utils/emailBody.js";
 import EmailTypeServices from "../services/emailTypeServices.js";
 import EmailTokenServices from "../services/emailTokenServices.js";
 import OrganizationServices from "../services/organizationServices.js";
@@ -51,7 +53,8 @@ const insertBodyToken = ref(null);
 const insertToToken = ref(null);
 const insertFromToken = ref(null);
 const insertAttachmentToken = ref(null);
-const cursorPositions = ref({ subject: null, emailBody: null, toAddress: null });
+const cursorPositions = ref({ subject: null, toAddress: null });
+const bodyEditor = ref(null);
 const showPreview = ref(false);
 
 const emptyForm = () => ({
@@ -259,8 +262,14 @@ const insertToken = async (field, tokenCode) => {
   cursorPositions.value[field] = at + symbol.length;
   await nextTick();
   if (field === "subject") insertSubjectToken.value = null;
-  else if (field === "toAddress") insertToToken.value = null;
-  else insertBodyToken.value = null;
+  else insertToToken.value = null;
+};
+
+const insertBodyTokenAtCursor = async (tokenCode) => {
+  if (!tokenCode) return;
+  bodyEditor.value?.insertText(`{{${tokenCode}}}`);
+  await nextTick();
+  insertBodyToken.value = null;
 };
 
 const setFromToken = async (tokenCode) => {
@@ -378,7 +387,7 @@ watch(
       copyFromCode.value = null;
       emailTypes.value = [];
       emailTokens.value = [];
-      cursorPositions.value = { subject: null, emailBody: null, toAddress: null };
+      cursorPositions.value = { subject: null, toAddress: null };
       showPreview.value = false;
       organizations.value = [];
       formError.value = "";
@@ -457,7 +466,7 @@ const save = async () => {
     formError.value = "To is required.";
     return;
   }
-  if (!form.value.emailBody?.trim()) {
+  if (emailBodyIsBlank(form.value.emailBody)) {
     formError.value = "Email body is required.";
     return;
   }
@@ -652,13 +661,11 @@ const save = async () => {
           />
         </div>
         <div class="d-flex align-start ga-2">
-          <v-textarea
+          <RichTextEditor
+            ref="bodyEditor"
             v-model="form.emailBody"
             label="Email body"
-            density="compact"
-            rows="8"
-            class="flex-grow-1"
-            @blur="rememberCursor('emailBody', $event)"
+            :org-id="form.orgId"
           />
           <v-select
             v-model="insertBodyToken"
@@ -667,7 +674,7 @@ const save = async () => {
             density="compact"
             class="token-select"
             hide-details
-            @update:model-value="(code) => insertToken('emailBody', code)"
+            @update:model-value="insertBodyTokenAtCursor"
           />
         </div>
         <div class="d-flex align-start ga-2">

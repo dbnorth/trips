@@ -325,7 +325,10 @@ describe("Feature 76 — Trip Arrival Info", () => {
 
       expect(send.body.sent).toBe(2);
       const dir = process.env.EMAIL_FILE_DIR;
-      const file = fs.readdirSync(dir).map((name) => fs.readFileSync(path.join(dir, name), "utf8"))[0];
+      const file = fs
+        .readdirSync(dir)
+        .filter((name) => name.endsWith(".txt"))
+        .map((name) => fs.readFileSync(path.join(dir, name), "utf8"))[0];
       const lines = file.split("\n");
       const subjectAt = lines.findIndex((line) => line.startsWith("Subject: "));
       expect(lines[subjectAt + 1]).toBe(`Attachments: ${PDF_NAME}`);

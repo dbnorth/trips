@@ -1008,6 +1008,29 @@ const ensureTripPeopleRoleExpensesTable = async () => {
   logger.info("tripPeopleRoleExpenses table created.");
 };
 
+const ensureEmailPicturesTable = async () => {
+  if (await tableExists("emailPictures")) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE emailPictures (
+      id INT NOT NULL AUTO_INCREMENT,
+      orgId INT NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      fileName VARCHAR(255) NOT NULL,
+      contentType VARCHAR(50) NOT NULL,
+      sizeBytes INT NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      KEY emailPictures_orgId_idx (orgId),
+      CONSTRAINT emailPictures_orgId_fk
+        FOREIGN KEY (orgId) REFERENCES organizations (id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("emailPictures table created.");
+};
+
 const ensureMedicalConditionsTable = async () => {
   const [tables] = await db.sequelize.query(
     `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -1512,6 +1535,7 @@ export const ensureSchema = async () => {
   await ensureTripTravelOptionsTable();
   await ensureTripPeopleRoleOptionsTable();
   await ensureTripPeopleRoleExpensesTable();
+  await ensureEmailPicturesTable();
   await ensureMedicalConditionsTable();
   await ensureEncryptedColumns();
   await ensureLanguageCatalog();

@@ -29,6 +29,10 @@ vi.mock("../src/services/personServices.js", () => ({
   default: { getAll: vi.fn() },
 }));
 
+vi.mock("../src/services/emailPictureServices.js", () => ({
+  default: { getAll: vi.fn().mockResolvedValue({ data: [] }), fileUrl: () => "" },
+}));
+
 import PeopleEmailServices from "../src/services/peopleEmailServices.js";
 import TripServices from "../src/services/tripServices.js";
 import PersonServices from "../src/services/personServices.js";
@@ -180,7 +184,7 @@ describe("Feature 62 — Email People", () => {
     expect(itemTitles(wrapper, "Template")).toEqual(["Newsletter"]);
     expect(component(wrapper, "VSelect", "Template").props("modelValue")).toBeNull();
     expect(component(wrapper, "VTextField", "Subject").props("modelValue")).toBe("");
-    expect(component(wrapper, "VTextarea", "Email body").props("modelValue")).toBe("");
+    expect(component(wrapper, "RichTextEditor", "Email body").props("modelValue")).toBe("");
 
     wrapper.unmount();
   });

@@ -13,6 +13,11 @@
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
+    "@tiptap/extension-image": "^3.32.0",
+    "@tiptap/extension-text-align": "^3.32.0",
+    "@tiptap/pm": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0",
+    "@tiptap/vue-3": "^3.32.0",
     "axios": "^1.7.9",
     "heic2any": "^0.0.4",
     "vite-plugin-vuetify": "^2.1.3",

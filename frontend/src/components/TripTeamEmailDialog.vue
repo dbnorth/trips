@@ -2,6 +2,9 @@
 import { ref, computed, watch } from "vue";
 import TripServices from "../services/tripServices.js";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import RichTextEditor from "./RichTextEditor.vue";
+import EmailHtmlPreview from "./EmailHtmlPreview.vue";
+import { emailBodyIsBlank } from "../utils/emailBody.js";
 
 const POTENTIAL_ROLES = ["Trip Participant", "Trip Leader"];
 const POTENTIAL_STATUSES = ["incomplete", "applied", "approved"];
@@ -15,6 +18,7 @@ const SEND_TO_ITEMS = [
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   tripId: { type: [Number, String], default: null },
+  orgId: { type: [Number, String], default: null },
   participants: { type: Array, default: () => [] },
 });
 
@@ -84,7 +88,7 @@ const canSubmit = computed(
   () =>
     !!emailTemplateId.value &&
     !!subject.value.trim() &&
-    !!emailBody.value.trim() &&
+    !emailBodyIsBlank(emailBody.value) &&
     recipientCount.value > 0
 );
 
@@ -210,14 +214,11 @@ const close = () => emit("update:modelValue", false);
           :disabled="!emailTemplateId"
           class="mb-2"
         />
-        <v-textarea
+        <RichTextEditor
           v-model="emailBody"
           label="Email body"
-          density="compact"
-          rows="8"
-          auto-grow
+          :org-id="orgId"
           :disabled="!emailTemplateId"
-          class="mb-2"
         />
         <v-radio-group v-model="sendTo" label="Send to" density="compact" hide-details class="mb-2">
           <v-radio
@@ -259,7 +260,10 @@ const close = () => emit("update:modelValue", false);
             <div v-if="preview.attachmentError || preview.attachments?.length" class="mb-2" data-testid="preview-attachments">
               <strong>Attachments:</strong> {{ preview.attachmentError || preview.attachments.join(", ") }}
             </div>
-            <div class="email-preview-body border rounded pa-3">{{ preview.body }}</div>
+            <v-alert v-if="preview.pictureError" type="warning" density="compact" class="mb-2">
+              {{ preview.pictureError }}
+            </v-alert>
+            <EmailHtmlPreview :html="preview.body" />
           </div>
         </div>
 
@@ -291,9 +295,3 @@ const close = () => emit("update:modelValue", false);
     />
   </v-dialog>
 </template>
-
-<style scoped>
-.email-preview-body {
-  white-space: pre-wrap;
-}
-</style>

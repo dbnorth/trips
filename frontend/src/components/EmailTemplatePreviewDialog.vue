@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import EmailTemplateServices from "../services/emailTemplateServices.js";
 import TripServices from "../services/tripServices.js";
 import TripPeopleRoleServices from "../services/tripPeopleRoleServices.js";
+import EmailHtmlPreview from "./EmailHtmlPreview.vue";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -157,7 +158,10 @@ const close = () => emit("update:modelValue", false);
             <strong>Attachments:</strong> {{ preview.attachmentError || preview.attachments.join(", ") }}
           </div>
           <div class="mb-1"><strong>Email body:</strong></div>
-          <div class="email-preview-body border rounded pa-3">{{ preview.emailBody }}</div>
+          <v-alert v-if="preview.pictureError" type="warning" density="compact" class="mb-2">
+            {{ preview.pictureError }}
+          </v-alert>
+          <EmailHtmlPreview :html="preview.emailBody" />
         </div>
       </v-card-text>
       <v-card-actions>
@@ -167,9 +171,3 @@ const close = () => emit("update:modelValue", false);
     </v-card>
   </v-dialog>
 </template>
-
-<style scoped>
-.email-preview-body {
-  white-space: pre-wrap;
-}
-</style>

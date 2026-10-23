@@ -7,6 +7,7 @@ import {
   ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
 import { buildTemplateMessage, sendTemplateEmail } from "../utils/emailDelivery.js";
+import { cleanEmailBody, emailBodyIsBlank, pictureRuleError } from "../utils/emailHtml.js";
 
 const PERSON = "Person";
 const TRIP_PARTICIPANT = "Trip Participant";
@@ -131,9 +132,11 @@ const readPeopleEmailRequest = async (orgId, body) => {
   if (chosen.error) return chosen;
 
   const subject = typeof body.subject === "string" ? body.subject : "";
-  const emailBody = typeof body.emailBody === "string" ? body.emailBody : "";
+  const emailBody = cleanEmailBody(typeof body.emailBody === "string" ? body.emailBody : "");
   if (!subject.trim()) return badRequest("Subject is required.");
-  if (!emailBody.trim()) return badRequest("Email body is required.");
+  if (emailBodyIsBlank(emailBody)) return badRequest("Email body is required.");
+  const pictureError = await pictureRuleError(emailBody, orgId);
+  if (pictureError) return badRequest(pictureError);
   if (!selection.people.length) return badRequest("No people to send to.");
 
   return { ...chosen, subject, emailBody, people: selection.people };
@@ -222,18 +225,18 @@ exports.preview = async (req, res) => {
     if (!person) {
       return res.status(400).send({ message: "Preview person must be one of the recipients." });
     }
-    const { message, reason, attachmentError } = await buildTemplateMessage(
-      messageOptions(request, person)
-    );
+    const { message, reason, previewHtml, attachmentError, pictureError } =
+      await buildTemplateMessage(messageOptions(request, person));
     if (!message) return res.status(400).send({ message: reason });
     res.send({
       from: message.from,
       replyTo: message.replyTo ?? null,
       to: message.to,
       subject: message.subject,
-      body: message.text,
-      attachments: (message.attachments ?? []).map((file) => file.filename),
+      body: previewHtml,
+      attachments: (message.attachments ?? []).filter((file) => !file.cid).map((file) => file.filename),
       attachmentError,
+      pictureError,
     });
   } catch (err) {
     res.status(500).send({ message: err.message });
