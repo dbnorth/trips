@@ -2,6 +2,7 @@ import { Op } from "sequelize";
 import db from "../models/index.js";
 import { ROLE_TRIP_LEADER } from "../authorization/accessControl.js";
 import { amountOwed, loadSelectedTripOptions, participantTotals } from "./participantTotals.js";
+import { arrivalPdfName, loadTripWithArrivalPdf } from "./tripArrivalPdf.js";
 
 export const VALUE_SOURCES = [
   { valueSource: "organization.name", label: "Organization name" },
@@ -14,6 +15,7 @@ export const VALUE_SOURCES = [
   { valueSource: "trip.endDate", label: "Trip end date" },
   { valueSource: "trip.participantCost", label: "Trip participant cost" },
   { valueSource: "trip.deposit", label: "Trip deposit" },
+  { valueSource: "trip.arrivalPdf", label: "Trip arrival PDF" },
   { valueSource: "participant.firstName", label: "Participant first name" },
   { valueSource: "participant.lastName", label: "Participant last name" },
   { valueSource: "participant.preferredName", label: "Participant preferred name" },
@@ -47,6 +49,9 @@ export const EMAIL_VALUE_SOURCES = new Set([
   "participant.email",
   "primaryLeader.email",
 ]);
+
+/** Value sources that name a file a template can attach. */
+export const ATTACHMENT_VALUE_SOURCES = new Set(["trip.arrivalPdf"]);
 
 const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const SINGLE_TOKEN_PATTERN = /^\{\{([A-Z][A-Z0-9_]*)\}\}$/;
@@ -233,7 +238,7 @@ const EMPTY_FINANCIAL_VALUES = {
  */
 export const buildSourceValues = async ({ orgId, tripId = null, personId = null }) => {
   const org = orgId != null ? await db.organization.findByPk(orgId) : null;
-  const trip = tripId != null ? await db.trip.findByPk(tripId) : null;
+  const trip = tripId != null ? await loadTripWithArrivalPdf(tripId) : null;
   const person = personId != null ? await db.person.findByPk(personId) : null;
   const leader = trip ? await loadPrimaryLeader(trip.id) : null;
 
@@ -264,6 +269,7 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
     "trip.endDate": formatDate(trip?.endDate),
     "trip.participantCost": formatMoney(trip?.participantCost),
     "trip.deposit": formatMoney(trip?.deposit),
+    "trip.arrivalPdf": trip?.arrivalPdfFileName ? arrivalPdfName(trip) : "",
     "participant.firstName": text(person?.firstName),
     "participant.lastName": text(person?.lastName),
     "participant.preferredName": preferredName(person),
@@ -325,6 +331,28 @@ export const senderIsValid = async (fromEmail) => {
   const entry = text(fromEmail).trim();
   if (!entry || entry.includes(",")) return false;
   return isEmailEntry(entry, await loadEmailTokenCodes());
+};
+
+/** Attachment token codes in a template's Attachment field, each once, in order. */
+export const attachmentTokenCodes = (attachment) => [
+  ...new Set(
+    text(attachment)
+      .split(",")
+      .map((entry) => SINGLE_TOKEN_PATTERN.exec(entry.trim())?.[1])
+      .filter(Boolean)
+  ),
+];
+
+/** True when Attachment is blank or lists only catalog tokens whose value source is a file, separated by commas. */
+export const attachmentsAreValid = async (attachment) => {
+  if (!text(attachment).trim()) return true;
+  const entries = text(attachment).split(",").map((entry) => entry.trim());
+  const attachmentCodes = new Set(
+    (await db.emailToken.findAll({ attributes: ["tokenCode", "valueSource"] }))
+      .filter((token) => ATTACHMENT_VALUE_SOURCES.has(token.valueSource))
+      .map((token) => token.tokenCode)
+  );
+  return entries.every((entry) => attachmentCodes.has(SINGLE_TOKEN_PATTERN.exec(entry)?.[1]));
 };
 
 /** Replace tokens in each recipient and leave out recipients that come out empty. */

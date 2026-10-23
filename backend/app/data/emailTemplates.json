@@ -101,6 +101,26 @@
       "toAddress": "{{PARTICIPANT_EMAIL}}",
       "subject": "An update from {{ORG_NAME}}",
       "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nThank you for serving with {{ORG_NAME}}. We wanted to share some news with you.\n\n[Write your update here.]\n\nIf you have any questions, reply to this email or contact us at {{ORG_EMAIL}} or {{ORG_PHONE}}. You can find more information at {{ORG_WEBSITE}}.\n\nThank you,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "trip-arrival",
+      "functionCode": "Trip Participant",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "attachment": "{{TRIP_ARRIVAL_PDF}}",
+      "subject": "Arrival information for {{TRIP_NAME}}",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\n{{TRIP_NAME}} begins on {{TRIP_START_DATE}}. Your arrival information is attached. Please read it before you travel and keep a copy with you.\n\nIf you have questions, contact your trip leader, {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}}, at {{LEADER_EMAIL}}.\n\nSafe travels,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "trip-arrival-scheduled",
+      "functionCode": "Scheduled",
+      "scheduleRule": "before-start",
+      "scheduleDaysBefore": 3,
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "attachment": "{{TRIP_ARRIVAL_PDF}}",
+      "subject": "Arrival information for {{TRIP_NAME}}",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\n{{TRIP_NAME}} begins on {{TRIP_START_DATE}}. Your arrival information is attached. Please read it before you travel and keep a copy with you.\n\nIf you have questions, contact your trip leader, {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}}, at {{LEADER_EMAIL}}.\n\nSafe travels,\n{{ORG_NAME}}"
     }
   ]
 }

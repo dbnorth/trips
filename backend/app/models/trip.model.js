@@ -18,7 +18,11 @@ const Trip = SequelizeInstance.define("trip", {
   participantCost: { type: Sequelize.DECIMAL(10, 2), allowNull: true },
   deposit: { type: Sequelize.DECIMAL(10, 2), allowNull: true },
   requirePassport: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
+  arrivalPdfFileName: { type: Sequelize.STRING(500), allowNull: true },
   version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
+}, {
+  // The stored file name is never sent to clients; read it with `Trip.unscoped()`.
+  defaultScope: { attributes: { exclude: ["arrivalPdfFileName"] } },
 });
 
 export default Trip;

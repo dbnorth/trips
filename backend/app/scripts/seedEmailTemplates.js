@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import db from "../models/index.js";
-import { recipientsAreValid, senderIsValid } from "../utils/emailTokenValues.js";
+import { attachmentsAreValid, recipientsAreValid, senderIsValid } from "../utils/emailTokenValues.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataFile = path.join(__dirname, "../data/emailTemplates.json");
@@ -30,6 +30,9 @@ export const seedEmailTemplates = async () => {
     if (!(await recipientsAreValid(template.toAddress))) {
       throw new Error(`To "${template.toAddress}" for ${template.typeCode} is not valid. Run seedEmailTokens.js first.`);
     }
+    if (!(await attachmentsAreValid(template.attachment))) {
+      throw new Error(`Attachment "${template.attachment}" for ${template.typeCode} is not valid. Run seedEmailTokens.js first.`);
+    }
 
     const [row, created] = await db.emailTemplate.findOrCreate({
       where: { orgId: org.id, tripId: null, emailTypeId: emailType.id },
@@ -39,6 +42,7 @@ export const seedEmailTemplates = async () => {
         toAddress: template.toAddress,
         subject: template.subject,
         emailBody: template.emailBody,
+        attachment: template.attachment ?? null,
         scheduleRule: template.scheduleRule ?? null,
         scheduleDaysBefore: template.scheduleDaysBefore ?? null,
       },

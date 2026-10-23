@@ -50,6 +50,7 @@ const insertSubjectToken = ref(null);
 const insertBodyToken = ref(null);
 const insertToToken = ref(null);
 const insertFromToken = ref(null);
+const insertAttachmentToken = ref(null);
 const cursorPositions = ref({ subject: null, emailBody: null, toAddress: null });
 const showPreview = ref(false);
 
@@ -194,6 +195,45 @@ const emailTokenItems = computed(() =>
       value: token.tokenCode,
     }))
 );
+
+const ATTACHMENT_VALUE_SOURCES = ["trip.arrivalPdf"];
+
+const attachmentTokenCodes = computed(() =>
+  emailTokens.value
+    .filter((token) => ATTACHMENT_VALUE_SOURCES.includes(token.valueSource))
+    .map((token) => token.tokenCode)
+);
+
+const attachmentTokenItems = computed(() =>
+  emailTokens.value
+    .filter((token) => attachmentTokenCodes.value.includes(token.tokenCode))
+    .map((token) => ({
+      title: `{{${token.tokenCode}}} — ${token.description}`,
+      value: token.tokenCode,
+    }))
+);
+
+const attachmentEntries = (value) =>
+  String(value || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+const attachmentIsValid = (value) =>
+  attachmentEntries(value).every((entry) => {
+    const match = /^\{\{([A-Z][A-Z0-9_]*)\}\}$/.exec(entry);
+    return !!match && attachmentTokenCodes.value.includes(match[1]);
+  });
+
+const addAttachmentToken = async (tokenCode) => {
+  if (!tokenCode) return;
+  const entries = attachmentEntries(form.value.attachment);
+  const symbol = `{{${tokenCode}}}`;
+  if (!entries.includes(symbol)) entries.push(symbol);
+  form.value.attachment = entries.join(", ");
+  await nextTick();
+  insertAttachmentToken.value = null;
+};
 
 const loadEmailTokens = async () => {
   try {
@@ -421,6 +461,10 @@ const save = async () => {
     formError.value = "Email body is required.";
     return;
   }
+  if (!attachmentIsValid(form.value.attachment)) {
+    formError.value = "Attachment may only list attachment tokens.";
+    return;
+  }
   if (isTripLeaderAdd.value && !props.fixedTripId) {
     formError.value = "Trip is required.";
     return;
@@ -626,15 +670,29 @@ const save = async () => {
             @update:model-value="(code) => insertToken('emailBody', code)"
           />
         </div>
+        <div class="d-flex align-start ga-2">
+          <v-text-field
+            v-model="form.attachment"
+            label="Attachment"
+            density="compact"
+            autocomplete="off"
+            class="flex-grow-1"
+            hint="Optional attachment tokens, separated by commas"
+            persistent-hint
+            data-testid="template-attachment"
+          />
+          <v-select
+            v-model="insertAttachmentToken"
+            :items="attachmentTokenItems"
+            label="Insert token"
+            density="compact"
+            class="token-select"
+            hide-details
+            data-testid="template-attachment-token"
+            @update:model-value="addAttachmentToken"
+          />
+        </div>
         <v-textarea v-model="form.content" label="Content" density="compact" rows="4" />
-        <v-text-field
-          v-model="form.attachment"
-          label="Attachment path"
-          density="compact"
-          hint="Optional file path or URL"
-          persistent-hint
-          autocomplete="off"
-        />
         <v-alert v-if="formError" type="error" density="compact" class="mt-2">{{ formError }}</v-alert>
       </v-card-text>
       <v-card-actions>
@@ -652,6 +710,7 @@ const save = async () => {
       :to-address="form.toAddress"
       :subject="form.subject"
       :email-body="form.emailBody"
+      :attachment="form.attachment"
     />
   </v-dialog>
 </template>

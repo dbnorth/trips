@@ -130,7 +130,9 @@ exports.preview = async (req, res) => {
     if (!person) {
       return res.status(400).send({ message: "Preview participant must be one of the recipients." });
     }
-    const { message, reason } = await buildTemplateMessage(messageOptions(trip, request, person));
+    const { message, reason, attachmentError } = await buildTemplateMessage(
+      messageOptions(trip, request, person)
+    );
     if (!message) return res.status(400).send({ message: reason });
     res.send({
       from: message.from,
@@ -138,6 +140,8 @@ exports.preview = async (req, res) => {
       to: message.to,
       subject: message.subject,
       body: message.text,
+      attachments: (message.attachments ?? []).map((file) => file.filename),
+      attachmentError,
     });
   } catch (err) {
     res.status(500).send({ message: err.message });

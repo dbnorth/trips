@@ -9,6 +9,8 @@
  * Spec: features/feature-42-email-template-schedule.md
  * Feature 46 — Email Trip Team
  * Spec: features/feature-46-email-trip-team.md
+ * Feature 76 — Trip Arrival Info
+ * Spec: features/feature-76-trip-arrival-info.md
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -146,7 +148,7 @@ describe("Feature 40 — Email Template Tokens and Preview", () => {
     const insertSelects = wrapper
       .findAllComponents({ name: "VSelect" })
       .filter((select) => select.props("label") === "Insert token");
-    expect(insertSelects).toHaveLength(4);
+    expect(insertSelects).toHaveLength(5);
     const bodyInsert = insertSelects[3];
     expect(bodyInsert.props("items").map((item) => item.title)).toContain("{{TRIP_NAME}} — Trip name");
 
@@ -322,6 +324,57 @@ describe("Feature 42 — Email Template Schedule", () => {
 
       await choose(wrapper, "Function code", "Trip Participant");
       expect(selectByLabel(wrapper, "Schedule")).toBeUndefined();
+
+      wrapper.unmount();
+    });
+  });
+});
+
+describe("Feature 76 — Trip Arrival Info", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    setOrgAdminUser();
+    EmailTypeServices.getAll.mockResolvedValue({ data: [] });
+    EmailTokenServices.getAll.mockResolvedValue({
+      data: [
+        { id: 1, tokenCode: "TRIP_NAME", description: "Trip name", valueSource: "trip.name" },
+        { id: 2, tokenCode: "ORG_EMAIL", description: "Organization email", valueSource: "organization.email" },
+        {
+          id: 3,
+          tokenCode: "TRIP_ARRIVAL_PDF",
+          description: "Trip arrival PDF",
+          valueSource: "trip.arrivalPdf",
+        },
+      ],
+    });
+    TripServices.getAll.mockResolvedValue({ data: [] });
+    EmailTemplateServices.getCopySources.mockResolvedValue({ data: [] });
+  });
+
+  describe("US-76.2 — Templates name attachments with tokens", () => {
+    it("Template form inserts an attachment token", async () => {
+      const { wrapper } = await mountWithPlugins(EmailTemplateFormDialog, {
+        props: { modelValue: true, orgId: 3 },
+        global: {
+          plugins: [vuetify],
+          stubs: { VDialog: { template: "<div><slot /></div>" } },
+        },
+      });
+      await flushPromises();
+      const attachmentField = () =>
+        wrapper
+          .findAllComponents({ name: "VTextField" })
+          .find((field) => field.props("label") === "Attachment");
+      const insert = wrapper
+        .findAllComponents({ name: "VSelect" })
+        .find((select) => select.attributes("data-testid") === "template-attachment-token");
+
+      expect(insert.props("items").map((item) => item.value)).toEqual(["TRIP_ARRIVAL_PDF"]);
+
+      insert.vm.$emit("update:modelValue", "TRIP_ARRIVAL_PDF");
+      await flushPromises();
+      expect(attachmentField().props("modelValue")).toBe("{{TRIP_ARRIVAL_PDF}}");
 
       wrapper.unmount();
     });

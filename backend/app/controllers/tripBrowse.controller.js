@@ -2,6 +2,7 @@ import db from "../models/index.js";
 import {
   ROLE_TRIP_PARTICIPANT,
   ROLE_ORG_ADMIN,
+  isApprovedTripMember,
   isSystemAdmin,
 } from "../authorization/accessControl.js";
 import {
@@ -24,6 +25,7 @@ import { loadDonationRecipients } from "../utils/donorPerson.js";
 import { loadMyTripNextActions } from "../utils/myTripNextActions.js";
 import { loadMyTripTravelDetails } from "../utils/myTripTravelDetails.js";
 import { participantTotals } from "../utils/participantTotals.js";
+import { loadTripWithArrivalPdf } from "../utils/tripArrivalPdf.js";
 import {
   cancelApplicationAssignment,
   uncancelApplicationAssignment,
@@ -529,6 +531,9 @@ exports.getBrowseTrip = async (req, res) => {
           ? await loadDonationRecipients(trip.id)
           : [],
         tripPeopleRoleId: assignment.id,
+        hasArrivalPdf:
+          isApprovedTripMember(req, trip.id) &&
+          !!(await loadTripWithArrivalPdf(trip.id)).arrivalPdfFileName,
         nextActions: await loadMyTripNextActions(assignment, trip),
         ...(await loadMyTripTravelDetails(assignment)),
       };
