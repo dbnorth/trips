@@ -38,7 +38,7 @@
 | `/public/*` | 9 |
 | `/email-templates` | 10, **39** |
 | `/email-types` | **39** |
-| `/people-email` | **62** |
+| `/people-email` | **62**, **75** (Trip Leaders as recipients) |
 
 ---
 
@@ -304,7 +304,7 @@ Acting organization: the `X-Acting-Organization-Id` header, or the Org Admin's o
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | `GET` | `/trips/people-email/options` | see above | `{ templates, trips }`: the acting organization's **Person** templates (`id`, `subject`, `emailBody`, `fromEmail`, `emailTypeId`) by subject, and its trips (`id`, `name`, `startDate`, `roles: [{ workerRoleId, name }]` by name) newest start date first |
-| `POST` | `/trips/people-email/recipients` | same | Body `{ tripIds, workerRoleIds }` → `[{ personId, name }]` by last then first name: approved Trip Participants on the selected trips with a selected worker role (`"all"` roles includes those with none), each person once |
+| `POST` | `/trips/people-email/recipients` | same | Body `{ tripIds, workerRoleIds }` → `[{ personId, name }]` by last then first name: approved Trip Participants and Trip Leaders on the selected trips with a selected worker role (`"all"` roles includes those with none), each person once |
 | `POST` | `/trips/people-email/preview` | same | Body `{ emailTemplateId, subject, emailBody, tripIds, workerRoleIds, personId }` → `{ from, replyTo, to, subject, body }`; `personId` not a recipient → `400` "Preview person must be one of the recipients."; sends nothing |
 | `POST` | `/trips/people-email` | same | Body `{ emailTemplateId, subject, emailBody, tripIds, workerRoleIds }` → `{ sent, skipped, failed, results: [{ personId, name, status, reason }] }`, one email per recipient to their email. `emailTemplateId` is a **Person** template of the acting organization (tokens from organization and person; logged with no trip) or, when `tripIds` comes to exactly one trip, a **Trip Participant** template of that trip or its organization (filled as Email team for that trip) — otherwise `400` "Choose a template for this organization." / "Trip Participant templates need exactly one trip selected.". Blank subject / body or no recipients → `400` |
 
