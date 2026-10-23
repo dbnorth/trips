@@ -398,7 +398,24 @@ exports.findSegments = async (req, res) => {
 
     const segments = sortSegments(flight?.segments || []).map(serializeSegment);
 
-    res.send({ tripPeopleRoleId, segments });
+    const trip = await Trip.findByPk(tripId, {
+      attributes: ["id"],
+      include: [
+        {
+          model: db.organization,
+          as: "organization",
+          attributes: ["id", "name"],
+          required: false,
+        },
+      ],
+    });
+
+    res.send({
+      tripPeopleRoleId,
+      flightPurchaseOption: assignment.flightPurchaseOption || null,
+      organizationName: trip?.organization?.name || null,
+      segments,
+    });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

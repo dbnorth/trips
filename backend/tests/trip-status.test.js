@@ -284,4 +284,56 @@ describe("Feature 28 — View Trip Status", () => {
       expect(row.selectedTravelOptionIds.map(Number)).not.toContain(Number(optionB.body.id));
     });
   });
+
+  describe("Feature 73 — US-73.1 See who books each participant's flight", () => {
+    it("Trip Status API returns each participant's flight purchase option", async () => {
+      const { authHeader, org, trip, tripWorkerRole } = await setupTripWithRole({
+        adminEmail: "status-booked-admin@example.com",
+        quantity: 3,
+      });
+      const participantRole = await findRole("Trip Participant");
+
+      const addApplicant = async (firstName, flightPurchaseOption) => {
+        const participant = await registerUser({
+          email: `status-booked-${firstName.toLowerCase()}@example.com`,
+          firstName,
+          lastName: "Booked",
+          orgIds: [org.id],
+        });
+        const assignment = await request(app)
+          .post("/trips/trip-people-roles")
+          .set(authHeader)
+          .send({
+            tripId: trip.id,
+            peopleId: participant.user.personId,
+            roleId: participantRole.id,
+            tripWorkerRoleId: tripWorkerRole.id,
+            status: "applied",
+            willSelfFund: true,
+          });
+        expect(assignment.status).toBe(200);
+        await db.tripPeopleRole.update(
+          { flightPurchaseOption },
+          { where: { id: assignment.body.id } }
+        );
+        return participant.user.personId;
+      };
+
+      const noraId = await addApplicant("Nora", "organization");
+      const ritaId = await addApplicant("Rita", "self");
+      const hankId = await addApplicant("Hank", null);
+
+      const response = await request(app)
+        .get(`/trips/trips/${trip.id}/status`)
+        .set(authHeader);
+
+      expect(response.status).toBe(200);
+      const optionFor = (personId) =>
+        response.body.participants.find((p) => Number(p.peopleId) === Number(personId))
+          .flightPurchaseOption;
+      expect(optionFor(noraId)).toBe("organization");
+      expect(optionFor(ritaId)).toBe("self");
+      expect(optionFor(hankId)).toBeNull();
+    });
+  });
 });

@@ -391,4 +391,41 @@ describe("Feature 30 — Participant Flights", () => {
       expect(response.body.message).toMatch(/Unknown departure airport/i);
     });
   });
+
+  describe("Feature 73 — US-73.1 See who books each participant's flight", () => {
+    it("Flight segments API returns the flight purchase option and organization name", async () => {
+      const { authHeader, trip, adaAssignment, org } = await setupTripWithAda({
+        adminEmail: "flights-booked-staff@example.com",
+      });
+      await db.tripPeopleRole.update(
+        { flightPurchaseOption: "organization" },
+        { where: { id: adaAssignment.id } }
+      );
+
+      const response = await request(app)
+        .get(`/trips/trips/${trip.id}/flights/${adaAssignment.id}/segments`)
+        .set(authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body.flightPurchaseOption).toBe("organization");
+      expect(response.body.organizationName).toBe(org.name);
+    });
+
+    it("A participant's own flight segments include their flight purchase option", async () => {
+      const { trip, ada, adaAssignment } = await setupTripWithAda({
+        adminEmail: "flights-booked-self@example.com",
+      });
+      await db.tripPeopleRole.update(
+        { flightPurchaseOption: "self" },
+        { where: { id: adaAssignment.id } }
+      );
+
+      const response = await request(app)
+        .get(`/trips/trips/${trip.id}/flights/${adaAssignment.id}/segments`)
+        .set(ada.authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body.flightPurchaseOption).toBe("self");
+    });
+  });
 });

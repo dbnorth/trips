@@ -136,7 +136,7 @@ Uploaded document and specialization files are stored encrypted and returned dec
 |--------|------|------|---------|
 | `GET` | `/trips/trips` | auth | Scoped list + aggregates |
 | `GET` | `/trips/trips/:id` | auth | Detail if `canAccessTrip` |
-| `GET` | `/trips/trips/:id/status` | auth | Trip Status board (Trip Leader / Org Admin / System Admin): trip summary, roles with capacity counts (incl. `reservedCount`, Feature 56), travel-option columns, participants with status / missing items / owed / raised / selected options — Feature 28 |
+| `GET` | `/trips/trips/:id/status` | auth | Trip Status board (Trip Leader / Org Admin / System Admin): trip summary, roles with capacity counts (incl. `reservedCount`, Feature 56), travel-option columns, participants with status / missing items / owed / raised / selected options — Feature 28; each participant adds `flightPurchaseOption` (`organization`, `self`, or `null`) — Feature 73 |
 | `GET` | `/trips/trips/:id/rooming` | auth | Rooming list load (staff): trip summary, hotel header, rooms, participant assignment grid + roommate prefs — Feature 29 |
 | `PUT` | `/trips/trips/:id/rooming` | auth | Upsert rooming hotel header + rooms/assignments from participant grid — Feature 29 |
 | `GET` | `/trips/trips/:id/rooming/pdf` | auth | Room list PDF (same staff access as rooming; else `403`/`404`): `application/pdf`, `Content-Disposition: attachment; filename="Room List - <trip name>.pdf"` — Feature 54 |
@@ -144,7 +144,7 @@ Uploaded document and specialization files are stored encrypted and returned dec
 | `GET` | `/trips/trips/:id/flights/pdf` | auth | Flights PDF (same staff access as flights; else `403`/`404`): `application/pdf`, `Content-Disposition: attachment; filename="Flights - <trip name>.pdf"` — Feature 55 |
 | `GET` | `/trips/trips/:id/participants/:assignmentId/documents/pdf` | auth | Participant documents PDF (Trip Leader of the trip, Org Admin of the trip org, or System Admin; else `403`; unknown trip or assignment not on the trip → `404`): `application/pdf`, `Content-Disposition: attachment; filename="Documents - <first last>.pdf"` — Feature 58 |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId` | auth | Upsert flight header (purchased, cost, comments) — Feature 30 |
-| `GET` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | List flight segments — Feature 30; also the assignment's own participant when its flight purchase option is `self`, else `403` "Forbidden." (Feature 60) |
+| `GET` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | List flight segments — Feature 30; also the assignment's own participant when its flight purchase option is `self`, else `403` "Forbidden." (Feature 60). Response `{ tripPeopleRoleId, flightPurchaseOption, organizationName, segments }` — Feature 73 |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId/segments` | auth | Replace flight segments — Feature 30; also the assignment's own participant when its flight purchase option is `self`, else `403` "Forbidden." (Feature 60) |
 | `GET` | `/trips/trips/:id/team-email/templates` | System Admin, Org Admin of the trip org, Trip Leader of the trip | **Trip Participant** templates for the trip and its organization (no trip) — Feature 46 |
 | `POST` | `/trips/trips/:id/team-email/preview` | same | Body `{ emailTemplateId, subject, emailBody, sendTo, personIds?, personId }` → `{ from, replyTo, to, subject, body }` for that recipient; sends nothing — Feature 46 |

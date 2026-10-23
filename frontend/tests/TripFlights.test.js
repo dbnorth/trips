@@ -245,4 +245,65 @@ describe("Feature 30 — Participant Flights", () => {
     await flushPromises();
     expect(TripServices.updateFlightSegments).toHaveBeenCalledWith("42", 101, { segments: [] });
   });
+
+  describe("Feature 73 — US-73.1 See who books each participant's flight", () => {
+    it("Flights page shows Booked by", async () => {
+      Utils.setStore("user", orgAdminUser);
+      const participant = (tripPeopleRoleId, firstName, flightPurchaseOption) => ({
+        tripPeopleRoleId,
+        peopleId: tripPeopleRoleId,
+        firstName,
+        lastName: "Booked",
+        flightPurchaseOption,
+        purchased: false,
+        cost: null,
+        comments: "",
+        segmentCount: 0,
+        initialDeparture: null,
+        finalArrival: null,
+      });
+      TripServices.getFlights.mockResolvedValue({
+        data: {
+          trip: {
+            id: 42,
+            name: "Guatemala Hospital Ezel",
+            organizationName: "Test Mission Org",
+            startDate: "2027-03-06",
+            endDate: "2027-03-13",
+          },
+          participants: [
+            participant(201, "Nora", "organization"),
+            participant(202, "Rita", "self"),
+            participant(203, "Hank", null),
+          ],
+        },
+      });
+      const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [
+          { path: "/trips/:tripId/flights", name: "tripFlights", component: TripFlightsView, props: true },
+          { path: "/trips", name: "trips", component: Stub },
+          { path: "/home", name: "home", component: Stub },
+        ],
+      });
+      await router.push({ name: "tripFlights", params: { tripId: "42" } });
+      await router.isReady();
+
+      const { wrapper } = await mountWithPlugins(TripFlightsView, {
+        props: { tripId: "42" },
+        router,
+        global: { stubs: { VDialog: { template: "<div><slot /></div>" } } },
+      });
+      await flushPromises();
+
+      const headers = wrapper.findAll("th").map((th) => th.text().trim());
+      expect(headers).toContain("Booked by");
+      expect(headers).not.toContain("Who purchases");
+      const rowText = (name) =>
+        wrapper.findAll("tbody tr").find((tr) => tr.text().includes(name)).text();
+      expect(rowText("Nora")).toContain("Test Mission Org");
+      expect(rowText("Rita")).toContain("Participant");
+      expect(rowText("Hank")).toContain("Not chosen");
+    });
+  });
 });

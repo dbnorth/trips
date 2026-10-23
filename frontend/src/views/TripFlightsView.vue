@@ -5,6 +5,7 @@ import TripServices from "../services/tripServices.js";
 import ExportServices from "../services/exportServices.js";
 import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
+import { flightBookedByLabel } from "../utils/flightBookedBy.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -52,14 +53,8 @@ const formatCostDisplay = (value) => {
   return formatMoneyDisplay(value) || String(value);
 };
 
-const formatFlightPurchase = (row) => {
-  if (row.flightPurchaseOption === "self") return "Participant purchases";
-  if (row.flightPurchaseOption === "organization") {
-    const org = trip.value?.organizationName || "Organization";
-    return `${org} purchases`;
-  }
-  return "—";
-};
+const formatFlightPurchase = (row) =>
+  flightBookedByLabel(row.flightPurchaseOption, trip.value?.organizationName);
 
 const participantPaysOwn = (row) => row?.flightPurchaseOption === "self";
 
@@ -193,7 +188,7 @@ onMounted(load);
             <tr>
               <th>First name</th>
               <th>Last name</th>
-              <th>Who purchases</th>
+              <th>Booked by</th>
               <th>Cost</th>
               <th>Comments</th>
               <th>Initial departure</th>
