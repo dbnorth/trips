@@ -39,6 +39,7 @@
 | `/email-templates` | 10, **39** |
 | `/email-types` | **39** |
 | `/people-email` | **62**, **75** (Trip Leaders as recipients) |
+| `/email-pictures` | **77** |
 
 ---
 
@@ -298,6 +299,21 @@ No auth. Slugs: spaces → `_`.
 | `PUT` | `/trips/email-templates/:id` | auth | Update. Same Feature 39, 41, 42, 62, and 76 fields when present |
 | `DELETE` | `/trips/email-templates/:id` | auth | Delete |
 
+Feature 77: create and update clean `emailBody` to the allowed HTML (see `emailTemplate` in the data model; a picture `width` above 600 is saved as 600, one that is not a whole number is removed; paragraphs keep only `text-align:center` from `style`); a body that is blank after cleaning → `400` "Email body is required.". Pictures from another organization → `400` "Pictures must come from this organization's library."; distinct pictures over 5 MB in total → `400` "Pictures in one email must total 5 MB or less."; a global template (no organization) with pictures → `400` "Global templates cannot include pictures.". The preview's `emailBody` is HTML with pictures as library URLs (`images/email-pictures/<file>`, relative to `/trips/`) and token values escaped; the response adds `pictureError` ("Picture <name> is missing." / "A picture is missing." or `null`).
+
+---
+
+## Email pictures — Feature 77
+
+Upload roles: System Admin, Org Admin of the organization, or Trip Leader of any trip in it. Rename and delete: System Admin or Org Admin of the picture's organization. Anyone else → `403`. Picture JSON: `{ id, name, url, contentType, sizeBytes, createdAt }`, where `url` is `images/email-pictures/<random file name>` relative to `/trips/`.
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/trips/email-pictures?orgId=` | upload roles | The organization's pictures by name |
+| `POST` | `/trips/email-pictures` | upload roles | Multipart `file`, `orgId`, optional `name` (defaults to the file name without its extension, up to 100 characters) → the new picture. Not PNG/JPEG/GIF → `400` "Upload a PNG, JPEG, or GIF picture."; over 2 MB → `400` "The picture must be 2 MB or smaller." |
+| `PUT` | `/trips/email-pictures/:id` | rename and delete roles | `{ name }` → the picture; blank → `400` "Name is required." |
+| `DELETE` | `/trips/email-pictures/:id` | rename and delete roles | Deletes the picture and its file; used in any template body of its organization → `400` "This picture is used by N templates." |
+
 ---
 
 ## People email — Feature 62
@@ -310,6 +326,8 @@ Acting organization: the `X-Acting-Organization-Id` header, or the Org Admin's o
 | `POST` | `/trips/people-email/recipients` | same | Body `{ tripIds, workerRoleIds }` → `[{ personId, name }]` by last then first name: approved Trip Participants and Trip Leaders on the selected trips with a selected worker role (`"all"` roles includes those with none), each person once |
 | `POST` | `/trips/people-email/preview` | same | Body `{ emailTemplateId, subject, emailBody, tripIds, workerRoleIds, personId }` → `{ from, replyTo, to, subject, body }`; `personId` not a recipient → `400` "Preview person must be one of the recipients."; sends nothing. Adds `attachments` and `attachmentError` — Feature 76 |
 | `POST` | `/trips/people-email` | same | Body `{ emailTemplateId, subject, emailBody, tripIds, workerRoleIds }` → `{ sent, skipped, failed, results: [{ personId, name, status, reason }] }`, one email per recipient to their email. `emailTemplateId` is a **Person** template of the acting organization (tokens from organization and person; logged with no trip) or, when `tripIds` comes to exactly one trip, a **Trip Participant** template of that trip or its organization (filled as Email team for that trip) — otherwise `400` "Choose a template for this organization." / "Trip Participant templates need exactly one trip selected.". Blank subject / body or no recipients → `400` |
+
+Feature 77 (Email team and People email): `emailBody` is cleaned and checked like a template body, with pictures from the trip's organization (Email team) or the acting organization (People email). Previews return `body` as HTML with library picture URLs and add `pictureError`; a send whose picture is missing skips that recipient with "Picture <name> is missing.".
 
 ---
 

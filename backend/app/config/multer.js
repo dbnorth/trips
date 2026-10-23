@@ -89,6 +89,18 @@ export const uploadTripArrivalPdf = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+const emailPictureFilter = (_req, file, cb) => {
+  if (["image/png", "image/jpeg", "image/gif"].includes(file.mimetype)) cb(null, true);
+  else cb(new Error("Upload a PNG, JPEG, or GIF picture."), false);
+};
+
+/** Kept in memory: the controller writes the file to `images/email-pictures` after access checks. */
+export const uploadEmailPicture = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: emailPictureFilter,
+  limits: { fileSize: 2 * 1024 * 1024 },
+});
+
 /** Give each uploaded person document file the name it will have under `documents/people`. */
 export const nameDocumentFiles = (req) => {
   for (const group of Object.values(req.files || {})) {

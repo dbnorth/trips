@@ -170,7 +170,9 @@ describe("Feature 50 — SMTP Password from AWS Secrets Manager", () => {
 
       expect(agentCalls).toHaveLength(0);
       expect(result.status).toBe("sent");
-      expect(fs.readdirSync(path.join(tempDir, "mail"))).toHaveLength(1);
+      expect(
+        fs.readdirSync(path.join(tempDir, "mail")).filter((name) => name.endsWith(".txt"))
+      ).toHaveLength(1);
     });
   });
 });

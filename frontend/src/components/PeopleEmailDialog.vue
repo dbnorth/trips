@@ -3,6 +3,10 @@ import { ref, computed, watch } from "vue";
 import PeopleEmailServices from "../services/peopleEmailServices.js";
 import TripServices from "../services/tripServices.js";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import RichTextEditor from "./RichTextEditor.vue";
+import EmailHtmlPreview from "./EmailHtmlPreview.vue";
+import Utils from "../config/utils.js";
+import { emailBodyIsBlank } from "../utils/emailBody.js";
 
 const ALL = "all";
 
@@ -30,6 +34,7 @@ const showConfirm = ref(false);
 const sending = ref(false);
 const result = ref(null);
 const error = ref("");
+const orgId = ref(null);
 let recipientsRequest = 0;
 
 /** "All" alone, or the specific choices: picking All clears the rest, picking another clears All; never empty. */
@@ -97,7 +102,7 @@ const canSubmit = computed(
   () =>
     !!emailTemplateId.value &&
     !!subject.value.trim() &&
-    !!emailBody.value.trim() &&
+    !emailBodyIsBlank(emailBody.value) &&
     recipients.value.length > 0
 );
 
@@ -211,6 +216,7 @@ watch(
   async (open) => {
     reset();
     if (!open) return;
+    orgId.value = Utils.effectiveOrgId(Utils.getStore("user"));
     await loadOptions();
     loadRecipients();
   },
@@ -272,14 +278,11 @@ const close = () => emit("update:modelValue", false);
           :disabled="!emailTemplateId"
           class="mb-2"
         />
-        <v-textarea
+        <RichTextEditor
           v-model="emailBody"
           label="Email body"
-          density="compact"
-          rows="8"
-          auto-grow
+          :org-id="orgId"
           :disabled="!emailTemplateId"
-          class="mb-2"
         />
         <v-select
           :model-value="tripSelection"
@@ -332,7 +335,10 @@ const close = () => emit("update:modelValue", false);
             <div v-if="preview.attachmentError || preview.attachments?.length" class="mb-2" data-testid="preview-attachments">
               <strong>Attachments:</strong> {{ preview.attachmentError || preview.attachments.join(", ") }}
             </div>
-            <div class="email-preview-body border rounded pa-3">{{ preview.body }}</div>
+            <v-alert v-if="preview.pictureError" type="warning" density="compact" class="mb-2">
+              {{ preview.pictureError }}
+            </v-alert>
+            <EmailHtmlPreview :html="preview.body" />
           </div>
         </div>
 
@@ -364,9 +370,3 @@ const close = () => emit("update:modelValue", false);
     />
   </v-dialog>
 </template>
-
-<style scoped>
-.email-preview-body {
-  white-space: pre-wrap;
-}
-</style>

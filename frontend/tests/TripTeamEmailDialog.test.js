@@ -82,6 +82,8 @@ describe("Feature 46 — Email Trip Team", () => {
   const button = (wrapper, text) =>
     wrapper.findAll("button").find((b) => b.text().trim() === text);
 
+  const previewFrame = (wrapper) => wrapper.find('[data-testid="email-preview-frame"]');
+
   it("Choosing a template fills subject and body for editing", async () => {
     const wrapper = await mountDialog();
     expect(TripServices.getTeamEmailTemplates).toHaveBeenCalledWith(42);
@@ -89,7 +91,7 @@ describe("Feature 46 — Email Trip Team", () => {
     await chooseTemplate(wrapper);
 
     const subject = component(wrapper, "VTextField", "Subject");
-    const body = component(wrapper, "VTextarea", "Email body");
+    const body = component(wrapper, "RichTextEditor", "Email body");
     expect(subject.props("modelValue")).toBe("Team update");
     expect(body.props("modelValue")).toBe("Hi {{PARTICIPANT_FIRST_NAME}}");
     expect(subject.props("disabled")).toBe(false);
@@ -144,7 +146,37 @@ describe("Feature 46 — Email Trip Team", () => {
     const text = wrapper.text();
     expect(text).toContain("office@example.org");
     expect(text).toContain("ana@example.org");
-    expect(text).toContain("Hi Ana");
+    expect(previewFrame(wrapper).attributes("srcdoc")).toContain("Hi Ana");
+
+    wrapper.unmount();
+  });
+
+  // Feature 77 — features/feature-77-html-email-pictures.md
+  it("Email team preview shows the picture", async () => {
+    TripServices.previewTeamEmail.mockResolvedValue({
+      data: {
+        from: "office@example.org",
+        replyTo: null,
+        to: "ana@example.org",
+        subject: "Team update",
+        body: '<p>Hi Ana</p><img src="images/email-pictures/org-3-abc.jpg" alt="Clinic team" style="max-width:600px;height:auto">',
+        pictureError: null,
+      },
+    });
+    const wrapper = await mountDialog();
+    await chooseTemplate(wrapper);
+
+    await button(wrapper, "Preview").trigger("click");
+    await flushPromises();
+
+    const frame = previewFrame(wrapper);
+    expect(frame.attributes("sandbox")).toBe("");
+    const doc = new DOMParser().parseFromString(frame.attributes("srcdoc"), "text/html");
+    expect(doc.querySelector("base").getAttribute("href")).toMatch(/\/trips\/$/);
+    expect(doc.body.textContent).toContain("Hi Ana");
+    const picture = doc.querySelector("img");
+    expect(picture.getAttribute("src")).toBe("images/email-pictures/org-3-abc.jpg");
+    expect(picture.getAttribute("alt")).toBe("Clinic team");
 
     wrapper.unmount();
   });

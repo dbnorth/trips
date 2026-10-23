@@ -46,7 +46,8 @@ describe("Feature 49 — Organization Email Test Mode", () => {
   let savedDir;
   let mailDir;
 
-  const mailFiles = () => (fs.existsSync(mailDir) ? fs.readdirSync(mailDir) : []);
+  const mailFiles = () =>
+    fs.existsSync(mailDir) ? fs.readdirSync(mailDir).filter((name) => name.endsWith(".txt")) : [];
   const readMailFiles = () =>
     mailFiles().map((name) => fs.readFileSync(path.join(mailDir, name), "utf8"));
 
