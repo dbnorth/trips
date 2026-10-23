@@ -76,6 +76,19 @@ export const uploadPersonDocument = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+const pdfFilter = (_req, file, cb) => {
+  const ext = path.extname(file.originalname || "").toLowerCase();
+  if (file.mimetype === "application/pdf" && ext === ".pdf") cb(null, true);
+  else cb(new Error("Upload a PDF file."), false);
+};
+
+/** Kept in memory: the controller writes the file to `documents/trips` after access checks. */
+export const uploadTripArrivalPdf = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: pdfFilter,
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
 /** Give each uploaded person document file the name it will have under `documents/people`. */
 export const nameDocumentFiles = (req) => {
   for (const group of Object.values(req.files || {})) {

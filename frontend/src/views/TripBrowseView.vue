@@ -382,7 +382,7 @@ onMounted(load);
           <div>{{ formatMoneyDisplay(myTripInfo.donationTotal || 0) }}</div>
         </v-col>
       </v-row>
-      <MyTripTravelDetails :info="myTripInfo" @edit-flights="showFlightsDialog = true" />
+      <MyTripTravelDetails :info="myTripInfo" :trip="trip" @edit-flights="showFlightsDialog = true" />
     </v-card>
 
     <ApplyTripDialog

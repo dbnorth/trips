@@ -4,7 +4,8 @@ import db from "../models/index.js";
 
 const User = db.user;
 const Person = db.person;
-const SALT_ROUNDS = 10;
+// Minimum bcrypt cost under Jest only; full cost everywhere else.
+const SALT_ROUNDS = process.env.NODE_ENV === "test" ? 4 : 10;
 
 export const normalizeEmail = (email) => email?.trim()?.toLowerCase() || null;
 

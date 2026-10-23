@@ -14,6 +14,7 @@ import TripWorkerRolesCard from "../components/TripWorkerRolesCard.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TripTeamEmailDialog from "../components/TripTeamEmailDialog.vue";
 import TripCostBreakdown from "../components/TripCostBreakdown.vue";
+import TripArrivalInfo from "../components/TripArrivalInfo.vue";
 import ExportServices from "../services/exportServices.js";
 import TripTravelOptionServices from "../services/tripTravelOptionServices.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
@@ -426,6 +427,8 @@ onMounted(refresh);
         </div>
       </div>
     </v-card>
+
+    <TripArrivalInfo v-if="trip" :trip="trip" @changed="trip.hasArrivalPdf = $event" />
 
     <div class="d-flex align-center justify-space-between mb-3 flex-wrap ga-2">
       <h2 class="text-h6 mb-0">Participants</h2>

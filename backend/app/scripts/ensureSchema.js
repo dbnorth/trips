@@ -1094,6 +1094,23 @@ const ensureTripRequirePassport = async () => {
   logger.info("trips.requirePassport column added.");
 };
 
+const ensureTripArrivalPdfFileName = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'trips'
+       AND COLUMN_NAME = 'arrivalPdfFileName'`
+  );
+  if (rows.length) return;
+
+  await db.sequelize.query(
+    `ALTER TABLE trips
+     ADD COLUMN arrivalPdfFileName VARCHAR(500) NULL
+     AFTER requirePassport`
+  );
+  logger.info("trips.arrivalPdfFileName column added.");
+};
+
 const ensureEmailTypes = async () => {
   const [tables] = await db.sequelize.query(
     `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -1462,6 +1479,7 @@ export const ensureSchema = async () => {
   await ensureEmailTemplateOrgNullable();
   await ensureTripPeopleRoleParticipantCost();
   await ensureTripRequirePassport();
+  await ensureTripArrivalPdfFileName();
   await ensureTripDeposit();
   await ensureEmailTypes();
   await ensureEmailTokens();

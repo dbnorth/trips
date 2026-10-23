@@ -81,6 +81,18 @@ export default {
     form.append("image", file);
     return apiClient.put(`/trips/${id}/image`, form);
   },
+  uploadArrivalPdf(id, file) {
+    const form = new FormData();
+    form.append("file", file);
+    return apiClient.post(`/trips/${id}/arrival-pdf`, form);
+  },
+  async openArrivalPdf(id) {
+    const response = await apiClient.get(`/trips/${id}/arrival-pdf`, { responseType: "blob" });
+    window.open(URL.createObjectURL(response.data), "_blank");
+  },
+  removeArrivalPdf(id) {
+    return apiClient.delete(`/trips/${id}/arrival-pdf`);
+  },
   getImageUrl(image) {
     if (!image) return null;
     // Legacy path: uploads/trips/...

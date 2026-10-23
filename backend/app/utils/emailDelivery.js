@@ -8,11 +8,14 @@ import logger from "../config/logger.js";
 import { readSecret, secretsAgentTokenFile } from "./awsSecrets.js";
 import {
   SINGLE_TOKEN_PATTERN,
+  VALUE_SOURCES,
+  attachmentTokenCodes,
   buildSourceValues,
   buildTokenValues,
   substituteRecipients,
   substituteTokens,
 } from "./emailTokenValues.js";
+import { arrivalPdfName, loadTripWithArrivalPdf, readArrivalPdf } from "./tripArrivalPdf.js";
 
 const backendDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -99,7 +102,11 @@ const writeMessageFile = async (dir, message) => {
   const fileName = `${fileStamp(sentAt)}-${crypto.randomBytes(3).toString("hex")}.txt`;
   const lines = [`Date: ${sentAt.toISOString()}`, `From: ${message.from}`];
   if (message.replyTo) lines.push(`Reply-To: ${message.replyTo}`);
-  lines.push(`To: ${message.to}`, `Subject: ${message.subject}`, "", message.text);
+  lines.push(`To: ${message.to}`, `Subject: ${message.subject}`);
+  if (message.attachments?.length) {
+    lines.push(`Attachments: ${message.attachments.map((file) => file.filename).join(", ")}`);
+  }
+  lines.push("", message.text);
   await fs.writeFile(path.join(dir, fileName), lines.join("\n"), "utf8");
   return fileName;
 };
@@ -142,10 +149,33 @@ export const sendSystemEmail = async ({ to, subject, text, logText = text, perso
   return { status: "sent", emailLogId: log.id };
 };
 
+const valueSourceLabel = (valueSource) =>
+  VALUE_SOURCES.find((source) => source.valueSource === valueSource)?.label ?? valueSource;
+
+/** The files a template's Attachment field names for this trip, or the reason one is missing. */
+export const loadAttachments = async (attachment, tripId) => {
+  const codes = attachmentTokenCodes(attachment);
+  if (!codes.length) return { attachments: [] };
+  const tokens = await db.emailToken.findAll({ where: { tokenCode: codes } });
+  const valueSources = [
+    ...new Set(codes.map((code) => tokens.find((t) => t.tokenCode === code)?.valueSource)),
+  ];
+  const trip = tripId != null ? await loadTripWithArrivalPdf(tripId) : null;
+  const attachments = [];
+  for (const valueSource of valueSources) {
+    if (valueSource !== "trip.arrivalPdf") continue;
+    const content = await readArrivalPdf(trip);
+    if (!content) return { attachments: [], error: `${valueSourceLabel(valueSource)} is missing.` };
+    attachments.push({ filename: arrivalPdfName(trip), content, contentType: "application/pdf" });
+  }
+  return { attachments };
+};
+
 /**
  * The email one template sends to one trip participant, with tokens filled in.
  * `toEmail`, `subject`, and `emailBody` replace the template's when given.
- * Returns `{ message }`, or `{ reason }` when there is no recipient or sender.
+ * Returns `{ message, attachmentError }` (`attachmentError` when an attachment is missing; the
+ * message then has none), or `{ reason }` when there is no recipient or sender.
  */
 export const buildTemplateMessage = async ({
   template,
@@ -178,7 +208,11 @@ export const buildTemplateMessage = async ({
     subject: substituteTokens(subject ?? template.subject, values),
     text: substituteTokens(emailBody ?? template.emailBody, values),
   };
-  return { message };
+  const { attachments, error } = await loadAttachments(template.attachment, tripId);
+  return {
+    message: attachments.length ? { ...message, attachments } : message,
+    attachmentError: error ?? null,
+  };
 };
 
 /**
@@ -214,6 +248,7 @@ export const sendTemplateEmail = async (options) => {
   const { template, tripId, personId } = options;
   const built = await buildTemplateMessage(options);
   if (!built.message) return { status: "skipped", reason: built.reason };
+  if (built.attachmentError) return { status: "skipped", reason: built.attachmentError };
   const { message, reason } = await applyOrganizationTestMode(tripId, template.orgId, built.message);
   if (!message) return { status: "skipped", reason };
   const { to } = message;

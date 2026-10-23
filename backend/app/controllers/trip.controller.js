@@ -5,6 +5,7 @@ import {
   canAccessTrip,
   isOrgAdminForOrg,
   isSystemAdmin,
+  isApprovedTripMember,
   isTripLeaderForTrip,
   tripListFilter,
 } from "../authorization/accessControl.js";
@@ -41,6 +42,13 @@ import {
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import { amountOwed, participantCost, participantCostBreakdown } from "../utils/participantTotals.js";
+import {
+  arrivalPdfName,
+  deleteArrivalPdf,
+  loadTripWithArrivalPdf,
+  readArrivalPdf,
+  writeArrivalPdf,
+} from "../utils/tripArrivalPdf.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
@@ -138,6 +146,7 @@ exports.findOne = async (req, res) => {
       leaderPeopleIds,
       primaryLeaderPeopleId: await getTripPrimaryLeaderPeopleId(data.id),
       leaderNames: leadersByTripId.get(data.id) || [],
+      hasArrivalPdf: !!(await loadTripWithArrivalPdf(data.id)).arrivalPdfFileName,
     });
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -593,10 +602,71 @@ exports.delete = async (req, res) => {
     if (!isOrgAdminForOrg(req, access.trip.orgId) && !isSystemAdmin(req)) {
       return res.status(403).send({ message: "Forbidden." });
     }
-    const trip = await Trip.findByPk(req.params.id);
+    const trip = await loadTripWithArrivalPdf(req.params.id);
     await deleteTripImageFile(trip);
     await Trip.destroy({ where: { id: req.params.id } });
+    await deleteArrivalPdf(trip.arrivalPdfFileName);
     res.send({ message: "Trip deleted." });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+const isTripStaff = (req, trip) =>
+  isSystemAdmin(req) || isOrgAdminForOrg(req, trip.orgId) || isTripLeaderForTrip(req, trip.id);
+
+/** Feature 76 — save or replace the Trip Arrival PDF (trip staff). */
+exports.uploadArrivalPdf = async (req, res) => {
+  try {
+    const trip = await loadTripWithArrivalPdf(req.params.id);
+    if (!trip) return res.status(404).send({ message: "Trip not found." });
+    if (!isTripStaff(req, trip)) return res.status(403).send({ message: "Forbidden." });
+    if (!req.file) return res.status(400).send({ message: "Upload a PDF file." });
+
+    const previous = trip.arrivalPdfFileName;
+    const arrivalPdfFileName = await writeArrivalPdf(trip.id, req.file.buffer);
+    await trip.update({ arrivalPdfFileName });
+    await deleteArrivalPdf(previous);
+    res.send({ hasArrivalPdf: true });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+/** Feature 76 — open the Trip Arrival PDF (trip staff or approved members of the trip). */
+exports.openArrivalPdf = async (req, res) => {
+  try {
+    const trip = await loadTripWithArrivalPdf(req.params.id);
+    if (!trip) return res.status(404).send({ message: "Trip not found." });
+    if (!isTripStaff(req, trip) && !isApprovedTripMember(req, trip.id)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+    const pdf = await readArrivalPdf(trip);
+    if (!pdf) return res.status(404).send({ message: "No Trip Arrival PDF." });
+
+    const filename = arrivalPdfName(trip);
+    const asciiFilename = filename.replace(/[^\x20-\x7e]|["\\]/g, "");
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    });
+    res.send(pdf);
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+/** Feature 76 — remove the Trip Arrival PDF (trip staff). */
+exports.removeArrivalPdf = async (req, res) => {
+  try {
+    const trip = await loadTripWithArrivalPdf(req.params.id);
+    if (!trip) return res.status(404).send({ message: "Trip not found." });
+    if (!isTripStaff(req, trip)) return res.status(403).send({ message: "Forbidden." });
+
+    const previous = trip.arrivalPdfFileName;
+    await trip.update({ arrivalPdfFileName: null });
+    await deleteArrivalPdf(previous);
+    res.send({ hasArrivalPdf: false });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

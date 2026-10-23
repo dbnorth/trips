@@ -329,6 +329,9 @@ const close = () => emit("update:modelValue", false);
             <div v-if="preview.replyTo" class="mb-2"><strong>Reply-To:</strong> {{ preview.replyTo }}</div>
             <div class="mb-2"><strong>To:</strong> {{ preview.to }}</div>
             <div class="mb-2"><strong>Subject:</strong> {{ preview.subject }}</div>
+            <div v-if="preview.attachmentError || preview.attachments?.length" class="mb-2" data-testid="preview-attachments">
+              <strong>Attachments:</strong> {{ preview.attachmentError || preview.attachments.join(", ") }}
+            </div>
             <div class="email-preview-body border rounded pa-3">{{ preview.body }}</div>
           </div>
         </div>

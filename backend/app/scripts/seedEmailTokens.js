@@ -14,6 +14,7 @@ const tokens = [
   { tokenCode: "TRIP_END_DATE", valueSource: "trip.endDate" },
   { tokenCode: "TRIP_COST", valueSource: "trip.participantCost" },
   { tokenCode: "TRIP_DEPOSIT", valueSource: "trip.deposit" },
+  { tokenCode: "TRIP_ARRIVAL_PDF", valueSource: "trip.arrivalPdf" },
   { tokenCode: "PARTICIPANT_FIRST_NAME", valueSource: "participant.firstName" },
   { tokenCode: "PARTICIPANT_LAST_NAME", valueSource: "participant.lastName" },
   { tokenCode: "PARTICIPANT_PREFERRED_NAME", valueSource: "participant.preferredName" },

@@ -10,12 +10,14 @@ import {
   ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
 import {
+  attachmentsAreValid,
   buildTokenValues,
   recipientsAreValid,
   senderIsValid,
   substituteRecipients,
   substituteTokens,
 } from "../utils/emailTokenValues.js";
+import { loadAttachments } from "../utils/emailDelivery.js";
 
 const EmailTemplate = db.emailTemplate;
 const EmailType = db.emailType;
@@ -142,6 +144,13 @@ const hasFeature39Fields = (body) =>
   Object.prototype.hasOwnProperty.call(body, "emailBody");
 
 const trimRequired = (val) => (typeof val === "string" ? val.trim() : "");
+
+const ATTACHMENT_INVALID = "Attachment may only list attachment tokens.";
+
+const attachmentError = async (body) =>
+  Object.prototype.hasOwnProperty.call(body, "attachment") && !(await attachmentsAreValid(body.attachment))
+    ? ATTACHMENT_INVALID
+    : null;
 
 const validateSchedule = (body, functionCode) => {
   if (functionCode !== "Scheduled") {
@@ -376,6 +385,8 @@ exports.create = async (req, res) => {
     if (!feature39 && !req.body.subject?.trim()) {
       return res.status(400).send({ message: "Subject is required." });
     }
+    const createAttachmentError = await attachmentError(req.body);
+    if (createAttachmentError) return res.status(400).send({ message: createAttachmentError });
 
     if (isLeaderCreate && !isOrgAdmin && !isSystemAdmin(req)) {
       const trip = await Trip.findByPk(tripId, { attributes: ["id", "orgId"] });
@@ -447,6 +458,8 @@ exports.update = async (req, res) => {
     } else if (Object.prototype.hasOwnProperty.call(req.body, "subject") && !req.body.subject?.trim()) {
       return res.status(400).send({ message: "Subject is required." });
     }
+    const updateAttachmentError = await attachmentError(req.body);
+    if (updateAttachmentError) return res.status(400).send({ message: updateAttachmentError });
 
     const tripId = Object.prototype.hasOwnProperty.call(req.body, "tripId")
       ? req.body.tripId
@@ -472,7 +485,8 @@ exports.update = async (req, res) => {
 
 exports.preview = async (req, res) => {
   try {
-    const { orgId, tripId, personId, fromEmail, toAddress, subject, emailBody } = req.body || {};
+    const { orgId, tripId, personId, fromEmail, toAddress, subject, emailBody, attachment } =
+      req.body || {};
     if (orgId == null || orgId === "") {
       return res.status(400).send({ message: "Organization is required." });
     }
@@ -510,11 +524,14 @@ exports.preview = async (req, res) => {
       tripId: trip.id,
       personId: previewPersonId,
     });
+    const { attachments, error } = await loadAttachments(attachment, trip.id);
     res.send({
       fromEmail: substituteTokens(fromEmail, values).trim(),
       toAddress: substituteRecipients(toAddress, values),
       subject: substituteTokens(subject, values),
       emailBody: substituteTokens(emailBody, values),
+      attachments: attachments.map((file) => file.filename),
+      attachmentError: error ?? null,
     });
   } catch (err) {
     res.status(500).send({ message: err.message });

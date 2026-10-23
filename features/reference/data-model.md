@@ -273,6 +273,7 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | participantCost | DECIMAL(10,2) | |
 | deposit | DECIMAL(10,2) | nullable (Feature 38) |
 | requirePassport | BOOLEAN | required, default `false` (Feature 23) |
+| arrivalPdfFileName | STRING(500) | optional; stored Trip Arrival PDF file name under `documents/trips/` (`trip-<id>-arrival-<uploadTime>.pdf`); left out of the default scope and never returned by the API (Feature 76) |
 | version | INTEGER | required, default `0` |
 
 **Associations:** `belongsTo` organization; `hasMany` tripPeopleRole, tripDonation, emailTemplate, tripWorkerRole, tripTravelOption; `hasOne` tripRoomingList (Feature 29).
@@ -628,7 +629,7 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 | functionCode | STRING | |
 | subject | STRING(500) | |
 | content | TEXT | |
-| attachment | STRING(500) | |
+| attachment | STRING(500) | optional; attachment tokens separated by commas, e.g. `{{TRIP_ARRIVAL_PDF}}`; empty or null means no attachments (Feature 76) |
 | emailTypeId | INTEGER | optional FK → emailType; required when the template form saves (Feature 39) |
 | emailBody | TEXT | optional in the table; required when the template form saves (Feature 39) |
 | toAddress | STRING(1000) | optional in the table; required when the template form saves. Comma-separated email addresses and email tokens (Feature 41) |

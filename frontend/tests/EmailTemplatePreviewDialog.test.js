@@ -85,6 +85,7 @@ describe("Feature 40 — Email Template Tokens and Preview", () => {
       toAddress: "",
       subject: "Welcome to {{TRIP_NAME}}",
       emailBody: "Hi {{PARTICIPANT_FIRST_NAME}}",
+      attachment: "",
     });
     const text = wrapper.text();
     expect(text).toContain("trips@example.com");
