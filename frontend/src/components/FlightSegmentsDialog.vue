@@ -4,6 +4,7 @@ import TripServices from "../services/tripServices.js";
 import AirportServices from "../services/airportServices.js";
 import AirlineServices from "../services/airlineServices.js";
 import { CABIN_CLASSES } from "../utils/cabinClasses.js";
+import { flightBookedByLabel } from "../utils/flightBookedBy.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -27,6 +28,7 @@ const error = ref("");
 const segments = ref([]);
 const airports = ref([]);
 const airlines = ref([]);
+const bookedBy = ref("");
 
 const title = computed(
   () => `Flight segments — ${props.participantName || "Participant"}`
@@ -144,6 +146,10 @@ const load = async () => {
     ]);
     airports.value = airportRes.data || [];
     airlines.value = airlineRes.data || [];
+    bookedBy.value = flightBookedByLabel(
+      segRes.data?.flightPurchaseOption,
+      segRes.data?.organizationName
+    );
     segments.value = (segRes.data?.segments || []).map((s) => ({
       segmentType: s.segmentType === "return" ? "return" : "arrival",
       segmentNumber: s.segmentNumber,
@@ -201,6 +207,7 @@ watch(
     if (open) load();
     if (!open) {
       segments.value = [];
+      bookedBy.value = "";
       error.value = "";
     }
   }
@@ -216,6 +223,7 @@ watch(
   >
     <v-card>
       <v-card-title>{{ title }}</v-card-title>
+      <v-card-subtitle v-if="bookedBy">Booked by: {{ bookedBy }}</v-card-subtitle>
       <v-card-text>
         <v-progress-linear v-if="loading" indeterminate class="mb-4" />
         <v-alert v-if="error" type="error" density="compact" class="mb-4">{{ error }}</v-alert>

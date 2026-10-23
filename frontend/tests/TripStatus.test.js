@@ -294,4 +294,63 @@ describe("Feature 28 — View Trip Status", () => {
     expect(text).toMatch(/555/);
     expect(text).toContain("Close");
   });
+
+  describe("Feature 73 — US-73.1 See who books each participant's flight", () => {
+    it("Trip Status board shows Booked by", async () => {
+      const participant = (id, displayName, flightPurchaseOption) => ({
+        id,
+        peopleId: id,
+        displayName,
+        status: "applied",
+        workerRoleName: "Nurse",
+        flightPurchaseOption,
+        missingItems: [],
+        amountOwed: 0,
+        amountRaised: 0,
+        selectedTravelOptionIds: [],
+      });
+      TripServices.getStatus.mockResolvedValue({
+        data: {
+          trip: {
+            id: 42,
+            name: "Guatemala Hospital Ezel",
+            organizationName: "Test Mission Org",
+            status: "active",
+            participantCost: 2000,
+          },
+          rolesNeeded: [],
+          travelOptions: [],
+          participants: [
+            participant(1, "Nora Booked", "organization"),
+            participant(2, "Rita Booked", "self"),
+            participant(3, "Hank Booked", null),
+          ],
+        },
+      });
+      const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [
+          { path: "/trips/:tripId/status", name: "tripStatus", component: TripStatusView, props: true },
+          { path: "/home", name: "home", component: Stub },
+        ],
+      });
+      await router.push({ name: "tripStatus", params: { tripId: "42" } });
+      await router.isReady();
+
+      const { wrapper } = await mountWithPlugins(TripStatusView, {
+        props: { tripId: "42" },
+        router,
+      });
+      await flushPromises();
+
+      const headers = wrapper.findAll("th").map((th) => th.text().trim());
+      const roleIndex = headers.indexOf("Role", headers.indexOf("Participant"));
+      expect(headers[roleIndex + 1]).toBe("Booked by");
+      const rowText = (name) =>
+        wrapper.findAll("tbody tr").find((tr) => tr.text().includes(name)).text();
+      expect(rowText("Nora Booked")).toContain("Test Mission Org");
+      expect(rowText("Rita Booked")).toContain("Participant");
+      expect(rowText("Hank Booked")).toContain("Not chosen");
+    });
+  });
 });

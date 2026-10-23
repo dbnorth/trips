@@ -351,6 +351,7 @@ exports.findStatus = async (req, res) => {
         displayName: personDisplayName(person || json.person),
         status: json.status,
         workerRoleName: json.tripWorkerRole?.workerRole?.name || null,
+        flightPurchaseOption: json.flightPurchaseOption || null,
         participantCost: participantCost == null || Number.isNaN(participantCost) ? null : participantCost,
         amountRaised,
         amountOwed,

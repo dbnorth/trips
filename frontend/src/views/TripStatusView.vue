@@ -6,6 +6,7 @@ import PersonContactDialog from "../components/PersonContactDialog.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { countryName } from "../utils/locationData.js";
 import { tripParticipantStatusLabel } from "../utils/tripParticipantStatus.js";
+import { flightBookedByLabel } from "../utils/flightBookedBy.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -56,6 +57,7 @@ const headers = computed(() => {
     { title: "Participant", key: "displayName", sortable: true },
     { title: "Status", key: "status", sortable: true },
     { title: "Role", key: "workerRoleName", sortable: true },
+    { title: "Booked by", key: "bookedBy", sortable: true },
     { title: "Missing items", key: "missingItems", sortable: false },
     { title: "Amount owed", key: "amountOwed", sortable: true },
     { title: "Amount raised", key: "amountRaised", sortable: true },
@@ -77,6 +79,7 @@ const tableItems = computed(() =>
     const item = {
       ...row,
       workerRoleName: row.workerRoleName || "—",
+      bookedBy: flightBookedByLabel(row.flightPurchaseOption, trip.value?.organizationName),
       missingItemsLabel: formatMissingItems(row.missingItems),
       statusLabel: tripParticipantStatusLabel(row.status),
     };
