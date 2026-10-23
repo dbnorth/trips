@@ -27,6 +27,7 @@ import {
 } from "../utils/applicationCancel.js";
 import { flightPurchaseInclude } from "../utils/flightPurchaseFields.js";
 import { sendApplicationEventEmails } from "../utils/eventEmails.js";
+import { participantCostBreakdown } from "../utils/participantTotals.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -92,7 +93,32 @@ const listIncludes = [
     ],
   },
   ...flightPurchaseInclude,
+  { model: db.tripPeopleRoleExpense, as: "addonExpenses", attributes: ["id", "description", "cost"] },
 ];
+
+const ADDON_EXPENSE_MESSAGE = "Each add-on expense needs a description and a cost of $0 or more.";
+
+/** Validated `{ description, cost }` list, or `null` when any row is invalid. */
+const parseAddonExpenses = (value) => {
+  if (!Array.isArray(value)) return null;
+  const list = [];
+  for (const item of value) {
+    const description = typeof item?.description === "string" ? item.description.trim() : "";
+    const cost = item?.cost == null || item.cost === "" ? NaN : Number(item.cost);
+    if (!description || description.length > 255 || !Number.isFinite(cost) || cost < 0) return null;
+    if (Math.abs(cost * 100 - Math.round(cost * 100)) > 1e-6) return null;
+    list.push({ description, cost: Math.round(cost * 100) / 100 });
+  }
+  return list;
+};
+
+const withAddonExpenses = (row) => {
+  const json = row.toJSON();
+  json.addonExpenses = (json.addonExpenses || [])
+    .sort((a, b) => a.id - b.id)
+    .map(({ id, description, cost }) => ({ id, description, cost: Number(cost) }));
+  return json;
+};
 
 const exports = {};
 
@@ -212,13 +238,19 @@ exports.findAll = async (req, res) => {
     const totalsByPersonId = new Map(
       totals.map((row) => [Number(row.personId), Number(row.donationTotal) || 0])
     );
+    const trip = await Trip.findByPk(tripId, { attributes: ["id", "participantCost"] });
 
-    res.send(
-      data.map((row) => ({
-        ...row.toJSON(),
+    const rows = [];
+    for (const row of data) {
+      const costBreakdown = await participantCostBreakdown(trip, row);
+      rows.push({
+        ...withAddonExpenses(row),
         donationTotal: totalsByPersonId.get(Number(row.peopleId)) || 0,
-      }))
-    );
+        totalTripCost: costBreakdown.totalTripCost,
+        costBreakdown,
+      });
+    }
+    res.send(rows);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
@@ -258,7 +290,7 @@ exports.findOne = async (req, res) => {
 
     const travelOptions = await loadTravelOptionsForAssignment(row.tripId, row.id);
     res.send({
-      ...row.toJSON(),
+      ...withAddonExpenses(row),
       travelOptions,
     });
   } catch (err) {
@@ -343,6 +375,12 @@ exports.update = async (req, res) => {
     }
 
     const body = { ...req.body };
+    const hasAddonExpenses = Object.prototype.hasOwnProperty.call(body, "addonExpenses");
+    const addonExpenses = hasAddonExpenses ? parseAddonExpenses(body.addonExpenses) : null;
+    if (hasAddonExpenses && !addonExpenses) {
+      return res.status(400).send({ message: ADDON_EXPENSE_MESSAGE });
+    }
+
     if (Object.prototype.hasOwnProperty.call(body, "tripWorkerRoleId")) {
       body.tripWorkerRoleId = normalizeTripWorkerRoleId(body.tripWorkerRoleId);
       const twrCheck = await validateTripWorkerRole(row.tripId, body.tripWorkerRoleId);
@@ -460,11 +498,21 @@ exports.update = async (req, res) => {
     }
 
     const previousStatus = row.status;
-    const result = await optimisticUpdate(TripPeopleRole, req.params.id, body, fields);
+    const result = await db.sequelize.transaction(async (transaction) => {
+      const updated = await optimisticUpdate(TripPeopleRole, req.params.id, body, fields, { transaction });
+      if (updated.ok && addonExpenses) {
+        await db.tripPeopleRoleExpense.destroy({ where: { tripPeopleRoleId: row.id }, transaction });
+        await db.tripPeopleRoleExpense.bulkCreate(
+          addonExpenses.map((expense) => ({ ...expense, tripPeopleRoleId: row.id })),
+          { transaction }
+        );
+      }
+      return updated;
+    });
     if (!result.ok) return res.status(result.status).send({ message: result.message });
     await sendApplicationEventEmails(result.data, previousStatus);
     const full = await TripPeopleRole.findByPk(req.params.id, { include: listIncludes });
-    res.send(full);
+    res.send(withAddonExpenses(full));
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

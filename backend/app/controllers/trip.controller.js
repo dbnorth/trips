@@ -40,6 +40,7 @@ import {
 } from "../utils/applicationMissingItems.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
+import { amountOwed, participantCost, participantCostBreakdown } from "../utils/participantTotals.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
@@ -77,15 +78,6 @@ const personDisplayName = (person) => {
   return name || "—";
 };
 
-const resolveParticipantCost = (assignment, trip) => {
-  if (assignment?.participantCost != null && assignment.participantCost !== "") {
-    return Number(assignment.participantCost);
-  }
-  if (trip?.participantCost != null && trip.participantCost !== "") {
-    return Number(trip.participantCost);
-  }
-  return null;
-};
 const tripFields = [
   "orgId",
   "status",
@@ -338,12 +330,8 @@ exports.findStatus = async (req, res) => {
         requirePassport: !!tripJson.requirePassport,
       });
 
-      const participantCost = resolveParticipantCost(json, tripJson);
+      const costBreakdown = await participantCostBreakdown(tripJson, json);
       const amountRaised = totalsByPersonId.get(Number(peopleId)) || 0;
-      const amountOwed =
-        participantCost == null || Number.isNaN(participantCost)
-          ? null
-          : Math.max(0, Number(participantCost) - amountRaised);
 
       participants.push({
         id: json.id,
@@ -352,9 +340,11 @@ exports.findStatus = async (req, res) => {
         status: json.status,
         workerRoleName: json.tripWorkerRole?.workerRole?.name || null,
         flightPurchaseOption: json.flightPurchaseOption || null,
-        participantCost: participantCost == null || Number.isNaN(participantCost) ? null : participantCost,
+        participantCost: participantCost(tripJson, json),
+        totalTripCost: costBreakdown.totalTripCost,
+        costBreakdown,
         amountRaised,
-        amountOwed,
+        amountOwed: amountOwed(costBreakdown.totalTripCost, amountRaised),
         missingItems,
         selectedTravelOptionIds,
       });

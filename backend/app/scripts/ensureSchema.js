@@ -987,6 +987,27 @@ const ensureTripPeopleRoleOptionsTable = async () => {
   logger.info("tripPeopleRoleOptions table created.");
 };
 
+const ensureTripPeopleRoleExpensesTable = async () => {
+  if (await tableExists("tripPeopleRoleExpenses")) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE tripPeopleRoleExpenses (
+      id INT NOT NULL AUTO_INCREMENT,
+      tripPeopleRoleId INT NOT NULL,
+      description VARCHAR(255) NOT NULL,
+      cost DECIMAL(10,2) NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      KEY tripPeopleRoleExpenses_tripPeopleRoleId_idx (tripPeopleRoleId),
+      CONSTRAINT tripPeopleRoleExpenses_tripPeopleRoleId_fk
+        FOREIGN KEY (tripPeopleRoleId) REFERENCES tripPeopleRoles (id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("tripPeopleRoleExpenses table created.");
+};
+
 const ensureMedicalConditionsTable = async () => {
   const [tables] = await db.sequelize.query(
     `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -1472,6 +1493,7 @@ export const ensureSchema = async () => {
   await ensureWorkerRoleSpecializationsTable();
   await ensureTripTravelOptionsTable();
   await ensureTripPeopleRoleOptionsTable();
+  await ensureTripPeopleRoleExpensesTable();
   await ensureMedicalConditionsTable();
   await ensureEncryptedColumns();
   await ensureLanguageCatalog();

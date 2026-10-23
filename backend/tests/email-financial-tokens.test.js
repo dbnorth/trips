@@ -116,6 +116,7 @@ describe("Feature 52 — Participant Financial Statement Email Tokens", () => {
       await addTokens(FINANCIAL_TOKENS);
       await addTripOption("Travel insurance", 75, 2);
       await addTripOption("Single room", 200, 1);
+      await assignment.update({ participantCost: 1775 });
       await addFlight("organization", 800);
 
       const values = await sendTokens([
@@ -127,7 +128,7 @@ describe("Feature 52 — Participant Financial Statement Email Tokens", () => {
       ]);
 
       expect(values).toEqual({
-        PARTICIPANT_TRIP_COST: "$1,500.00",
+        PARTICIPANT_TRIP_COST: "$1,775.00",
         PARTICIPANT_TRIP_OPTIONS: "Single room: $200.00\nTravel insurance: $75.00",
         PARTICIPANT_TRIP_OPTIONS_TOTAL: "$275.00",
         PARTICIPANT_TRIP_AIRFARE: "$800.00",
@@ -185,6 +186,7 @@ describe("Feature 52 — Participant Financial Statement Email Tokens", () => {
       await addTokens(FINANCIAL_TOKENS);
       await addTripOption("Single room", 200);
       await addTripOption("Travel insurance", 75, 2);
+      await assignment.update({ participantCost: 1775 });
       await addFlight("organization", 800);
       await addDonation(300, "2026-10-01T17:00:00Z", "ana@example.org");
       await addDonation(300, "2026-10-05T17:00:00Z", "mary@example.org");

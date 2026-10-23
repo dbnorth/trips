@@ -11,6 +11,7 @@ defineEmits(["edit-flights"]);
 const room = computed(() => props.info.room || null);
 const segments = computed(() => props.info.flightSegments || []);
 const options = computed(() => props.info.selectedTravelOptions || []);
+const addonExpenses = computed(() => props.info.addonExpenses || []);
 const canEditFlights = computed(() => props.info.flightPurchaseOption === "self");
 
 const formatDate = (value) => {
@@ -103,6 +104,15 @@ const optionLabel = (option) => {
     <h3 class="text-subtitle-1 font-weight-bold mb-2">Trip options</h3>
     <ul class="pl-5">
       <li v-for="option in options" :key="option.id">{{ optionLabel(option) }}</li>
+    </ul>
+  </div>
+
+  <div v-if="addonExpenses.length" class="mt-4" data-testid="my-trip-addon-expenses">
+    <h3 class="text-subtitle-1 font-weight-bold mb-2">Add-on expenses</h3>
+    <ul class="pl-5">
+      <li v-for="(expense, index) in addonExpenses" :key="index">
+        {{ expense.description }} ({{ formatMoneyDisplay(Number(expense.cost).toFixed(2)) }})
+      </li>
     </ul>
   </div>
 </template>

@@ -369,10 +369,10 @@ onMounted(load);
         </v-col>
         <v-col cols="12" sm="6" md="3">
           <div class="text-caption text-medium-emphasis">Your trip cost</div>
-          <div>
+          <div data-testid="my-trip-cost">
             {{
-              myTripInfo.participantCost != null
-                ? formatMoneyDisplay(myTripInfo.participantCost)
+              myTripInfo.totalTripCost != null
+                ? formatMoneyDisplay(myTripInfo.totalTripCost)
                 : "—"
             }}
           </div>

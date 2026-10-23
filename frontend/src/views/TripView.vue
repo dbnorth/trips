@@ -13,6 +13,7 @@ import ViewTripApplicationDialog from "../components/ViewTripApplicationDialog.v
 import TripWorkerRolesCard from "../components/TripWorkerRolesCard.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TripTeamEmailDialog from "../components/TripTeamEmailDialog.vue";
+import TripCostBreakdown from "../components/TripCostBreakdown.vue";
 import ExportServices from "../services/exportServices.js";
 import TripTravelOptionServices from "../services/tripTravelOptionServices.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
@@ -453,6 +454,7 @@ onMounted(refresh);
         { title: 'Worker role', key: 'workerRoleName' },
         { title: 'Status', key: 'status' },
         { title: 'Participant cost', key: 'participantCost' },
+        { title: 'Total cost', key: 'totalTripCost' },
         { title: 'Total donations', key: 'donationTotal' },
         { title: 'Actions', key: 'actions', sortable: false },
       ]"
@@ -479,6 +481,9 @@ onMounted(refresh);
       <template #item.roleName="{ item }">{{ item.roleName || "—" }}</template>
       <template #item.workerRoleName="{ item }">{{ item.workerRoleName || "—" }}</template>
       <template #item.participantCost="{ item }">{{ rowParticipantCost(item) }}</template>
+      <template #item.totalTripCost="{ item }">
+        <TripCostBreakdown :breakdown="item.costBreakdown" />
+      </template>
       <template #item.donationTotal="{ item }">{{ formatDonationTotal(item) }}</template>
       <template #item.actions="{ item }">
         <v-btn size="small" variant="text" @click="openApplication(item)">

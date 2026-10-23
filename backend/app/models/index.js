@@ -22,6 +22,7 @@ import TripWorkerRole from "./tripWorkerRole.model.js";
 import TripWorkerRoleReservation from "./tripWorkerRoleReservation.model.js";
 import TripTravelOption from "./tripTravelOption.model.js";
 import TripPeopleRoleOption from "./tripPeopleRoleOption.model.js";
+import TripPeopleRoleExpense from "./tripPeopleRoleExpense.model.js";
 import DocumentType from "./documentType.model.js";
 import PersonDocument from "./personDocument.model.js";
 import PersonDocumentSpecialization from "./personDocumentSpecialization.model.js";
@@ -64,6 +65,7 @@ db.tripWorkerRole = TripWorkerRole;
 db.tripWorkerRoleReservation = TripWorkerRoleReservation;
 db.tripTravelOption = TripTravelOption;
 db.tripPeopleRoleOption = TripPeopleRoleOption;
+db.tripPeopleRoleExpense = TripPeopleRoleExpense;
 db.documentType = DocumentType;
 db.personDocument = PersonDocument;
 db.personDocumentSpecialization = PersonDocumentSpecialization;
@@ -297,6 +299,16 @@ db.tripPeopleRole.hasMany(db.tripPeopleRoleOption, {
   onDelete: "CASCADE",
 });
 db.tripPeopleRoleOption.belongsTo(db.tripPeopleRole, {
+  foreignKey: "tripPeopleRoleId",
+  as: "tripPeopleRole",
+  onDelete: "CASCADE",
+});
+db.tripPeopleRole.hasMany(db.tripPeopleRoleExpense, {
+  foreignKey: "tripPeopleRoleId",
+  as: "addonExpenses",
+  onDelete: "CASCADE",
+});
+db.tripPeopleRoleExpense.belongsTo(db.tripPeopleRole, {
   foreignKey: "tripPeopleRoleId",
   as: "tripPeopleRole",
   onDelete: "CASCADE",

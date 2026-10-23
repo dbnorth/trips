@@ -3,7 +3,7 @@ import db from "../models/index.js";
 import logger from "../config/logger.js";
 import { ROLE_TRIP_PARTICIPANT } from "../authorization/accessControl.js";
 import { sendTemplateEmail } from "./emailDelivery.js";
-import { participantAmounts, participantCost } from "./emailTokenValues.js";
+import { participantAmounts } from "./emailTokenValues.js";
 
 const CREATED_STATUS_EVENTS = {
   incomplete: "application-started",
@@ -82,15 +82,14 @@ export const sendDonationEventEmails = (donation) =>
     if (!assignment) return;
 
     const trip = await db.trip.findByPk(donation.tripId);
-    const { raised } = await participantAmounts(trip, donation.personId, assignment);
+    const { raised, total } = await participantAmounts(trip, donation.personId, assignment);
     const raisedBefore = raised - Number(donation.amount);
     const eventCodes = ["donation-received"];
     const deposit = Number(trip.deposit);
     if (deposit > 0 && raisedBefore < deposit && raised >= deposit) {
       eventCodes.push("deposit-received");
     }
-    const cost = participantCost(trip, assignment);
-    if (cost != null && cost - raisedBefore > 0 && cost - raised <= 0) {
+    if (total != null && total - raisedBefore > 0 && total - raised <= 0) {
       eventCodes.push("payment-complete");
     }
 

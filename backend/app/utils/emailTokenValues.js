@@ -1,6 +1,7 @@
 import { Op } from "sequelize";
 import db from "../models/index.js";
 import { ROLE_TRIP_LEADER } from "../authorization/accessControl.js";
+import { amountOwed, loadSelectedTripOptions, participantTotals } from "./participantTotals.js";
 
 export const VALUE_SOURCES = [
   { valueSource: "organization.name", label: "Organization name" },
@@ -24,6 +25,8 @@ export const VALUE_SOURCES = [
   { valueSource: "participant.tripOptions", label: "Participant trip options" },
   { valueSource: "participant.tripOptionsTotal", label: "Participant trip options total" },
   { valueSource: "participant.airfare", label: "Participant trip airfare" },
+  { valueSource: "participant.addonExpenses", label: "Participant add-on expenses" },
+  { valueSource: "participant.addonExpensesTotal", label: "Participant add-on expenses total" },
   { valueSource: "participant.totalTripCost", label: "Participant total trip cost" },
   { valueSource: "participant.donations", label: "Participant donations" },
   { valueSource: "participant.donationsTotal", label: "Participant donations total" },
@@ -130,22 +133,16 @@ const loadParticipantTripRole = async (tripId, personId) => {
   return row?.tripWorkerRole?.workerRole?.name || "";
 };
 
-/** A participant's trip cost (`null` when unknown). The assignment's participant cost overrides the trip's. */
-export const participantCost = (trip, assignment) => {
-  const costRaw =
-    assignment?.participantCost != null && assignment.participantCost !== ""
-      ? assignment.participantCost
-      : trip.participantCost;
-  return costRaw != null && costRaw !== "" && !Number.isNaN(Number(costRaw)) ? Number(costRaw) : null;
-};
-
-/** Amount a participant has raised for a trip, and what they still owe (`null` when the cost is unknown). */
+/**
+ * Amount a participant has raised for a trip, their total trip cost, and what they still owe
+ * (`null` when the cost is unknown).
+ */
 export const participantAmounts = async (trip, personId, assignment) => {
   const raised = Number(
     (await db.tripDonation.sum("amount", { where: { tripId: trip.id, personId } })) || 0
   );
-  const cost = participantCost(trip, assignment);
-  return { raised, owed: cost == null ? null : Math.max(0, cost - raised) };
+  const { totalTripCost } = await participantTotals(trip, assignment);
+  return { raised, total: totalTripCost, owed: amountOwed(totalTripCost, raised) };
 };
 
 /** Calendar date (`YYYY-MM-DD`) of a timestamp in the app's email time zone. */
@@ -158,26 +155,6 @@ const localDate = (value) =>
   }).format(new Date(value));
 
 const sumAmounts = (amounts) => amounts.reduce((total, amount) => total + amount, 0);
-
-/** Selected trip options on an assignment, ordered by set number, then option order. */
-const loadSelectedTripOptions = async (assignmentId) => {
-  const rows = await db.tripPeopleRoleOption.findAll({
-    where: { tripPeopleRoleId: assignmentId, selected: true },
-    include: [{ model: db.tripTravelOption, as: "tripTravelOption" }],
-  });
-  return rows
-    .map((row) => row.tripTravelOption)
-    .filter(Boolean)
-    .sort((a, b) => a.setNumber - b.setNumber || a.id - b.id)
-    .map((option) => ({ description: option.description, amount: Number(option.priceAdjustment) || 0 }));
-};
-
-/** Flight cost when the application says the organization buys the flight; otherwise 0. */
-const loadAirfare = async (assignment) => {
-  if (assignment.flightPurchaseOption !== "organization") return 0;
-  const flight = await db.tripFlight.findOne({ where: { tripPeopleRoleId: assignment.id } });
-  return flight?.cost != null ? Number(flight.cost) : 0;
-};
 
 /**
  * The participant's donations for a trip, oldest first, split into participant donations
@@ -206,21 +183,25 @@ const amountLines = (entries, label) =>
 
 /** Financial statement values for a participant's assignment on a trip. */
 const buildFinancialValues = async (trip, person, assignment) => {
-  const cost = participantCost(trip, assignment);
+  const { participantCost: cost, airfare, addonExpenses, addonTotal, totalTripCost: totalCost } =
+    await participantTotals(trip, assignment);
   const options = assignment ? await loadSelectedTripOptions(assignment.id) : [];
-  const airfare = assignment ? await loadAirfare(assignment) : 0;
   const { own, others } = await loadDonationsBySource(trip.id, person);
 
   const optionsTotal = sumAmounts(options.map((option) => option.amount));
   const ownTotal = sumAmounts(own.map((entry) => entry.amount));
   const othersTotal = sumAmounts(others.map((entry) => entry.amount));
-  const totalCost = cost == null ? null : cost + optionsTotal + airfare;
 
   return {
     "participant.tripCost": formatMoney(cost),
     "participant.tripOptions": amountLines(options, (option) => option.description),
     "participant.tripOptionsTotal": formatMoney(optionsTotal),
     "participant.airfare": formatMoney(airfare),
+    "participant.addonExpenses": amountLines(
+      addonExpenses.map((expense) => ({ description: expense.description, amount: expense.cost })),
+      (expense) => expense.description
+    ),
+    "participant.addonExpensesTotal": formatMoney(addonTotal),
     "participant.totalTripCost": formatMoney(totalCost),
     "participant.donations": amountLines(own, (entry) => formatDate(entry.date)),
     "participant.donationsTotal": formatMoney(ownTotal),
@@ -236,6 +217,8 @@ const EMPTY_FINANCIAL_VALUES = {
   "participant.tripOptions": "",
   "participant.tripOptionsTotal": "",
   "participant.airfare": "",
+  "participant.addonExpenses": "",
+  "participant.addonExpensesTotal": "",
   "participant.totalTripCost": "",
   "participant.donations": "",
   "participant.donationsTotal": "",
