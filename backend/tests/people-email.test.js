@@ -233,12 +233,13 @@ describe("Feature 62 — Email People", () => {
       await assign(ana, build, { tripWorkerRole: builder });
       const ben = await addPerson("Ben");
       await assign(ben, clinic);
-      await assign(await addPerson("Eve"), build, { roleName: "Trip Leader" });
+      const eve = await addPerson("Eve");
+      await assign(eve, build, { roleName: "Trip Leader" });
 
       const response = await post("/recipients", { tripIds: "all", workerRoleIds: "all" });
 
       expect(response.status).toBe(200);
-      expect(response.body.map((r) => r.personId)).toEqual([ana.id, ben.id]);
+      expect(response.body.map((r) => r.personId)).toEqual([ana.id, ben.id, eve.id]);
     });
 
     it("Trip Leader cannot use people email", async () => {
@@ -346,6 +347,67 @@ describe("Feature 62 — Email People", () => {
       expect(response.status).toBe(400);
       expect(response.body.message).toBe("Trip Participant templates need exactly one trip selected.");
       expect(await sentEmails()).toEqual([]);
+    });
+  });
+
+  // Feature 75 — features/feature-75-people-email-trip-leaders.md
+  describe("Feature 75 — US-75.1 Email a trip's leaders along with its participants", () => {
+    let nurse;
+    let people;
+
+    beforeEach(async () => {
+      nurse = await addRole(clinic, "Nurse");
+      const doctor = await addRole(clinic, "Doctor");
+      const builder = await addRole(build, "Builder");
+      people = {};
+      for (const name of ["Ana", "Ben", "Cara", "Dan", "Eve", "Lee"]) people[name] = await addPerson(name);
+      await assign(people.Ana, clinic, { tripWorkerRole: nurse });
+      await assign(people.Ben, clinic, { tripWorkerRole: doctor });
+      await assign(people.Cara, clinic, { status: "applied", tripWorkerRole: nurse });
+      await assign(people.Lee, clinic, { roleName: "Trip Leader" });
+      await assign(people.Dan, build, { tripWorkerRole: builder });
+      await assign(people.Eve, build, { roleName: "Trip Leader" });
+    });
+
+    const names = (response) => response.body.map((r) => r.name);
+
+    it("All roles include the trip's leaders", async () => {
+      const response = await post("/recipients", { tripIds: [clinic.id], workerRoleIds: "all" });
+
+      expect(response.status).toBe(200);
+      expect(names(response)).toEqual(["Ana Lopez", "Ben Lopez", "Lee Lopez"]);
+    });
+
+    it("All trips and all roles list each participant and leader once", async () => {
+      await assign(people.Ana, build);
+
+      const response = await post("/recipients", { tripIds: "all", workerRoleIds: "all" });
+
+      expect(response.status).toBe(200);
+      expect(names(response)).toEqual(["Ana Lopez", "Ben Lopez", "Dan Lopez", "Eve Lopez", "Lee Lopez"]);
+    });
+
+    it("A specific role leaves out leaders without that role", async () => {
+      const response = await post("/recipients", {
+        tripIds: [clinic.id],
+        workerRoleIds: [nurse.workerRoleId],
+      });
+
+      expect(response.status).toBe(200);
+      expect(names(response)).toEqual(["Ana Lopez"]);
+    });
+
+    it("A Trip Leader can be previewed and emailed", async () => {
+      const template = await addTemplate();
+      const body = emailBody(template, { tripIds: [clinic.id] });
+
+      const preview = await post("/preview", { ...body, personId: people.Lee.id });
+      const send = await post("", body);
+
+      expect(preview.status).toBe(200);
+      expect(preview.body).toMatchObject({ to: "lee@example.org", body: "Hi Lee." });
+      expect(send.status).toBe(200);
+      expect((await sentEmails()).map((log) => log.toEmail)).toContain("lee@example.org");
     });
   });
 });

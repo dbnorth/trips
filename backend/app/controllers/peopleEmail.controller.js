@@ -3,6 +3,7 @@ import {
   isSystemAdmin,
   parseOrganizationScopeHeader,
   ROLE_ORG_ADMIN,
+  ROLE_TRIP_LEADER,
   ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
 import { buildTemplateMessage, sendTemplateEmail } from "../utils/emailDelivery.js";
@@ -50,7 +51,7 @@ const byLastThenFirst = (a, b) =>
 const selectedIds = (value) =>
   Array.isArray(value) ? [...new Set(value.map(Number))] : [];
 
-/** Approved Trip Participants on the selected trips with a selected worker role, each person once. */
+/** Approved Trip Participants and Trip Leaders on the selected trips with a selected worker role, each person once. */
 const loadRecipients = async (orgId, body) => {
   const orgTrips = await db.trip.findAll({ where: { orgId }, attributes: ["id"] });
   const orgTripIds = orgTrips.map((t) => t.id);
@@ -81,10 +82,13 @@ const loadRecipients = async (orgId, body) => {
     where.tripWorkerRoleId = tripRoles.filter((r) => roleIds.includes(r.workerRoleId)).map((r) => r.id);
   }
 
-  const participantRole = await db.role.findOne({ where: { roleName: ROLE_TRIP_PARTICIPANT } });
+  const memberRoles = await db.role.findAll({
+    where: { roleName: [ROLE_TRIP_PARTICIPANT, ROLE_TRIP_LEADER] },
+    attributes: ["id"],
+  });
   const assignments = tripIds.length
     ? await db.tripPeopleRole.findAll({
-        where: { ...where, roleId: participantRole.id },
+        where: { ...where, roleId: memberRoles.map((r) => r.id) },
         include: [{ model: db.person, as: "person", attributes: ["id", "firstName", "lastName", "email"] }],
       })
     : [];

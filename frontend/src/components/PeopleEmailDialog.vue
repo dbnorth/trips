@@ -32,8 +32,9 @@ const result = ref(null);
 const error = ref("");
 let recipientsRequest = 0;
 
-/** "All" alone, or the specific choices: picking All clears the rest, picking another clears All. */
+/** "All" alone, or the specific choices: picking All clears the rest, picking another clears All; never empty. */
 const withAll = (next, prev) => {
+  if (!next.length) return [ALL];
   if (next.includes(ALL) && !prev.includes(ALL)) return [ALL];
   if (next.includes(ALL) && next.length > 1) return next.filter((v) => v !== ALL);
   return next;
@@ -219,7 +220,7 @@ watch(
 watch(availableRoles, (roles) => {
   const ids = new Set(roles.map((r) => r.workerRoleId));
   const kept = roleSelection.value.filter((v) => v === ALL || ids.has(v));
-  if (kept.length !== roleSelection.value.length) roleSelection.value = kept;
+  if (kept.length !== roleSelection.value.length) roleSelection.value = kept.length ? kept : [ALL];
 });
 
 watch(singleTripId, (tripId) => {
@@ -290,7 +291,11 @@ const close = () => emit("update:modelValue", false);
           closable-chips
           class="mb-2"
           @update:model-value="setTrips"
-        />
+        >
+          <template #chip="{ props: chipProps, item }">
+            <v-chip v-bind="chipProps" :closable="item.value !== ALL" />
+          </template>
+        </v-select>
         <v-select
           :model-value="roleSelection"
           :items="roleItems"
@@ -301,7 +306,11 @@ const close = () => emit("update:modelValue", false);
           closable-chips
           class="mb-2"
           @update:model-value="setRoles"
-        />
+        >
+          <template #chip="{ props: chipProps, item }">
+            <v-chip v-bind="chipProps" :closable="item.value !== ALL" />
+          </template>
+        </v-select>
         <div class="text-body-2 mb-2">Recipients: {{ recipientLabel(recipients.length) }}</div>
 
         <v-alert v-if="error" type="error" density="compact" class="mb-2">{{ error }}</v-alert>
