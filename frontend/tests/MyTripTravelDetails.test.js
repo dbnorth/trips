@@ -163,3 +163,75 @@ describe("Feature 76 — Trip Arrival Info", () => {
     });
   });
 });
+
+/**
+ * Feature 78 — Days Before and After the Trip
+ * Spec: features/feature-78-days-before-after-trip.md
+ */
+describe("Feature 78 — Days Before and After the Trip", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+    Utils.setStore("user", { personId: 5, firstName: "Ana", lastName: "Lopez", orgRoles: [], tripRoles: [] });
+  });
+
+  describe("US-78.4 — See each participant's arrival and departure dates", () => {
+    it("My Trip Info shows my arrival and departure", async () => {
+      TripServices.getBrowseTrip.mockResolvedValue({
+        data: {
+          trip: {
+            id: 7,
+            orgId: 3,
+            name: "Guatemala Clinic",
+            status: "active",
+            startDate: "2026-06-10",
+            endDate: "2026-06-17",
+          },
+          rolesNeeded: [],
+          alreadyApplied: true,
+          applicationStatus: "approved",
+          tripLeaders: [],
+          myTripInfo: {
+            status: "approved",
+            workerRoleName: "Nurse",
+            participantCost: 1500,
+            totalTripCost: 1580,
+            addonExpenses: [{ description: "Extra hotel night", cost: 80, daysBefore: 1, daysAfter: 1 }],
+            arrivalDate: "2026-06-07",
+            departureDate: "2026-06-18",
+            donationTotal: 0,
+            donationRecipients: [],
+            tripPeopleRoleId: 40,
+            nextActions: [],
+            room: null,
+            flightPurchaseOption: "self",
+            flightSegments: [],
+            selectedTravelOptions: [],
+          },
+        },
+      });
+      const { wrapper } = await mountWithPlugins(TripBrowseView, {
+        props: { tripId: "7" },
+        global: {
+          stubs: {
+            VDialog: { props: ["modelValue"], template: '<div v-if="modelValue"><slot /></div>' },
+            DonorTripHeading: true,
+            ApplyTripDialog: true,
+            FlightSegmentsDialog: true,
+            ParticipantDonationsDialog: true,
+            ParticipantDonateDialog: true,
+          },
+        },
+      });
+      await flushPromises();
+
+      const dates = wrapper.find('[data-testid="my-trip-dates"]');
+      expect(dates.text()).toContain("Arrive");
+      expect(dates.text()).toContain("Depart");
+      expect(wrapper.find('[data-testid="my-trip-arrive"]').text()).toBe("06/07/2026");
+      expect(wrapper.find('[data-testid="my-trip-depart"]').text()).toBe("06/18/2026");
+
+      wrapper.unmount();
+    });
+  });
+});

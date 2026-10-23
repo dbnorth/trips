@@ -507,6 +507,8 @@ exports.copy = async (req, res) => {
             description: row.description,
             priceAdjustment: row.priceAdjustment,
             setNumber: row.setNumber,
+            daysBefore: row.daysBefore,
+            daysAfter: row.daysAfter,
           },
           { transaction }
         );

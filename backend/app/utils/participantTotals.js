@@ -26,6 +26,8 @@ export const loadAddonExpenses = async (assignmentId) => {
     id: row.id,
     description: row.description,
     cost: Number(row.cost) || 0,
+    daysBefore: row.daysBefore,
+    daysAfter: row.daysAfter,
   }));
 };
 

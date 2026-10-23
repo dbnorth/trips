@@ -75,7 +75,67 @@ describe("Feature 74 — Trip Add-on Expenses", () => {
 
       expect(TripPeopleRoleServices.update).toHaveBeenCalledWith(
         40,
-        expect.objectContaining({ addonExpenses: [{ description: "Travel insurance", cost: 75 }] })
+        expect.objectContaining({
+          addonExpenses: [{ description: "Travel insurance", cost: 75, daysBefore: 0, daysAfter: 0 }],
+        })
+      );
+
+      wrapper.unmount();
+    });
+  });
+});
+
+/**
+ * Feature 78 — Days Before and After the Trip
+ * Spec: features/feature-78-days-before-after-trip.md
+ */
+describe("Feature 78 — Days Before and After the Trip", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    TripServices.get.mockResolvedValue({ data: { id: 7, participantCost: 1500 } });
+    TripWorkerRoleServices.getAll.mockResolvedValue({ data: [] });
+    TripPeopleRoleServices.update.mockResolvedValue({ data: {} });
+  });
+
+  const mountDialog = async () => {
+    const { wrapper } = await mountWithPlugins(EditTripParticipantDialog, {
+      props: { modelValue: false, participant: { ...NORA, person: { firstName: "Ana", lastName: "Lopez" } } },
+      global: { stubs: { VDialog: { template: "<div><slot /></div>" } } },
+    });
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+    return wrapper;
+  };
+
+  const fillRow = async (row, values) => {
+    const inputs = row.findAll("input");
+    for (const [index, value] of values.entries()) await inputs[index].setValue(value);
+  };
+
+  describe("US-78.3 — Staff set days on add-on expenses", () => {
+    it("Edit dialog saves days on an add-on expense", async () => {
+      const wrapper = await mountDialog();
+
+      await button(wrapper, "Add expense").trigger("click");
+      await button(wrapper, "Add expense").trigger("click");
+      const rows = wrapper.findAll('[data-testid="addon-expense-row"]');
+      await fillRow(rows[0], ["Extra hotel night", "80", "", "1"]);
+      await fillRow(rows[1], ["Late checkout", "20", "", "1"]);
+
+      await button(wrapper, "Save").trigger("click");
+      await flushPromises();
+      expect(wrapper.text()).toContain("Only one add-on expense can have days after the trip.");
+      expect(TripPeopleRoleServices.update).not.toHaveBeenCalled();
+
+      await rows[1].find('[data-testid="remove-addon-expense"]').trigger("click");
+      await button(wrapper, "Save").trigger("click");
+      await flushPromises();
+
+      expect(TripPeopleRoleServices.update).toHaveBeenCalledWith(
+        40,
+        expect.objectContaining({
+          addonExpenses: [{ description: "Extra hotel night", cost: 80, daysBefore: 0, daysAfter: 1 }],
+        })
       );
 
       wrapper.unmount();

@@ -28,6 +28,7 @@ import {
   missingRequiredRoleDocuments,
   needsExpirationWording,
   requiredRoleDocumentLabel,
+  travelOptionDaysError,
   validateTravelOptionSelections,
 } from "../utils/tripApplicationForm.js";
 import {
@@ -703,6 +704,11 @@ const save = async () => {
   }
   if (!form.value.tripWorkerRoleId) {
     formError.value = "Select a trip role with available positions.";
+    return;
+  }
+  const daysError = travelOptionDaysError(travelOptions.value, selectedTravelOptionIds.value);
+  if (daysError) {
+    formError.value = daysError;
     return;
   }
   // Unanswered questions are saved as an incomplete application instead of blocking the save.

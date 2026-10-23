@@ -549,6 +549,8 @@ A reservation is **filled** when an `incomplete` / `applied` / `approved` applic
 | description | STRING(500) | required |
 | priceAdjustment | DECIMAL(10,2) | required, default `0` |
 | setNumber | INTEGER | required, default `1` (one selection per set on applications) |
+| daysBefore | INTEGER | required, default `0`; whole number 0–365 (Feature 78; added by `ensureSchema`) |
+| daysAfter | INTEGER | required, default `0`; whole number 0–365 (Feature 78; added by `ensureSchema`) |
 
 **Associations:** `belongsTo` trip; `hasMany` tripPeopleRoleOption.
 
@@ -577,6 +579,8 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 | tripPeopleRoleId | INTEGER | required FK → tripPeopleRole, `ON DELETE CASCADE` |
 | description | STRING(255) | required, trimmed |
 | cost | DECIMAL(10,2) | required, ≥ 0 |
+| daysBefore | INTEGER | required, default `0`; whole number 0–365 (Feature 78; added by `ensureSchema`) |
+| daysAfter | INTEGER | required, default `0`; whole number 0–365 (Feature 78; added by `ensureSchema`) |
 
 **Associations:** `belongsTo` tripPeopleRole. No dedicated REST resource; saved as a whole list through `PUT /trips/trip-people-roles/:id` `addonExpenses`.
 
@@ -667,7 +671,7 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 
 **Associations:** none. Templates write tokens as `{{TOKEN_CODE}}` text.
 
-`seedEmailTokens` adds missing token codes only; Feature 74 adds `ADDON_EXPENSE` → `participant.addonExpenses` and `ADDON_EXPENSE_TOTAL` → `participant.addonExpensesTotal`.
+`seedEmailTokens` adds missing token codes only; Feature 74 adds `ADDON_EXPENSE` → `participant.addonExpenses` and `ADDON_EXPENSE_TOTAL` → `participant.addonExpensesTotal`; Feature 78 adds `PARTICIPANT_ARRIVAL_DATE` → `participant.arrivalDate` and `PARTICIPANT_DEPARTURE_DATE` → `participant.departureDate`.
 
 ---
 
