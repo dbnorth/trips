@@ -205,6 +205,15 @@ export const isTripLeaderForTrip = (req, tripId) => {
   return role?.role?.roleName === ROLE_TRIP_LEADER;
 };
 
+/** Approved Trip Leader or Trip Participant assignment on the trip. */
+export const isApprovedTripMember = (req, tripId) =>
+  (req.user?.tripRoles || []).some(
+    (r) =>
+      Number(r.tripId) === Number(tripId) &&
+      r.status === "approved" &&
+      [ROLE_TRIP_LEADER, ROLE_TRIP_PARTICIPANT].includes(r.role?.roleName)
+  );
+
 export const isTripParticipantForTrip = (req, tripId) => {
   const role = getTripRoleForTrip(req, tripId);
   return role?.role?.roleName === ROLE_TRIP_PARTICIPANT;
