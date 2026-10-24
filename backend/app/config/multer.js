@@ -89,6 +89,18 @@ export const uploadTripArrivalPdf = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+const csvFilter = (_req, file, cb) => {
+  if (path.extname(file.originalname || "").toLowerCase() === ".csv") cb(null, true);
+  else cb(new Error("Choose a CSV file up to 5 MB."), false);
+};
+
+/** Kept in memory: a Trip Master CSV is read once and not stored. */
+export const uploadTripMasterCsv = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: csvFilter,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
 const emailPictureFilter = (_req, file, cb) => {
   if (["image/png", "image/jpeg", "image/gif"].includes(file.mimetype)) cb(null, true);
   else cb(new Error("Upload a PNG, JPEG, or GIF picture."), false);

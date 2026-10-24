@@ -8,8 +8,7 @@ import { ROLE_TRIP_PARTICIPANT } from "../authorization/accessControl.js";
 import {
   normalizeEmail,
   findUserByEmail,
-  findPersonByEmail,
-  findPersonForUser,
+  findPersonToLink,
   ensureUserForEmail,
   upsertPersonForUser,
   ensureOrgPeopleRole,
@@ -261,11 +260,11 @@ exports.register = async (req, res) => {
     }
 
     const existingUser = await findUserByEmail(emailNorm);
-    const existingPerson = existingUser
-      ? await findPersonForUser(existingUser.id)
-      : await findPersonByEmail(emailNorm);
+    const personToLink = existingUser
+      ? undefined
+      : await findPersonToLink(emailNorm, firstName, lastName);
 
-    if (existingUser || existingPerson) {
+    if (personToLink === undefined) {
       return res.status(409).send({
         message: "An account with this email already exists. Please log in instead.",
       });
@@ -277,13 +276,17 @@ exports.register = async (req, res) => {
         : String(middleName).trim();
 
     const user = await ensureUserForEmail(emailNorm, password);
-    const person = await upsertPersonForUser(user, {
-      firstName,
-      middleName: middleTrimmed,
-      lastName,
-      emailNorm,
-      preferredName: resolvePreferredName(preferredName, firstName, lastName),
-    });
+    const person = await upsertPersonForUser(
+      user,
+      {
+        firstName,
+        middleName: middleTrimmed,
+        lastName,
+        emailNorm,
+        preferredName: resolvePreferredName(preferredName, firstName, lastName),
+      },
+      { person: personToLink }
+    );
 
     for (const orgId of requestedOrgIds) {
       const org = await Organization.findByPk(orgId);

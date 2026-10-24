@@ -5,8 +5,9 @@ import tripRooming from "../controllers/tripRooming.controller.js";
 import tripFlight from "../controllers/tripFlight.controller.js";
 import tripTeamEmail from "../controllers/tripTeamEmail.controller.js";
 import participantDocumentsPdf from "../controllers/participantDocumentsPdf.controller.js";
+import tripMasterImport, { FILE_MESSAGE } from "../controllers/tripMasterImport.controller.js";
 import authenticate from "../authorization/accessControl.js";
-import { uploadTripArrivalPdf, uploadTripImage } from "../config/multer.js";
+import { uploadTripArrivalPdf, uploadTripImage, uploadTripMasterCsv } from "../config/multer.js";
 
 const router = Router();
 
@@ -27,6 +28,13 @@ const handleArrivalPdfUpload = (req, res, next) => {
       return res.status(400).send({ message: "The PDF must be 10 MB or smaller." });
     }
     return res.status(400).send({ message: "Upload a PDF file." });
+  });
+};
+
+const handleTripMasterUpload = (req, res, next) => {
+  uploadTripMasterCsv.single("file")(req, res, (err) => {
+    if (!err) return next();
+    return res.status(400).send({ message: FILE_MESSAGE });
   });
 };
 
@@ -74,6 +82,12 @@ router.put("/:id/image", [authenticate], handleTripImageUpload, trips.uploadImag
 router.post("/:id/arrival-pdf", [authenticate], handleArrivalPdfUpload, trips.uploadArrivalPdf);
 router.get("/:id/arrival-pdf", [authenticate], trips.openArrivalPdf);
 router.delete("/:id/arrival-pdf", [authenticate], trips.removeArrivalPdf);
+router.post(
+  "/:id/import-trip-master",
+  [authenticate],
+  handleTripMasterUpload,
+  tripMasterImport.importTripMaster
+);
 router.delete("/:id", [authenticate], trips.delete);
 
 export default router;

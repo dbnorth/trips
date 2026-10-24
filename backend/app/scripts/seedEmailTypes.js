@@ -17,6 +17,7 @@ const emailTypes = [
   { typeCode: "financial-statement", description: "Trip financial statement", eventCode: "team-email" },
   { typeCode: "people-update", description: "People update", eventCode: "team-email" },
   { typeCode: "trip-arrival", description: "Trip arrival info", eventCode: "team-email" },
+  { typeCode: "account-invite", description: "Account invitation", eventCode: "team-email" },
   {
     typeCode: "trip-arrival-scheduled",
     description: "Trip arrival info (scheduled)",

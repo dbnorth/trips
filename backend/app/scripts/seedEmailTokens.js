@@ -36,6 +36,7 @@ const tokens = [
   { tokenCode: "ADDON_EXPENSE_TOTAL", valueSource: "participant.addonExpensesTotal" },
   { tokenCode: "PARTICIPANT_ARRIVAL_DATE", valueSource: "participant.arrivalDate" },
   { tokenCode: "PARTICIPANT_DEPARTURE_DATE", valueSource: "participant.departureDate" },
+  { tokenCode: "CREATE_ACCOUNT_LINK", valueSource: "participant.createAccountLink" },
   { tokenCode: "LEADER_FIRST_NAME", valueSource: "primaryLeader.firstName" },
   { tokenCode: "LEADER_LAST_NAME", valueSource: "primaryLeader.lastName" },
   { tokenCode: "LEADER_PREFERRED_NAME", valueSource: "primaryLeader.preferredName" },
