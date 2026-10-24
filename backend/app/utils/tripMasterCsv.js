@@ -22,6 +22,7 @@ const COLUMNS = {
   passportExpiration: "Passport Exp. Date",
   travelNotes: "Travel Notes",
   flightFee: "Flight Fee",
+  hasNameTag: "Do you Have a Name Tag",
 };
 
 const REQUIRED = ["firstName", "lastName", "email", "position"];
@@ -182,6 +183,12 @@ const wordsOf = (value) =>
 export const isFlightOption = (option) =>
   wordsOf(option.description).some((word) => word.startsWith("flight") || word.startsWith("air"));
 
+/** A trip option whose description has the words "name" and "tag" (e.g. "Need HTI Name Tag"). */
+export const isNameTagOption = (option) => {
+  const words = wordsOf(option.description);
+  return words.includes("name") && words.includes("tag");
+};
+
 /**
  * The option per set that Travel Notes pick (most matched keywords), and the sets where options tie.
  * Keywords are an option's 3+ character words found in no other option's description.
@@ -198,7 +205,7 @@ export const chooseNoteOptions = (notes, options) => {
 
   const bestBySet = new Map();
   for (const option of options) {
-    if (isFlightOption(option)) continue;
+    if (isFlightOption(option) || isNameTagOption(option)) continue;
     const keywords = [...optionWords.get(option)].filter((word) => word.length >= 3 && usage.get(word) === 1);
     const score = keywords.filter((keyword) => noteWords.some((word) => keyword.startsWith(word))).length;
     if (!score) continue;

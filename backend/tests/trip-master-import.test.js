@@ -91,7 +91,7 @@ describe("Feature 80 — Import Trip Master CSV", () => {
     });
     options = {};
     for (const [key, description, setNumber, priceAdjustment] of [
-      ["nameTag", "HTI Name Tag", 1, 0],
+      ["nameTag", "Need HTI Name Tag", 1, 0],
       ["friday", "Arrive Friday - Barceló Bar", 2, 75],
       ["saturday", "Arrive Saturday", 2, 0],
       ["flights", "HTI Purchase Flights", 3, 40],
@@ -509,7 +509,7 @@ describe("Feature 80 — Import Trip Master CSV", () => {
       expect(await db.tripFlight.count()).toBe(0);
 
       const lopez = await assignmentOf(ana);
-      expect(await selectedOptions(lopez)).toEqual(["Arrive Saturday"]);
+      expect(await selectedOptions(lopez)).toEqual(["Need HTI Name Tag", "Arrive Saturday"]);
       expect(Number(lopez.participantCost)).toBe(950);
       expect(lopez.flightPurchaseOption).toBeNull();
 
@@ -518,11 +518,12 @@ describe("Feature 80 — Import Trip Master CSV", () => {
         ["Kris", "Smith"],
       ]) {
         const assignment = await assignmentOf(await personNamed(first, last));
-        expect([first, await selectedOptions(assignment), assignment.participantCost]).toEqual([first, [], null]);
+        expect([first, await selectedOptions(assignment), Number(assignment.participantCost)]).toEqual([
+          first,
+          ["Need HTI Name Tag"],
+          950,
+        ]);
       }
-      expect(
-        await db.tripPeopleRoleOption.count({ where: { tripTravelOptionId: options.nameTag.id, selected: true } })
-      ).toBe(0);
     });
 
     it("Options already chosen are kept", async () => {
@@ -542,8 +543,52 @@ describe("Feature 80 — Import Trip Master CSV", () => {
       await importFile(omar.authHeader);
 
       await applied.reload();
-      expect(await selectedOptions(applied)).toEqual(["Arrive Friday - Barceló Bar"]);
+      expect(await selectedOptions(applied)).toEqual(["Need HTI Name Tag", "Arrive Friday - Barceló Bar"]);
       expect(Number(applied.participantCost)).toBe(1025);
+    });
+  });
+
+  /**
+   * Feature 83 — Trip Master Name Tag Option
+   * Spec: features/feature-83-trip-master-name-tag-option.md
+   */
+  describe("Feature 83 — US-83.1 The Name Tag column selects the name tag option", () => {
+    const hasNameTagOption = async (first, last) =>
+      (await selectedOptions(await assignmentOf(await personNamed(first, last)))).includes("Need HTI Name Tag");
+
+    it("Everyone without a name tag gets the name tag option", async () => {
+      await importFile(omar.authHeader);
+
+      for (const [first, last] of [
+        ["Ana", "Lopez"],
+        ["Kris", "Smith"],
+        ["Rick", "Harper"],
+        ["Andrea", "Fletcher"],
+      ]) {
+        expect([first, await hasNameTagOption(first, last)]).toEqual([first, true]);
+      }
+      const lyle = await assignmentOf(await personNamed("Lyle", "Lowry"));
+      expect(await selectedOptions(lyle)).toEqual(["Arrive Friday - Barceló Bar", "HTI Purchase Flights"]);
+      expect(Number(lyle.participantCost)).toBe(1065);
+    });
+
+    it("Travel Notes don't select the name tag option", async () => {
+      const content = SAMPLE.toString().replace("HTI - Fri Barceló - Antigua", "HTI - Fri Barceló - Name Tag - Antigua");
+
+      await importFile(omar.authHeader, content);
+
+      expect(await hasNameTagOption("Lyle", "Lowry")).toBe(false);
+    });
+
+    it("A file without the column selects no name tag", async () => {
+      const content = SAMPLE.toString().replace(",Do you Have a,", ",,");
+
+      const res = await importFile(omar.authHeader, content);
+
+      expect(res.status).toBe(200);
+      expect(
+        await db.tripPeopleRoleOption.count({ where: { tripTravelOptionId: options.nameTag.id, selected: true } })
+      ).toBe(0);
     });
   });
 });
