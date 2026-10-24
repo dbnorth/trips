@@ -33,6 +33,7 @@ describe("Feature 80 — Import Trip Master CSV", () => {
   let org;
   let trip;
   let surgeonRole;
+  let circulatorRole;
   let options;
   let ana;
   let tom;
@@ -99,6 +100,8 @@ describe("Feature 80 — Import Trip Master CSV", () => {
     }
     const surgeon = await db.workerRole.create({ orgId: org.id, name: "General Surgeon" });
     surgeonRole = await db.tripWorkerRole.create({ tripId: trip.id, workerRoleId: surgeon.id, quantity: 1 });
+    const circulator = await db.workerRole.create({ orgId: org.id, name: "RN Circulator" });
+    circulatorRole = await db.tripWorkerRole.create({ tripId: trip.id, workerRoleId: circulator.id, quantity: 2 });
     await db.documentType.create({ description: "Passport", type: "passport" });
     ana = await db.person.create({
       firstName: "Ana",
@@ -259,24 +262,42 @@ describe("Feature 80 — Import Trip Master CSV", () => {
     });
   });
 
-  describe("US-80.3 — Positions become the trip's worker roles", () => {
-    it("Positions match or create worker roles", async () => {
+  describe("US-80.3 — Positions match the trip's worker roles", () => {
+    it("Positions match the trip's worker roles", async () => {
       await importFile(omar.authHeader);
 
       await surgeonRole.reload();
       expect(surgeonRole.quantity).toBe(2);
-      const circulator = await db.tripWorkerRole.findOne({
-        where: { tripId: trip.id },
-        include: [{ model: db.workerRole, as: "workerRole", where: { name: "RN Circulator", orgId: org.id } }],
-      });
-      expect(circulator.quantity).toBe(3);
+      await circulatorRole.reload();
+      expect(circulatorRole.quantity).toBe(3);
+      expect(await db.tripWorkerRole.count({ where: { tripId: trip.id } })).toBe(2);
 
       const roleOf = async (first, last) => (await assignmentOf(await personNamed(first, last))).tripWorkerRoleId;
       expect(await roleOf("Lyle", "Lowry")).toBe(surgeonRole.id);
-      expect(await roleOf("Ana", "Lopez")).toBe(circulator.id);
-      expect(await roleOf("Kris", "Smith")).toBe(circulator.id);
+      expect(await roleOf("Ana", "Lopez")).toBe(circulatorRole.id);
+      expect(await roleOf("Kris", "Smith")).toBe(circulatorRole.id);
       expect(await roleOf("Rick", "Harper")).toBeNull();
       expect(await roleOf("Andrea", "Fletcher")).toBeNull();
+    });
+
+    it("Positions missing from the trip stop the import", async () => {
+      await circulatorRole.destroy();
+      const peopleBefore = await db.person.count();
+      const workerRolesBefore = await db.workerRole.count();
+
+      const response = await importFile(omar.authHeader);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        message: "Add these worker roles to the trip, then import again.",
+        missingRoles: ["RN Circulator"],
+      });
+      expect(await db.person.count()).toBe(peopleBefore);
+      expect(await db.tripPeopleRole.count({ where: { tripId: trip.id } })).toBe(1);
+      expect(await db.tripWorkerRole.count({ where: { tripId: trip.id } })).toBe(1);
+      expect(await db.workerRole.count()).toBe(workerRolesBefore);
+      await surgeonRole.reload();
+      expect(surgeonRole.quantity).toBe(1);
     });
   });
 

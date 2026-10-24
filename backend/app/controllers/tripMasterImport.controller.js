@@ -21,6 +21,7 @@ import {
 } from "../utils/tripMasterCsv.js";
 
 export const FILE_MESSAGE = "Choose a CSV file up to 5 MB.";
+const MISSING_ROLES_MESSAGE = "Add these worker roles to the trip, then import again.";
 const TEAM_LEADER = "team leader";
 
 const isBlank = (value) => value == null || value === "";
@@ -107,7 +108,10 @@ const ensureOrgRole = async (orgId, peopleId, roleId, transaction) => {
   if (!existing) await db.orgPeopleRole.create({ orgId, peopleId, roleId }, { transaction });
 };
 
-/** The trip's worker roles by lower-case name, adding or sizing one for each main-section position. */
+/**
+ * The trip's worker roles by lower-case name, sized for the main-section positions,
+ * or the positions with no trip role (nothing is changed then).
+ */
 const prepareWorkerRoles = async (trip, rows, transaction) => {
   const tripRoles = await db.tripWorkerRole.findAll({
     where: { tripId: trip.id },
@@ -125,25 +129,14 @@ const prepareWorkerRoles = async (trip, rows, transaction) => {
     counts.set(key, entry);
   }
 
-  let orgRoles = null;
-  for (const [key, { name, count }] of counts) {
+  const missingRoles = [...counts].filter(([key]) => !byName.has(key)).map(([, { name }]) => name);
+  if (missingRoles.length) return { missingRoles };
+
+  for (const [key, { count }] of counts) {
     const tripRole = byName.get(key);
-    if (tripRole) {
-      if (tripRole.quantity < count) await tripRole.update({ quantity: count }, { transaction });
-      continue;
-    }
-    orgRoles ??= await db.workerRole.findAll({ where: { orgId: trip.orgId }, order: [["id", "ASC"]], transaction });
-    let workerRole = orgRoles.find((role) => normalizeText(role.name) === key);
-    if (!workerRole) {
-      workerRole = await db.workerRole.create({ orgId: trip.orgId, name }, { transaction });
-      orgRoles.push(workerRole);
-    }
-    byName.set(
-      key,
-      await db.tripWorkerRole.create({ tripId: trip.id, workerRoleId: workerRole.id, quantity: count }, { transaction })
-    );
+    if (tripRole.quantity < count) await tripRole.update({ quantity: count }, { transaction });
   }
-  return byName;
+  return { byName };
 };
 
 const setOf = (option) => (Number(option.setNumber) > 0 ? Number(option.setNumber) : 1);
@@ -238,6 +231,9 @@ const addPassport = async (person, row, notes, passportTypes, transaction) => {
 };
 
 const importRows = async (trip, rows, transaction) => {
+  const { byName: tripRoles, missingRoles } = await prepareWorkerRoles(trip, rows, transaction);
+  if (missingRoles) return { missingRoles };
+
   const [leaderRole, participantRole] = await Promise.all(
     [ROLE_TRIP_LEADER, ROLE_TRIP_PARTICIPANT].map((roleName) =>
       db.role.findOne({ where: { roleName }, transaction })
@@ -256,7 +252,6 @@ const importRows = async (trip, rows, transaction) => {
     ],
     transaction,
   });
-  const tripRoles = await prepareWorkerRoles(trip, rows, transaction);
   const summary = { rowCount: 0, added: 0, updated: 0, skipped: 0, notes: [] };
 
   for (const row of rows) {
@@ -349,6 +344,9 @@ exports.importTripMaster = async (req, res) => {
       });
     }
     const summary = await db.sequelize.transaction((transaction) => importRows(trip, sheet.rows, transaction));
+    if (summary.missingRoles) {
+      return res.status(400).send({ message: MISSING_ROLES_MESSAGE, missingRoles: summary.missingRoles });
+    }
     res.send(summary);
   } catch (err) {
     res.status(500).send({ message: err.message });

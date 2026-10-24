@@ -11,7 +11,7 @@ Clarified with the requester:
 - No preview: the file is imported right away and a summary is shown afterwards.
 - A row matches an existing person by **email plus first and last name**; otherwise a new person is created. Family members in the sample share one email.
 - Existing people only get **blank fields filled**; nothing is overwritten.
-- A **Position Required** with no matching worker role on the trip creates the role, sized to the number of rows with that position.
+- A **Position Required** must match one of the trip's worker roles. Follow-up: "if trips roles don't match give a warning with a list of missing roles and don't import. Remove the adding of trip roles." A matching role's quantity is still raised to the number of rows with that position (requester's choice).
 - **App Received** "X" → **approved**; blank → **incomplete**.
 - The **Caregiver Waiting List** section is skipped; the **CANCELLATIONS** section is imported as **cancelled**.
 - Also imported: passport, allergies, emergency contact, roommate, and trip options (from Travel Notes and Flight Fee, FR-022–FR-025). Not imported: deposit, funds received, Trip Fee, flight text, name tag, specialty, insurance date.
@@ -98,13 +98,13 @@ The file has a title row, then a **two-row header**: each column's name is its f
 **Independent test:** Ana Lopez (ana@example.org) already exists with a phone number → importing her row keeps her phone number, fills her blank birth date, and adds her to the trip  
 **Acceptance scenarios:** see ### US-80.2
 
-### US-80.3: Positions become the trip's worker roles
+### US-80.3: Positions match the trip's worker roles
 **As** trip staff  
-**I want** each Position Required to become one of the trip's worker roles  
-**So that** imported participants hold the right roles and the trip shows how many of each are needed
+**I want** each Position Required matched to one of the trip's worker roles, and the import stopped when one is missing  
+**So that** imported participants hold the right roles and the trip's roles stay as staff set them up
 
 **Priority:** P1  
-**Independent test:** The file has three "RN Circulator" rows (one empty) and the trip has no such role → the trip gets an "RN Circulator" role needing 3, and both named people hold it  
+**Independent test:** The file has three "RN Circulator" rows (one empty) and the trip's "RN Circulator" role needs 2 → it needs 3, and both named people hold it. Without that role on the trip → a warning lists "RN Circulator" and nothing is imported  
 **Acceptance scenarios:** see ### US-80.3
 
 ### US-80.4: Import passports, allergies, emergency contacts, and roommates
@@ -162,7 +162,7 @@ The file has a title row, then a **two-row header**: each column's name is its f
 
 **Roles and applications**
 
-- **FR-006**: **Position Required** (trimmed) matches a trip worker role whose name is the same, ignoring case. If there's no match, the organization's worker role with that name is added to the trip; if the organization has none, one is created. A role's **quantity** becomes the number of main-section rows with that position, counting empty slots, unless it's already higher. Main-section rows with a person but no position get no worker role. The import doesn't enforce capacity (Feature 26).
+- **FR-006**: **Position Required** (trimmed) matches a trip worker role whose name is the same, ignoring case. Before anything is saved, every main-section position other than "Team Leader", including empty slots, must match. Otherwise nothing is imported: the response is `400` with the message "Add these worker roles to the trip, then import again." and `missingRoles`, the unmatched positions as written in the file, in file order without repeats. The dialog shows the message and the list in a warning. The import never creates worker roles or adds them to the trip. A matched role's **quantity** becomes the number of main-section rows with that position, counting empty slots, unless it's already higher. Main-section rows with a person but no position get no worker role. The import doesn't enforce capacity (Feature 26).
 - **FR-007**: A main-section row whose **Position Required** is "Team Leader" adds the person as an approved **Trip Leader** of the trip, with no worker role. They become the primary trip leader when the trip has none (Feature 40). They also get the organization's **Trip Leader** role when they don't have it, so editing the trip keeps them as a leader.
 - **FR-008**: Any other main-section row adds the person as a **Trip Participant** on the trip: **approved** when **App Received** is "X" (any case), otherwise **incomplete**. Cancellations-section rows are added as **cancelled**. They get a worker role only when **Position Required** matches an existing trip role, and never create or resize roles.
 - **FR-009**: When the person already has an application on the trip, no second one is added. Its status and role are unchanged, and its blank fields are filled (FR-005). Re-importing the same file therefore adds nothing new.
@@ -234,7 +234,8 @@ The file has a title row, then a **two-row header**: each column's name is its f
 
 - The same person appears twice in the main section (e.g. Jack Lawler as a Caregiver and on the waiting list) → the main-section row wins; the waiting-list row is skipped.
 - A person appears in the main section and in cancellations → the first row adds the application, and the later row only fills blanks (FR-009). Their status stays as the first row set it.
-- A position's rows are all empty slots → the role is still created or sized (FR-006), with no participants.
+- A position's rows are all empty slots → the role must still be on the trip, and is sized (FR-006), with no participants.
+- A cancellations-section position that matches no trip role doesn't stop the import; that row just gets no worker role (FR-008).
 - Names with extra spaces ("Andrea  ") are trimmed before matching and saving.
 - Family members who share an email: only the first to create an account gets that email as a login, because a login email belongs to one user. The others need staff to give them their own email (**Edit person**) before creating an account.
 - A value in a free-text field holds a line break (e.g. emergency contacts ending in a newline) → trimmed.
@@ -262,7 +263,7 @@ Only trip staff (FR-002) can import into a trip. People are matched across the w
 
 ## Key Entities
 
-No schema change. Writes `person`, `orgPeopleRole`, `personDocument`, `workerRole`, `tripWorkerRole`, `tripPeopleRole`, and `tripPeopleRoleOption` (selected trip options, FR-022). Reads `tripTravelOption`. The seeds add an `emailType`, an `emailToken`, and an `emailTemplate` row (FR-021).
+No schema change. Writes `person`, `orgPeopleRole`, `personDocument`, `tripWorkerRole` (quantity only), `tripPeopleRole`, and `tripPeopleRoleOption` (selected trip options, FR-022). Reads `tripTravelOption`. The seeds add an `emailType`, an `emailToken`, and an `emailTemplate` row (FR-021).
 
 ---
 
@@ -271,7 +272,7 @@ No schema change. Writes `person`, `orgPeopleRole`, `personDocument`, `workerRol
 | Method | Path | Auth | Change |
 |--------|------|------|--------|
 | `POST` | `/trips/register` | none | `409` only when a user has the email; otherwise links to an existing person without a login per FR-018, or creates one as today |
-| `POST` | `/trips/trips/:id/import-trip-master` | auth (FR-002) | Multipart field `file` (CSV, ≤ 5 MB). `200` `{ rowCount, added, updated, skipped, notes: [{ row, name, message }] }`. `400` with the FR-003 message; `403` "Forbidden."; `404` "Trip not found." |
+| `POST` | `/trips/trips/:id/import-trip-master` | auth (FR-002) | Multipart field `file` (CSV, ≤ 5 MB). `200` `{ rowCount, added, updated, skipped, notes: [{ row, name, message }] }`. `400` with the FR-003 message, or `{ message: "Add these worker roles to the trip, then import again.", missingRoles: [names] }` (FR-006); `403` "Forbidden."; `404` "Trip not found." |
 
 ---
 
@@ -280,7 +281,7 @@ No schema change. Writes `person`, `orgPeopleRole`, `personDocument`, `workerRol
 | Screen | Change |
 |--------|--------|
 | **Trips** list (`TripsList`) | **Import** action on each row, for the users in FR-002 |
-| **Import Trip Master CSV** dialog (`ImportTripMasterDialog`, new) | File picker, **Import**, the FR-003 error, the FR-010 summary and notes, **Close** |
+| **Import Trip Master CSV** dialog (`ImportTripMasterDialog`, new) | File picker, **Import**, the FR-003 error, the FR-006 missing-roles warning, the FR-010 summary and notes, **Close** |
 | Sign-in page (`Login`) | `?create=1&email=…&firstName=…&lastName=…` opens **Create account** filled in (FR-020) |
 
 ---
@@ -296,7 +297,7 @@ No schema change. Seed data only (FR-021):
 
 ## Acceptance Criteria (Gherkin)
 
-Background: Org Admin Omar runs "Hope Missions" with trip "Guatemala Clinic 2027", participant cost $950. The trip has the worker role "General Surgeon" (quantity 1) and these trip options: Trip Option 1 "HTI Name Tag" ($0); Trip Option 2 "Arrive Friday - Barceló Bar" ($75) and "Arrive Saturday" ($0); Trip Option 3 "HTI Purchase Flights" ($40). A Passport document type exists. Ana Lopez (ana@example.org) already exists, with phone 6155550100 and no birth date. Trip Leader Tom leads the trip; Pat is a Trip Participant on another trip. The test file `trip-master-sample.csv` has the Trip Master layout: a title row, the two header rows, then these rows (spreadsheet rows 4–16):
+Background: Org Admin Omar runs "Hope Missions" with trip "Guatemala Clinic 2027", participant cost $950. The trip has the worker roles "General Surgeon" (quantity 1) and "RN Circulator" (quantity 2), and these trip options: Trip Option 1 "HTI Name Tag" ($0); Trip Option 2 "Arrive Friday - Barceló Bar" ($75) and "Arrive Saturday" ($0); Trip Option 3 "HTI Purchase Flights" ($40). A Passport document type exists. Ana Lopez (ana@example.org) already exists, with phone 6155550100 and no birth date. Trip Leader Tom leads the trip; Pat is a Trip Participant on another trip. The test file `trip-master-sample.csv` has the Trip Master layout: a title row, the two header rows, then these rows (spreadsheet rows 4–16):
 - Main section (rows 4–9, then "Total" on row 10 and two blank rows):
   - General Surgeon #1: Lyle Lowry, X, lyle@example.org, born 8/7/65, phone (937)570-1507, Male, 1940 Barnhart Road, Troy, OH, 45373; emergency contact "Nathan Lowry (937)570-6904"; allergies Amoxicillin; church "Mid-County church of Christ"; passport 581459085, expiring 2/21/29; roommate "Alena Lowry"; Travel Notes "HTI - Fri Barceló - Antigua"; Trip Fee $1,175.00; Flight Fee $40.00.
   - General Surgeon #2: an empty slot.
@@ -346,13 +347,24 @@ Background: Org Admin Omar runs "Hope Missions" with trip "Guatemala Clinic 2027
 * **And** the trip still has one application each for Lyle, Ana, Kris, Rick, and Andrea
 * **And** the same trip options are selected, and Lyle's participant cost is still 1065
 
-### US-80.3 — Positions become the trip's worker roles
+### US-80.3 — Positions match the trip's worker roles
 
-#### Scenario: Positions match or create worker roles
+#### Scenario: Positions match the trip's worker roles
 * **When** Omar imports the file
 * **Then** the trip's "General Surgeon" role has quantity 2, and Lyle holds it
-* **And** the trip has a new "RN Circulator" role with quantity 3, held by Ana and Kris
+* **And** the trip's "RN Circulator" role has quantity 3, held by Ana and Kris
 * **And** Rick and Andrea have no worker role
+
+#### Scenario: Positions missing from the trip stop the import
+* **Given** the trip has no "RN Circulator" role, though Hope Missions has one
+* **When** Omar imports the file
+* **Then** the response is `400` "Add these worker roles to the trip, then import again." with `missingRoles` ["RN Circulator"]
+* **And** nothing is saved: no person, application, or trip role is added, and "General Surgeon" still has quantity 1
+
+#### Scenario: Import dialog warns about missing worker roles
+* **Given** the import is refused with "Add these worker roles to the trip, then import again." and `missingRoles` ["RN Circulator", "Scrub Tech"]
+* **When** Omar imports a file from the dialog
+* **Then** the dialog shows a warning with that message and the list "RN Circulator", "Scrub Tech"
 
 ### US-80.4 — Import passports, allergies, emergency contacts, and roommates
 
@@ -428,7 +440,9 @@ Background: Org Admin Omar runs "Hope Missions" with trip "Guatemala Clinic 2027
 | US-80.1 | Trips list imports a Trip Master CSV | `frontend/tests/ImportTripMasterDialog.test.js` | `Trips list imports a Trip Master CSV` |
 | US-80.2 | An existing person only gets blank fields filled | `backend/tests/trip-master-import.test.js` | `An existing person only gets blank fields filled` |
 | US-80.2 | Importing again adds nothing new | `backend/tests/trip-master-import.test.js` | `Importing again adds nothing new` |
-| US-80.3 | Positions match or create worker roles | `backend/tests/trip-master-import.test.js` | `Positions match or create worker roles` |
+| US-80.3 | Positions match the trip's worker roles | `backend/tests/trip-master-import.test.js` | `Positions match the trip's worker roles` |
+| US-80.3 | Positions missing from the trip stop the import | `backend/tests/trip-master-import.test.js` | `Positions missing from the trip stop the import` |
+| US-80.3 | Import dialog warns about missing worker roles | `frontend/tests/ImportTripMasterDialog.test.js` | `Import dialog warns about missing worker roles` |
 | US-80.4 | Extra columns are imported | `backend/tests/trip-master-import.test.js` | `Extra columns are imported` |
 | US-80.5 | Create account links to the imported person | `backend/tests/trip-master-import.test.js` | `Create account links to the imported person` |
 | US-80.5 | Shared email links by name | `backend/tests/trip-master-import.test.js` | `Shared email links by name` |
@@ -475,6 +489,7 @@ Update features/reference (api, behavior).
 - Deposits and funds received as donations
 - Flight segments from the flight text, name tags, specialties, and insurance dates
 - Creating trip options from Travel Notes, or reading the Trip Fee
+- Creating worker roles or adding them to the trip (staff set up the trip's roles first, FR-006)
 - Creating user accounts or sending emails during the import (people create their own accounts, FR-018; staff send the invitation themselves, FR-021)
 - Seeding the invitation template for organizations other than the seed organization
 - Email verification or one-time invitation links

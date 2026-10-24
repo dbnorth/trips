@@ -111,4 +111,37 @@ describe("Feature 80 — Import Trip Master CSV", () => {
       wrapper.unmount();
     });
   });
+
+  describe("US-80.3 — Positions match the trip's worker roles", () => {
+    it("Import dialog warns about missing worker roles", async () => {
+      TripServices.importTripMaster.mockRejectedValueOnce({
+        response: {
+          status: 400,
+          data: {
+            message: "Add these worker roles to the trip, then import again.",
+            missingRoles: ["RN Circulator", "Scrub Tech"],
+          },
+        },
+      });
+      const { wrapper } = await mountWithPlugins(ImportTripMasterDialog, {
+        props: { modelValue: true, trip },
+        global: { stubs: { VDialog: dialogStub } },
+      });
+
+      const file = new File(["Position Required"], "trip-master.csv", { type: "text/csv" });
+      await wrapper.findComponent({ name: "VFileInput" }).vm.$emit("update:modelValue", [file]);
+      await flushPromises();
+      await buttonNamed(wrapper, "Import").trigger("click");
+      await flushPromises();
+
+      const warning = wrapper.find('[data-testid="import-missing-roles"]');
+      expect(warning.classes()).toContain("v-alert");
+      expect(warning.text()).toContain("Add these worker roles to the trip, then import again.");
+      expect(warning.findAll("li").map((li) => li.text())).toEqual(["RN Circulator", "Scrub Tech"]);
+      expect(wrapper.find('[data-testid="import-error"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="import-summary"]').exists()).toBe(false);
+
+      wrapper.unmount();
+    });
+  });
 });

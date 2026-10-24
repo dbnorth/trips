@@ -11,6 +11,7 @@ const emit = defineEmits(["update:modelValue", "imported"]);
 
 const file = ref(null);
 const formError = ref("");
+const missingRoles = ref([]);
 const saving = ref(false);
 const summary = ref(null);
 
@@ -28,6 +29,7 @@ watch(
     if (open) {
       file.value = null;
       formError.value = "";
+      missingRoles.value = [];
       saving.value = false;
       summary.value = null;
     }
@@ -42,12 +44,14 @@ const close = () => {
 const runImport = async () => {
   if (!chosenFile.value || !props.trip) return;
   formError.value = "";
+  missingRoles.value = [];
   saving.value = true;
   try {
     const res = await TripServices.importTripMaster(props.trip.id, chosenFile.value);
     summary.value = res.data;
   } catch (e) {
     formError.value = e.response?.data?.message || "Unable to import the file.";
+    missingRoles.value = e.response?.data?.missingRoles || [];
   } finally {
     saving.value = false;
   }
@@ -61,7 +65,19 @@ const runImport = async () => {
 
       <v-card-text>
         <p v-if="trip" class="mb-3">{{ trip.name }}</p>
-        <v-alert v-if="formError" type="error" density="compact" class="mb-3" data-testid="import-error">
+        <v-alert
+          v-if="missingRoles.length"
+          type="warning"
+          density="compact"
+          class="mb-3"
+          data-testid="import-missing-roles"
+        >
+          {{ formError }}
+          <ul class="pl-4">
+            <li v-for="role in missingRoles" :key="role">{{ role }}</li>
+          </ul>
+        </v-alert>
+        <v-alert v-else-if="formError" type="error" density="compact" class="mb-3" data-testid="import-error">
           {{ formError }}
         </v-alert>
         <v-file-input
