@@ -49,6 +49,14 @@ const tone = computed(() => nextActionsTone(props.actions));
       >
         Enter Flights
       </v-btn>
+      <v-btn
+        v-if="action.code.endsWith('-flight-mismatch') && action.canEditFlights"
+        size="small"
+        color="primary"
+        @click="$emit('flights')"
+      >
+        Edit Flights
+      </v-btn>
     </div>
   </div>
 </template>

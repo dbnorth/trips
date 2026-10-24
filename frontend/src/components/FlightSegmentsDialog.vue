@@ -5,6 +5,7 @@ import AirportServices from "../services/airportServices.js";
 import AirlineServices from "../services/airlineServices.js";
 import { CABIN_CLASSES } from "../utils/cabinClasses.js";
 import { flightBookedByLabel } from "../utils/flightBookedBy.js";
+import { flightAirportWarnings } from "../utils/flightAirportWarnings.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -29,6 +30,15 @@ const segments = ref([]);
 const airports = ref([]);
 const airlines = ref([]);
 const bookedBy = ref("");
+const plannedArrival = ref("");
+const plannedDeparture = ref("");
+const requested = ref("");
+const requestedPreferences = ref(null);
+
+const formatPlannedDate = (value) => {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[2]}/${match[3]}/${match[1]}` : "—";
+};
 
 const title = computed(
   () => `Flight segments — ${props.participantName || "Participant"}`
@@ -36,6 +46,17 @@ const title = computed(
 
 const segmentsForType = (segmentType) =>
   segments.value.filter((s) => s.segmentType === segmentType);
+
+const airportWarnings = computed(() => {
+  const byNumber = (type) =>
+    [...segmentsForType(type)].sort((a, b) => Number(a.segmentNumber) - Number(b.segmentNumber));
+  const warnings = flightAirportWarnings({
+    arrivalFlightOriginCode: byNumber("arrival")[0]?.departureAirportCode || null,
+    returnFlightDestinationCode: byNumber("return").at(-1)?.arrivalAirportCode || null,
+    preferences: requestedPreferences.value,
+  });
+  return [warnings.arrival, warnings.return].filter(Boolean);
+});
 
 const airportItems = computed(() =>
   airports.value.map((a) => ({
@@ -82,15 +103,19 @@ const blankSegment = (segmentType) => {
     prevSame || (segmentType === "return" && !prevSame ? lastArrival : null);
   const tripDefaultDate =
     segmentType === "arrival"
-      ? dateOnly(props.tripStartDate)
-      : dateOnly(props.tripEndDate);
+      ? plannedArrival.value || dateOnly(props.tripStartDate)
+      : plannedDeparture.value || dateOnly(props.tripEndDate);
   const defaultDate = isFirstOfType
     ? tripDefaultDate
     : chainFrom?.arrivalDate || "";
   return {
     segmentType,
     segmentNumber: ofType.length + 1,
-    departureAirportCode: chainFrom?.arrivalAirportCode ?? null,
+    departureAirportCode:
+      chainFrom?.arrivalAirportCode ??
+      (segmentType === "arrival" && isFirstOfType
+        ? requestedPreferences.value?.departureAirportCode || null
+        : null),
     airlineCode: null,
     flightNumber: "",
     departureDate: defaultDate,
@@ -150,6 +175,11 @@ const load = async () => {
       segRes.data?.flightPurchaseOption,
       segRes.data?.organizationName
     );
+    plannedArrival.value = dateOnly(segRes.data?.arrivalDate);
+    plannedDeparture.value = dateOnly(segRes.data?.departureDate);
+    const orgBooked = segRes.data?.flightPurchaseOption === "organization";
+    requested.value = orgBooked ? segRes.data?.flightPurchasePreferencesText || "" : "";
+    requestedPreferences.value = orgBooked ? segRes.data?.flightPurchasePreferences || null : null;
     segments.value = (segRes.data?.segments || []).map((s) => ({
       segmentType: s.segmentType === "return" ? "return" : "arrival",
       segmentNumber: s.segmentNumber,
@@ -208,6 +238,10 @@ watch(
     if (!open) {
       segments.value = [];
       bookedBy.value = "";
+      plannedArrival.value = "";
+      plannedDeparture.value = "";
+      requested.value = "";
+      requestedPreferences.value = null;
       error.value = "";
     }
   }
@@ -229,6 +263,29 @@ watch(
         <v-alert v-if="error" type="error" density="compact" class="mb-4">{{ error }}</v-alert>
 
         <template v-if="!loading">
+          <div class="mb-4" data-testid="flight-segments-plan">
+            <div class="d-flex flex-wrap ga-6">
+              <span data-testid="planned-arrival">
+                <strong>Planned arrival:</strong> {{ formatPlannedDate(plannedArrival) }}
+              </span>
+              <span data-testid="planned-departure">
+                <strong>Planned departure:</strong> {{ formatPlannedDate(plannedDeparture) }}
+              </span>
+            </div>
+            <div v-if="requested" class="mt-1" data-testid="flight-requested">
+              <strong>Requested:</strong> {{ requested }}
+            </div>
+            <v-alert
+              v-for="warning in airportWarnings"
+              :key="warning"
+              type="warning"
+              density="compact"
+              class="mt-2"
+              data-testid="airport-warning-message"
+            >
+              {{ warning }}
+            </v-alert>
+          </div>
           <div
             v-for="(section, sectionIndex) in SEGMENT_SECTIONS"
             :key="section.type"

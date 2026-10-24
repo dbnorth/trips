@@ -33,6 +33,7 @@ import {
   DAYS_MESSAGE,
   daysLimitMessage,
   parseDays,
+  participantFlightDates,
   participantTravelDates,
 } from "../utils/tripDays.js";
 
@@ -275,6 +276,7 @@ exports.findAll = async (req, res) => {
         totalTripCost: costBreakdown.totalTripCost,
         costBreakdown,
         ...(await participantTravelDates(trip, row.id)),
+        ...(await participantFlightDates(row.id)),
       });
     }
     res.send(rows);

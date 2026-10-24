@@ -262,4 +262,37 @@ describe("Feature 60 — My Trips Next Actions", () => {
 
     wrapper.unmount();
   });
+
+  /**
+   * Feature 79 — Planned Arrival and Departure on Flights
+   * Spec: features/feature-79-flights-planned-dates.md
+   */
+  it("Home shows the flight mismatch", async () => {
+    const mismatch = (canEditFlights) => ({
+      code: "arrival-flight-mismatch",
+      flightDate: "2027-06-08",
+      plannedDate: "2027-06-07",
+      canEditFlights,
+    });
+    const wrapper = await mountHome([
+      myTrip(1, "Guatemala Clinic", "approved", [mismatch(false)]),
+      myTrip(2, "Honduras Clinic", "approved", [mismatch(true)]),
+    ]);
+
+    const orgBooked = nextActionsRowFor(wrapper, "Guatemala Clinic");
+    expect(orgBooked.text()).toContain(
+      "Your arrival flight lands 06/08/2027, but you are planned to arrive 06/07/2027."
+    );
+    expect(toneOf(orgBooked)).toContain("my-trip-next-actions--needed");
+    expect(button(orgBooked, "Edit Flights")).toBeUndefined();
+
+    const selfBooked = nextActionsRowFor(wrapper, "Honduras Clinic");
+    await button(selfBooked, "Edit Flights").trigger("click");
+    await flushPromises();
+    const flights = wrapper.findComponent({ name: "FlightSegmentsDialog" });
+    expect(flights.props("modelValue")).toBe(true);
+    expect(flights.props("tripId")).toBe(2);
+
+    wrapper.unmount();
+  });
 });
