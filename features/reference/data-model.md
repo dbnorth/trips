@@ -145,7 +145,7 @@ Notes:
 | Field | Type | Rules |
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
-| roleName | STRING(100) | required, unique — seeded: Org Admin, Trip Leader, Trip Participant, Pending User |
+| roleName | STRING(100) | required, unique — seeded: Org Admin, Trip Leader, Trip Participant, Pending User, Agent (Feature 85; added on startup when missing) |
 | roleDescription | STRING(500) | |
 
 **Associations:** `hasMany` orgPeopleRole, tripPeopleRole (RESTRICT).

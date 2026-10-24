@@ -81,6 +81,41 @@ describe("Feature 7 — Router guards", () => {
   });
 });
 
+describe("Feature 85 — Router guards", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  describe("US-85.2 — An Agent's Home lists the organization's trips", () => {
+    it("An Agent can only open Home and Flights pages", async () => {
+      Utils.setStore("user", {
+        email: "alex@example.com",
+        userId: 20,
+        token: "tok",
+        isAdmin: false,
+        orgRoles: [{ orgId: 1, orgName: "Hope Missions", roleName: "Agent" }],
+        tripRoles: [],
+      });
+
+      const router = await createFeature1Router("/home");
+      for (const to of [
+        { name: "tripView", params: { tripId: "5" } },
+        { name: "tripStatus", params: { tripId: "5" } },
+        { name: "tripRooming", params: { tripId: "5" } },
+        { name: "trips" },
+        { name: "people" },
+        { name: "tripBrowse", params: { tripId: "5" } },
+      ]) {
+        await router.push(to);
+        expect(router.currentRoute.value.name).toBe("home");
+      }
+
+      await router.push({ name: "tripFlights", params: { tripId: "5" } });
+      expect(router.currentRoute.value.name).toBe("tripFlights");
+    });
+  });
+});
+
 describe("Feature 10 — Router guards", () => {
   beforeEach(() => {
     localStorage.clear();

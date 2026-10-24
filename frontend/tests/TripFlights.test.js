@@ -550,3 +550,50 @@ describe("Feature 84 — Application Flight Notes", () => {
     wrapper.unmount();
   });
 });
+
+/**
+ * Feature 85 — Agent Role
+ * Spec: features/feature-85-agent-role.md
+ */
+describe("Feature 85 — Agent Role", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("The Flights page sends an Agent back to Home", async () => {
+    Utils.setStore("user", {
+      ...orgAdminUser,
+      orgRoles: [{ orgId: 10, orgName: "Hope Mission", roleName: "Agent" }],
+    });
+    TripServices.getFlights.mockResolvedValue({
+      data: { trip: { id: 42, name: "Guatemala Clinic" }, participants: [] },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId/flights", name: "tripFlights", component: TripFlightsView, props: true },
+        { path: "/home", name: "home", component: Stub },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripFlights", params: { tripId: "42" } });
+    await router.isReady();
+    const { wrapper } = await mountWithPlugins(TripFlightsView, {
+      props: { tripId: "42" },
+      router,
+    });
+    await flushPromises();
+
+    const buttons = wrapper.findAll("button").map((b) => b.text().trim());
+    expect(buttons).toContain("Back to home");
+    expect(buttons).not.toContain("Back to trips");
+
+    await wrapper.findAll("button").find((b) => b.text().trim() === "Back to home").trigger("click");
+    await vi.waitFor(() => {
+      expect(router.currentRoute.value.name).toBe("home");
+    });
+
+    wrapper.unmount();
+  });
+});

@@ -1,6 +1,7 @@
 import db from "../models/index.js";
 import {
   canAccessTrip,
+  isAgentForOrg,
   isOrgAdminForOrg,
   isSystemAdmin,
   isTripLeaderForTrip,
@@ -26,6 +27,9 @@ const exports = {};
 
 const canManageTripFlights = async (req, tripId) => {
   const access = await canAccessTrip(req, tripId);
+  if (access.trip && isAgentForOrg(req, access.trip.orgId)) {
+    return { ok: true, trip: access.trip };
+  }
   if (!access.ok) return { ok: false, status: 404, trip: null };
   if (isOrgAdminForOrg(req, access.trip.orgId) || isSystemAdmin(req)) {
     return { ok: true, trip: access.trip };
