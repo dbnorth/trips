@@ -287,6 +287,7 @@ exports.findFlights = async (req, res) => {
         initialDeparture: itinerary.initialDeparture,
         finalArrival: itinerary.finalArrival,
         ...purchase,
+        flightNotes: json.flightNotes || null,
         ...(await participantTravelDates(trip, json.id)),
         ...flightDatesFromSegments(segments),
         ...flightAirports(segments),
@@ -438,6 +439,7 @@ exports.findSegments = async (req, res) => {
       departureDate,
       flightPurchasePreferences,
       flightPurchasePreferencesText,
+      flightNotes: assignment.flightNotes || null,
       segments,
     });
   } catch (err) {

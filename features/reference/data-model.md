@@ -303,6 +303,7 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | preferredCabinClass | STRING(50) | nullable |
 | preferredAirlineId | INTEGER | nullable FK → airline |
 | preferredRefundableTicket | BOOLEAN | nullable; required for `applied` when organization purchases |
+| flightNotes | TEXT | nullable; participant's free-text flight notes, also filled by the Trip Master import (Feature 84) |
 | agreementAccepted | BOOLEAN | required, default `false` |
 | agreementSignatureName | STRING(255) | |
 | agreementDate | DATE | |

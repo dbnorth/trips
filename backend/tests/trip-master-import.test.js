@@ -591,4 +591,41 @@ describe("Feature 80 — Import Trip Master CSV", () => {
       ).toBe(0);
     });
   });
+
+  /**
+   * Feature 84 — Application Flight Notes
+   * Spec: features/feature-84-application-flight-notes.md
+   */
+  describe("Feature 84 — US-84.1 The import keeps the Trip Master's cities as flight notes", () => {
+    it("Departure and arrival cities become flight notes", async () => {
+      await importFile(omar.authHeader);
+
+      const lyle = await assignmentOf(await personNamed("Lyle", "Lowry"));
+      expect(lyle.flightNotes).toBe("Departure city: Dayton, OH. Arrival city: Dayton, OH.");
+      const kris = await assignmentOf(await personNamed("Kris", "Smith"));
+      expect(kris.flightNotes).toBeNull();
+
+      const arrivalOnly = SAMPLE.toString().replace('"Dayton, OH","Dayton, OH"', ',"Nashville"');
+      await db.tripPeopleRole.update({ flightNotes: null }, { where: { id: lyle.id } });
+      await importFile(omar.authHeader, arrivalOnly);
+      await lyle.reload();
+      expect(lyle.flightNotes).toBe("Arrival city: Nashville.");
+    });
+
+    it("Flight notes that already have text are kept", async () => {
+      const lylePerson = await db.person.create({ firstName: "Lyle", lastName: "Lowry", email: "lyle@example.org" });
+      const applied = await db.tripPeopleRole.create({
+        tripId: trip.id,
+        peopleId: lylePerson.id,
+        roleId: (await findRole("Trip Participant")).id,
+        status: "applied",
+        flightNotes: "Flying from Columbus",
+      });
+
+      await importFile(omar.authHeader);
+
+      await applied.reload();
+      expect(applied.flightNotes).toBe("Flying from Columbus");
+    });
+  });
 });

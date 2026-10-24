@@ -1428,4 +1428,53 @@ describe("Feature 7 — Trip Applications & Participants", () => {
     });
   });
   });
+
+  /**
+   * Feature 84 — Application Flight Notes
+   * Spec: features/feature-84-application-flight-notes.md
+   */
+  describe("Feature 84 — US-84.2 Participants and staff see and edit flight notes", () => {
+    it("A participant saves flight notes on the application", async () => {
+      const { authHeader, org } = await createOrgAdminUser({ email: "notes-admin@example.com" });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id);
+      const ana = await registerUser({ email: "ana-notes@example.com", orgIds: [org.id] });
+      const application = (flightNotes) => ({
+        tripWorkerRoleId: tripWorkerRole.id,
+        willSelfFund: true,
+        willRaiseFunds: false,
+        flightPurchaseOption: "self",
+        hasPreferredRoommate: false,
+        ...(flightNotes === undefined ? {} : { flightNotes }),
+      });
+
+      const created = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(ana.authHeader)
+        .send(application("  Flying from Columbus  "));
+      expect(created.status).toBe(200);
+      expect(created.body.assignment.flightNotes).toBe("Flying from Columbus");
+
+      const updated = await request(app)
+        .put(`/trips/trips/browse/${trip.id}/application`)
+        .set(ana.authHeader)
+        .send(application("Flying from Nashville, back to Memphis"));
+      expect(updated.status).toBe(200);
+      expect(updated.body.application.flightNotes).toBe("Flying from Nashville, back to Memphis");
+
+      const withoutNotes = await request(app)
+        .put(`/trips/trips/browse/${trip.id}/application`)
+        .set(ana.authHeader)
+        .send(application(undefined));
+      expect(withoutNotes.body.application.flightNotes).toBe("Flying from Nashville, back to Memphis");
+
+      const cleared = await request(app)
+        .put(`/trips/trips/browse/${trip.id}/application`)
+        .set(ana.authHeader)
+        .send(application(""));
+      expect(cleared.body.application.flightNotes).toBeNull();
+
+      const fetched = await request(app).get(`/trips/trips/browse/${trip.id}/application`).set(ana.authHeader);
+      expect(fetched.body.application.flightNotes).toBeNull();
+    });
+  });
 });

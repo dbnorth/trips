@@ -91,6 +91,7 @@ const form = ref({
   preferredCabinClass: "",
   preferredAirlineCode: null,
   preferredRefundableTicket: null,
+  flightNotes: "",
   agreementAccepted: false,
   agreementSignatureName: "",
   agreementDate: null,
@@ -440,6 +441,7 @@ const applyFormFromApplication = (row) => {
       row?.preferredRefundableTicket === true || row?.preferredRefundableTicket === false
         ? !!row.preferredRefundableTicket
         : null,
+    flightNotes: row?.flightNotes || "",
     agreementAccepted: !!row?.agreementAccepted,
     agreementSignatureName: row?.agreementSignatureName || "",
     agreementDate: row?.agreementDate || null,
@@ -616,6 +618,7 @@ const save = async () => {
             ? form.value.preferredRefundableTicket
             : null
           : null,
+      flightNotes: form.value.flightNotes?.trim() || null,
       agreementAccepted: agreementRequired.value ? !!form.value.agreementAccepted : false,
       agreementSignatureName:
         agreementRequired.value || medicalAgreementRequired.value
@@ -864,6 +867,7 @@ onMounted(load);
           v-model:preferred-cabin-class="form.preferredCabinClass"
           v-model:preferred-airline-code="form.preferredAirlineCode"
           v-model:preferred-refundable-ticket="form.preferredRefundableTicket"
+          v-model:flight-notes="form.flightNotes"
           :organization-name="trip?.organization?.name"
           :disabled="!canEdit"
         />

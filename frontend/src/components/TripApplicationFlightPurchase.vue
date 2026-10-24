@@ -11,6 +11,7 @@ const props = defineProps({
   preferredCabinClass: { type: String, default: "" },
   preferredAirlineCode: { type: String, default: null },
   preferredRefundableTicket: { type: Boolean, default: null },
+  flightNotes: { type: String, default: "" },
   organizationName: { type: String, default: "Organization" },
   disabled: { type: Boolean, default: false },
 });
@@ -22,6 +23,7 @@ const emit = defineEmits([
   "update:preferredCabinClass",
   "update:preferredAirlineCode",
   "update:preferredRefundableTicket",
+  "update:flightNotes",
 ]);
 
 const airports = ref([]);
@@ -202,5 +204,19 @@ onMounted(loadCatalogs);
         @update:model-value="(v) => $emit('update:preferredAirlineCode', v)"
       />
     </template>
+
+    <v-textarea
+      :model-value="flightNotes"
+      label="Flight notes"
+      hint="For example, the city you'll fly from."
+      persistent-hint
+      rows="3"
+      auto-grow
+      density="compact"
+      :disabled="disabled"
+      class="mt-2"
+      data-testid="flight-notes"
+      @update:model-value="(v) => $emit('update:flightNotes', v ?? '')"
+    />
   </div>
 </template>

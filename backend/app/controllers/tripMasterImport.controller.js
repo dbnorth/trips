@@ -191,7 +191,7 @@ const selectTripOptions = async (assignment, row, flightFee, notes, travelOption
   return added;
 };
 
-/** Roommate, flight booking, and trip options go into the application's blank fields only. */
+/** Roommate, flight booking, flight notes, and trip options go into the application's blank fields only. */
 const fillApplication = async (trip, travelOptions, assignment, row, notes, transaction) => {
   const flightFee = readMoney(row.flightFee, "flight fee", notes);
 
@@ -201,6 +201,11 @@ const fillApplication = async (trip, travelOptions, assignment, row, notes, tran
     Object.assign(changes, { hasPreferredRoommate: true, preferredRoommateNames: row.roommate });
   }
   if (flightFee > 0 && isBlank(assignment.flightPurchaseOption)) changes.flightPurchaseOption = "organization";
+  const cityNotes = [
+    row.departureCity && `Departure city: ${row.departureCity}.`,
+    row.arrivalCity && `Arrival city: ${row.arrivalCity}.`,
+  ].filter(Boolean);
+  if (cityNotes.length && isBlank(assignment.flightNotes)) changes.flightNotes = cityNotes.join(" ");
 
   const added = await selectTripOptions(assignment, row, flightFee, notes, travelOptions, transaction);
   if (added.length) {

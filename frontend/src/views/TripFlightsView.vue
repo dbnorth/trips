@@ -61,6 +61,24 @@ const formatFlightPurchase = (row) =>
 
 const participantPaysOwn = (row) => row?.flightPurchaseOption === "self";
 
+const airportLabel = (code, city) => (code ? `${code}${city ? ` (${city})` : ""}` : "");
+
+/** The participant's requested flight info as label/value lines, leaving out blanks. */
+const requestedFlightInfo = (row) => {
+  const prefs = row.flightPurchaseOption === "organization" ? row.flightPurchasePreferences || {} : {};
+  const refundable = { true: "Yes", false: "No" }[String(prefs.refundableTicket)] || "";
+  return [
+    ["Preferred departure airport", airportLabel(prefs.departureAirportCode, prefs.departureCity)],
+    ["Preferred return airport", airportLabel(prefs.returnAirportCode, prefs.returnCity)],
+    ["Class of travel", prefs.cabinClass],
+    ["Preferred airline", [prefs.airlineCode, prefs.airlineName].filter(Boolean).join(" — ")],
+    ["Refundable ticket", refundable],
+    ["Flight notes", row.flightNotes],
+  ]
+    .filter(([, value]) => value)
+    .map(([label, value]) => ({ label, value }));
+};
+
 const applyPayload = (data) => {
   trip.value = data?.trip || null;
   participants.value = (data?.participants || []).map((p) => {
@@ -70,6 +88,7 @@ const applyPayload = (data) => {
       costInput: paysOwn ? "0" : p.cost != null ? String(p.cost) : "",
       comments: p.comments || "",
       purchased: !!p.purchased,
+      requestedFlightInfo: requestedFlightInfo(p),
       airportWarnings: flightAirportWarnings({
         arrivalFlightOriginCode: p.arrivalFlightOriginCode,
         returnFlightDestinationCode: p.returnFlightDestinationCode,
@@ -211,13 +230,31 @@ onMounted(load);
               <td>{{ row.firstName || "—" }}</td>
               <td>{{ row.lastName || "—" }}</td>
               <td style="min-width: 200px; max-width: 320px">
-                <div>{{ formatFlightPurchase(row) }}</div>
-                <div
-                  v-if="row.flightPurchaseOption === 'organization' && row.flightPurchasePreferencesText"
-                  class="text-caption text-medium-emphasis"
-                >
-                  {{ row.flightPurchasePreferencesText }}
-                </div>
+                <span class="d-inline-flex align-center ga-1">
+                  <span>{{ formatFlightPurchase(row) }}</span>
+                  <v-tooltip v-if="row.requestedFlightInfo.length" location="top" max-width="400">
+                    <template #activator="{ props: activator }">
+                      <v-icon
+                        v-bind="activator"
+                        icon="mdi-information-outline"
+                        size="small"
+                        role="img"
+                        tabindex="0"
+                        :aria-hidden="false"
+                        aria-label="Requested flight info"
+                        data-testid="requested-flight-info"
+                      />
+                    </template>
+                    <div data-testid="requested-flight-details">
+                      <div class="font-weight-bold mb-1">Requested flight info</div>
+                      <div
+                        v-for="line in row.requestedFlightInfo"
+                        :key="line.label"
+                        class="text-pre-wrap"
+                      >{{ line.label }}: {{ line.value }}</div>
+                    </div>
+                  </v-tooltip>
+                </span>
               </td>
               <td class="text-no-wrap" data-testid="flights-arrives">
                 <TripDateAdjustment
