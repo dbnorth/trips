@@ -1515,6 +1515,16 @@ const ensureLanguageCatalog = async () => {
   }
 };
 
+const ensureAgentRole = async () => {
+  const existing = await db.role.findOne({ where: { roleName: "Agent" } });
+  if (existing) return;
+  await db.role.create({
+    roleName: "Agent",
+    roleDescription: "Books flights for the organization's trips",
+  });
+  logger.info("Agent role added.");
+};
+
 export const ensureSchema = async () => {
   await ensureNamedUniqueIndexes();
   await ensureUserLoginLockFields();
@@ -1559,6 +1569,7 @@ export const ensureSchema = async () => {
   await ensureMedicalConditionsTable();
   await ensureEncryptedColumns();
   await ensureLanguageCatalog();
+  await ensureAgentRole();
 };
 
 export default ensureSchema;

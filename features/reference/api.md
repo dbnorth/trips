@@ -66,7 +66,7 @@
 | `GET` | `/trips/users` | sysadmin | List users |
 | `POST` | `/trips/users` | sysadmin | Create user |
 | `PUT` | `/trips/users/:id/link-person` | sysadmin | Link user ↔ person |
-| `GET` | `/trips/roles` | auth | Role catalog |
+| `GET` | `/trips/roles` | auth | Role catalog (includes **Agent** — Feature 85) |
 
 ---
 
@@ -135,13 +135,13 @@ Uploaded document and specialization files are stored encrypted and returned dec
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/trips` | auth | Scoped list + aggregates; `totalParticipantCost` sums the total trip cost (participant cost + organization-booked airfare + add-on expenses) of approved Trip Leaders and Trip Participants — Feature 74 |
+| `GET` | `/trips/trips` | auth | Scoped list + aggregates; `totalParticipantCost` sums the total trip cost (participant cost + organization-booked airfare + add-on expenses) of approved Trip Leaders and Trip Participants — Feature 74; includes the trips of organizations where the caller is an Agent — Feature 85 |
 | `GET` | `/trips/trips/:id` | auth | Detail if `canAccessTrip`; adds `hasArrivalPdf` (the stored file name is never returned) — Feature 76 |
 | `GET` | `/trips/trips/:id/status` | auth | Trip Status board (Trip Leader / Org Admin / System Admin): trip summary, roles with capacity counts (incl. `reservedCount`, Feature 56), travel-option columns, participants with status / missing items / owed / raised / selected options — Feature 28; each participant adds `flightPurchaseOption` (`organization`, `self`, or `null`) — Feature 73; `amountOwed` = total trip cost (participant cost + organization-booked airfare + add-on expenses) − raised, never below 0; each participant adds `totalTripCost` and `costBreakdown` (same shape as the roster) — Feature 74; each participant adds `arrivalDate`, `departureDate`, `arrivalAdjustments`, `departureAdjustments` (as the roster, Feature 78) and `flightArrivalDate` (arrival date of the last Arrival segment) / `flightDepartureDate` (departure date of the first Return segment), `YYYY-MM-DD` or `null` — Feature 79 |
 | `GET` | `/trips/trips/:id/rooming` | auth | Rooming list load (staff): trip summary, hotel header, rooms, participant assignment grid + roommate prefs — Feature 29 |
 | `PUT` | `/trips/trips/:id/rooming` | auth | Upsert rooming hotel header + rooms/assignments from participant grid — Feature 29 |
 | `GET` | `/trips/trips/:id/rooming/pdf` | auth | Room list PDF (same staff access as rooming; else `403`/`404`): `application/pdf`, `Content-Disposition: attachment; filename="Room List - <trip name>.pdf"` — Feature 54 |
-| `GET` | `/trips/trips/:id/flights` | auth | Participant flights board (staff) — Feature 30; each participant adds `arrivalDate`, `departureDate`, `arrivalAdjustments`, `departureAdjustments`, `flightArrivalDate`, `flightDepartureDate` (as the Trip Status board), and `arrivalFlightOriginCode` (first Arrival segment's departure airport) / `returnFlightDestinationCode` (last Return segment's arrival airport), or `null` — Feature 79; `flightNotes` (string or `null`) — Feature 84 |
+| `GET` | `/trips/trips/:id/flights` | auth | Participant flights board (staff) — Feature 30; this endpoint, the Flights PDF, the flight header `PUT`, and segments `GET`/`PUT` also allow an Agent of the trip's organization — Feature 85; each participant adds `arrivalDate`, `departureDate`, `arrivalAdjustments`, `departureAdjustments`, `flightArrivalDate`, `flightDepartureDate` (as the Trip Status board), and `arrivalFlightOriginCode` (first Arrival segment's departure airport) / `returnFlightDestinationCode` (last Return segment's arrival airport), or `null` — Feature 79; `flightNotes` (string or `null`) — Feature 84 |
 | `GET` | `/trips/trips/:id/flights/pdf` | auth | Flights PDF (same staff access as flights; else `403`/`404`): `application/pdf`, `Content-Disposition: attachment; filename="Flights - <trip name>.pdf"` — Feature 55 |
 | `GET` | `/trips/trips/:id/participants/:assignmentId/documents/pdf` | auth | Participant documents PDF (Trip Leader of the trip, Org Admin of the trip org, or System Admin; else `403`; unknown trip or assignment not on the trip → `404`): `application/pdf`, `Content-Disposition: attachment; filename="Documents - <first last>.pdf"` — Feature 58 |
 | `PUT` | `/trips/trips/:id/flights/:tripPeopleRoleId` | auth | Upsert flight header (purchased, cost, comments) — Feature 30 |

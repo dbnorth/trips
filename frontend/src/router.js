@@ -143,6 +143,10 @@ export function applyAuthGuards(router) {
       next({ name: "login" });
       return;
     }
+    if (Utils.isAgentUser(user) && !["home", "tripFlights"].includes(to.name)) {
+      next({ name: "home" });
+      return;
+    }
     if (to.name === "organizations" && !user.isAdmin) {
       next({ name: "home" });
       return;

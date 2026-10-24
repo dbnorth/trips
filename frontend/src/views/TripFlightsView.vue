@@ -9,6 +9,7 @@ import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { flightBookedByLabel } from "../utils/flightBookedBy.js";
 import { flightAirportWarnings } from "../utils/flightAirportWarnings.js";
 import RowAction from "../components/RowAction.vue";
+import Utils from "../config/utils.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -17,6 +18,7 @@ const props = defineProps({
 const route = useRoute();
 const router = useRouter();
 const resolvedTripId = computed(() => props.tripId ?? route.params.tripId);
+const isAgentUser = Utils.isAgentUser(Utils.getStore("user"));
 
 const trip = ref(null);
 const participants = ref([]);
@@ -179,7 +181,8 @@ onMounted(load);
   <v-container>
     <div class="d-flex align-center justify-space-between mb-4 flex-wrap ga-2">
       <div class="d-flex align-center ga-2">
-        <v-btn variant="text" @click="router.push({ name: 'trips' })">Back to trips</v-btn>
+        <v-btn v-if="isAgentUser" variant="text" @click="router.push({ name: 'home' })">Back to home</v-btn>
+        <v-btn v-else variant="text" @click="router.push({ name: 'trips' })">Back to trips</v-btn>
         <h1 class="text-h5">{{ pageTitle }}</h1>
       </div>
       <v-btn

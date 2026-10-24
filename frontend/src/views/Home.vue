@@ -93,8 +93,10 @@ const isOrgAdminUser = computed(
     (user.value.orgRoles || []).some((r) => r.roleName === "Org Admin")
 );
 
+const isAgentUser = computed(() => Utils.isAgentUser(user.value));
+
 const showOrgTripsSection = computed(
-  () => isOrgAdmin.value && !!effectiveOrgId.value
+  () => (isOrgAdmin.value || isAgentUser.value) && !!effectiveOrgId.value
 );
 
 const isActiveUnendedTrip = (trip) => {
@@ -119,7 +121,7 @@ const isTripLeaderUser = computed(() =>
 );
 
 const isTripLeaderOnly = computed(() => {
-  if (!user.value || user.value.isAdmin) return false;
+  if (!user.value || user.value.isAdmin || isAgentUser.value) return false;
   const hasOrgAdmin = (user.value.orgRoles || []).some((r) => r.roleName === "Org Admin");
   return isTripLeaderUser.value && !hasOrgAdmin;
 });
@@ -516,7 +518,7 @@ const loadDashboard = () => {
   const tripId = selectedTripId.value;
 
   let req;
-  if (isOrgAdminUser.value) {
+  if (isOrgAdminUser.value || isAgentUser.value) {
     summary.value = null;
     loading.value = false;
     loadOrgTrips();
@@ -647,10 +649,10 @@ onUnmounted(() => {
         >
           <div class="d-flex align-center flex-wrap ga-2">
             <h1 class="text-h5 mb-0">{{ orgLabel || "Organization" }}</h1>
-            <v-btn size="small" variant="tonal" @click="openEditOrganization()">Edit</v-btn>
+            <v-btn v-if="!isAgentUser" size="small" variant="tonal" @click="openEditOrganization()">Edit</v-btn>
           </div>
           <router-link
-            v-if="orgPublicPageRoute"
+            v-if="orgPublicPageRoute && !isAgentUser"
             :to="orgPublicPageRoute"
             class="text-body-2 d-inline-block mt-1"
           >
@@ -890,11 +892,13 @@ onUnmounted(() => {
                 <td>{{ item.status || "—" }}</td>
                 <td class="text-right">
                   <div class="d-flex justify-end ga-1 flex-nowrap">
-                    <RowAction icon="mdi-eye" label="View" @click="openOrgTrip(item)" />
-                    <RowAction icon="mdi-clipboard-check-outline" label="Status" @click="openOrgTripStatus(item)" />
-                    <RowAction icon="mdi-bed" label="Room list" @click="openOrgTripRooming(item)" />
+                    <template v-if="!isAgentUser">
+                      <RowAction icon="mdi-eye" label="View" @click="openOrgTrip(item)" />
+                      <RowAction icon="mdi-clipboard-check-outline" label="Status" @click="openOrgTripStatus(item)" />
+                      <RowAction icon="mdi-bed" label="Room list" @click="openOrgTripRooming(item)" />
+                    </template>
                     <RowAction icon="mdi-airplane" label="Flights" @click="openOrgTripFlights(item)" />
-                    <RowAction icon="mdi-pencil" label="Edit" @click="openEditOrgTrip(item)" />
+                    <RowAction v-if="!isAgentUser" icon="mdi-pencil" label="Edit" @click="openEditOrgTrip(item)" />
                   </div>
                 </td>
               </tr>
@@ -963,7 +967,7 @@ onUnmounted(() => {
           </v-data-table>
         </template>
 
-        <template v-else-if="!isOrgAdminUser && !showProfileSection">
+        <template v-else-if="!isOrgAdminUser && !isAgentUser && !showProfileSection">
           <v-select
             v-if="tripOptions.length > 1"
             v-model="selectedTripId"
