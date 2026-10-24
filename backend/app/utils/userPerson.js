@@ -19,6 +19,24 @@ export const findPersonByEmail = (emailNorm) =>
 
 export const findPersonForUser = (userId) => Person.findOne({ where: { userId } });
 
+const sameName = (a, b) =>
+  String(a ?? "").trim().replace(/\s+/g, " ").toLowerCase() ===
+  String(b ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+
+/**
+ * The person a new login with this email is linked to: undefined when a person with the email
+ * already has a login, otherwise the one with the entered name, else the only one, else null.
+ */
+export const findPersonToLink = async (emailNorm, firstName, lastName) => {
+  const people = await Person.findAll({ where: { email: emailNorm }, order: [["id", "ASC"]] });
+  if (people.some((person) => person.userId)) return undefined;
+  const named = people.find(
+    (person) => sameName(person.firstName, firstName) && sameName(person.lastName, lastName)
+  );
+  if (named) return named;
+  return people.length === 1 ? people[0] : null;
+};
+
 /** Resolve user linked to person via userId or matching email. */
 export const resolveLinkedUser = async (person) => {
   if (person.userId) {
@@ -100,16 +118,19 @@ export const applyRegistrationPassword = async (userId, password) => {
 
 /**
  * Find or create person linked to user. Updates name/email on existing person.
+ * `person` (when given) is the person to link, or null to create one.
  * Returns person instance.
  */
 export const upsertPersonForUser = async (
   user,
   { firstName, middleName, lastName, emailNorm, ...extraFields },
-  { mergeOptional = false } = {}
+  { mergeOptional = false, person: chosenPerson } = {}
 ) => {
   let person =
-    (await findPersonForUser(user.id)) ||
-    (emailNorm ? await findPersonByEmail(emailNorm) : null);
+    chosenPerson !== undefined
+      ? chosenPerson
+      : (await findPersonForUser(user.id)) ||
+        (emailNorm ? await findPersonByEmail(emailNorm) : null);
 
   const personPayload = {
     firstName: firstName?.trim(),

@@ -152,8 +152,16 @@ const showLogin = () => {
   selectedOrgIds.value = [];
 };
 
+const queryText = (key) => (typeof route.query[key] === "string" ? route.query[key] : "");
+
 onMounted(() => {
   hostSubdomain.value = getRegistrationHostSubdomain();
+  if (route.query.create === "1") {
+    email.value = queryText("email");
+    firstName.value = queryText("firstName");
+    lastName.value = queryText("lastName");
+    showRegister();
+  }
 });
 </script>
 

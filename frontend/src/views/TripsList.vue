@@ -6,6 +6,7 @@ import OrganizationServices from "../services/organizationServices.js";
 import AddTripDialog from "../components/AddTripDialog.vue";
 import CopyTripDialog from "../components/CopyTripDialog.vue";
 import EditTripDialog from "../components/EditTripDialog.vue";
+import ImportTripMasterDialog from "../components/ImportTripMasterDialog.vue";
 import Utils from "../config/utils.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { donorTripPath } from "../utils/donateUrls.js";
@@ -17,6 +18,8 @@ const showAddDialog = ref(false);
 const showCopyDialog = ref(false);
 const showEditDialog = ref(false);
 const editTripId = ref(null);
+const showImportDialog = ref(false);
+const importTrip = ref(null);
 const user = ref(null);
 
 const effectiveOrgId = computed(() => Utils.effectiveOrgId(user.value));
@@ -106,6 +109,14 @@ const openFlights = (trip) => {
   router.push({ name: "tripFlights", params: { tripId: trip.id } });
 };
 
+const canImport = (trip) =>
+  Utils.isOrgAdmin(user.value, trip.orgId) || Utils.isTripLeader(user.value, trip.id);
+
+const openImport = (trip) => {
+  importTrip.value = trip;
+  showImportDialog.value = true;
+};
+
 const donorLink = (trip) => donorTripPath(trip);
 
 const formatLeaders = (trip) => (trip.leaderNames || []).join(", ") || "—";
@@ -180,6 +191,7 @@ onUnmounted(() => {
         <v-btn size="small" variant="text" @click="openStatus(item)">Status</v-btn>
         <v-btn size="small" variant="text" @click="openRooming(item)">Room list</v-btn>
         <v-btn size="small" variant="text" @click="openFlights(item)">Flights</v-btn>
+        <v-btn v-if="canImport(item)" size="small" variant="text" @click="openImport(item)">Import</v-btn>
         <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
       </template>
     </v-data-table>
@@ -187,5 +199,6 @@ onUnmounted(() => {
     <AddTripDialog v-model="showAddDialog" @saved="onTripSaved" />
     <CopyTripDialog v-model="showCopyDialog" :trips="trips" @saved="onTripCopied" />
     <EditTripDialog v-model="showEditDialog" :trip-id="editTripId" @saved="onTripUpdated" />
+    <ImportTripMasterDialog v-model="showImportDialog" :trip="importTrip" @imported="load" />
   </v-container>
 </template>

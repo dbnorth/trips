@@ -38,6 +38,7 @@ export const VALUE_SOURCES = [
   { valueSource: "participant.balanceDue", label: "Participant balance due" },
   { valueSource: "participant.arrivalDate", label: "Participant arrival date" },
   { valueSource: "participant.departureDate", label: "Participant departure date" },
+  { valueSource: "participant.createAccountLink", label: "Participant create account link" },
   { valueSource: "primaryLeader.firstName", label: "Primary trip leader first name" },
   { valueSource: "primaryLeader.lastName", label: "Primary trip leader last name" },
   { valueSource: "primaryLeader.preferredName", label: "Primary trip leader preferred name" },
@@ -113,6 +114,19 @@ const preferredName = (person) => {
   if (!person) return "";
   if (person.preferredName) return person.preferredName;
   return [person.firstName, person.lastName].filter(Boolean).join(" ");
+};
+
+const appUrl = () => (process.env.APP_URL || "http://localhost:8082").replace(/\/+$/, "");
+
+/** Sign-in page link for someone with a login; otherwise Create account filled in with their email and name. */
+const createAccountLink = (person) => {
+  if (!person) return "";
+  if (person.userId) return `${appUrl()}/`;
+  const params = [["create", "1"]];
+  if (person.email) params.push(["email", person.email]);
+  params.push(["firstName", text(person.firstName)], ["lastName", text(person.lastName)]);
+  const query = params.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&");
+  return `${appUrl()}/?${query}`;
 };
 
 const loadPrimaryLeader = async (tripId) => {
@@ -285,6 +299,7 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
     ...financialValues,
     "participant.arrivalDate": formatDate(travelDates.arrivalDate),
     "participant.departureDate": formatDate(travelDates.departureDate),
+    "participant.createAccountLink": createAccountLink(person),
     "primaryLeader.firstName": text(leader?.firstName),
     "primaryLeader.lastName": text(leader?.lastName),
     "primaryLeader.preferredName": preferredName(leader),

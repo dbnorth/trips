@@ -93,6 +93,11 @@ export default {
   removeArrivalPdf(id) {
     return apiClient.delete(`/trips/${id}/arrival-pdf`);
   },
+  importTripMaster(id, file) {
+    const form = new FormData();
+    form.append("file", file);
+    return apiClient.post(`/trips/${id}/import-trip-master`, form);
+  },
   getImageUrl(image) {
     if (!image) return null;
     // Legacy path: uploads/trips/...

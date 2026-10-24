@@ -1,0 +1,218 @@
+/** Feature 80 — reading a Trip Master spreadsheet saved as CSV. */
+
+const COLUMNS = {
+  firstName: "First Name",
+  lastName: "Last Name",
+  email: "E-Mail",
+  position: "Position Required",
+  appReceived: "App Received",
+  middleName: "Middle Name",
+  birthDate: "Date of Birth",
+  phone: "Phone # Cell",
+  roommate: "Roommate",
+  gender: "Gender",
+  address: "Address",
+  city: "City",
+  state: "State",
+  zip: "Zip",
+  emergencyContact: "Emergency Contact",
+  allergies: "Allergies",
+  church: "Church Affiliation",
+  passportNumber: "Passport Number",
+  passportExpiration: "Passport Exp. Date",
+  travelNotes: "Travel Notes",
+  flightFee: "Flight Fee",
+};
+
+const REQUIRED = ["firstName", "lastName", "email", "position"];
+
+/** Records of CSV text; quoted fields may hold commas, quotes, and line breaks. */
+export const parseCsv = (input) => {
+  const text = input.replace(/^\uFEFF/, "");
+  const records = [];
+  let record = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch !== '"') field += ch;
+      else if (text[i + 1] === '"') {
+        field += '"';
+        i += 1;
+      } else quoted = false;
+    } else if (ch === '"') {
+      quoted = true;
+    } else if (ch === ",") {
+      record.push(field);
+      field = "";
+    } else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i += 1;
+      record.push(field);
+      records.push(record);
+      record = [];
+      field = "";
+    } else {
+      field += ch;
+    }
+  }
+  if (field || record.length) {
+    record.push(field);
+    records.push(record);
+  }
+  return records;
+};
+
+export const normalizeText = (value) => String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+
+/** Index of each known column, by its two header rows joined (a column may add trailing words). */
+const findColumns = (first = [], second = []) => {
+  const headers = Array.from({ length: Math.max(first.length, second.length) }, (_, i) =>
+    normalizeText(`${first[i] ?? ""} ${second[i] ?? ""}`)
+  );
+  const columns = {};
+  for (const [key, name] of Object.entries(COLUMNS)) {
+    const wanted = normalizeText(name);
+    const index = headers.findIndex((header) => header === wanted || header.startsWith(`${wanted} `));
+    if (index >= 0) columns[key] = index;
+  }
+  return columns;
+};
+
+const isWaitingListHeading = (position) => {
+  const value = normalizeText(position);
+  return value.startsWith("caregiver waiting list") || value.endsWith("waiting list");
+};
+
+/**
+ * The spreadsheet's rows by section, or the required columns it is missing. Row 1 is the title,
+ * rows 2–3 the header; `row` is the spreadsheet row number. Rows after "Total" and before the
+ * next section heading belong to no section and are left out.
+ */
+export const readTripMaster = (text) => {
+  const records = parseCsv(text);
+  const columns = findColumns(records[1], records[2]);
+  const missing = REQUIRED.filter((key) => columns[key] == null).map((key) => COLUMNS[key]);
+  if (missing.length) return { missing, rows: [] };
+
+  const rows = [];
+  let section = "main";
+  records.slice(3).forEach((record, index) => {
+    const values = {};
+    for (const [key, column] of Object.entries(columns)) values[key] = String(record[column] ?? "").trim();
+
+    const position = normalizeText(values.position);
+    let heading = true;
+    if (position === "cancellations") section = "cancelled";
+    else if (isWaitingListHeading(values.position)) section = "waiting";
+    else heading = false;
+
+    if (section === "main" && position === "total") {
+      section = null;
+      return;
+    }
+    if (!section) return;
+    rows.push({ ...values, position: heading ? "" : values.position, row: index + 4, section });
+  });
+  return { missing: [], rows };
+};
+
+/** `YYYY-MM-DD` from M/D/YY, M/D/YYYY, or MM-DD-YYYY; null when it isn't a date. */
+export const parseSheetDate = (raw, { birthDate = false } = {}) => {
+  const match = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2}|\d{4})$/.exec(String(raw ?? "").trim());
+  if (!match) return null;
+  const [month, day] = [Number(match[1]), Number(match[2])];
+  let year = Number(match[3]);
+  if (match[3].length === 2) {
+    year += 2000;
+    if (birthDate && year > new Date().getFullYear()) year -= 100;
+  }
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return null;
+  }
+  return date.toISOString().slice(0, 10);
+};
+
+/** The 10 US digits of a phone number, or null. */
+export const parseSheetPhone = (raw) => {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  if (digits.length === 10) return digits;
+  if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1);
+  return null;
+};
+
+/** Name and phone from text like "Nathan Lowry (937)570-6904"; without a phone the whole text is the name. */
+export const parseEmergencyContact = (raw) => {
+  const text = String(raw ?? "").trim();
+  const runs = [...text.matchAll(/[\d()+\-.\s]*\d[\d()+\-.\s]*/g)];
+  for (const run of runs.reverse()) {
+    const phone = parseSheetPhone(run[0]);
+    if (!phone) continue;
+    const name = text.slice(0, run.index).trim().replace(/,$/, "").trim();
+    return { name: name || null, phone };
+  }
+  return { name: text || null, phone: null };
+};
+
+/** Have allergies? and the description; null when blank. */
+export const parseAllergies = (raw) => {
+  const text = String(raw ?? "").trim();
+  if (!text) return null;
+  if (["none", "no", "n/a", "na"].includes(text.toLowerCase())) return { hasAllergies: false };
+  return { hasAllergies: true, description: text };
+};
+
+/** Amount from "$1,175.00", "1175", or "$0.00"; null when it isn't a number. */
+export const parseMoney = (raw) => {
+  const text = String(raw ?? "").replace(/[$,\s]/g, "");
+  return /^\d+(\.\d+)?$/.test(text) ? Number(text) : null;
+};
+
+/** Lower-case words without accents, split at anything that isn't a letter or digit. */
+const wordsOf = (value) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+
+/** A trip option whose description has a word starting with "flight" or "air". */
+export const isFlightOption = (option) =>
+  wordsOf(option.description).some((word) => word.startsWith("flight") || word.startsWith("air"));
+
+/**
+ * The option per set that Travel Notes pick (most matched keywords), and the sets where options tie.
+ * Keywords are an option's 3+ character words found in no other option's description.
+ */
+export const chooseNoteOptions = (notes, options) => {
+  const noteWords = wordsOf(notes).filter((word) => word.length >= 3);
+  if (!noteWords.length) return { chosen: [], tiedSets: [] };
+
+  const optionWords = new Map(options.map((option) => [option, new Set(wordsOf(option.description))]));
+  const usage = new Map();
+  for (const words of optionWords.values()) {
+    for (const word of words) usage.set(word, (usage.get(word) || 0) + 1);
+  }
+
+  const bestBySet = new Map();
+  for (const option of options) {
+    if (isFlightOption(option)) continue;
+    const keywords = [...optionWords.get(option)].filter((word) => word.length >= 3 && usage.get(word) === 1);
+    const score = keywords.filter((keyword) => noteWords.some((word) => keyword.startsWith(word))).length;
+    if (!score) continue;
+    const setNumber = Number(option.setNumber) > 0 ? Number(option.setNumber) : 1;
+    const best = bestBySet.get(setNumber);
+    if (!best || score > best.score) bestBySet.set(setNumber, { score, options: [option] });
+    else if (score === best.score) best.options.push(option);
+  }
+
+  const chosen = [];
+  const tiedSets = [];
+  for (const [setNumber, best] of [...bestBySet.entries()].sort((a, b) => a[0] - b[0])) {
+    if (best.options.length === 1) chosen.push(best.options[0]);
+    else tiedSets.push(setNumber);
+  }
+  return { chosen, tiedSets };
+};
