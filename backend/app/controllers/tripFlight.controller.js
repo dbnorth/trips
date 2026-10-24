@@ -252,6 +252,7 @@ exports.findFlights = async (req, res) => {
       where: { tripId, status: { [Op.in]: ELIGIBLE_STATUSES } },
       include: [
         { model: db.person, as: "person", attributes: ["id", "firstName", "lastName"] },
+        { model: db.role, as: "role", attributes: ["roleName"] },
         ...flightPurchaseInclude,
         {
           model: TripFlight,
@@ -284,6 +285,8 @@ exports.findFlights = async (req, res) => {
         peopleId: json.peopleId,
         firstName: json.person?.firstName || "",
         lastName: json.person?.lastName || "",
+        roleName: json.role?.roleName || null,
+        status: json.status,
         purchased: flight ? !!flight.purchased : false,
         cost: flight?.cost != null ? Number(flight.cost) : null,
         comments: flight?.comments || "",
@@ -304,6 +307,7 @@ exports.findFlights = async (req, res) => {
         name: tripJson.name,
         startDate: tripJson.startDate,
         endDate: tripJson.endDate,
+        orgId: tripJson.orgId,
         organizationName,
       },
       participants,
@@ -444,6 +448,7 @@ exports.findSegments = async (req, res) => {
       flightPurchasePreferences,
       flightPurchasePreferencesText,
       flightNotes: assignment.flightNotes || null,
+      confirmationNumber: flight?.confirmationNumber || null,
       segments,
     });
   } catch (err) {
@@ -472,6 +477,13 @@ exports.replaceSegments = async (req, res) => {
     if (!bodySegments) {
       await transaction.rollback();
       return res.status(400).send({ message: "segments array is required." });
+    }
+
+    const hasConfirmationNumber = Object.prototype.hasOwnProperty.call(req.body, "confirmationNumber");
+    const confirmationNumber = String(req.body.confirmationNumber ?? "").trim() || null;
+    if (confirmationNumber && confirmationNumber.length > 50) {
+      await transaction.rollback();
+      return res.status(400).send({ message: "Confirmation number must be 50 characters or fewer." });
     }
 
     const segmentKeys = new Set();
@@ -578,6 +590,7 @@ exports.replaceSegments = async (req, res) => {
     }
 
     const flight = await ensureFlight(tripPeopleRoleId, transaction);
+    if (hasConfirmationNumber) await flight.update({ confirmationNumber }, { transaction });
     await TripFlightSegment.destroy({ where: { tripFlightId: flight.id }, transaction });
     for (const seg of normalized) {
       await TripFlightSegment.create({ tripFlightId: flight.id, ...seg }, { transaction });
@@ -595,6 +608,7 @@ exports.replaceSegments = async (req, res) => {
     });
     res.send({
       tripPeopleRoleId,
+      confirmationNumber: flight.confirmationNumber || null,
       segments: reloaded.map(serializeSegment),
       ...deriveItinerary(reloaded),
     });

@@ -35,6 +35,7 @@ const plannedDeparture = ref("");
 const requested = ref("");
 const requestedPreferences = ref(null);
 const flightNotes = ref("");
+const confirmationNumber = ref("");
 
 const formatPlannedDate = (value) => {
   const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -182,6 +183,7 @@ const load = async () => {
     requested.value = orgBooked ? segRes.data?.flightPurchasePreferencesText || "" : "";
     requestedPreferences.value = orgBooked ? segRes.data?.flightPurchasePreferences || null : null;
     flightNotes.value = segRes.data?.flightNotes || "";
+    confirmationNumber.value = segRes.data?.confirmationNumber || "";
     segments.value = (segRes.data?.segments || []).map((s) => ({
       segmentType: s.segmentType === "return" ? "return" : "arrival",
       segmentNumber: s.segmentNumber,
@@ -209,6 +211,7 @@ const save = async () => {
   error.value = "";
   try {
     await TripServices.updateFlightSegments(props.tripId, props.tripPeopleRoleId, {
+      confirmationNumber: confirmationNumber.value,
       segments: segments.value.map((s) => ({
         segmentType: s.segmentType,
         segmentNumber: Number(s.segmentNumber),
@@ -245,6 +248,7 @@ watch(
       requested.value = "";
       requestedPreferences.value = null;
       flightNotes.value = "";
+      confirmationNumber.value = "";
       error.value = "";
     }
   }
@@ -290,6 +294,16 @@ watch(
               {{ warning }}
             </v-alert>
           </div>
+          <v-text-field
+            v-model="confirmationNumber"
+            label="Confirmation number"
+            density="compact"
+            maxlength="50"
+            hide-details="auto"
+            class="mb-4"
+            style="max-width: 320px"
+            data-testid="flight-confirmation-number"
+          />
           <div
             v-for="(section, sectionIndex) in SEGMENT_SECTIONS"
             :key="section.type"

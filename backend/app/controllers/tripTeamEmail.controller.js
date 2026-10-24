@@ -1,6 +1,7 @@
 import db from "../models/index.js";
 import {
   canAccessTrip,
+  isAgentForOrg,
   isOrgAdminForOrg,
   isSystemAdmin,
   isTripLeaderForTrip,
@@ -9,6 +10,7 @@ import {
 } from "../authorization/accessControl.js";
 import { buildTemplateMessage, sendTemplateEmail } from "../utils/emailDelivery.js";
 import { cleanEmailBody, emailBodyIsBlank, pictureRuleError } from "../utils/emailHtml.js";
+import { loadParticipantFlight } from "../utils/emailTokenValues.js";
 
 const Op = db.Sequelize.Op;
 const FUNCTION_CODE = "Trip Participant";
@@ -24,27 +26,48 @@ const SEND_TO = {
 
 const exports = {};
 
-/** The trip when the user may email its team; otherwise sends the error response and returns null. */
-const loadTripForTeamEmail = async (req, res) => {
+const tripTemplatesWhere = (trip) => ({
+  functionCode: FUNCTION_CODE,
+  [Op.or]: [{ tripId: trip.id }, { tripId: null, orgId: trip.orgId }],
+});
+
+const canEmailTeam = (req, trip) =>
+  isSystemAdmin(req) || isOrgAdminForOrg(req, trip.orgId) || isTripLeaderForTrip(req, trip.id);
+
+/** Email team (Feature 46): any Trip Participant template, trip staff only. */
+const TEAM_EMAIL = {
+  canSend: canEmailTeam,
+  templatesWhere: async (trip) => tripTemplatesWhere(trip),
+  templateError: "Choose a Trip Participant template for this trip.",
+  skipReason: async () => null,
+};
+
+/** Email flight itinerary (Feature 86): Flight itinerary templates, everyone who can open the Flights page. */
+const FLIGHT_ITINERARY_EMAIL = {
+  canSend: (req, trip) => canEmailTeam(req, trip) || isAgentForOrg(req, trip.orgId),
+  templatesWhere: async (trip) => {
+    const type = await db.emailType.findOne({ where: { typeCode: "flight-itinerary" } });
+    return { ...tripTemplatesWhere(trip), emailTypeId: type ? type.id : [] };
+  },
+  templateError: "Choose a flight itinerary template for this trip.",
+  skipReason: async (trip, person) =>
+    (await loadParticipantFlight(trip.id, person.id)) ? null : "No flight segments.",
+};
+
+/** The trip when the user may send this kind of email; otherwise sends the error response and returns null. */
+const loadTripForEmail = async (kind, req, res) => {
   const access = await canAccessTrip(req, req.params.id);
   if (!access.trip) {
     res.status(404).send({ message: "Trip not found." });
     return null;
   }
   const { trip } = access;
-  const allowed =
-    isSystemAdmin(req) || isOrgAdminForOrg(req, trip.orgId) || isTripLeaderForTrip(req, trip.id);
-  if (!allowed) {
+  if (!kind.canSend(req, trip)) {
     res.status(403).send({ message: "Forbidden." });
     return null;
   }
   return trip;
 };
-
-const tripTemplatesWhere = (trip) => ({
-  functionCode: FUNCTION_CODE,
-  [Op.or]: [{ tripId: trip.id }, { tripId: null, orgId: trip.orgId }],
-});
 
 const personName = (person) =>
   [person?.firstName, person?.lastName].filter(Boolean).join(" ").trim();
@@ -52,13 +75,13 @@ const personName = (person) =>
 const badRequest = (message) => ({ error: { status: 400, message } });
 
 /** Validate a preview or send body: the template, edited subject and body, and the recipients' people. */
-const readTeamEmailRequest = async (trip, body) => {
+const readTeamEmailRequest = async (kind, trip, body) => {
   const template = body.emailTemplateId
     ? await db.emailTemplate.findOne({
-        where: { id: Number(body.emailTemplateId), ...tripTemplatesWhere(trip) },
+        where: { id: Number(body.emailTemplateId), ...(await kind.templatesWhere(trip)) },
       })
     : null;
-  if (!template) return badRequest("Choose a Trip Participant template for this trip.");
+  if (!template) return badRequest(kind.templateError);
 
   const subject = typeof body.subject === "string" ? body.subject : "";
   const emailBody = cleanEmailBody(typeof body.emailBody === "string" ? body.emailBody : "");
@@ -105,12 +128,12 @@ const messageOptions = (trip, request, person) => ({
   emailBody: request.emailBody,
 });
 
-exports.findTemplates = async (req, res) => {
+const findTemplates = (kind) => async (req, res) => {
   try {
-    const trip = await loadTripForTeamEmail(req, res);
+    const trip = await loadTripForEmail(kind, req, res);
     if (!trip) return;
     const data = await db.emailTemplate.findAll({
-      where: tripTemplatesWhere(trip),
+      where: await kind.templatesWhere(trip),
       attributes: ["id", "tripId", "subject", "emailBody", "fromEmail", "emailTypeId"],
       order: [
         ["subject", "ASC"],
@@ -123,16 +146,18 @@ exports.findTemplates = async (req, res) => {
   }
 };
 
-exports.preview = async (req, res) => {
+const preview = (kind) => async (req, res) => {
   try {
-    const trip = await loadTripForTeamEmail(req, res);
+    const trip = await loadTripForEmail(kind, req, res);
     if (!trip) return;
-    const request = await readTeamEmailRequest(trip, req.body);
+    const request = await readTeamEmailRequest(kind, trip, req.body);
     if (request.error) return res.status(request.error.status).send({ message: request.error.message });
     const person = request.people.find((p) => p.id === Number(req.body.personId));
     if (!person) {
       return res.status(400).send({ message: "Preview participant must be one of the recipients." });
     }
+    const skipReason = await kind.skipReason(trip, person);
+    if (skipReason) return res.status(400).send({ message: skipReason });
     const { message, reason, previewHtml, attachmentError, pictureError } =
       await buildTemplateMessage(messageOptions(trip, request, person));
     if (!message) return res.status(400).send({ message: reason });
@@ -151,17 +176,20 @@ exports.preview = async (req, res) => {
   }
 };
 
-exports.send = async (req, res) => {
+const send = (kind) => async (req, res) => {
   try {
-    const trip = await loadTripForTeamEmail(req, res);
+    const trip = await loadTripForEmail(kind, req, res);
     if (!trip) return;
-    const request = await readTeamEmailRequest(trip, req.body);
+    const request = await readTeamEmailRequest(kind, trip, req.body);
     if (request.error) return res.status(request.error.status).send({ message: request.error.message });
 
     const counts = { sent: 0, skipped: 0, failed: 0 };
     const results = [];
     for (const person of request.people) {
-      const result = await sendTemplateEmail(messageOptions(trip, request, person));
+      const skipReason = await kind.skipReason(trip, person);
+      const result = skipReason
+        ? { status: "skipped", reason: skipReason }
+        : await sendTemplateEmail(messageOptions(trip, request, person));
       counts[result.status] += 1;
       results.push({
         personId: person.id,
@@ -175,5 +203,12 @@ exports.send = async (req, res) => {
     res.status(500).send({ message: err.message });
   }
 };
+
+exports.findTemplates = findTemplates(TEAM_EMAIL);
+exports.preview = preview(TEAM_EMAIL);
+exports.send = send(TEAM_EMAIL);
+exports.findFlightItineraryTemplates = findTemplates(FLIGHT_ITINERARY_EMAIL);
+exports.previewFlightItinerary = preview(FLIGHT_ITINERARY_EMAIL);
+exports.sendFlightItinerary = send(FLIGHT_ITINERARY_EMAIL);
 
 export default exports;

@@ -7,6 +7,7 @@ const TripFlight = SequelizeInstance.define("tripFlight", {
   purchased: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
   cost: { type: Sequelize.DECIMAL(10, 2), allowNull: true },
   comments: { type: Sequelize.TEXT, allowNull: true },
+  confirmationNumber: { type: Sequelize.STRING(50), allowNull: true },
 });
 
 export default TripFlight;
