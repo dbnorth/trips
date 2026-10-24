@@ -41,6 +41,7 @@ const TripPeopleRole = SequelizeInstance.define("tripPeopleRole", {
   preferredCabinClass: { type: Sequelize.STRING(50), allowNull: true },
   preferredAirlineId: { type: Sequelize.INTEGER, allowNull: true },
   preferredRefundableTicket: { type: Sequelize.BOOLEAN, allowNull: true, defaultValue: null },
+  flightNotes: { type: Sequelize.TEXT, allowNull: true },
   agreementAccepted: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
   agreementSignatureName: { type: Sequelize.STRING(255), allowNull: true },
   agreementDate: { type: Sequelize.DATE, allowNull: true },

@@ -34,6 +34,7 @@ const plannedArrival = ref("");
 const plannedDeparture = ref("");
 const requested = ref("");
 const requestedPreferences = ref(null);
+const flightNotes = ref("");
 
 const formatPlannedDate = (value) => {
   const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -180,6 +181,7 @@ const load = async () => {
     const orgBooked = segRes.data?.flightPurchaseOption === "organization";
     requested.value = orgBooked ? segRes.data?.flightPurchasePreferencesText || "" : "";
     requestedPreferences.value = orgBooked ? segRes.data?.flightPurchasePreferences || null : null;
+    flightNotes.value = segRes.data?.flightNotes || "";
     segments.value = (segRes.data?.segments || []).map((s) => ({
       segmentType: s.segmentType === "return" ? "return" : "arrival",
       segmentNumber: s.segmentNumber,
@@ -242,6 +244,7 @@ watch(
       plannedDeparture.value = "";
       requested.value = "";
       requestedPreferences.value = null;
+      flightNotes.value = "";
       error.value = "";
     }
   }
@@ -275,6 +278,7 @@ watch(
             <div v-if="requested" class="mt-1" data-testid="flight-requested">
               <strong>Requested:</strong> {{ requested }}
             </div>
+            <div v-if="flightNotes" class="mt-1 text-pre-wrap" data-testid="flight-notes"><strong>Flight notes:</strong> {{ flightNotes }}</div>
             <v-alert
               v-for="warning in airportWarnings"
               :key="warning"

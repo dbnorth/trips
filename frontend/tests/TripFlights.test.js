@@ -451,3 +451,102 @@ describe("Feature 79 — Planned Arrival and Departure on Flights", () => {
     wrapper.unmount();
   });
 });
+
+/**
+ * Feature 84 — Application Flight Notes
+ * Spec: features/feature-84-application-flight-notes.md
+ */
+describe("Feature 84 — Application Flight Notes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("The Flights page shows requested flight info from an info icon", async () => {
+    Utils.setStore("user", orgAdminUser);
+    const participant = (tripPeopleRoleId, firstName, extra) => ({
+      tripPeopleRoleId,
+      peopleId: tripPeopleRoleId,
+      firstName,
+      lastName: "Lopez",
+      purchased: false,
+      cost: null,
+      comments: "",
+      segmentCount: 0,
+      arrivalAdjustments: [],
+      departureAdjustments: [],
+      ...extra,
+    });
+    TripServices.getFlights.mockResolvedValue({
+      data: {
+        trip: { id: 42, name: "Guatemala Clinic", organizationName: "Hope Missions" },
+        participants: [
+          participant(201, "Ana", {
+            flightPurchaseOption: "organization",
+            flightPurchasePreferences: {
+              departureAirportCode: "BNA",
+              departureCity: "Nashville",
+              returnAirportCode: "BNA",
+              returnCity: "Nashville",
+              cabinClass: "Economy",
+              airlineCode: "AA",
+              airlineName: "American Airlines",
+              refundableTicket: true,
+            },
+            flightPurchasePreferencesText: "Departure BNA (Nashville) · Return BNA (Nashville)",
+            flightNotes: "Flying from Nashville, back to Memphis",
+          }),
+          participant(202, "Ben", { flightPurchaseOption: "self", flightNotes: null }),
+        ],
+      },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId/flights", name: "tripFlights", component: TripFlightsView, props: true },
+        { path: "/home", name: "home", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripFlights", params: { tripId: "42" } });
+    await router.isReady();
+    const { wrapper } = await mountWithPlugins(TripFlightsView, {
+      props: { tripId: "42" },
+      router,
+      global: {
+        stubs: {
+          VDialog: { template: "<div><slot /></div>" },
+          VTooltip: { template: '<div class="tooltip-stub"><slot name="activator" :props="{}" /><slot /></div>' },
+        },
+      },
+    });
+    await flushPromises();
+
+    const headers = wrapper.findAll("thead th").map((th) => th.text().trim());
+    const bookedBy = (name) =>
+      wrapper.findAll("tbody tr").find((tr) => tr.text().includes(name)).findAll("td")[headers.indexOf("Booked by")];
+
+    const ana = bookedBy("Ana");
+    const icon = ana.find('[data-testid="requested-flight-info"]');
+    expect(icon.classes()).toContain("mdi-information-outline");
+    expect(icon.attributes("aria-label")).toBe("Requested flight info");
+    expect(icon.attributes("tabindex")).toBe("0");
+    expect(ana.text()).toContain("Hope Missions");
+    expect(ana.text()).not.toContain("Departure BNA (Nashville) · Return");
+    const details = ana.find('[data-testid="requested-flight-details"]');
+    expect(details.findAll("div").map((line) => line.text())).toEqual([
+      "Requested flight info",
+      "Preferred departure airport: BNA (Nashville)",
+      "Preferred return airport: BNA (Nashville)",
+      "Class of travel: Economy",
+      "Preferred airline: AA — American Airlines",
+      "Refundable ticket: Yes",
+      "Flight notes: Flying from Nashville, back to Memphis",
+    ]);
+
+    const ben = bookedBy("Ben");
+    expect(ben.text()).toBe("Participant");
+    expect(ben.find('[data-testid="requested-flight-info"]').exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+});

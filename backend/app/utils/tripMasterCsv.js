@@ -23,6 +23,8 @@ const COLUMNS = {
   travelNotes: "Travel Notes",
   flightFee: "Flight Fee",
   hasNameTag: "Do you Have a Name Tag",
+  departureCity: "Departure City",
+  arrivalCity: "Arrival City",
 };
 
 const REQUIRED = ["firstName", "lastName", "email", "position"];

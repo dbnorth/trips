@@ -54,6 +54,8 @@ const LICENSE_STATUSES = ["yes", "yes_retired", "no"];
 
 const parseBool = (value) => value === true || value === 1 || value === "1" || value === "true";
 
+const parseFlightNotes = (value) => String(value ?? "").trim() || null;
+
 const roundMoney = (value) => Math.round(Number(value) * 100) / 100;
 
 const loadTripTravelOptions = async (tripId) =>
@@ -743,6 +745,7 @@ exports.applyToTrip = async (req, res) => {
       preferredCabinClass: flightPurchase.preferredCabinClass,
       preferredAirlineId: flightPurchase.preferredAirlineId,
       preferredRefundableTicket: flightPurchase.preferredRefundableTicket,
+      flightNotes: parseFlightNotes(req.body?.flightNotes),
       agreementAccepted: agreement.agreementAccepted,
       agreementSignatureName: agreement.agreementSignatureName,
       agreementDate: agreement.agreementDate,
@@ -1022,6 +1025,9 @@ exports.updateApplication = async (req, res) => {
       preferredCabinClass: flightPurchase.preferredCabinClass,
       preferredAirlineId: flightPurchase.preferredAirlineId,
       preferredRefundableTicket: flightPurchase.preferredRefundableTicket,
+      flightNotes: Object.prototype.hasOwnProperty.call(req.body || {}, "flightNotes")
+        ? parseFlightNotes(req.body.flightNotes)
+        : assignment.flightNotes,
       participantCost,
       agreementAccepted: agreement.agreementAccepted,
       agreementSignatureName: agreement.agreementSignatureName,

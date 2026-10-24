@@ -57,7 +57,8 @@ The file has a title row, then a **two-row header**: each column's name is its f
 | **Age** | — | Ignored (computed) |
 | **Phone # Cell** | `person.phoneContryCode`, `phoneNumber` | FR-012 |
 | **Travel Notes** | Trip options (`tripPeopleRoleOption`) | FR-023 |
-| **Flight Departure**, **Flight Arrival**, **Flight Confirmation**, **Departure City**, **Arrival City** | — | Ignored |
+| **Flight Departure**, **Flight Arrival**, **Flight Confirmation** | — | Ignored |
+| **Departure City**, **Arrival City** | `tripPeopleRole.flightNotes` (blank only) | Feature 84 |
 | **Roommate** | `tripPeopleRole.hasPreferredRoommate`, `preferredRoommateNames` | Blank or "None" → not set |
 | **Do you Have a Name Tag** | The name tag trip option (`tripPeopleRoleOption`) | Feature 83 |
 | **Name Tag** | — | Ignored |
