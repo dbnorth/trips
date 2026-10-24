@@ -77,3 +77,104 @@ describe("Feature 73 — Flight Booked by Indicator", () => {
     });
   });
 });
+
+/**
+ * Feature 79 — Planned Arrival and Departure on Flights
+ * Spec: features/feature-79-flights-planned-dates.md
+ */
+describe("Feature 79 — Planned Arrival and Departure on Flights", () => {
+  const REQUESTED =
+    "Departure DFW (Dallas) · Return DFW (Dallas) · Class Economy · Airline AA — American Airlines · Refundable";
+
+  const segmentsResponse = (overrides = {}) => ({
+    data: {
+      tripPeopleRoleId: 201,
+      flightPurchaseOption: "organization",
+      organizationName: "Hope Missions",
+      arrivalDate: "2027-06-07",
+      departureDate: "2027-06-18",
+      flightPurchasePreferences: { departureAirportCode: "DFW", returnAirportCode: "DFW" },
+      flightPurchasePreferencesText: REQUESTED,
+      segments: [],
+      ...overrides,
+    },
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    AirportServices.getAll.mockResolvedValue({ data: [] });
+    AirlineServices.getAll.mockResolvedValue({ data: [] });
+  });
+
+  it("Flight segments dialog shows the plan", async () => {
+    TripServices.getFlightSegments.mockResolvedValueOnce(segmentsResponse());
+    const ana = await openDialog("Ana Lopez");
+    const plan = ana.find('[data-testid="flight-segments-plan"]');
+    expect(plan.find('[data-testid="planned-arrival"]').text()).toBe("Planned arrival: 06/07/2027");
+    expect(plan.find('[data-testid="planned-departure"]').text()).toBe("Planned departure: 06/18/2027");
+    expect(plan.find('[data-testid="flight-requested"]').text()).toBe(`Requested: ${REQUESTED}`);
+    expect(ana.text().indexOf("Planned arrival")).toBeLessThan(ana.text().indexOf("Arrival Flight"));
+
+    TripServices.getFlightSegments.mockResolvedValueOnce(
+      segmentsResponse({ flightPurchaseOption: "self", flightPurchasePreferencesText: null })
+    );
+    const ben = await openDialog("Ben Ruiz");
+    expect(ben.find('[data-testid="planned-arrival"]').exists()).toBe(true);
+    expect(ben.find('[data-testid="flight-requested"]').exists()).toBe(false);
+  });
+
+  it("New segments default to the planned dates", async () => {
+    TripServices.getFlightSegments.mockResolvedValueOnce(segmentsResponse());
+    const wrapper = await openDialog("Ana Lopez");
+
+    wrapper.vm.addSegment("arrival");
+    wrapper.vm.addSegment("return");
+    const [arrival, ret] = wrapper.vm.segments;
+    expect([arrival.departureDate, arrival.arrivalDate]).toEqual(["2027-06-07", "2027-06-07"]);
+    expect([ret.departureDate, ret.arrivalDate]).toEqual(["2027-06-18", "2027-06-18"]);
+  });
+
+  it("New Arrival segment departs from the requested airport", async () => {
+    TripServices.getFlightSegments.mockResolvedValueOnce(segmentsResponse());
+    const ana = await openDialog("Ana Lopez");
+    ana.vm.addSegment("arrival");
+    expect(ana.vm.segments[0].departureAirportCode).toBe("DFW");
+
+    TripServices.getFlightSegments.mockResolvedValueOnce(
+      segmentsResponse({
+        flightPurchaseOption: "self",
+        flightPurchasePreferences: null,
+        flightPurchasePreferencesText: null,
+      })
+    );
+    const ben = await openDialog("Ben Ruiz");
+    ben.vm.addSegment("arrival");
+    expect(ben.vm.segments[0].departureAirportCode).toBeNull();
+  });
+
+  it("Flight segments dialog warns when airports differ from the request", async () => {
+    const segment = (segmentType, from, to) => ({
+      segmentType,
+      segmentNumber: 1,
+      departureAirportCode: from,
+      airlineCode: "AA",
+      flightNumber: "1",
+      departureDate: "2027-06-07",
+      departureTime: "08:00",
+      arrivalAirportCode: to,
+      arrivalDate: "2027-06-07",
+      arrivalTime: "12:00",
+    });
+    TripServices.getFlightSegments.mockResolvedValueOnce(
+      segmentsResponse({ segments: [segment("arrival", "DFW", "GUA"), segment("return", "GUA", "IAH")] })
+    );
+    const wrapper = await openDialog("Ana Lopez");
+    const warnings = () =>
+      wrapper.findAll('[data-testid="airport-warning-message"]').map((w) => w.text().trim());
+    expect(warnings()).toEqual(["Return flight arrives at IAH, but DFW was requested."]);
+
+    wrapper.vm.segments[1].arrivalAirportCode = "DFW";
+    await flushPromises();
+    expect(warnings()).toEqual([]);
+  });
+});

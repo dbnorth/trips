@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import PersonContactDialog from "../components/PersonContactDialog.vue";
 import TripCostBreakdown from "../components/TripCostBreakdown.vue";
+import TripDateAdjustment from "../components/TripDateAdjustment.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { countryName } from "../utils/locationData.js";
 import { tripParticipantStatusLabel } from "../utils/tripParticipantStatus.js";
@@ -59,6 +60,8 @@ const headers = computed(() => {
     { title: "Status", key: "status", sortable: true },
     { title: "Role", key: "workerRoleName", sortable: true },
     { title: "Booked by", key: "bookedBy", sortable: true },
+    { title: "Arrives", key: "arrivalDate", sortable: true },
+    { title: "Departs", key: "departureDate", sortable: true },
     { title: "Missing items", key: "missingItems", sortable: false },
     { title: "Total cost", key: "totalTripCost", sortable: true },
     { title: "Amount raised", key: "amountRaised", sortable: true },
@@ -225,6 +228,22 @@ onMounted(load);
           </template>
           <template #item.status="{ item }">
             {{ item.statusLabel }}
+          </template>
+          <template #item.arrivalDate="{ item }">
+            <TripDateAdjustment
+              :date="item.arrivalDate"
+              :adjustments="item.arrivalAdjustments"
+              :flight-date="item.flightArrivalDate"
+              direction="before"
+            />
+          </template>
+          <template #item.departureDate="{ item }">
+            <TripDateAdjustment
+              :date="item.departureDate"
+              :adjustments="item.departureAdjustments"
+              :flight-date="item.flightDepartureDate"
+              direction="after"
+            />
           </template>
           <template #item.missingItems="{ item }">
             {{ item.missingItemsLabel }}

@@ -423,3 +423,75 @@ describe("Feature 28 — View Trip Status", () => {
     });
   });
 });
+
+/**
+ * Feature 79 — Planned Arrival and Departure on Flights
+ * Spec: features/feature-79-flights-planned-dates.md
+ */
+describe("Feature 79 — Planned Arrival and Departure on Flights", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("Trip Status board shows Arrives and Departs with the warning", async () => {
+    TripServices.getStatus.mockResolvedValue({
+      data: {
+        trip: { id: 42, name: "Guatemala Clinic", organizationName: "Hope Missions", status: "active" },
+        rolesNeeded: [],
+        travelOptions: [],
+        participants: [
+          {
+            id: 1,
+            peopleId: 1,
+            displayName: "Ana Lopez",
+            status: "approved",
+            workerRoleName: "Nurse",
+            flightPurchaseOption: "organization",
+            missingItems: [],
+            amountOwed: 0,
+            amountRaised: 0,
+            selectedTravelOptionIds: [],
+            arrivalDate: "2027-06-07",
+            departureDate: "2027-06-18",
+            arrivalAdjustments: [{ type: "option", description: "Arrive early", days: 2 }],
+            departureAdjustments: [{ type: "addon", description: "Extra hotel night", days: 1 }],
+            flightArrivalDate: "2027-06-08",
+            flightDepartureDate: "2027-06-18",
+          },
+        ],
+      },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId/status", name: "tripStatus", component: TripStatusView, props: true },
+        { path: "/home", name: "home", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripStatus", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripStatusView, {
+      props: { tripId: "42" },
+      router,
+      global: {
+        stubs: { VTooltip: { template: '<div><slot name="activator" :props="{}" /><slot /></div>' } },
+      },
+    });
+    await flushPromises();
+
+    const headers = wrapper.findAll("th").map((th) => th.text().trim());
+    const bookedBy = headers.indexOf("Booked by");
+    expect(headers.slice(bookedBy + 1, bookedBy + 3)).toEqual(["Arrives", "Departs"]);
+    const row = wrapper.find("tbody tr").findAll("td");
+    const arrives = row[bookedBy + 1];
+    const departs = row[bookedBy + 2];
+    expect(arrives.text()).toContain("06/07/2027");
+    expect(arrives.find('[data-testid="date-adjustment-info"]').exists()).toBe(true);
+    expect(arrives.find('[data-testid="date-flight-mismatch"]').text()).toBe("Arrival flight lands 06/08/2027");
+    expect(departs.text()).toContain("06/18/2027");
+    expect(departs.find('[data-testid="date-flight-warning"]').exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+});

@@ -73,3 +73,31 @@ export const participantTravelDates = async (trip, assignmentId) => {
     departureAdjustments: trip?.endDate ? adjustments(items, "daysAfter") : [],
   };
 };
+
+const dateOnly = (value) => (value ? String(value).slice(0, 10) : null);
+
+/**
+ * The day the flights land for the trip (arrival date of the last Arrival segment) and leave for
+ * home (departure date of the first Return segment), `null` when there is no such segment or date.
+ */
+export const flightDatesFromSegments = (segments) => {
+  const ofType = (type) =>
+    (segments || [])
+      .filter((segment) => (segment.segmentType || "arrival") === type)
+      .sort((a, b) => a.segmentNumber - b.segmentNumber);
+  return {
+    flightArrivalDate: dateOnly(ofType("arrival").at(-1)?.arrivalDate),
+    flightDepartureDate: dateOnly(ofType("return")[0]?.departureDate),
+  };
+};
+
+/** `flightDatesFromSegments` for an assignment's saved flight. */
+export const participantFlightDates = async (assignmentId) => {
+  const flight = assignmentId
+    ? await db.tripFlight.findOne({
+        where: { tripPeopleRoleId: assignmentId },
+        include: [{ model: db.tripFlightSegment, as: "segments" }],
+      })
+    : null;
+  return flightDatesFromSegments(flight?.segments);
+};

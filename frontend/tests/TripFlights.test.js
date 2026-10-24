@@ -307,3 +307,149 @@ describe("Feature 30 — Participant Flights", () => {
     });
   });
 });
+
+/**
+ * Feature 79 — Planned Arrival and Departure on Flights
+ * Spec: features/feature-79-flights-planned-dates.md
+ */
+describe("Feature 79 — Planned Arrival and Departure on Flights", () => {
+  const participant = (tripPeopleRoleId, firstName, dates) => ({
+    tripPeopleRoleId,
+    peopleId: tripPeopleRoleId,
+    firstName,
+    lastName: "Lopez",
+    flightPurchaseOption: "organization",
+    purchased: false,
+    cost: null,
+    comments: "",
+    segmentCount: 0,
+    initialDeparture: null,
+    finalArrival: null,
+    arrivalAdjustments: [],
+    departureAdjustments: [],
+    ...dates,
+  });
+
+  const mountFlights = async (anaExtra = {}) => {
+    Utils.setStore("user", orgAdminUser);
+    TripServices.getFlights.mockResolvedValue({
+      data: {
+        trip: { id: 42, name: "Guatemala Clinic", organizationName: "Hope Missions", startDate: "2027-06-10", endDate: "2027-06-17" },
+        participants: [
+          participant(201, "Ana", {
+            arrivalDate: "2027-06-07",
+            departureDate: "2027-06-18",
+            arrivalAdjustments: [
+              { type: "option", description: "Arrive early", days: 2 },
+              { type: "addon", description: "Extra hotel night", days: 1 },
+            ],
+            departureAdjustments: [{ type: "addon", description: "Extra hotel night", days: 1 }],
+            flightArrivalDate: "2027-06-08",
+            flightDepartureDate: "2027-06-18",
+            ...anaExtra,
+          }),
+          participant(202, "Ben", {
+            arrivalDate: "2027-06-10",
+            departureDate: "2027-06-17",
+            flightArrivalDate: null,
+            flightDepartureDate: null,
+          }),
+        ],
+      },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId/flights", name: "tripFlights", component: TripFlightsView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+        { path: "/home", name: "home", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripFlights", params: { tripId: "42" } });
+    await router.isReady();
+    const { wrapper } = await mountWithPlugins(TripFlightsView, {
+      props: { tripId: "42" },
+      router,
+      global: {
+        stubs: {
+          VDialog: { template: "<div><slot /></div>" },
+          VTooltip: { template: '<div class="tooltip-stub"><slot name="activator" :props="{}" /><slot /></div>' },
+        },
+      },
+    });
+    await flushPromises();
+    return wrapper;
+  };
+
+  const cells = (wrapper, name) => {
+    const row = wrapper.findAll("tbody tr").find((tr) => tr.text().includes(name));
+    return {
+      arrives: row.find('[data-testid="flights-arrives"]'),
+      departs: row.find('[data-testid="flights-departs"]'),
+    };
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("Flights page shows Arrives and Departs", async () => {
+    const wrapper = await mountFlights();
+
+    const headers = wrapper.findAll("th").map((th) => th.text().trim());
+    const bookedBy = headers.indexOf("Booked by");
+    expect(headers.slice(bookedBy + 1, bookedBy + 3)).toEqual(["Arrives", "Departs"]);
+
+    const { arrives, departs } = cells(wrapper, "Ana");
+    expect(arrives.text()).toContain("06/07/2027");
+    expect(arrives.find('[data-testid="date-adjustment-info"]').exists()).toBe(true);
+    expect(
+      arrives
+        .findAll('[data-testid="date-adjustments"] > div')
+        .map((line) => line.findAll("span").map((s) => s.text().trim()))
+    ).toEqual([
+      ["Trip option: Arrive early", "2 days before"],
+      ["Add-on: Extra hotel night", "1 day before"],
+    ]);
+    expect(departs.text()).toContain("06/18/2027");
+
+    wrapper.unmount();
+  });
+
+  it("Flights page warns when flights differ from the plan", async () => {
+    const wrapper = await mountFlights();
+
+    const ana = cells(wrapper, "Ana");
+    expect(ana.arrives.find('[data-testid="date-flight-warning"]').exists()).toBe(true);
+    expect(ana.arrives.find('[data-testid="date-flight-mismatch"]').text()).toBe(
+      "Arrival flight lands 06/08/2027"
+    );
+    expect(ana.departs.find('[data-testid="date-flight-warning"]').exists()).toBe(false);
+
+    const ben = cells(wrapper, "Ben");
+    expect(ben.arrives.find('[data-testid="date-flight-warning"]').exists()).toBe(false);
+    expect(ben.departs.find('[data-testid="date-flight-warning"]').exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it("Flights page warns when airports differ from the request", async () => {
+    const wrapper = await mountFlights({
+      arrivalFlightOriginCode: "MIA",
+      returnFlightDestinationCode: "DFW",
+      flightPurchasePreferences: { departureAirportCode: "DFW", returnAirportCode: "DFW" },
+    });
+
+    const row = wrapper.findAll("tbody tr").find((tr) => tr.text().includes("Ana"));
+    const initial = row.find('[data-testid="flights-initial-departure"]');
+    expect(initial.find('[data-testid="airport-warning"]').exists()).toBe(true);
+    expect(initial.find('[data-testid="airport-warning-message"]').text()).toBe(
+      "Arrival flight departs from MIA, but DFW was requested."
+    );
+    const final = row.find('[data-testid="flights-final-arrival"]');
+    expect(final.find('[data-testid="airport-warning"]').exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+});

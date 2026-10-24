@@ -353,4 +353,54 @@ describe("Feature 78 — Days Before and After the Trip", () => {
 
     wrapper.unmount();
   });
+
+  /**
+   * Feature 79 — Planned Arrival and Departure on Flights
+   * Spec: features/feature-79-flights-planned-dates.md
+   */
+  it("View Trip warns when flights differ from the plan", async () => {
+    const roster = (await TripPeopleRoleServices.getAll()).data;
+    TripPeopleRoleServices.getAll.mockResolvedValue({
+      data: [
+        { ...roster[0], flightArrivalDate: "2026-06-08", flightDepartureDate: "2026-06-18" },
+        { ...roster[1], flightArrivalDate: null, flightDepartureDate: null },
+      ],
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: {
+        stubs: {
+          TripWorkerRolesCard: Stub,
+          VTooltip: { template: '<div class="tooltip-stub"><slot name="activator" :props="{}" /><slot /></div>' },
+        },
+      },
+    });
+    await flushPromises();
+
+    const headers = wrapper.findAll("th").map((th) => th.text().trim());
+    const arrivesIndex = headers.indexOf("Arrives");
+    const rowCells = (name) =>
+      wrapper
+        .findAll("tbody tr")
+        .find((tr) => tr.text().includes(name))
+        .findAll("td")
+        .slice(arrivesIndex, arrivesIndex + 2);
+    const [arrives, departs] = rowCells("Ana");
+    expect(arrives.find('[data-testid="date-flight-mismatch"]').text()).toBe("Arrival flight lands 06/08/2026");
+    expect(departs.find('[data-testid="date-flight-warning"]').exists()).toBe(false);
+    expect(rowCells("Ben").some((td) => td.find('[data-testid="date-flight-warning"]').exists())).toBe(false);
+
+    wrapper.unmount();
+  });
 });

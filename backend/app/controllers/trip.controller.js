@@ -42,6 +42,7 @@ import {
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import { amountOwed, participantCost, participantCostBreakdown } from "../utils/participantTotals.js";
+import { participantFlightDates, participantTravelDates } from "../utils/tripDays.js";
 import {
   arrivalPdfName,
   deleteArrivalPdf,
@@ -356,6 +357,8 @@ exports.findStatus = async (req, res) => {
         amountOwed: amountOwed(costBreakdown.totalTripCost, amountRaised),
         missingItems,
         selectedTravelOptionIds,
+        ...(await participantTravelDates(tripJson, json.id)),
+        ...(await participantFlightDates(json.id)),
       });
     }
 

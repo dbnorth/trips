@@ -8,6 +8,7 @@ import {
 import { flightPurchaseInclude } from "../utils/flightPurchaseFields.js";
 import { buildFlightsData, renderFlightsPdf } from "../utils/flightsPdf.js";
 import { sendPdf } from "../utils/pdf.js";
+import { flightDatesFromSegments, participantTravelDates } from "../utils/tripDays.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
@@ -121,6 +122,17 @@ const deriveItinerary = (segments) => {
   };
 };
 
+/** Departure airport of the first Arrival segment and arrival airport of the last Return segment. */
+const flightAirports = (segments) => {
+  const ordered = sortSegments(segments).map(toSegmentJson);
+  const arrival = ordered.filter((s) => (s.segmentType || "arrival") === "arrival");
+  const ret = ordered.filter((s) => s.segmentType === "return");
+  return {
+    arrivalFlightOriginCode: arrival[0]?.departureAirport?.code || null,
+    returnFlightDestinationCode: ret.at(-1)?.arrivalAirport?.code || null,
+  };
+};
+
 const serializeApplicationFlightPurchase = (json) => {
   const option = json.flightPurchaseOption || null;
   const preferences =
@@ -175,13 +187,14 @@ const serializeApplicationFlightPurchase = (json) => {
   };
 };
 
-const loadEligibleAssignment = async (tripId, tripPeopleRoleId) => {
+const loadEligibleAssignment = async (tripId, tripPeopleRoleId, include = []) => {
   return TripPeopleRole.findOne({
     where: {
       id: tripPeopleRoleId,
       tripId,
       status: { [Op.in]: ELIGIBLE_STATUSES },
     },
+    include,
   });
 };
 
@@ -255,13 +268,14 @@ exports.findFlights = async (req, res) => {
     const tripJson = trip.toJSON();
     const organizationName = tripJson.organization?.name || null;
 
-    const participants = assignments.map((row) => {
+    const participants = [];
+    for (const row of assignments) {
       const json = row.toJSON();
       const flight = json.flight || null;
       const segments = flight?.segments || [];
       const itinerary = deriveItinerary(segments);
       const purchase = serializeApplicationFlightPurchase(json);
-      return {
+      participants.push({
         tripPeopleRoleId: json.id,
         peopleId: json.peopleId,
         firstName: json.person?.firstName || "",
@@ -273,8 +287,11 @@ exports.findFlights = async (req, res) => {
         initialDeparture: itinerary.initialDeparture,
         finalArrival: itinerary.finalArrival,
         ...purchase,
-      };
-    });
+        ...(await participantTravelDates(trip, json.id)),
+        ...flightDatesFromSegments(segments),
+        ...flightAirports(segments),
+      });
+    }
 
     res.send({
       trip: {
@@ -380,7 +397,7 @@ exports.findSegments = async (req, res) => {
     const manage = await canManageSegments(req, tripId, tripPeopleRoleId);
     if (!manage.ok) return forbid(res, manage);
 
-    const assignment = await loadEligibleAssignment(tripId, tripPeopleRoleId);
+    const assignment = await loadEligibleAssignment(tripId, tripPeopleRoleId, flightPurchaseInclude);
     if (!assignment) {
       return res.status(404).send({ message: "Participant not found for this trip." });
     }
@@ -399,7 +416,7 @@ exports.findSegments = async (req, res) => {
     const segments = sortSegments(flight?.segments || []).map(serializeSegment);
 
     const trip = await Trip.findByPk(tripId, {
-      attributes: ["id"],
+      attributes: ["id", "startDate", "endDate"],
       include: [
         {
           model: db.organization,
@@ -409,11 +426,18 @@ exports.findSegments = async (req, res) => {
         },
       ],
     });
+    const { arrivalDate, departureDate } = await participantTravelDates(trip, tripPeopleRoleId);
+    const { flightPurchasePreferences, flightPurchasePreferencesText } =
+      serializeApplicationFlightPurchase(assignment.toJSON());
 
     res.send({
       tripPeopleRoleId,
       flightPurchaseOption: assignment.flightPurchaseOption || null,
       organizationName: trip?.organization?.name || null,
+      arrivalDate,
+      departureDate,
+      flightPurchasePreferences,
+      flightPurchasePreferencesText,
       segments,
     });
   } catch (err) {

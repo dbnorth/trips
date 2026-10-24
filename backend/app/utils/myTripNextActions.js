@@ -15,6 +15,7 @@ import { getApplicationMissingItemLabels, travelOptionsIncompleteMessage } from 
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "./organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "./pregnancyFields.js";
 import { amountOwed, participantTotals } from "./participantTotals.js";
+import { participantFlightDates, participantTravelDates } from "./tripDays.js";
 
 const todayDateOnly = () => {
   const now = new Date();
@@ -175,6 +176,26 @@ export const loadMyTripNextActions = async (assignment, trip, cache = {}) => {
 
   if (assignment.flightPurchaseOption === "self" && (await flightSegmentCount(assignment.id)) === 0) {
     actions.push({ code: "enter-flights" });
+  }
+
+  const { arrivalDate, departureDate } = await participantTravelDates(trip, assignment.id);
+  const { flightArrivalDate, flightDepartureDate } = await participantFlightDates(assignment.id);
+  const canEditFlights = assignment.flightPurchaseOption === "self";
+  if (arrivalDate && flightArrivalDate && arrivalDate !== flightArrivalDate) {
+    actions.push({
+      code: "arrival-flight-mismatch",
+      flightDate: flightArrivalDate,
+      plannedDate: arrivalDate,
+      canEditFlights,
+    });
+  }
+  if (departureDate && flightDepartureDate && departureDate !== flightDepartureDate) {
+    actions.push({
+      code: "return-flight-mismatch",
+      flightDate: flightDepartureDate,
+      plannedDate: departureDate,
+      canEditFlights,
+    });
   }
   return actions.length ? actions : [{ code: "all-ready" }];
 };

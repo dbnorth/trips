@@ -4,8 +4,10 @@ import { useRoute, useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import ExportServices from "../services/exportServices.js";
 import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
+import TripDateAdjustment from "../components/TripDateAdjustment.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { flightBookedByLabel } from "../utils/flightBookedBy.js";
+import { flightAirportWarnings } from "../utils/flightAirportWarnings.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -67,6 +69,11 @@ const applyPayload = (data) => {
       costInput: paysOwn ? "0" : p.cost != null ? String(p.cost) : "",
       comments: p.comments || "",
       purchased: !!p.purchased,
+      airportWarnings: flightAirportWarnings({
+        arrivalFlightOriginCode: p.arrivalFlightOriginCode,
+        returnFlightDestinationCode: p.returnFlightDestinationCode,
+        preferences: p.flightPurchaseOption === "organization" ? p.flightPurchasePreferences : null,
+      }),
     };
   });
 };
@@ -189,6 +196,8 @@ onMounted(load);
               <th>First name</th>
               <th>Last name</th>
               <th>Booked by</th>
+              <th>Arrives</th>
+              <th>Departs</th>
               <th>Cost</th>
               <th>Comments</th>
               <th>Initial departure</th>
@@ -209,6 +218,22 @@ onMounted(load);
                   {{ row.flightPurchasePreferencesText }}
                 </div>
               </td>
+              <td class="text-no-wrap" data-testid="flights-arrives">
+                <TripDateAdjustment
+                  :date="row.arrivalDate"
+                  :adjustments="row.arrivalAdjustments"
+                  :flight-date="row.flightArrivalDate"
+                  direction="before"
+                />
+              </td>
+              <td class="text-no-wrap" data-testid="flights-departs">
+                <TripDateAdjustment
+                  :date="row.departureDate"
+                  :adjustments="row.departureAdjustments"
+                  :flight-date="row.flightDepartureDate"
+                  direction="after"
+                />
+              </td>
               <td style="min-width: 110px">
                 <v-text-field
                   v-model="row.costInput"
@@ -227,8 +252,31 @@ onMounted(load);
                   variant="underlined"
                 />
               </td>
-              <td>{{ formatItineraryPart(row.initialDeparture) }}</td>
-              <td>{{ formatItineraryPart(row.finalArrival) }}</td>
+              <td
+                v-for="part in [
+                  { key: 'initial-departure', value: row.initialDeparture, warning: row.airportWarnings.arrival },
+                  { key: 'final-arrival', value: row.finalArrival, warning: row.airportWarnings.return },
+                ]"
+                :key="part.key"
+                :data-testid="`flights-${part.key}`"
+              >
+                <span class="d-inline-flex align-center ga-1">
+                  <span>{{ formatItineraryPart(part.value) }}</span>
+                  <v-tooltip v-if="part.warning" location="top">
+                    <template #activator="{ props: activator }">
+                      <v-icon
+                        v-bind="activator"
+                        icon="mdi-alert"
+                        color="warning"
+                        size="small"
+                        :aria-label="part.warning"
+                        data-testid="airport-warning"
+                      />
+                    </template>
+                    <span data-testid="airport-warning-message">{{ part.warning }}</span>
+                  </v-tooltip>
+                </span>
+              </td>
               <td class="text-no-wrap">
                 <v-btn
                   size="small"

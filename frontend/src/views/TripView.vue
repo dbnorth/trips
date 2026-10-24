@@ -487,10 +487,20 @@ onMounted(refresh);
       <template #item.roleName="{ item }">{{ item.roleName || "—" }}</template>
       <template #item.workerRoleName="{ item }">{{ item.workerRoleName || "—" }}</template>
       <template #item.arrivalDate="{ item }">
-        <TripDateAdjustment :date="item.arrivalDate" :adjustments="item.arrivalAdjustments" direction="before" />
+        <TripDateAdjustment
+          :date="item.arrivalDate"
+          :adjustments="item.arrivalAdjustments"
+          :flight-date="item.flightArrivalDate"
+          direction="before"
+        />
       </template>
       <template #item.departureDate="{ item }">
-        <TripDateAdjustment :date="item.departureDate" :adjustments="item.departureAdjustments" direction="after" />
+        <TripDateAdjustment
+          :date="item.departureDate"
+          :adjustments="item.departureAdjustments"
+          :flight-date="item.flightDepartureDate"
+          direction="after"
+        />
       </template>
       <template #item.participantCost="{ item }">{{ rowParticipantCost(item) }}</template>
       <template #item.totalTripCost="{ item }">
