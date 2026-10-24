@@ -14,7 +14,7 @@ Clarified with the requester:
 - A **Position Required** must match one of the trip's worker roles. Follow-up: "if trips roles don't match give a warning with a list of missing roles and don't import. Remove the adding of trip roles." A matching role's quantity is still raised to the number of rows with that position (requester's choice).
 - **App Received** "X" → **approved**; blank → **incomplete**.
 - The **Caregiver Waiting List** section is skipped; the **CANCELLATIONS** section is imported as **cancelled**.
-- Also imported: passport, allergies, emergency contact, roommate, and trip options (from Travel Notes and Flight Fee, FR-022–FR-025). Not imported: deposit, funds received, Trip Fee, flight text, name tag, specialty, insurance date.
+- Also imported: passport, allergies, emergency contact, roommate, and trip options (from Travel Notes and Flight Fee, FR-022–FR-025, and from Do you Have a Name Tag, Feature 83). Not imported: deposit, funds received, Trip Fee, flight text, the printed name tag, specialty, insurance date.
 - Org Admins, System Admins, and the trip's **Trip Leaders** can import.
 - Follow-up: "if the participant in the list creates an account in the future will it be linked to this person (email match)?" Today it isn't. **Create account** refuses any email that already belongs to a person (Feature 68), and **Forgot password?** only helps people who already have a login. The requester agreed to two changes:
   - The import stores emails trimmed and lower-cased.
@@ -59,7 +59,8 @@ The file has a title row, then a **two-row header**: each column's name is its f
 | **Travel Notes** | Trip options (`tripPeopleRoleOption`) | FR-023 |
 | **Flight Departure**, **Flight Arrival**, **Flight Confirmation**, **Departure City**, **Arrival City** | — | Ignored |
 | **Roommate** | `tripPeopleRole.hasPreferredRoommate`, `preferredRoommateNames` | Blank or "None" → not set |
-| **Do you Have a Name Tag**, **Name Tag** | — | Ignored |
+| **Do you Have a Name Tag** | The name tag trip option (`tripPeopleRoleOption`) | Feature 83 |
+| **Name Tag** | — | Ignored |
 | **Gender** | `person.gender` | Male / Female (any case) → `male` / `female`; otherwise not set |
 | **Address**, **City**, **State**, **Zip** | `person.addLine1`, `city`, `state_prov`, `postalCode` | Zip kept as text (leading zeros); `country` "US" when any address part is given |
 | **Emergency Contact** (Name, Address, Phone #) | `person.emergencyContactName`, `emergencyContactPhoneCountryCode`, `emergencyContactPhoneNumber` | FR-013 |
@@ -216,7 +217,7 @@ The file has a title row, then a **two-row header**: each column's name is its f
 **Trip options**
 
 - **FR-022**: The import selects trip options (Feature 6) on each row's application, from **Travel Notes** (FR-023) and **Flight Fee** (FR-024). As when applying, at most one option per **Trip Option N** set is selected. A set that already has a selected option on the application is left alone, so re-importing changes nothing and choices a participant made aren't overwritten. An option that would give the application a second selected option with days before (or after) the trip is not selected (Feature 78). The summary then says "Row N — Name: trip option "<description>" wasn't selected: <the Feature 78 message>".
-- **FR-023**: Words are compared ignoring case and accents ("Barcelo" = "Barceló"), and are split at anything that isn't a letter or digit. An option's **keywords** are the words of three or more characters in its description that appear in no other option description on the trip. "HTI" in "HTI Name Tag" and "HTI Purchase Flights", or "Arrive" in "Arrive Friday" and "Arrive Saturday", are therefore not keywords. A Travel Notes word of three or more characters matches a keyword that starts with it ("Fri" matches "Friday"). In each set, the option with the most matched keywords is selected. When several options tie, none in that set is selected, and the summary says "Row N — Name: travel notes "<notes>" match more than one option in Trip Option <N>." The flight options (FR-024) are never selected from Travel Notes.
+- **FR-023**: Words are compared ignoring case and accents ("Barcelo" = "Barceló"), and are split at anything that isn't a letter or digit. An option's **keywords** are the words of three or more characters in its description that appear in no other option description on the trip. "HTI" in "Need HTI Name Tag" and "HTI Purchase Flights", or "Arrive" in "Arrive Friday" and "Arrive Saturday", are therefore not keywords. A Travel Notes word of three or more characters matches a keyword that starts with it ("Fri" matches "Friday"). In each set, the option with the most matched keywords is selected. When several options tie, none in that set is selected, and the summary says "Row N — Name: travel notes "<notes>" match more than one option in Trip Option <N>." The flight options (FR-024) are never selected from Travel Notes.
 - **FR-024**: A **flight option** is a trip option with a word starting with "flight" or "air" in its description ("HTI Purchase Flights", "HTI arrange for air travel"). A **Flight Fee** above $0 selects the trip's first flight option (lowest set, then lowest id). A Flight Fee of $0, blank, or unread selects none. A trip without a flight option has none selected; FR-016 still applies.
 - **FR-025**: **Trip Fee** isn't imported. When the import selects options on an application, its **participant cost** becomes its current participant cost (or, when blank, the trip's participant cost) plus the price adjustments of the options the import selected. This matches applying, where the stored participant cost includes the selected options (Feature 6). An application with no options selected by the import keeps its participant cost, so a blank cost still shows the trip's cost.
 
@@ -228,7 +229,7 @@ The file has a title row, then a **two-row header**: each column's name is its f
 - Imported people have US addresses and phone numbers. Other countries can be fixed by hand afterwards.
 - The Trip Master file describes one trip. The trip's dates, cost, and travel options are not read from it.
 - Staff add the trip's options before importing, with descriptions whose words appear in the Travel Notes ("Arrive Friday - Barceló Bar" for "Fri Barceló"). The import never creates options.
-- Flight text and name tags have no place in our data and are ignored.
+- Flight text and the printed name tag have no place in our data and are ignored. Whether someone has a name tag selects the name tag option (Feature 83).
 
 ## Edge Cases
 
@@ -242,7 +243,7 @@ The file has a title row, then a **two-row header**: each column's name is its f
 - An invitation sent to Kris Smith, who shares Ana's email, goes to ana@example.org with Kris's name in the link, so creating the account from it links to Kris (FR-018, FR-020).
 - An invitation sent after the person has created an account links to sign-in (FR-019).
 - Travel Notes words that match no keyword, such as "Antigua" or "Room w/Alena Lowry", are ignored silently. Only ties are noted (FR-023).
-- A one-option set, such as "HTI Name Tag", is selected only when the notes match one of its keywords ("Tag"). "HTI" alone doesn't select it, because "HTI" is in other options too.
+- The name tag option is never selected from Travel Notes; the **Do you Have a Name Tag** column selects it (Feature 83).
 - A trip with no options selects none, and the import's participant costs stay blank (FR-025).
 - A participant who later edits their application can change the imported options as usual (Feature 7).
 
@@ -297,11 +298,11 @@ No schema change. Seed data only (FR-021):
 
 ## Acceptance Criteria (Gherkin)
 
-Background: Org Admin Omar runs "Hope Missions" with trip "Guatemala Clinic 2027", participant cost $950. The trip has the worker roles "General Surgeon" (quantity 1) and "RN Circulator" (quantity 2), and these trip options: Trip Option 1 "HTI Name Tag" ($0); Trip Option 2 "Arrive Friday - Barceló Bar" ($75) and "Arrive Saturday" ($0); Trip Option 3 "HTI Purchase Flights" ($40). A Passport document type exists. Ana Lopez (ana@example.org) already exists, with phone 6155550100 and no birth date. Trip Leader Tom leads the trip; Pat is a Trip Participant on another trip. The test file `trip-master-sample.csv` has the Trip Master layout: a title row, the two header rows, then these rows (spreadsheet rows 4–16):
+Background: Org Admin Omar runs "Hope Missions" with trip "Guatemala Clinic 2027", participant cost $950. The trip has the worker roles "General Surgeon" (quantity 1) and "RN Circulator" (quantity 2), and these trip options: Trip Option 1 "Need HTI Name Tag" ($0); Trip Option 2 "Arrive Friday - Barceló Bar" ($75) and "Arrive Saturday" ($0); Trip Option 3 "HTI Purchase Flights" ($40). A Passport document type exists. Ana Lopez (ana@example.org) already exists, with phone 6155550100 and no birth date. Trip Leader Tom leads the trip; Pat is a Trip Participant on another trip. The test file `trip-master-sample.csv` has the Trip Master layout: a title row, the two header rows, then these rows (spreadsheet rows 4–16):
 - Main section (rows 4–9, then "Total" on row 10 and two blank rows):
-  - General Surgeon #1: Lyle Lowry, X, lyle@example.org, born 8/7/65, phone (937)570-1507, Male, 1940 Barnhart Road, Troy, OH, 45373; emergency contact "Nathan Lowry (937)570-6904"; allergies Amoxicillin; church "Mid-County church of Christ"; passport 581459085, expiring 2/21/29; roommate "Alena Lowry"; Travel Notes "HTI - Fri Barceló - Antigua"; Trip Fee $1,175.00; Flight Fee $40.00.
+  - General Surgeon #1: Lyle Lowry, X, lyle@example.org, born 8/7/65, phone (937)570-1507, Male, 1940 Barnhart Road, Troy, OH, 45373; emergency contact "Nathan Lowry (937)570-6904"; allergies Amoxicillin; church "Mid-County church of Christ"; passport 581459085, expiring 2/21/29; roommate "Alena Lowry"; Do you Have a Name Tag "Yes"; Travel Notes "HTI - Fri Barceló - Antigua"; Trip Fee $1,175.00; Flight Fee $40.00.
   - General Surgeon #2: an empty slot.
-  - RN Circulator #3: Ana Lopez, X, ana@example.org, born 1/21/76, phone (406)224-3273, allergies None; Travel Notes "SP - Sat - Antigua"; Flight Fee $0.00.
+  - RN Circulator #3: Ana Lopez, X, ana@example.org, born 1/21/76, phone (406)224-3273, allergies None; Do you Have a Name Tag "No"; Travel Notes "SP - Sat - Antigua"; Flight Fee $0.00.
   - RN Circulator #4: Kris Smith, blank App Received, ana@example.org (shared email).
   - RN Circulator #5: an empty slot.
   - Team Leader: Rick Harper, no email.
@@ -419,14 +420,13 @@ Background: Org Admin Omar runs "Hope Missions" with trip "Guatemala Clinic 2027
 #### Scenario: Travel Notes and Flight Fee select trip options
 * **When** Omar imports the file
 * **Then** Lyle's application has "Arrive Friday - Barceló Bar" and "HTI Purchase Flights" selected, participant cost 1065, and its flight booked by the organization, with no flight cost saved
-* **And** Ana's application has "Arrive Saturday" selected and participant cost 950
-* **And** Andrea's and Kris's applications have no option selected and a blank participant cost
-* **And** nobody has "HTI Name Tag" selected
+* **And** Ana's application has "Need HTI Name Tag" and "Arrive Saturday" selected and participant cost 950
+* **And** Andrea's and Kris's applications have only "Need HTI Name Tag" selected (Feature 83) and participant cost 950
 
 #### Scenario: Options already chosen are kept
 * **Given** Ana Lopez already applied to the trip with "Arrive Friday - Barceló Bar" selected and participant cost 1025
 * **When** Omar imports the file
-* **Then** Ana's application still has only "Arrive Friday - Barceló Bar" selected, and her participant cost is still 1025
+* **Then** "Arrive Friday - Barceló Bar" is still Ana's only Trip Option 2 choice, she also has "Need HTI Name Tag" (Feature 83), and her participant cost is still 1025
 
 ---
 
@@ -487,7 +487,7 @@ Update features/reference (api, behavior).
 
 - A preview before importing
 - Deposits and funds received as donations
-- Flight segments from the flight text, name tags, specialties, and insurance dates
+- Flight segments from the flight text, the printed name tag, specialties, and insurance dates
 - Creating trip options from Travel Notes, or reading the Trip Fee
 - Creating worker roles or adding them to the trip (staff set up the trip's roles first, FR-006)
 - Creating user accounts or sending emails during the import (people create their own accounts, FR-018; staff send the invitation themselves, FR-021)

@@ -11,6 +11,7 @@ import { daysLimitMessage, TRIP_OPTION_DAYS_MESSAGES } from "../utils/tripDays.j
 import {
   chooseNoteOptions,
   isFlightOption,
+  isNameTagOption,
   normalizeText,
   parseAllergies,
   parseEmergencyContact,
@@ -141,11 +142,18 @@ const prepareWorkerRoles = async (trip, rows, transaction) => {
 
 const setOf = (option) => (Number(option.setNumber) > 0 ? Number(option.setNumber) : 1);
 
-/** Options the Travel Notes and Flight Fee pick, in sets the application hasn't answered; returns those selected. */
+/** A row needs a name tag unless it answered "Yes"; a file without the column says nothing. */
+const needsNameTag = (row) => row.hasNameTag !== undefined && !["yes", "y"].includes(normalizeText(row.hasNameTag));
+
+/**
+ * Options the Travel Notes, Flight Fee, and name tag answer pick, in sets the application hasn't
+ * answered; returns those selected.
+ */
 const selectTripOptions = async (assignment, row, flightFee, notes, travelOptions, transaction) => {
   const { chosen, tiedSets } = chooseNoteOptions(row.travelNotes, travelOptions);
   const flightOption = flightFee > 0 ? travelOptions.find(isFlightOption) : null;
-  const candidates = flightOption ? [...chosen, flightOption] : chosen;
+  const nameTagOption = needsNameTag(row) ? travelOptions.find(isNameTagOption) : null;
+  const candidates = [...chosen, flightOption, nameTagOption].filter(Boolean);
   if (!candidates.length && !tiedSets.length) return [];
 
   const rows = await db.tripPeopleRoleOption.findAll({ where: { tripPeopleRoleId: assignment.id }, transaction });
