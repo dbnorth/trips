@@ -229,7 +229,8 @@ describe("Feature 46 — Email Trip Team", () => {
       emailBody: "Hi {{PARTICIPANT_FIRST_NAME}}",
       sendTo: "potential",
     });
-    expect(wrapper.text()).toContain("2 sent, 0 skipped, 0 failed.");
+    expect(wrapper.text()).toContain("Emails sent");
+    expect(wrapper.text()).toContain("2 of 2 emails sent");
 
     wrapper.unmount();
   });

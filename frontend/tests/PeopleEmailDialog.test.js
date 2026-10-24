@@ -162,7 +162,8 @@ describe("Feature 62 — Email People", () => {
       tripIds: "all",
       workerRoleIds: "all",
     });
-    expect(wrapper.text()).toContain("Sent 3, skipped 0, failed 0");
+    expect(wrapper.text()).toContain("Emails sent");
+    expect(wrapper.text()).toContain("3 of 3 emails sent");
 
     wrapper.unmount();
   });
