@@ -495,3 +495,128 @@ describe("Feature 79 — Planned Arrival and Departure on Flights", () => {
     wrapper.unmount();
   });
 });
+
+/**
+ * Feature 82 — Trip Status Missing Items Icon
+ * Spec: features/feature-82-trip-status-missing-items-icon.md
+ */
+describe("Feature 82 — Trip Status Missing Items Icon", () => {
+  const adaMissing = [
+    "Profile is not complete",
+    "Participant agreement",
+    "Required role document(s): RN License",
+  ];
+
+  const mountBoard = async (options = {}) => {
+    TripServices.getStatus.mockResolvedValue({
+      data: {
+        trip: { id: 42, name: "Status Demo Trip", organizationName: "Hope Mission", status: "active" },
+        rolesNeeded: [
+          { id: 1, workerRoleName: "RN", quantity: 1, signedUpCount: 1, reservedCount: 0, availableCount: 0 },
+          { id: 2, workerRoleName: "Doctor", quantity: 2, signedUpCount: 0, reservedCount: 0, availableCount: 2 },
+        ],
+        travelOptions: [],
+        participants: [
+          { id: 1, peopleId: 1, displayName: "Ada Applicant", status: "incomplete", missingItems: adaMissing, selectedTravelOptionIds: [] },
+          { id: 2, peopleId: 2, displayName: "Ben Approved", status: "approved", missingItems: [], selectedTravelOptionIds: [] },
+        ],
+      },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId/status", name: "tripStatus", component: TripStatusView, props: true },
+        { path: "/home", name: "home", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripStatus", params: { tripId: "42" } });
+    await router.isReady();
+    const { wrapper } = await mountWithPlugins(TripStatusView, { props: { tripId: "42" }, router, ...options });
+    await flushPromises();
+    return wrapper;
+  };
+
+  const missingCell = (wrapper, name) => {
+    const table = wrapper.findAll("table").at(-1);
+    const headers = table.findAll("th").map((th) => th.text().trim());
+    const row = table.findAll("tbody tr").find((tr) => tr.text().includes(name));
+    return row.findAll("td")[headers.indexOf("Missing items")];
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+  });
+
+  describe("US-82.1 — See missing items from an alert icon", () => {
+    it("Missing items show as a red alert icon", async () => {
+      const wrapper = await mountBoard();
+
+      const ada = missingCell(wrapper, "Ada Applicant");
+      const icon = ada.find('[data-testid="missing-items-icon"]');
+      expect(icon.classes()).toContain("mdi-alert-circle");
+      expect(icon.classes()).toContain("text-error");
+      expect(icon.attributes("tabindex")).toBe("0");
+      expect(icon.attributes("aria-hidden")).toBe("false");
+      expect(icon.attributes("aria-label")).toBe(
+        "Missing items: Profile is not complete; Participant agreement; Required role document(s): RN License"
+      );
+      for (const missing of adaMissing) expect(ada.text()).not.toContain(missing);
+
+      const ben = missingCell(wrapper, "Ben Approved");
+      expect(ben.text()).toBe("—");
+      expect(ben.find('[data-testid="missing-items-icon"]').exists()).toBe(false);
+
+      wrapper.unmount();
+    });
+
+    it("Hovering the icon lists the missing items in red", async () => {
+      const wrapper = await mountBoard({ attachTo: document.body });
+      const list = () => document.querySelector('[data-testid="missing-items-list"]');
+      const icon = missingCell(wrapper, "Ada Applicant").find('[data-testid="missing-items-icon"]');
+
+      await icon.trigger("mouseenter");
+      await vi.waitFor(() => expect(list()).toBeTruthy());
+      const content = document.querySelector(".v-tooltip .v-overlay__content");
+      expect(content.textContent).toContain("Missing items");
+      expect([...list().querySelectorAll("li")].map((li) => li.textContent.trim())).toEqual(adaMissing);
+      expect(list().classList).toContain("text-error");
+      expect(content.classList).toContain("bg-surface");
+      expect(content.classList).toContain("border");
+
+      const openStates = () =>
+        (wrapper.findComponent({ name: "VTooltip" }).emitted("update:modelValue") || []).map(([open]) => open);
+      await icon.trigger("mouseleave");
+      await vi.waitFor(() => expect(openStates()).toEqual([true, false]));
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      icon.element.focus();
+      await vi.waitFor(() => expect(openStates()).toEqual([true, false, true]));
+
+      wrapper.unmount();
+    });
+  });
+
+  describe("US-82.2 — See which roles are filled at a glance", () => {
+    it("Roles show a filled or open icon", async () => {
+      const wrapper = await mountBoard();
+
+      const rolesTable = wrapper.findAll("table")[0];
+      const headers = rolesTable.findAll("th").map((th) => th.text().trim());
+      expect(headers.slice(-2)).toEqual(["Available", "Filled"]);
+      const roleIcon = (name) =>
+        rolesTable
+          .findAll("tbody tr")
+          .find((tr) => tr.text().includes(name))
+          .find('[data-testid="role-filled-icon"]');
+
+      const rn = roleIcon("RN");
+      expect(rn.classes()).toEqual(expect.arrayContaining(["mdi-check-circle", "text-success"]));
+      expect(rn.attributes("aria-label")).toBe("All positions filled");
+      const doctor = roleIcon("Doctor");
+      expect(doctor.classes()).toEqual(expect.arrayContaining(["mdi-alert-circle", "text-error"]));
+      expect(doctor.attributes("aria-label")).toBe("2 positions open");
+
+      wrapper.unmount();
+    });
+  });
+});
