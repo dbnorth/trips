@@ -4,6 +4,7 @@ import WorkerRoleServices from "../services/workerRoleServices.js";
 import WorkerRoleFormDialog from "../components/WorkerRoleFormDialog.vue";
 import Utils from "../config/utils.js";
 import { activeRequiredSpecializations } from "../utils/tripApplicationForm.js";
+import RowAction from "../components/RowAction.vue";
 
 const roles = ref([]);
 const user = ref(null);
@@ -145,7 +146,7 @@ onUnmounted(() => {
       <template #item.requiredDocuments="{ item }">{{ requiredDocumentsLabel(item) }}</template>
       <template #item.status="{ item }">{{ item.status === "active" ? "Active" : "Inactive" }}</template>
       <template #item.actions="{ item }">
-        <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
+        <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
       </template>
     </v-data-table>
 

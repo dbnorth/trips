@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import OrganizationServices from "../services/organizationServices.js";
 import AddOrganizationDialog from "../components/AddOrganizationDialog.vue";
 import EditOrganizationDialog from "../components/EditOrganizationDialog.vue";
+import RowAction from "../components/RowAction.vue";
 
 const organizations = ref([]);
 const message = ref("");
@@ -56,7 +57,7 @@ onMounted(load);
       density="compact"
     >
       <template #item.actions="{ item }">
-        <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
+        <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
       </template>
     </v-data-table>
 

@@ -7,6 +7,7 @@ import AddPersonDialog from "../components/AddPersonDialog.vue";
 import EditPersonDialog from "../components/EditPersonDialog.vue";
 import PeopleEmailDialog from "../components/PeopleEmailDialog.vue";
 import Utils from "../config/utils.js";
+import RowAction from "../components/RowAction.vue";
 
 const people = ref([]);
 const trips = ref([]);
@@ -213,7 +214,7 @@ onUnmounted(() => {
     >
       <template #item.name="{ item }">{{ item.firstName }} {{ item.lastName }}</template>
       <template #item.actions="{ item }">
-        <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
+        <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
       </template>
     </v-data-table>
 

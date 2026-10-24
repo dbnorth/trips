@@ -204,7 +204,7 @@ describe("Feature 28 — View Trip Status", () => {
     });
     await flushPromises();
 
-    const statusBtn = wrapper.findAll("button").find((b) => b.text().trim() === "Status");
+    const statusBtn = wrapper.find('button[aria-label="Status"]');
     expect(statusBtn).toBeTruthy();
 
     await statusBtn.trigger("click");

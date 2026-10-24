@@ -8,6 +8,7 @@ import TripDateAdjustment from "../components/TripDateAdjustment.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { flightBookedByLabel } from "../utils/flightBookedBy.js";
 import { flightAirportWarnings } from "../utils/flightAirportWarnings.js";
+import RowAction from "../components/RowAction.vue";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -278,17 +279,15 @@ onMounted(load);
                 </span>
               </td>
               <td class="text-no-wrap">
-                <v-btn
-                  size="small"
-                  variant="text"
-                  :loading="savingId === row.tripPeopleRoleId"
-                  @click="saveRow(row)"
-                >
-                  Save
-                </v-btn>
-                <v-btn size="small" variant="text" @click="openSegments(row)">
-                  Flight segments
-                </v-btn>
+                <div class="d-flex flex-nowrap ga-1">
+                  <RowAction
+                    icon="mdi-content-save"
+                    label="Save"
+                    :loading="savingId === row.tripPeopleRoleId"
+                    @click="saveRow(row)"
+                  />
+                  <RowAction icon="mdi-airplane-edit" label="Flight segments" @click="openSegments(row)" />
+                </div>
               </td>
             </tr>
           </tbody>

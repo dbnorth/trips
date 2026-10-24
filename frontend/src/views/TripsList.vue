@@ -10,6 +10,7 @@ import ImportTripMasterDialog from "../components/ImportTripMasterDialog.vue";
 import Utils from "../config/utils.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { donorTripPath } from "../utils/donateUrls.js";
+import RowAction from "../components/RowAction.vue";
 
 const router = useRouter();
 const trips = ref([]);
@@ -187,12 +188,14 @@ onUnmounted(() => {
         <a :href="donorLink(item)" target="_blank">Donate</a>
       </template>
       <template #item.actions="{ item }">
-        <v-btn size="small" variant="text" @click="openView(item)">View</v-btn>
-        <v-btn size="small" variant="text" @click="openStatus(item)">Status</v-btn>
-        <v-btn size="small" variant="text" @click="openRooming(item)">Room list</v-btn>
-        <v-btn size="small" variant="text" @click="openFlights(item)">Flights</v-btn>
-        <v-btn v-if="canImport(item)" size="small" variant="text" @click="openImport(item)">Import</v-btn>
-        <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
+        <div class="d-flex flex-nowrap ga-1">
+          <RowAction icon="mdi-eye" label="View" @click="openView(item)" />
+          <RowAction icon="mdi-clipboard-check-outline" label="Status" @click="openStatus(item)" />
+          <RowAction icon="mdi-bed" label="Room list" @click="openRooming(item)" />
+          <RowAction icon="mdi-airplane" label="Flights" @click="openFlights(item)" />
+          <RowAction v-if="canImport(item)" icon="mdi-file-import" label="Import" @click="openImport(item)" />
+          <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
+        </div>
       </template>
     </v-data-table>
 

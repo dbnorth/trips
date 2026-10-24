@@ -4,6 +4,7 @@ import TripWorkerRoleServices from "../services/tripWorkerRoleServices.js";
 import WorkerRoleServices from "../services/workerRoleServices.js";
 import RoleReservationsDialog from "./RoleReservationsDialog.vue";
 import { parseEmailList, tooManyReservedEmailsError } from "../utils/emailList.js";
+import RowAction from "./RowAction.vue";
 
 const props = defineProps({
   tripId: { type: [Number, String], required: true },
@@ -225,8 +226,10 @@ onMounted(() => {
           <td>{{ row.signedUpCount ?? 0 }}</td>
           <td>{{ row.reservedCount ?? 0 }}</td>
           <td class="text-no-wrap">
-            <v-btn size="small" variant="text" @click="openReservations(row)">Reserved emails</v-btn>
-            <v-btn size="small" variant="text" color="error" @click="remove(row)">Remove</v-btn>
+            <div class="d-flex flex-nowrap ga-1">
+              <RowAction icon="mdi-email-lock" label="Reserved emails" @click="openReservations(row)" />
+              <RowAction icon="mdi-minus-circle-outline" label="Remove" color="error" @click="remove(row)" />
+            </div>
           </td>
         </tr>
       </tbody>

@@ -22,6 +22,7 @@ import {
 import { tripParticipantStatusLabel, tripParticipantStatusColor } from "../utils/tripParticipantStatus.js";
 import { orgPublicRoute } from "../utils/donateUrls.js";
 import { useRouter } from "vue-router";
+import RowAction from "../components/RowAction.vue";
 
 const router = useRouter();
 const user = ref(null);
@@ -888,12 +889,12 @@ onUnmounted(() => {
                 <td>{{ formatDate(item.endDate) }}</td>
                 <td>{{ item.status || "—" }}</td>
                 <td class="text-right">
-                  <div class="d-flex justify-end ga-1 flex-wrap">
-                    <v-btn size="small" variant="tonal" @click="openOrgTrip(item)">View</v-btn>
-                    <v-btn size="small" variant="text" @click="openOrgTripStatus(item)">Status</v-btn>
-                    <v-btn size="small" variant="text" @click="openOrgTripRooming(item)">Room list</v-btn>
-                    <v-btn size="small" variant="text" @click="openOrgTripFlights(item)">Flights</v-btn>
-                    <v-btn size="small" variant="text" @click="openEditOrgTrip(item)">Edit</v-btn>
+                  <div class="d-flex justify-end ga-1 flex-nowrap">
+                    <RowAction icon="mdi-eye" label="View" @click="openOrgTrip(item)" />
+                    <RowAction icon="mdi-clipboard-check-outline" label="Status" @click="openOrgTripStatus(item)" />
+                    <RowAction icon="mdi-bed" label="Room list" @click="openOrgTripRooming(item)" />
+                    <RowAction icon="mdi-airplane" label="Flights" @click="openOrgTripFlights(item)" />
+                    <RowAction icon="mdi-pencil" label="Edit" @click="openEditOrgTrip(item)" />
                   </div>
                 </td>
               </tr>

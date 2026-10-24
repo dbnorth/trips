@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import EmailTemplateServices from "../services/emailTemplateServices.js";
 import EmailTemplateFormDialog from "../components/EmailTemplateFormDialog.vue";
 import Utils from "../config/utils.js";
+import RowAction from "../components/RowAction.vue";
 
 const templates = ref([]);
 const user = ref(null);
@@ -244,7 +245,7 @@ onUnmounted(() => {
       <template #item.trip="{ item }">{{ tripLabel(item) }}</template>
       <template #item.fromEmail="{ item }">{{ item.fromEmail || "—" }}</template>
       <template #item.actions="{ item }">
-        <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
+        <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
       </template>
     </v-data-table>
 

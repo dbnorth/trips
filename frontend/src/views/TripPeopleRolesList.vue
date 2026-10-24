@@ -12,6 +12,7 @@ import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { countryName } from "../utils/locationData.js";
 import { donorTripPath } from "../utils/donateUrls.js";
 import { tripParticipantStatusLabel } from "../utils/tripParticipantStatus.js";
+import RowAction from "../components/RowAction.vue";
 
 const route = useRoute();
 const user = ref(null);
@@ -292,8 +293,10 @@ onUnmounted(() => {
       <template #item.donationTotal="{ item }">{{ formatDonationTotal(item) }}</template>
       <template #item.whygoText="{ item }">{{ item.whygoText || "—" }}</template>
       <template #item.actions="{ item }">
-        <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
-        <v-btn size="small" variant="text" @click="openDonations(item)">View donations</v-btn>
+        <div class="d-flex flex-nowrap ga-1">
+          <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
+          <RowAction icon="mdi-hand-heart" label="View donations" @click="openDonations(item)" />
+        </div>
       </template>
     </v-data-table>
 

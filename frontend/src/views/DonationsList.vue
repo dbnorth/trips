@@ -8,6 +8,7 @@ import DonationFormDialog from "../components/DonationFormDialog.vue";
 import Utils from "../config/utils.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { formatDonorName } from "../utils/donorUtils.js";
+import RowAction from "../components/RowAction.vue";
 
 const user = ref(null);
 const trips = ref([]);
@@ -210,7 +211,7 @@ onUnmounted(() => {
       <template #item.amount="{ item }">{{ formatAmount(item.amount) }}</template>
       <template #item.participant="{ item }">{{ participantName(item) }}</template>
       <template #item.actions="{ item }">
-        <v-btn v-if="isStaffForSelectedTrip" size="small" variant="text" @click="openEditDonation(item)">Edit</v-btn>
+        <RowAction v-if="isStaffForSelectedTrip" icon="mdi-pencil" label="Edit" @click="openEditDonation(item)" />
       </template>
     </v-data-table>
 

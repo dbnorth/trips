@@ -22,6 +22,7 @@ import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { countryName } from "../utils/locationData.js";
 import { donorTripPath, donorParticipantPath } from "../utils/donateUrls.js";
 import PersonServices from "../services/personServices.js";
+import RowAction from "../components/RowAction.vue";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -176,9 +177,11 @@ const openViewProfile = (row) => {
 
 const applicationAction = (row) => {
   const status = String(row?.status || "").toLowerCase();
-  if (status === "approved" || status === "cancelled") return { label: "View App", mode: "view" };
-  if (status === "applied") return { label: "Approve App", mode: "approve" };
-  return { label: "Preview App", mode: "preview" };
+  if (status === "approved" || status === "cancelled") {
+    return { label: "View App", mode: "view", icon: "mdi-file-document-outline" };
+  }
+  if (status === "applied") return { label: "Approve App", mode: "approve", icon: "mdi-file-check-outline" };
+  return { label: "Preview App", mode: "preview", icon: "mdi-file-eye-outline" };
 };
 
 const openApplication = (row) => {
@@ -508,48 +511,44 @@ onMounted(refresh);
       </template>
       <template #item.donationTotal="{ item }">{{ formatDonationTotal(item) }}</template>
       <template #item.actions="{ item }">
-        <v-btn size="small" variant="text" @click="openApplication(item)">
-          {{ applicationAction(item).label }}
-        </v-btn>
-        <v-btn
-          v-if="canCancelParticipant(item)"
-          size="small"
-          variant="text"
-          color="error"
-          @click="requestCancelParticipant(item)"
-        >
-          Cancel
-        </v-btn>
-        <v-btn
-          v-if="canUncancelParticipant(item)"
-          size="small"
-          variant="text"
-          color="primary"
-          @click="requestUncancelParticipant(item)"
-        >
-          Uncancel
-        </v-btn>
-        <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
-        <v-btn size="small" variant="text" @click="openDonations(item)">View donations</v-btn>
-        <v-btn
-          size="small"
-          variant="text"
-          :disabled="!item.person?.id"
-          :loading="downloadingDocumentsId === item.id"
-          @click="downloadDocumentsPdf(item)"
-        >
-          Documents PDF
-        </v-btn>
-        <v-btn
-          v-if="participantDonorLink(item)"
-          size="small"
-          variant="text"
-          :href="participantDonorLink(item)"
-          target="_blank"
-          rel="noopener"
-        >
-          Donate page
-        </v-btn>
+        <div class="d-flex flex-nowrap ga-1">
+          <RowAction
+            :icon="applicationAction(item).icon"
+            :label="applicationAction(item).label"
+            @click="openApplication(item)"
+          />
+          <RowAction
+            v-if="canCancelParticipant(item)"
+            icon="mdi-cancel"
+            label="Cancel"
+            color="error"
+            @click="requestCancelParticipant(item)"
+          />
+          <RowAction
+            v-if="canUncancelParticipant(item)"
+            icon="mdi-restore"
+            label="Uncancel"
+            color="primary"
+            @click="requestUncancelParticipant(item)"
+          />
+          <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
+          <RowAction icon="mdi-hand-heart" label="View donations" @click="openDonations(item)" />
+          <RowAction
+            icon="mdi-file-pdf-box"
+            label="Documents PDF"
+            :disabled="!item.person?.id"
+            :loading="downloadingDocumentsId === item.id"
+            @click="downloadDocumentsPdf(item)"
+          />
+          <RowAction
+            v-if="participantDonorLink(item)"
+            icon="mdi-open-in-new"
+            label="Donate page"
+            :href="participantDonorLink(item)"
+            target="_blank"
+            rel="noopener"
+          />
+        </div>
       </template>
     </v-data-table>
 

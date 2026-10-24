@@ -141,7 +141,7 @@ describe("Feature 58 — Participant Documents PDF", () => {
     });
     await flushPromises();
 
-    const button = wrapper.findAll("button").find((b) => b.text().trim() === "Documents PDF");
+    const button = wrapper.find('button[aria-label="Documents PDF"]');
     expect(button).toBeTruthy();
     await button.trigger("click");
     await flushPromises();
