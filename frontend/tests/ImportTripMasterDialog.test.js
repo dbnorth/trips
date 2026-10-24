@@ -77,7 +77,7 @@ describe("Feature 80 — Import Trip Master CSV", () => {
       const { wrapper } = await mountWithPlugins(TripsList, { global: { stubs: { VDialog: dialogStub } } });
       await flushPromises();
 
-      await buttonNamed(wrapper, "Import").trigger("click");
+      await wrapper.find('button[aria-label="Import"]').trigger("click");
       await flushPromises();
       const dialog = wrapper.findComponent(ImportTripMasterDialog);
       expect(dialog.text()).toContain("Import Trip Master CSV");

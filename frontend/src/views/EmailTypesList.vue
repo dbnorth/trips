@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import EmailTypeServices from "../services/emailTypeServices.js";
 import EmailTypeFormDialog from "../components/EmailTypeFormDialog.vue";
 import Utils from "../config/utils.js";
+import RowAction from "../components/RowAction.vue";
 
 const rows = ref([]);
 const user = ref(null);
@@ -102,8 +103,10 @@ onUnmounted(() => {
       density="compact"
     >
       <template #item.actions="{ item }">
-        <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
-        <v-btn size="small" variant="text" color="error" @click="remove(item)">Delete</v-btn>
+        <div class="d-flex flex-nowrap ga-1">
+          <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
+          <RowAction icon="mdi-delete" label="Delete" color="error" @click="remove(item)" />
+        </div>
       </template>
     </v-data-table>
 

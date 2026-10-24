@@ -149,7 +149,7 @@ describe("Feature 30 — Participant Flights", () => {
     });
     await flushPromises();
 
-    const btn = wrapper.findAll("button").find((b) => b.text().trim() === "Flights");
+    const btn = wrapper.find('button[aria-label="Flights"]');
     expect(btn).toBeTruthy();
     await btn.trigger("click");
     await flushPromises();
@@ -184,10 +184,8 @@ describe("Feature 30 — Participant Flights", () => {
     });
     await flushPromises();
 
-    const segBtn = wrapper
-      .findAll("button")
-      .find((b) => b.text().trim() === "Flight segments");
-    expect(segBtn).toBeTruthy();
+    const segBtn = wrapper.find('button[aria-label="Flight segments"]');
+    expect(segBtn.exists()).toBe(true);
     await segBtn.trigger("click");
     await flushPromises();
 

@@ -57,7 +57,8 @@ const mountDonations = async (user, trips) => {
   return wrapper;
 };
 
-const buttonLabels = (wrapper) => wrapper.findAll("button").map((b) => b.text());
+const buttonLabels = (wrapper) =>
+  wrapper.findAll("button").map((b) => b.attributes("aria-label") || b.text());
 
 describe("Feature 69 — Participant CSV, Roster, and Single Application Are Staff Only", () => {
   beforeEach(() => {

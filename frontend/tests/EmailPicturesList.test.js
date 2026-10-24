@@ -75,7 +75,7 @@ describe("Feature 77 — HTML Email Pictures", () => {
     expect(clinicCard.find("img").attributes("src")).toBe(`http://localhost:3200/trips/${CLINIC.url}`);
     expect(wrapper.find(`[data-testid="picture-${BANNER.id}"]`).text()).toContain("1.5 MB");
 
-    await button(wrapper, "Rename", clinicCard).trigger("click");
+    await clinicCard.find('button[aria-label="Rename"]').trigger("click");
     const nameField = wrapper.findAllComponents({ name: "VTextField" }).find((c) => c.props("label") === "Name");
     nameField.vm.$emit("update:modelValue", "Clinic staff");
     await flushPromises();
@@ -84,7 +84,7 @@ describe("Feature 77 — HTML Email Pictures", () => {
     expect(EmailPictureServices.rename).toHaveBeenCalledWith(CLINIC.id, "Clinic staff");
 
     const bannerCard = wrapper.find(`[data-testid="picture-${BANNER.id}"]`);
-    await button(wrapper, "Delete", bannerCard).trigger("click");
+    await bannerCard.find('button[aria-label="Delete"]').trigger("click");
     expect(wrapper.text()).toContain("Delete this picture?");
     const confirmButton = wrapper
       .findAll("button")

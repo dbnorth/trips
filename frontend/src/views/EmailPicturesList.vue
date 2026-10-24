@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import EmailPictureServices from "../services/emailPictureServices.js";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import Utils from "../config/utils.js";
+import RowAction from "../components/RowAction.vue";
 
 const pictures = ref([]);
 const user = ref(null);
@@ -186,8 +187,8 @@ onUnmounted(() => {
             <div class="text-caption text-medium-emphasis">{{ sizeLabel(picture.sizeBytes) }}</div>
           </v-card-text>
           <v-card-actions>
-            <v-btn size="small" variant="text" @click="openRename(picture)">Rename</v-btn>
-            <v-btn size="small" variant="text" color="error" @click="deleting = picture">Delete</v-btn>
+            <RowAction icon="mdi-rename-box" label="Rename" @click="openRename(picture)" />
+            <RowAction icon="mdi-delete" label="Delete" color="error" @click="deleting = picture" />
           </v-card-actions>
         </v-card>
       </div>
