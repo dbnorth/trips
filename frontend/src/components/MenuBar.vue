@@ -271,6 +271,7 @@ onMounted(() => {
     </v-btn>
     <v-app-bar-title>{{ orgName }}</v-app-bar-title>
     <v-btn variant="text" :to="{ name: 'home' }">Dashboard</v-btn>
+    <template v-if="!Utils.isAgentUser(user)">
       <v-btn v-if="showProfileNav" variant="text" @click="openProfile">Profile</v-btn>
       <v-btn v-if="user.isAdmin || showOrgAdminNav" variant="text" :to="{ name: 'people' }">People</v-btn>
       <v-btn v-if="user.isAdmin" variant="text" :to="{ name: 'organizations' }">Organizations</v-btn>
@@ -283,8 +284,10 @@ onMounted(() => {
       <v-btn v-if="isTripLeaderOnly" variant="text" :to="{ name: 'tripPeople' }">Trips</v-btn>
       <v-btn v-if="showOrgAdminNav || showTripLeaderNav || showParticipantNav" variant="text" :to="{ name: 'donations' }">Donations</v-btn>
       <v-btn v-if="user.isAdmin || showOrgAdminNav || showTripLeaderNav" variant="text" :to="{ name: 'templates' }">Templates</v-btn>
+      <v-btn v-if="user.isAdmin || showOrgAdminNav" variant="text" :to="{ name: 'emailPictures' }">Pictures</v-btn>
       <v-btn v-if="user.isAdmin || showOrgAdminNav" variant="text" :to="{ name: 'workerRoles' }">Worker roles</v-btn>
       <v-btn v-if="user.isAdmin || showOrgAdminNav" variant="text" :to="{ name: 'medicalConditions' }">Medical conditions</v-btn>
+    </template>
 
       <v-select
         v-if="showUserOrgSelector && userOrgItems.length > 1"

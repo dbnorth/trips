@@ -7,6 +7,8 @@ const TripTravelOption = SequelizeInstance.define("tripTravelOption", {
   description: { type: Sequelize.STRING(500), allowNull: false },
   priceAdjustment: { type: Sequelize.DECIMAL(10, 2), allowNull: false, defaultValue: 0 },
   setNumber: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 1 },
+  daysBefore: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
+  daysAfter: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
 });
 
 export default TripTravelOption;

@@ -322,6 +322,7 @@ const ensureTripPeopleRoleApplicationFields = async () => {
     ["preferredCabinClass", "VARCHAR(50) NULL"],
     ["preferredAirlineId", "INT NULL"],
     ["preferredRefundableTicket", "TINYINT(1) NULL"],
+    ["flightNotes", "TEXT NULL"],
   ];
 
   for (const [columnName, definition] of columns) {
@@ -987,6 +988,68 @@ const ensureTripPeopleRoleOptionsTable = async () => {
   logger.info("tripPeopleRoleOptions table created.");
 };
 
+const ensureTripPeopleRoleExpensesTable = async () => {
+  if (await tableExists("tripPeopleRoleExpenses")) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE tripPeopleRoleExpenses (
+      id INT NOT NULL AUTO_INCREMENT,
+      tripPeopleRoleId INT NOT NULL,
+      description VARCHAR(255) NOT NULL,
+      cost DECIMAL(10,2) NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      KEY tripPeopleRoleExpenses_tripPeopleRoleId_idx (tripPeopleRoleId),
+      CONSTRAINT tripPeopleRoleExpenses_tripPeopleRoleId_fk
+        FOREIGN KEY (tripPeopleRoleId) REFERENCES tripPeopleRoles (id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("tripPeopleRoleExpenses table created.");
+};
+
+const ensureTripDaysBeforeAfter = async () => {
+  for (const table of ["tripTravelOptions", "tripPeopleRoleExpenses"]) {
+    for (const name of ["daysBefore", "daysAfter"]) {
+      const [cols] = await db.sequelize.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = :table
+           AND COLUMN_NAME = :name`,
+        { replacements: { table, name } }
+      );
+      if (!cols.length) {
+        await db.sequelize.query(`ALTER TABLE ${table} ADD COLUMN ${name} INT NOT NULL DEFAULT 0`);
+        logger.info(`${table}.${name} column added.`);
+      }
+    }
+  }
+};
+
+const ensureEmailPicturesTable = async () => {
+  if (await tableExists("emailPictures")) return;
+
+  await db.sequelize.query(`
+    CREATE TABLE emailPictures (
+      id INT NOT NULL AUTO_INCREMENT,
+      orgId INT NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      fileName VARCHAR(255) NOT NULL,
+      contentType VARCHAR(50) NOT NULL,
+      sizeBytes INT NOT NULL,
+      createdAt DATETIME NOT NULL,
+      updatedAt DATETIME NOT NULL,
+      PRIMARY KEY (id),
+      KEY emailPictures_orgId_idx (orgId),
+      CONSTRAINT emailPictures_orgId_fk
+        FOREIGN KEY (orgId) REFERENCES organizations (id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  logger.info("emailPictures table created.");
+};
+
 const ensureMedicalConditionsTable = async () => {
   const [tables] = await db.sequelize.query(
     `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -1071,6 +1134,23 @@ const ensureTripRequirePassport = async () => {
      AFTER participantCost`
   );
   logger.info("trips.requirePassport column added.");
+};
+
+const ensureTripArrivalPdfFileName = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'trips'
+       AND COLUMN_NAME = 'arrivalPdfFileName'`
+  );
+  if (rows.length) return;
+
+  await db.sequelize.query(
+    `ALTER TABLE trips
+     ADD COLUMN arrivalPdfFileName VARCHAR(500) NULL
+     AFTER requirePassport`
+  );
+  logger.info("trips.arrivalPdfFileName column added.");
 };
 
 const ensureEmailTypes = async () => {
@@ -1405,6 +1485,21 @@ const ensureTripFlightSegmentCabinAndSeat = async () => {
   }
 };
 
+const ensureTripFlightConfirmationNumber = async () => {
+  if (!(await tableExists("tripFlights"))) return;
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tripFlights'
+       AND COLUMN_NAME = 'confirmationNumber'`
+  );
+  if (rows.length) return;
+  await db.sequelize.query(
+    "ALTER TABLE tripFlights ADD COLUMN confirmationNumber VARCHAR(50) NULL AFTER comments"
+  );
+  logger.info("tripFlights.confirmationNumber column added.");
+};
+
 const ensureLanguageCatalog = async () => {
   const [tables] = await db.sequelize.query(
     `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -1435,12 +1530,23 @@ const ensureLanguageCatalog = async () => {
   }
 };
 
+const ensureAgentRole = async () => {
+  const existing = await db.role.findOne({ where: { roleName: "Agent" } });
+  if (existing) return;
+  await db.role.create({
+    roleName: "Agent",
+    roleDescription: "Books flights for the organization's trips",
+  });
+  logger.info("Agent role added.");
+};
+
 export const ensureSchema = async () => {
   await ensureNamedUniqueIndexes();
   await ensureUserLoginLockFields();
   await ensureEmailTemplateOrgNullable();
   await ensureTripPeopleRoleParticipantCost();
   await ensureTripRequirePassport();
+  await ensureTripArrivalPdfFileName();
   await ensureTripDeposit();
   await ensureEmailTypes();
   await ensureEmailTokens();
@@ -1451,6 +1557,7 @@ export const ensureSchema = async () => {
   await ensureScheduledEmailSendsTable();
   await ensureTripPrimaryLeader();
   await ensureTripFlightSegmentCabinAndSeat();
+  await ensureTripFlightConfirmationNumber();
   await ensureOrganizationWebsiteUrl();
   await ensureOrganizationSubdomain();
   await ensureOrganizationAgreementFileName();
@@ -1472,9 +1579,13 @@ export const ensureSchema = async () => {
   await ensureWorkerRoleSpecializationsTable();
   await ensureTripTravelOptionsTable();
   await ensureTripPeopleRoleOptionsTable();
+  await ensureTripPeopleRoleExpensesTable();
+  await ensureTripDaysBeforeAfter();
+  await ensureEmailPicturesTable();
   await ensureMedicalConditionsTable();
   await ensureEncryptedColumns();
   await ensureLanguageCatalog();
+  await ensureAgentRole();
 };
 
 export default ensureSchema;

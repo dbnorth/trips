@@ -204,7 +204,7 @@ describe("Feature 28 — View Trip Status", () => {
     });
     await flushPromises();
 
-    const statusBtn = wrapper.findAll("button").find((b) => b.text().trim() === "Status");
+    const statusBtn = wrapper.find('button[aria-label="Status"]');
     expect(statusBtn).toBeTruthy();
 
     await statusBtn.trigger("click");
@@ -293,5 +293,330 @@ describe("Feature 28 — View Trip Status", () => {
     expect(text).toContain("123 Main St");
     expect(text).toMatch(/555/);
     expect(text).toContain("Close");
+  });
+
+  describe("Feature 73 — US-73.1 See who books each participant's flight", () => {
+    it("Trip Status board shows Booked by", async () => {
+      const participant = (id, displayName, flightPurchaseOption) => ({
+        id,
+        peopleId: id,
+        displayName,
+        status: "applied",
+        workerRoleName: "Nurse",
+        flightPurchaseOption,
+        missingItems: [],
+        amountOwed: 0,
+        amountRaised: 0,
+        selectedTravelOptionIds: [],
+      });
+      TripServices.getStatus.mockResolvedValue({
+        data: {
+          trip: {
+            id: 42,
+            name: "Guatemala Hospital Ezel",
+            organizationName: "Test Mission Org",
+            status: "active",
+            participantCost: 2000,
+          },
+          rolesNeeded: [],
+          travelOptions: [],
+          participants: [
+            participant(1, "Nora Booked", "organization"),
+            participant(2, "Rita Booked", "self"),
+            participant(3, "Hank Booked", null),
+          ],
+        },
+      });
+      const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [
+          { path: "/trips/:tripId/status", name: "tripStatus", component: TripStatusView, props: true },
+          { path: "/home", name: "home", component: Stub },
+        ],
+      });
+      await router.push({ name: "tripStatus", params: { tripId: "42" } });
+      await router.isReady();
+
+      const { wrapper } = await mountWithPlugins(TripStatusView, {
+        props: { tripId: "42" },
+        router,
+      });
+      await flushPromises();
+
+      const headers = wrapper.findAll("th").map((th) => th.text().trim());
+      const roleIndex = headers.indexOf("Role", headers.indexOf("Participant"));
+      expect(headers[roleIndex + 1]).toBe("Booked by");
+      const rowText = (name) =>
+        wrapper.findAll("tbody tr").find((tr) => tr.text().includes(name)).text();
+      expect(rowText("Nora Booked")).toContain("Test Mission Org");
+      expect(rowText("Rita Booked")).toContain("Participant");
+      expect(rowText("Hank Booked")).toContain("Not chosen");
+    });
+  });
+
+  describe("Feature 74 — US-74.2 Every total includes add-on expenses", () => {
+    it("Trip Status shows each participant's total cost with its details", async () => {
+      const costBreakdown = {
+        tripCost: 2000,
+        tripOptions: [{ description: "Private room", amount: 250 }],
+        adjustment: 0,
+        addonExpenses: [{ description: "Travel insurance", amount: 75 }],
+        airfare: 850,
+        totalTripCost: 3175,
+      };
+      TripServices.getStatus.mockResolvedValue({
+        data: {
+          trip: { id: 42, name: "Guatemala Hospital Ezel", status: "active", participantCost: 2000 },
+          rolesNeeded: [],
+          travelOptions: [],
+          participants: [
+            {
+              id: 1,
+              peopleId: 1,
+              displayName: "Nora Diaz",
+              status: "approved",
+              missingItems: [],
+              participantCost: 2250,
+              totalTripCost: 3175,
+              costBreakdown,
+              amountOwed: 2175,
+              amountRaised: 1000,
+              selectedTravelOptionIds: [],
+            },
+          ],
+        },
+      });
+      const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [
+          { path: "/trips/:tripId/status", name: "tripStatus", component: TripStatusView, props: true },
+          { path: "/home", name: "home", component: Stub },
+        ],
+      });
+      await router.push({ name: "tripStatus", params: { tripId: "42" } });
+      await router.isReady();
+
+      const { wrapper } = await mountWithPlugins(TripStatusView, {
+        props: { tripId: "42" },
+        router,
+        global: {
+          stubs: { VTooltip: { template: '<div><slot name="activator" :props="{}" /><slot /></div>' } },
+        },
+      });
+      await flushPromises();
+
+      const headers = wrapper.findAll("th").map((th) => th.text().trim());
+      const totalIndex = headers.indexOf("Total cost");
+      expect(headers.slice(totalIndex + 1, totalIndex + 3)).toEqual(["Amount raised", "Amount owed"]);
+      const cell = wrapper.find("tbody tr").findAll("td")[totalIndex];
+      expect(cell.find('[data-testid="total-cost-info"]').exists()).toBe(true);
+      const lines = cell
+        .findAll('[data-testid="total-cost-breakdown"] > div')
+        .map((line) => line.findAll("span").map((s) => s.text().trim()));
+      expect(lines).toEqual([
+        ["Trip cost", "$2,000.00"],
+        ["Trip option: Private room", "$250.00"],
+        ["Add-on: Travel insurance", "$75.00"],
+        ["Flight", "$850.00"],
+        ["Total", "$3,175.00"],
+      ]);
+    });
+  });
+});
+
+/**
+ * Feature 79 — Planned Arrival and Departure on Flights
+ * Spec: features/feature-79-flights-planned-dates.md
+ */
+describe("Feature 79 — Planned Arrival and Departure on Flights", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("Trip Status board shows Arrives and Departs with the warning", async () => {
+    TripServices.getStatus.mockResolvedValue({
+      data: {
+        trip: { id: 42, name: "Guatemala Clinic", organizationName: "Hope Missions", status: "active" },
+        rolesNeeded: [],
+        travelOptions: [],
+        participants: [
+          {
+            id: 1,
+            peopleId: 1,
+            displayName: "Ana Lopez",
+            status: "approved",
+            workerRoleName: "Nurse",
+            flightPurchaseOption: "organization",
+            missingItems: [],
+            amountOwed: 0,
+            amountRaised: 0,
+            selectedTravelOptionIds: [],
+            arrivalDate: "2027-06-07",
+            departureDate: "2027-06-18",
+            arrivalAdjustments: [{ type: "option", description: "Arrive early", days: 2 }],
+            departureAdjustments: [{ type: "addon", description: "Extra hotel night", days: 1 }],
+            flightArrivalDate: "2027-06-08",
+            flightDepartureDate: "2027-06-18",
+          },
+        ],
+      },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId/status", name: "tripStatus", component: TripStatusView, props: true },
+        { path: "/home", name: "home", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripStatus", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripStatusView, {
+      props: { tripId: "42" },
+      router,
+      global: {
+        stubs: { VTooltip: { template: '<div><slot name="activator" :props="{}" /><slot /></div>' } },
+      },
+    });
+    await flushPromises();
+
+    const headers = wrapper.findAll("th").map((th) => th.text().trim());
+    const bookedBy = headers.indexOf("Booked by");
+    expect(headers.slice(bookedBy + 1, bookedBy + 3)).toEqual(["Arrives", "Departs"]);
+    const row = wrapper.find("tbody tr").findAll("td");
+    const arrives = row[bookedBy + 1];
+    const departs = row[bookedBy + 2];
+    expect(arrives.text()).toContain("06/07/2027");
+    expect(arrives.find('[data-testid="date-adjustment-info"]').exists()).toBe(true);
+    expect(arrives.find('[data-testid="date-flight-mismatch"]').text()).toBe("Arrival flight lands 06/08/2027");
+    expect(departs.text()).toContain("06/18/2027");
+    expect(departs.find('[data-testid="date-flight-warning"]').exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+});
+
+/**
+ * Feature 82 — Trip Status Missing Items Icon
+ * Spec: features/feature-82-trip-status-missing-items-icon.md
+ */
+describe("Feature 82 — Trip Status Missing Items Icon", () => {
+  const adaMissing = [
+    "Profile is not complete",
+    "Participant agreement",
+    "Required role document(s): RN License",
+  ];
+
+  const mountBoard = async (options = {}) => {
+    TripServices.getStatus.mockResolvedValue({
+      data: {
+        trip: { id: 42, name: "Status Demo Trip", organizationName: "Hope Mission", status: "active" },
+        rolesNeeded: [
+          { id: 1, workerRoleName: "RN", quantity: 1, signedUpCount: 1, reservedCount: 0, availableCount: 0 },
+          { id: 2, workerRoleName: "Doctor", quantity: 2, signedUpCount: 0, reservedCount: 0, availableCount: 2 },
+        ],
+        travelOptions: [],
+        participants: [
+          { id: 1, peopleId: 1, displayName: "Ada Applicant", status: "incomplete", missingItems: adaMissing, selectedTravelOptionIds: [] },
+          { id: 2, peopleId: 2, displayName: "Ben Approved", status: "approved", missingItems: [], selectedTravelOptionIds: [] },
+        ],
+      },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId/status", name: "tripStatus", component: TripStatusView, props: true },
+        { path: "/home", name: "home", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripStatus", params: { tripId: "42" } });
+    await router.isReady();
+    const { wrapper } = await mountWithPlugins(TripStatusView, { props: { tripId: "42" }, router, ...options });
+    await flushPromises();
+    return wrapper;
+  };
+
+  const missingCell = (wrapper, name) => {
+    const table = wrapper.findAll("table").at(-1);
+    const headers = table.findAll("th").map((th) => th.text().trim());
+    const row = table.findAll("tbody tr").find((tr) => tr.text().includes(name));
+    return row.findAll("td")[headers.indexOf("Missing items")];
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+  });
+
+  describe("US-82.1 — See missing items from an alert icon", () => {
+    it("Missing items show as a red alert icon", async () => {
+      const wrapper = await mountBoard();
+
+      const ada = missingCell(wrapper, "Ada Applicant");
+      const icon = ada.find('[data-testid="missing-items-icon"]');
+      expect(icon.classes()).toContain("mdi-alert-circle");
+      expect(icon.classes()).toContain("text-error");
+      expect(icon.attributes("tabindex")).toBe("0");
+      expect(icon.attributes("aria-hidden")).toBe("false");
+      expect(icon.attributes("aria-label")).toBe(
+        "Missing items: Profile is not complete; Participant agreement; Required role document(s): RN License"
+      );
+      for (const missing of adaMissing) expect(ada.text()).not.toContain(missing);
+
+      const ben = missingCell(wrapper, "Ben Approved");
+      expect(ben.text()).toBe("—");
+      expect(ben.find('[data-testid="missing-items-icon"]').exists()).toBe(false);
+
+      wrapper.unmount();
+    });
+
+    it("Hovering the icon lists the missing items in red", async () => {
+      const wrapper = await mountBoard({ attachTo: document.body });
+      const list = () => document.querySelector('[data-testid="missing-items-list"]');
+      const icon = missingCell(wrapper, "Ada Applicant").find('[data-testid="missing-items-icon"]');
+
+      await icon.trigger("mouseenter");
+      await vi.waitFor(() => expect(list()).toBeTruthy());
+      const content = document.querySelector(".v-tooltip .v-overlay__content");
+      expect(content.textContent).toContain("Missing items");
+      expect([...list().querySelectorAll("li")].map((li) => li.textContent.trim())).toEqual(adaMissing);
+      expect(list().classList).toContain("text-error");
+      expect(content.classList).toContain("bg-surface");
+      expect(content.classList).toContain("border");
+
+      const openStates = () =>
+        (wrapper.findComponent({ name: "VTooltip" }).emitted("update:modelValue") || []).map(([open]) => open);
+      await icon.trigger("mouseleave");
+      await vi.waitFor(() => expect(openStates()).toEqual([true, false]));
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      icon.element.focus();
+      await vi.waitFor(() => expect(openStates()).toEqual([true, false, true]));
+
+      wrapper.unmount();
+    });
+  });
+
+  describe("US-82.2 — See which roles are filled at a glance", () => {
+    it("Roles show a filled or open icon", async () => {
+      const wrapper = await mountBoard();
+
+      const rolesTable = wrapper.findAll("table")[0];
+      const headers = rolesTable.findAll("th").map((th) => th.text().trim());
+      expect(headers.slice(-2)).toEqual(["Available", "Filled"]);
+      const roleIcon = (name) =>
+        rolesTable
+          .findAll("tbody tr")
+          .find((tr) => tr.text().includes(name))
+          .find('[data-testid="role-filled-icon"]');
+
+      const rn = roleIcon("RN");
+      expect(rn.classes()).toEqual(expect.arrayContaining(["mdi-check-circle", "text-success"]));
+      expect(rn.attributes("aria-label")).toBe("All positions filled");
+      const doctor = roleIcon("Doctor");
+      expect(doctor.classes()).toEqual(expect.arrayContaining(["mdi-alert-circle", "text-error"]));
+      expect(doctor.attributes("aria-label")).toBe("2 positions open");
+
+      wrapper.unmount();
+    });
   });
 });

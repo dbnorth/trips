@@ -64,6 +64,15 @@ export default {
   sendTeamEmail(id, data) {
     return apiClient.post(`/trips/${id}/team-email`, data);
   },
+  getFlightItineraryEmailTemplates(id) {
+    return apiClient.get(`/trips/${id}/flight-itinerary-email/templates`);
+  },
+  previewFlightItineraryEmail(id, data) {
+    return apiClient.post(`/trips/${id}/flight-itinerary-email/preview`, data);
+  },
+  sendFlightItineraryEmail(id, data) {
+    return apiClient.post(`/trips/${id}/flight-itinerary-email`, data);
+  },
   create(data) {
     return apiClient.post("/trips", data);
   },
@@ -80,6 +89,23 @@ export default {
     const form = new FormData();
     form.append("image", file);
     return apiClient.put(`/trips/${id}/image`, form);
+  },
+  uploadArrivalPdf(id, file) {
+    const form = new FormData();
+    form.append("file", file);
+    return apiClient.post(`/trips/${id}/arrival-pdf`, form);
+  },
+  async openArrivalPdf(id) {
+    const response = await apiClient.get(`/trips/${id}/arrival-pdf`, { responseType: "blob" });
+    window.open(URL.createObjectURL(response.data), "_blank");
+  },
+  removeArrivalPdf(id) {
+    return apiClient.delete(`/trips/${id}/arrival-pdf`);
+  },
+  importTripMaster(id, file) {
+    const form = new FormData();
+    form.append("file", file);
+    return apiClient.post(`/trips/${id}/import-trip-master`, form);
   },
   getImageUrl(image) {
     if (!image) return null;

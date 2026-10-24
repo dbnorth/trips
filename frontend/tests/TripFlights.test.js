@@ -149,7 +149,7 @@ describe("Feature 30 — Participant Flights", () => {
     });
     await flushPromises();
 
-    const btn = wrapper.findAll("button").find((b) => b.text().trim() === "Flights");
+    const btn = wrapper.find('button[aria-label="Flights"]');
     expect(btn).toBeTruthy();
     await btn.trigger("click");
     await flushPromises();
@@ -184,10 +184,8 @@ describe("Feature 30 — Participant Flights", () => {
     });
     await flushPromises();
 
-    const segBtn = wrapper
-      .findAll("button")
-      .find((b) => b.text().trim() === "Flight segments");
-    expect(segBtn).toBeTruthy();
+    const segBtn = wrapper.find('button[aria-label="Flight segments"]');
+    expect(segBtn.exists()).toBe(true);
     await segBtn.trigger("click");
     await flushPromises();
 
@@ -243,6 +241,362 @@ describe("Feature 30 — Participant Flights", () => {
     expect(dialog2.vm.segments.length).toBe(0);
     await dialog2.vm.save();
     await flushPromises();
-    expect(TripServices.updateFlightSegments).toHaveBeenCalledWith("42", 101, { segments: [] });
+    expect(TripServices.updateFlightSegments).toHaveBeenCalledWith("42", 101, {
+      confirmationNumber: "",
+      segments: [],
+    });
+  });
+
+  describe("Feature 73 — US-73.1 See who books each participant's flight", () => {
+    it("Flights page shows Booked by", async () => {
+      Utils.setStore("user", orgAdminUser);
+      const participant = (tripPeopleRoleId, firstName, flightPurchaseOption) => ({
+        tripPeopleRoleId,
+        peopleId: tripPeopleRoleId,
+        firstName,
+        lastName: "Booked",
+        flightPurchaseOption,
+        purchased: false,
+        cost: null,
+        comments: "",
+        segmentCount: 0,
+        initialDeparture: null,
+        finalArrival: null,
+      });
+      TripServices.getFlights.mockResolvedValue({
+        data: {
+          trip: {
+            id: 42,
+            name: "Guatemala Hospital Ezel",
+            organizationName: "Test Mission Org",
+            startDate: "2027-03-06",
+            endDate: "2027-03-13",
+          },
+          participants: [
+            participant(201, "Nora", "organization"),
+            participant(202, "Rita", "self"),
+            participant(203, "Hank", null),
+          ],
+        },
+      });
+      const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [
+          { path: "/trips/:tripId/flights", name: "tripFlights", component: TripFlightsView, props: true },
+          { path: "/trips", name: "trips", component: Stub },
+          { path: "/home", name: "home", component: Stub },
+        ],
+      });
+      await router.push({ name: "tripFlights", params: { tripId: "42" } });
+      await router.isReady();
+
+      const { wrapper } = await mountWithPlugins(TripFlightsView, {
+        props: { tripId: "42" },
+        router,
+        global: { stubs: { VDialog: { template: "<div><slot /></div>" } } },
+      });
+      await flushPromises();
+
+      const headers = wrapper.findAll("th").map((th) => th.text().trim());
+      expect(headers).toContain("Booked by");
+      expect(headers).not.toContain("Who purchases");
+      const rowText = (name) =>
+        wrapper.findAll("tbody tr").find((tr) => tr.text().includes(name)).text();
+      expect(rowText("Nora")).toContain("Test Mission Org");
+      expect(rowText("Rita")).toContain("Participant");
+      expect(rowText("Hank")).toContain("Not chosen");
+    });
+  });
+});
+
+/**
+ * Feature 79 — Planned Arrival and Departure on Flights
+ * Spec: features/feature-79-flights-planned-dates.md
+ */
+describe("Feature 79 — Planned Arrival and Departure on Flights", () => {
+  const participant = (tripPeopleRoleId, firstName, dates) => ({
+    tripPeopleRoleId,
+    peopleId: tripPeopleRoleId,
+    firstName,
+    lastName: "Lopez",
+    flightPurchaseOption: "organization",
+    purchased: false,
+    cost: null,
+    comments: "",
+    segmentCount: 0,
+    initialDeparture: null,
+    finalArrival: null,
+    arrivalAdjustments: [],
+    departureAdjustments: [],
+    ...dates,
+  });
+
+  const mountFlights = async (anaExtra = {}) => {
+    Utils.setStore("user", orgAdminUser);
+    TripServices.getFlights.mockResolvedValue({
+      data: {
+        trip: { id: 42, name: "Guatemala Clinic", organizationName: "Hope Missions", startDate: "2027-06-10", endDate: "2027-06-17" },
+        participants: [
+          participant(201, "Ana", {
+            arrivalDate: "2027-06-07",
+            departureDate: "2027-06-18",
+            arrivalAdjustments: [
+              { type: "option", description: "Arrive early", days: 2 },
+              { type: "addon", description: "Extra hotel night", days: 1 },
+            ],
+            departureAdjustments: [{ type: "addon", description: "Extra hotel night", days: 1 }],
+            flightArrivalDate: "2027-06-08",
+            flightDepartureDate: "2027-06-18",
+            ...anaExtra,
+          }),
+          participant(202, "Ben", {
+            arrivalDate: "2027-06-10",
+            departureDate: "2027-06-17",
+            flightArrivalDate: null,
+            flightDepartureDate: null,
+          }),
+        ],
+      },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId/flights", name: "tripFlights", component: TripFlightsView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+        { path: "/home", name: "home", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripFlights", params: { tripId: "42" } });
+    await router.isReady();
+    const { wrapper } = await mountWithPlugins(TripFlightsView, {
+      props: { tripId: "42" },
+      router,
+      global: {
+        stubs: {
+          VDialog: { template: "<div><slot /></div>" },
+          VTooltip: { template: '<div class="tooltip-stub"><slot name="activator" :props="{}" /><slot /></div>' },
+        },
+      },
+    });
+    await flushPromises();
+    return wrapper;
+  };
+
+  const cells = (wrapper, name) => {
+    const row = wrapper.findAll("tbody tr").find((tr) => tr.text().includes(name));
+    return {
+      arrives: row.find('[data-testid="flights-arrives"]'),
+      departs: row.find('[data-testid="flights-departs"]'),
+    };
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("Flights page shows Arrives and Departs", async () => {
+    const wrapper = await mountFlights();
+
+    const headers = wrapper.findAll("th").map((th) => th.text().trim());
+    const bookedBy = headers.indexOf("Booked by");
+    expect(headers.slice(bookedBy + 1, bookedBy + 3)).toEqual(["Arrives", "Departs"]);
+
+    const { arrives, departs } = cells(wrapper, "Ana");
+    expect(arrives.text()).toContain("06/07/2027");
+    expect(arrives.find('[data-testid="date-adjustment-info"]').exists()).toBe(true);
+    expect(
+      arrives
+        .findAll('[data-testid="date-adjustments"] > div')
+        .map((line) => line.findAll("span").map((s) => s.text().trim()))
+    ).toEqual([
+      ["Trip option: Arrive early", "2 days before"],
+      ["Add-on: Extra hotel night", "1 day before"],
+    ]);
+    expect(departs.text()).toContain("06/18/2027");
+
+    wrapper.unmount();
+  });
+
+  it("Flights page warns when flights differ from the plan", async () => {
+    const wrapper = await mountFlights();
+
+    const ana = cells(wrapper, "Ana");
+    expect(ana.arrives.find('[data-testid="date-flight-warning"]').exists()).toBe(true);
+    expect(ana.arrives.find('[data-testid="date-flight-mismatch"]').text()).toBe(
+      "Arrival flight lands 06/08/2027"
+    );
+    expect(ana.departs.find('[data-testid="date-flight-warning"]').exists()).toBe(false);
+
+    const ben = cells(wrapper, "Ben");
+    expect(ben.arrives.find('[data-testid="date-flight-warning"]').exists()).toBe(false);
+    expect(ben.departs.find('[data-testid="date-flight-warning"]').exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it("Flights page warns when airports differ from the request", async () => {
+    const wrapper = await mountFlights({
+      arrivalFlightOriginCode: "MIA",
+      returnFlightDestinationCode: "DFW",
+      flightPurchasePreferences: { departureAirportCode: "DFW", returnAirportCode: "DFW" },
+    });
+
+    const row = wrapper.findAll("tbody tr").find((tr) => tr.text().includes("Ana"));
+    const initial = row.find('[data-testid="flights-initial-departure"]');
+    expect(initial.find('[data-testid="airport-warning"]').exists()).toBe(true);
+    expect(initial.find('[data-testid="airport-warning-message"]').text()).toBe(
+      "Arrival flight departs from MIA, but DFW was requested."
+    );
+    const final = row.find('[data-testid="flights-final-arrival"]');
+    expect(final.find('[data-testid="airport-warning"]').exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+});
+
+/**
+ * Feature 84 — Application Flight Notes
+ * Spec: features/feature-84-application-flight-notes.md
+ */
+describe("Feature 84 — Application Flight Notes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("The Flights page shows requested flight info from an info icon", async () => {
+    Utils.setStore("user", orgAdminUser);
+    const participant = (tripPeopleRoleId, firstName, extra) => ({
+      tripPeopleRoleId,
+      peopleId: tripPeopleRoleId,
+      firstName,
+      lastName: "Lopez",
+      purchased: false,
+      cost: null,
+      comments: "",
+      segmentCount: 0,
+      arrivalAdjustments: [],
+      departureAdjustments: [],
+      ...extra,
+    });
+    TripServices.getFlights.mockResolvedValue({
+      data: {
+        trip: { id: 42, name: "Guatemala Clinic", organizationName: "Hope Missions" },
+        participants: [
+          participant(201, "Ana", {
+            flightPurchaseOption: "organization",
+            flightPurchasePreferences: {
+              departureAirportCode: "BNA",
+              departureCity: "Nashville",
+              returnAirportCode: "BNA",
+              returnCity: "Nashville",
+              cabinClass: "Economy",
+              airlineCode: "AA",
+              airlineName: "American Airlines",
+              refundableTicket: true,
+            },
+            flightPurchasePreferencesText: "Departure BNA (Nashville) · Return BNA (Nashville)",
+            flightNotes: "Flying from Nashville, back to Memphis",
+          }),
+          participant(202, "Ben", { flightPurchaseOption: "self", flightNotes: null }),
+        ],
+      },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId/flights", name: "tripFlights", component: TripFlightsView, props: true },
+        { path: "/home", name: "home", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripFlights", params: { tripId: "42" } });
+    await router.isReady();
+    const { wrapper } = await mountWithPlugins(TripFlightsView, {
+      props: { tripId: "42" },
+      router,
+      global: {
+        stubs: {
+          VDialog: { template: "<div><slot /></div>" },
+          VTooltip: { template: '<div class="tooltip-stub"><slot name="activator" :props="{}" /><slot /></div>' },
+        },
+      },
+    });
+    await flushPromises();
+
+    const headers = wrapper.findAll("thead th").map((th) => th.text().trim());
+    const bookedBy = (name) =>
+      wrapper.findAll("tbody tr").find((tr) => tr.text().includes(name)).findAll("td")[headers.indexOf("Booked by")];
+
+    const ana = bookedBy("Ana");
+    const icon = ana.find('[data-testid="requested-flight-info"]');
+    expect(icon.classes()).toContain("mdi-information-outline");
+    expect(icon.attributes("aria-label")).toBe("Requested flight info");
+    expect(icon.attributes("tabindex")).toBe("0");
+    expect(ana.text()).toContain("Hope Missions");
+    expect(ana.text()).not.toContain("Departure BNA (Nashville) · Return");
+    const details = ana.find('[data-testid="requested-flight-details"]');
+    expect(details.findAll("div").map((line) => line.text())).toEqual([
+      "Requested flight info",
+      "Preferred departure airport: BNA (Nashville)",
+      "Preferred return airport: BNA (Nashville)",
+      "Class of travel: Economy",
+      "Preferred airline: AA — American Airlines",
+      "Refundable ticket: Yes",
+      "Flight notes: Flying from Nashville, back to Memphis",
+    ]);
+
+    const ben = bookedBy("Ben");
+    expect(ben.text()).toBe("Participant");
+    expect(ben.find('[data-testid="requested-flight-info"]').exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+});
+
+/**
+ * Feature 85 — Agent Role
+ * Spec: features/feature-85-agent-role.md
+ */
+describe("Feature 85 — Agent Role", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("The Flights page sends an Agent back to Home", async () => {
+    Utils.setStore("user", {
+      ...orgAdminUser,
+      orgRoles: [{ orgId: 10, orgName: "Hope Mission", roleName: "Agent" }],
+    });
+    TripServices.getFlights.mockResolvedValue({
+      data: { trip: { id: 42, name: "Guatemala Clinic" }, participants: [] },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId/flights", name: "tripFlights", component: TripFlightsView, props: true },
+        { path: "/home", name: "home", component: Stub },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripFlights", params: { tripId: "42" } });
+    await router.isReady();
+    const { wrapper } = await mountWithPlugins(TripFlightsView, {
+      props: { tripId: "42" },
+      router,
+    });
+    await flushPromises();
+
+    const buttons = wrapper.findAll("button").map((b) => b.text().trim());
+    expect(buttons).toContain("Back to home");
+    expect(buttons).not.toContain("Back to trips");
+
+    await wrapper.findAll("button").find((b) => b.text().trim() === "Back to home").trigger("click");
+    await vi.waitFor(() => {
+      expect(router.currentRoute.value.name).toBe("home");
+    });
+
+    wrapper.unmount();
   });
 });

@@ -37,6 +37,7 @@ Notes:
 | `tripWorkerRoleReservation` | 56 | Trip-role slot reserved for an email |
 | `tripTravelOption` | 6 | Travel/cost option sets |
 | `tripPeopleRoleOption` | 7 | Selected travel options on an application |
+| `tripPeopleRoleExpense` | 74 | Add-on expenses on an application |
 | `tripRoomingList` | 29 | Per-trip hotel / check-in / notes |
 | `tripRoom` | 29 | Room number, type, nights |
 | `tripRoomAssignment` | 29 | Participant ↔ room |
@@ -49,6 +50,7 @@ Notes:
 | `emailTemplate` | 10, 39, 41, 42 | Email templates |
 | `emailType` | 39 | Email type catalog |
 | `emailToken` | 40 | Email template token catalog |
+| `emailPicture` | 77 | Organization picture library for email bodies |
 | `emailLog` | 1, 43, 45 | Login / email audit; template sends record template, trip, and participant |
 | `scheduledEmailSend` | 44 | One row per scheduled template, trip, participant, and job date handled |
 
@@ -143,7 +145,7 @@ Notes:
 | Field | Type | Rules |
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
-| roleName | STRING(100) | required, unique — seeded: Org Admin, Trip Leader, Trip Participant, Pending User |
+| roleName | STRING(100) | required, unique — seeded: Org Admin, Trip Leader, Trip Participant, Pending User, Agent (Feature 85; added on startup when missing) |
 | roleDescription | STRING(500) | |
 
 **Associations:** `hasMany` orgPeopleRole, tripPeopleRole (RESTRICT).
@@ -272,6 +274,7 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | participantCost | DECIMAL(10,2) | |
 | deposit | DECIMAL(10,2) | nullable (Feature 38) |
 | requirePassport | BOOLEAN | required, default `false` (Feature 23) |
+| arrivalPdfFileName | STRING(500) | optional; stored Trip Arrival PDF file name under `documents/trips/` (`trip-<id>-arrival-<uploadTime>.pdf`); left out of the default scope and never returned by the API (Feature 76) |
 | version | INTEGER | required, default `0` |
 
 **Associations:** `belongsTo` organization; `hasMany` tripPeopleRole, tripDonation, emailTemplate, tripWorkerRole, tripTravelOption; `hasOne` tripRoomingList (Feature 29).
@@ -300,6 +303,7 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | preferredCabinClass | STRING(50) | nullable |
 | preferredAirlineId | INTEGER | nullable FK → airline |
 | preferredRefundableTicket | BOOLEAN | nullable; required for `applied` when organization purchases |
+| flightNotes | TEXT | nullable; participant's free-text flight notes, also filled by the Trip Master import (Feature 84) |
 | agreementAccepted | BOOLEAN | required, default `false` |
 | agreementSignatureName | STRING(255) | |
 | agreementDate | DATE | |
@@ -316,7 +320,7 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | isPrimaryLeader | BOOLEAN | required, default `false`; exactly one Trip Leader row per trip with leaders is `true` (Feature 40) |
 | version | INTEGER | required, default `0` |
 
-**Associations:** `belongsTo` trip, person, role, tripWorkerRole; `hasMany` tripPeopleRoleOption; `hasOne` tripRoomAssignment (Feature 29); `hasOne` tripFlight (Feature 30).
+**Associations:** `belongsTo` trip, person, role, tripWorkerRole; `hasMany` tripPeopleRoleOption; `hasOne` tripRoomAssignment (Feature 29); `hasOne` tripFlight (Feature 30); `hasMany` tripPeopleRoleExpense as `addonExpenses` (Feature 74).
 
 ---
 
@@ -399,6 +403,7 @@ Seeded from `backend/app/data/airlines.json` (OpenFlights active IATA set) via `
 | purchased | BOOLEAN | required, default `false` |
 | cost | DECIMAL(10,2) | nullable |
 | comments | TEXT | |
+| confirmationNumber | STRING(50) | nullable; one per participant flight; added by `ensureSchema` — Feature 86 |
 
 **Associations:** `belongsTo` tripPeopleRole; `hasMany` tripFlightSegment.
 
@@ -546,6 +551,8 @@ A reservation is **filled** when an `incomplete` / `applied` / `approved` applic
 | description | STRING(500) | required |
 | priceAdjustment | DECIMAL(10,2) | required, default `0` |
 | setNumber | INTEGER | required, default `1` (one selection per set on applications) |
+| daysBefore | INTEGER | required, default `0`; whole number 0–365 (Feature 78; added by `ensureSchema`) |
+| daysAfter | INTEGER | required, default `0`; whole number 0–365 (Feature 78; added by `ensureSchema`) |
 
 **Associations:** `belongsTo` trip; `hasMany` tripPeopleRoleOption.
 
@@ -561,6 +568,23 @@ A reservation is **filled** when an `incomplete` / `applied` / `approved` applic
 | selected | BOOLEAN | required, default `false` |
 
 **Associations:** `belongsTo` tripPeopleRole, tripTravelOption. No dedicated REST resource.
+
+---
+
+## `tripPeopleRoleExpense` — Feature 74
+
+Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement; list order |
+| tripPeopleRoleId | INTEGER | required FK → tripPeopleRole, `ON DELETE CASCADE` |
+| description | STRING(255) | required, trimmed |
+| cost | DECIMAL(10,2) | required, ≥ 0 |
+| daysBefore | INTEGER | required, default `0`; whole number 0–365 (Feature 78; added by `ensureSchema`) |
+| daysAfter | INTEGER | required, default `0`; whole number 0–365 (Feature 78; added by `ensureSchema`) |
+
+**Associations:** `belongsTo` tripPeopleRole. No dedicated REST resource; saved as a whole list through `PUT /trips/trip-people-roles/:id` `addonExpenses`.
 
 ---
 
@@ -612,9 +636,9 @@ A reservation is **filled** when an `incomplete` / `applied` / `approved` applic
 | functionCode | STRING | |
 | subject | STRING(500) | |
 | content | TEXT | |
-| attachment | STRING(500) | |
+| attachment | STRING(500) | optional; attachment tokens separated by commas, e.g. `{{TRIP_ARRIVAL_PDF}}`; empty or null means no attachments (Feature 76) |
 | emailTypeId | INTEGER | optional FK → emailType; required when the template form saves (Feature 39) |
-| emailBody | TEXT | optional in the table; required when the template form saves (Feature 39) |
+| emailBody | TEXT | optional in the table; required when the template form saves (Feature 39). HTML cleaned on save to paragraphs (only style kept: `text-align:center`), line breaks, bold, italic, underline, lists, links (http, https, mailto), and library pictures as `<img data-picture-id="N" alt="…">` with an optional `width` (whole pixels, at most 600); a body with no HTML tags is read as plain text (Feature 77) |
 | toAddress | STRING(1000) | optional in the table; required when the template form saves. Comma-separated email addresses and email tokens (Feature 41) |
 | scheduleRule | STRING(20) | optional; `daily`, `weekly` (Tuesday), or `before-start`. Required when the template form saves a `Scheduled` template; empty for `Send Now` (Feature 42) |
 | scheduleDaysBefore | INTEGER | optional; 1–365 when `scheduleRule` is `before-start`, otherwise empty (Feature 42) |
@@ -649,6 +673,25 @@ A reservation is **filled** when an `incomplete` / `applied` / `approved` applic
 
 **Associations:** none. Templates write tokens as `{{TOKEN_CODE}}` text.
 
+`seedEmailTokens` adds missing token codes only; Feature 74 adds `ADDON_EXPENSE` → `participant.addonExpenses` and `ADDON_EXPENSE_TOTAL` → `participant.addonExpensesTotal`; Feature 78 adds `PARTICIPANT_ARRIVAL_DATE` → `participant.arrivalDate` and `PARTICIPANT_DEPARTURE_DATE` → `participant.departureDate`.
+
+---
+
+## `emailPicture` — Feature 77
+
+Table `emailPictures`, created by `ensureSchema` when missing.
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement; referenced from template bodies as `data-picture-id` |
+| orgId | INTEGER | required FK → organization, `ON DELETE CASCADE` |
+| name | STRING(100) | required, trimmed; defaults to the uploaded file name without its extension |
+| fileName | STRING(255) | required; random name of the file in `backend/images/email-pictures/` (served at `/trips/images/email-pictures/`) |
+| contentType | STRING(50) | required; `image/png`, `image/jpeg`, or `image/gif` |
+| sizeBytes | INTEGER | required; at most 2 MB |
+
+**Associations:** `belongsTo` organization. Not deletable while any template body of its organization uses it.
+
 ---
 
 ## `emailLog` — Features 1, 43, 45
@@ -660,7 +703,7 @@ A reservation is **filled** when an `incomplete` / `applied` / `approved` applic
 | fromEmail | STRING | For template sends, the address the email was sent From |
 | dateTime | DATE | required, default NOW |
 | subject | STRING(500) | |
-| content | TEXT | For template sends, the plain-text body |
+| content | TEXT | For template sends, the plain-text body (the plain-text version of HTML emails, Feature 77) |
 | emailId | STRING(255) | For template sends, the mail server message ID (smtp mode) or the file name (file mode) |
 | emailTemplateId | INTEGER | optional; FK → emailTemplate (SET NULL). For template sends, the template sent (Feature 45) |
 | tripId | INTEGER | optional; FK → trip (SET NULL). For template sends, the trip (Feature 45) |
@@ -703,6 +746,7 @@ organization ──1:N── trip ──1:N── tripPeopleRole ──N:1──
                   └──1:1── tripRoomingList ──1:N── tripRoom ──1:N── tripRoomAssignment ──N:1── tripPeopleRole
 
 tripPeopleRole ──1:N── tripPeopleRoleOption ──N:1── tripTravelOption
+tripPeopleRole ──1:N── tripPeopleRoleExpense
 person ──1:N── personDocument ──N:1── documentType
 workerRole ──N:1── documentType (optional)
 organization ──1:N── emailTemplate ──N:1── trip (optional)

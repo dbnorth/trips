@@ -2,6 +2,9 @@
 import { ref, computed, watch } from "vue";
 import TripServices from "../services/tripServices.js";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import RichTextEditor from "./RichTextEditor.vue";
+import EmailHtmlPreview from "./EmailHtmlPreview.vue";
+import { emailBodyIsBlank } from "../utils/emailBody.js";
 
 const POTENTIAL_ROLES = ["Trip Participant", "Trip Leader"];
 const POTENTIAL_STATUSES = ["incomplete", "applied", "approved"];
@@ -12,13 +15,34 @@ const SEND_TO_ITEMS = [
   { label: "Selected participants", value: "selected" },
 ];
 
+const KINDS = {
+  team: {
+    title: "Email team",
+    noTemplates: "No Trip Participant templates",
+    getTemplates: "getTeamEmailTemplates",
+    preview: "previewTeamEmail",
+    send: "sendTeamEmail",
+  },
+  flightItinerary: {
+    title: "Email flight itinerary",
+    noTemplates: "No flight itinerary templates for this trip.",
+    getTemplates: "getFlightItineraryEmailTemplates",
+    preview: "previewFlightItineraryEmail",
+    send: "sendFlightItineraryEmail",
+  },
+};
+
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   tripId: { type: [Number, String], default: null },
+  orgId: { type: [Number, String], default: null },
   participants: { type: Array, default: () => [] },
+  kind: { type: String, default: "team" },
 });
 
 const emit = defineEmits(["update:modelValue"]);
+
+const config = computed(() => KINDS[props.kind] ?? KINDS.team);
 
 const templates = ref([]);
 const templatesLoading = ref(false);
@@ -84,7 +108,7 @@ const canSubmit = computed(
   () =>
     !!emailTemplateId.value &&
     !!subject.value.trim() &&
-    !!emailBody.value.trim() &&
+    !emailBodyIsBlank(emailBody.value) &&
     recipientCount.value > 0
 );
 
@@ -99,7 +123,7 @@ const requestBody = () => ({
 const loadTemplates = async () => {
   templatesLoading.value = true;
   try {
-    const res = await TripServices.getTeamEmailTemplates(props.tripId);
+    const res = await TripServices[config.value.getTemplates](props.tripId);
     templates.value = res.data || [];
   } catch (e) {
     templates.value = [];
@@ -115,7 +139,7 @@ const loadPreview = async () => {
   previewLoading.value = true;
   error.value = "";
   try {
-    const res = await TripServices.previewTeamEmail(props.tripId, {
+    const res = await TripServices[config.value.preview](props.tripId, {
       ...requestBody(),
       personId: previewPersonId.value,
     });
@@ -137,7 +161,7 @@ const confirmSend = async () => {
   sending.value = true;
   error.value = "";
   try {
-    const res = await TripServices.sendTeamEmail(props.tripId, requestBody());
+    const res = await TripServices[config.value.send](props.tripId, requestBody());
     result.value = res.data;
   } catch (e) {
     error.value = e.response?.data?.message || "Unable to send email.";
@@ -192,7 +216,7 @@ const close = () => emit("update:modelValue", false);
 <template>
   <v-dialog :model-value="modelValue" max-width="760" scrollable @update:model-value="(v) => !v && close()">
     <v-card>
-      <v-card-title>Email team</v-card-title>
+      <v-card-title>{{ config.title }}</v-card-title>
       <v-card-text style="max-height: 75vh">
         <v-select
           v-model="emailTemplateId"
@@ -200,9 +224,17 @@ const close = () => emit("update:modelValue", false);
           label="Email template"
           density="compact"
           :loading="templatesLoading"
-          no-data-text="No Trip Participant templates"
+          :no-data-text="config.noTemplates"
           class="mb-2"
         />
+        <v-alert
+          v-if="kind === 'flightItinerary' && !templatesLoading && !templates.length"
+          type="info"
+          density="compact"
+          class="mb-2"
+        >
+          {{ config.noTemplates }}
+        </v-alert>
         <v-text-field
           v-model="subject"
           label="Subject"
@@ -210,14 +242,11 @@ const close = () => emit("update:modelValue", false);
           :disabled="!emailTemplateId"
           class="mb-2"
         />
-        <v-textarea
+        <RichTextEditor
           v-model="emailBody"
           label="Email body"
-          density="compact"
-          rows="8"
-          auto-grow
+          :org-id="orgId"
           :disabled="!emailTemplateId"
-          class="mb-2"
         />
         <v-radio-group v-model="sendTo" label="Send to" density="compact" hide-details class="mb-2">
           <v-radio
@@ -256,7 +285,13 @@ const close = () => emit("update:modelValue", false);
             <div v-if="preview.replyTo" class="mb-2"><strong>Reply-To:</strong> {{ preview.replyTo }}</div>
             <div class="mb-2"><strong>To:</strong> {{ preview.to }}</div>
             <div class="mb-2"><strong>Subject:</strong> {{ preview.subject }}</div>
-            <div class="email-preview-body border rounded pa-3">{{ preview.body }}</div>
+            <div v-if="preview.attachmentError || preview.attachments?.length" class="mb-2" data-testid="preview-attachments">
+              <strong>Attachments:</strong> {{ preview.attachmentError || preview.attachments.join(", ") }}
+            </div>
+            <v-alert v-if="preview.pictureError" type="warning" density="compact" class="mb-2">
+              {{ preview.pictureError }}
+            </v-alert>
+            <EmailHtmlPreview :html="preview.body" />
           </div>
         </div>
 
@@ -288,9 +323,3 @@ const close = () => emit("update:modelValue", false);
     />
   </v-dialog>
 </template>
-
-<style scoped>
-.email-preview-body {
-  white-space: pre-wrap;
-}
-</style>

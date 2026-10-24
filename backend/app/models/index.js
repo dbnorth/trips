@@ -16,12 +16,14 @@ import EmailTemplate from "./emailTemplate.model.js";
 import EmailType from "./emailType.model.js";
 import EmailToken from "./emailToken.model.js";
 import EmailLog from "./emailLog.model.js";
+import EmailPicture from "./emailPicture.model.js";
 import ScheduledEmailSend from "./scheduledEmailSend.model.js";
 import WorkerRole from "./workerRole.model.js";
 import TripWorkerRole from "./tripWorkerRole.model.js";
 import TripWorkerRoleReservation from "./tripWorkerRoleReservation.model.js";
 import TripTravelOption from "./tripTravelOption.model.js";
 import TripPeopleRoleOption from "./tripPeopleRoleOption.model.js";
+import TripPeopleRoleExpense from "./tripPeopleRoleExpense.model.js";
 import DocumentType from "./documentType.model.js";
 import PersonDocument from "./personDocument.model.js";
 import PersonDocumentSpecialization from "./personDocumentSpecialization.model.js";
@@ -58,12 +60,14 @@ db.emailTemplate = EmailTemplate;
 db.emailType = EmailType;
 db.emailToken = EmailToken;
 db.emailLog = EmailLog;
+db.emailPicture = EmailPicture;
 db.scheduledEmailSend = ScheduledEmailSend;
 db.workerRole = WorkerRole;
 db.tripWorkerRole = TripWorkerRole;
 db.tripWorkerRoleReservation = TripWorkerRoleReservation;
 db.tripTravelOption = TripTravelOption;
 db.tripPeopleRoleOption = TripPeopleRoleOption;
+db.tripPeopleRoleExpense = TripPeopleRoleExpense;
 db.documentType = DocumentType;
 db.personDocument = PersonDocument;
 db.personDocumentSpecialization = PersonDocumentSpecialization;
@@ -126,6 +130,8 @@ db.donor.belongsTo(db.person, { foreignKey: "personId", as: "person", onDelete: 
 
 db.organization.hasMany(db.emailTemplate, { foreignKey: "orgId", onDelete: "CASCADE" });
 db.emailTemplate.belongsTo(db.organization, { foreignKey: "orgId", onDelete: "CASCADE" });
+db.organization.hasMany(db.emailPicture, { foreignKey: "orgId", onDelete: "CASCADE" });
+db.emailPicture.belongsTo(db.organization, { foreignKey: "orgId", onDelete: "CASCADE" });
 db.trip.hasMany(db.emailTemplate, { foreignKey: "tripId", onDelete: "CASCADE" });
 db.emailTemplate.belongsTo(db.trip, { foreignKey: "tripId", onDelete: "CASCADE" });
 db.emailType.hasMany(db.emailTemplate, { foreignKey: "emailTypeId", onDelete: "RESTRICT" });
@@ -297,6 +303,16 @@ db.tripPeopleRole.hasMany(db.tripPeopleRoleOption, {
   onDelete: "CASCADE",
 });
 db.tripPeopleRoleOption.belongsTo(db.tripPeopleRole, {
+  foreignKey: "tripPeopleRoleId",
+  as: "tripPeopleRole",
+  onDelete: "CASCADE",
+});
+db.tripPeopleRole.hasMany(db.tripPeopleRoleExpense, {
+  foreignKey: "tripPeopleRoleId",
+  as: "addonExpenses",
+  onDelete: "CASCADE",
+});
+db.tripPeopleRoleExpense.belongsTo(db.tripPeopleRole, {
   foreignKey: "tripPeopleRoleId",
   as: "tripPeopleRole",
   onDelete: "CASCADE",

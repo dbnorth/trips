@@ -202,12 +202,22 @@ export default class Utils {
     (user?.tripRoles || []).some((r) => r.roleName === "Trip Participant") ||
     (user?.orgRoles || []).some((r) => r.roleName === "Trip Participant");
 
-  /** Browse/apply/update application — any signed-in non–system-admin user. */
+  /** Agent role in some organization, not Org Admin anywhere, not System Admin (Feature 85). */
+  static isAgentUser = (user) => {
+    if (!user || Utils.isSystemAdmin(user)) return false;
+    const roles = user.orgRoles || [];
+    return (
+      roles.some((r) => r.roleName === "Agent") &&
+      !roles.some((r) => r.roleName === "Org Admin")
+    );
+  };
+
+  /** Browse/apply/update application — any signed-in user except System Admins and Agents. */
   static canBrowseAndApplyToTrips = (user) =>
-    !!user && !Utils.isSystemAdmin(user);
+    !!user && !Utils.isSystemAdmin(user) && !Utils.isAgentUser(user);
 
   static showParticipantOrPendingProfile = (user) => {
-    if (!user || Utils.isSystemAdmin(user)) return false;
+    if (!user || Utils.isSystemAdmin(user) || Utils.isAgentUser(user)) return false;
     const hasOrgAdmin = (user.orgRoles || []).some((r) => r.roleName === "Org Admin");
     if (hasOrgAdmin) return false;
     return Utils.isPendingUser(user) || Utils.isTripParticipantUser(user);

@@ -13,6 +13,7 @@ export const ROLE_ORG_ADMIN = "Org Admin";
 export const ROLE_TRIP_LEADER = "Trip Leader";
 export const ROLE_TRIP_PARTICIPANT = "Trip Participant";
 export const ROLE_PENDING_USER = "Pending User";
+export const ROLE_AGENT = "Agent";
 
 export const isActiveOrgRole = (roleName) => roleName === ROLE_ORG_ADMIN;
 
@@ -176,6 +177,9 @@ export const isOrgAdminForOrg = (req, orgId) => {
   return roles.some((r) => r.role?.roleName === ROLE_ORG_ADMIN);
 };
 
+export const isAgentForOrg = (req, orgId) =>
+  getOrgRolesForOrg(req, orgId).some((r) => r.role?.roleName === ROLE_AGENT);
+
 export const canAccessOrg = (req, orgId) => {
   if (isSystemAdmin(req)) {
     const acting = parseActingOrganizationHeader(req);
@@ -204,6 +208,15 @@ export const isTripLeaderForTrip = (req, tripId) => {
   const role = getTripRoleForTrip(req, tripId);
   return role?.role?.roleName === ROLE_TRIP_LEADER;
 };
+
+/** Approved Trip Leader or Trip Participant assignment on the trip. */
+export const isApprovedTripMember = (req, tripId) =>
+  (req.user?.tripRoles || []).some(
+    (r) =>
+      Number(r.tripId) === Number(tripId) &&
+      r.status === "approved" &&
+      [ROLE_TRIP_LEADER, ROLE_TRIP_PARTICIPANT].includes(r.role?.roleName)
+  );
 
 export const isTripParticipantForTrip = (req, tripId) => {
   const role = getTripRoleForTrip(req, tripId);
@@ -244,11 +257,11 @@ export const tripListFilter = async (req) => {
     if (acting != null) return { orgId: acting };
     return {};
   }
-  const adminOrgIds = (req.user?.orgRoles || [])
-    .filter((r) => r.role?.roleName === ROLE_ORG_ADMIN)
+  const orgIds = (req.user?.orgRoles || [])
+    .filter((r) => [ROLE_ORG_ADMIN, ROLE_AGENT].includes(r.role?.roleName))
     .map((r) => r.orgId);
-  if (adminOrgIds.length) {
-    return { orgId: adminOrgIds };
+  if (orgIds.length) {
+    return { orgId: orgIds };
   }
   const tripIds = (req.user?.tripRoles || []).map((r) => r.tripId);
   if (!tripIds.length) return null;

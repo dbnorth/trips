@@ -2,6 +2,8 @@
 import { ref, computed, watch, nextTick } from "vue";
 import EmailTemplateServices from "../services/emailTemplateServices.js";
 import EmailTemplatePreviewDialog from "./EmailTemplatePreviewDialog.vue";
+import RichTextEditor from "./RichTextEditor.vue";
+import { emailBodyIsBlank } from "../utils/emailBody.js";
 import EmailTypeServices from "../services/emailTypeServices.js";
 import EmailTokenServices from "../services/emailTokenServices.js";
 import OrganizationServices from "../services/organizationServices.js";
@@ -50,7 +52,9 @@ const insertSubjectToken = ref(null);
 const insertBodyToken = ref(null);
 const insertToToken = ref(null);
 const insertFromToken = ref(null);
-const cursorPositions = ref({ subject: null, emailBody: null, toAddress: null });
+const insertAttachmentToken = ref(null);
+const cursorPositions = ref({ subject: null, toAddress: null });
+const bodyEditor = ref(null);
 const showPreview = ref(false);
 
 const emptyForm = () => ({
@@ -195,6 +199,45 @@ const emailTokenItems = computed(() =>
     }))
 );
 
+const ATTACHMENT_VALUE_SOURCES = ["trip.arrivalPdf"];
+
+const attachmentTokenCodes = computed(() =>
+  emailTokens.value
+    .filter((token) => ATTACHMENT_VALUE_SOURCES.includes(token.valueSource))
+    .map((token) => token.tokenCode)
+);
+
+const attachmentTokenItems = computed(() =>
+  emailTokens.value
+    .filter((token) => attachmentTokenCodes.value.includes(token.tokenCode))
+    .map((token) => ({
+      title: `{{${token.tokenCode}}} — ${token.description}`,
+      value: token.tokenCode,
+    }))
+);
+
+const attachmentEntries = (value) =>
+  String(value || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+const attachmentIsValid = (value) =>
+  attachmentEntries(value).every((entry) => {
+    const match = /^\{\{([A-Z][A-Z0-9_]*)\}\}$/.exec(entry);
+    return !!match && attachmentTokenCodes.value.includes(match[1]);
+  });
+
+const addAttachmentToken = async (tokenCode) => {
+  if (!tokenCode) return;
+  const entries = attachmentEntries(form.value.attachment);
+  const symbol = `{{${tokenCode}}}`;
+  if (!entries.includes(symbol)) entries.push(symbol);
+  form.value.attachment = entries.join(", ");
+  await nextTick();
+  insertAttachmentToken.value = null;
+};
+
 const loadEmailTokens = async () => {
   try {
     const res = await EmailTokenServices.getAll();
@@ -219,8 +262,14 @@ const insertToken = async (field, tokenCode) => {
   cursorPositions.value[field] = at + symbol.length;
   await nextTick();
   if (field === "subject") insertSubjectToken.value = null;
-  else if (field === "toAddress") insertToToken.value = null;
-  else insertBodyToken.value = null;
+  else insertToToken.value = null;
+};
+
+const insertBodyTokenAtCursor = async (tokenCode) => {
+  if (!tokenCode) return;
+  bodyEditor.value?.insertText(`{{${tokenCode}}}`);
+  await nextTick();
+  insertBodyToken.value = null;
 };
 
 const setFromToken = async (tokenCode) => {
@@ -338,7 +387,7 @@ watch(
       copyFromCode.value = null;
       emailTypes.value = [];
       emailTokens.value = [];
-      cursorPositions.value = { subject: null, emailBody: null, toAddress: null };
+      cursorPositions.value = { subject: null, toAddress: null };
       showPreview.value = false;
       organizations.value = [];
       formError.value = "";
@@ -417,8 +466,12 @@ const save = async () => {
     formError.value = "To is required.";
     return;
   }
-  if (!form.value.emailBody?.trim()) {
+  if (emailBodyIsBlank(form.value.emailBody)) {
     formError.value = "Email body is required.";
+    return;
+  }
+  if (!attachmentIsValid(form.value.attachment)) {
+    formError.value = "Attachment may only list attachment tokens.";
     return;
   }
   if (isTripLeaderAdd.value && !props.fixedTripId) {
@@ -608,13 +661,11 @@ const save = async () => {
           />
         </div>
         <div class="d-flex align-start ga-2">
-          <v-textarea
+          <RichTextEditor
+            ref="bodyEditor"
             v-model="form.emailBody"
             label="Email body"
-            density="compact"
-            rows="8"
-            class="flex-grow-1"
-            @blur="rememberCursor('emailBody', $event)"
+            :org-id="form.orgId"
           />
           <v-select
             v-model="insertBodyToken"
@@ -623,18 +674,32 @@ const save = async () => {
             density="compact"
             class="token-select"
             hide-details
-            @update:model-value="(code) => insertToken('emailBody', code)"
+            @update:model-value="insertBodyTokenAtCursor"
+          />
+        </div>
+        <div class="d-flex align-start ga-2">
+          <v-text-field
+            v-model="form.attachment"
+            label="Attachment"
+            density="compact"
+            autocomplete="off"
+            class="flex-grow-1"
+            hint="Optional attachment tokens, separated by commas"
+            persistent-hint
+            data-testid="template-attachment"
+          />
+          <v-select
+            v-model="insertAttachmentToken"
+            :items="attachmentTokenItems"
+            label="Insert token"
+            density="compact"
+            class="token-select"
+            hide-details
+            data-testid="template-attachment-token"
+            @update:model-value="addAttachmentToken"
           />
         </div>
         <v-textarea v-model="form.content" label="Content" density="compact" rows="4" />
-        <v-text-field
-          v-model="form.attachment"
-          label="Attachment path"
-          density="compact"
-          hint="Optional file path or URL"
-          persistent-hint
-          autocomplete="off"
-        />
         <v-alert v-if="formError" type="error" density="compact" class="mt-2">{{ formError }}</v-alert>
       </v-card-text>
       <v-card-actions>
@@ -652,6 +717,7 @@ const save = async () => {
       :to-address="form.toAddress"
       :subject="form.subject"
       :email-body="form.emailBody"
+      :attachment="form.attachment"
     />
   </v-dialog>
 </template>

@@ -8,11 +8,15 @@ import logger from "../config/logger.js";
 import { readSecret, secretsAgentTokenFile } from "./awsSecrets.js";
 import {
   SINGLE_TOKEN_PATTERN,
+  VALUE_SOURCES,
+  attachmentTokenCodes,
   buildSourceValues,
   buildTokenValues,
   substituteRecipients,
   substituteTokens,
 } from "./emailTokenValues.js";
+import { arrivalPdfName, loadTripWithArrivalPdf, readArrivalPdf } from "./tripArrivalPdf.js";
+import { buildEmailContent, escapeHtml } from "./emailHtml.js";
 
 const backendDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -99,8 +103,23 @@ const writeMessageFile = async (dir, message) => {
   const fileName = `${fileStamp(sentAt)}-${crypto.randomBytes(3).toString("hex")}.txt`;
   const lines = [`Date: ${sentAt.toISOString()}`, `From: ${message.from}`];
   if (message.replyTo) lines.push(`Reply-To: ${message.replyTo}`);
-  lines.push(`To: ${message.to}`, `Subject: ${message.subject}`, "", message.text);
+  lines.push(`To: ${message.to}`, `Subject: ${message.subject}`);
+  const files = (message.attachments ?? []).filter((file) => !file.cid);
+  const pictures = (message.attachments ?? []).filter((file) => file.cid);
+  if (files.length) lines.push(`Attachments: ${files.map((file) => file.filename).join(", ")}`);
+  if (pictures.length) {
+    lines.push(`Pictures: ${pictures.map((file) => path.parse(file.filename).name).join(", ")}`);
+  }
+  lines.push("", message.text);
   await fs.writeFile(path.join(dir, fileName), lines.join("\n"), "utf8");
+  if (message.html) {
+    let html = message.html;
+    for (const picture of pictures) {
+      const dataUri = `data:${picture.contentType};base64,${picture.content.toString("base64")}`;
+      html = html.split(`cid:${picture.cid}`).join(dataUri);
+    }
+    await fs.writeFile(path.join(dir, fileName.replace(/\.txt$/, ".html")), html, "utf8");
+  }
   return fileName;
 };
 
@@ -142,10 +161,33 @@ export const sendSystemEmail = async ({ to, subject, text, logText = text, perso
   return { status: "sent", emailLogId: log.id };
 };
 
+const valueSourceLabel = (valueSource) =>
+  VALUE_SOURCES.find((source) => source.valueSource === valueSource)?.label ?? valueSource;
+
+/** The files a template's Attachment field names for this trip, or the reason one is missing. */
+export const loadAttachments = async (attachment, tripId) => {
+  const codes = attachmentTokenCodes(attachment);
+  if (!codes.length) return { attachments: [] };
+  const tokens = await db.emailToken.findAll({ where: { tokenCode: codes } });
+  const valueSources = [
+    ...new Set(codes.map((code) => tokens.find((t) => t.tokenCode === code)?.valueSource)),
+  ];
+  const trip = tripId != null ? await loadTripWithArrivalPdf(tripId) : null;
+  const attachments = [];
+  for (const valueSource of valueSources) {
+    if (valueSource !== "trip.arrivalPdf") continue;
+    const content = await readArrivalPdf(trip);
+    if (!content) return { attachments: [], error: `${valueSourceLabel(valueSource)} is missing.` };
+    attachments.push({ filename: arrivalPdfName(trip), content, contentType: "application/pdf" });
+  }
+  return { attachments };
+};
+
 /**
- * The email one template sends to one trip participant, with tokens filled in.
+ * The email one template sends to one trip participant, with tokens filled in, as HTML and text.
  * `toEmail`, `subject`, and `emailBody` replace the template's when given.
- * Returns `{ message }`, or `{ reason }` when there is no recipient or sender.
+ * Returns `{ message, previewHtml, attachmentError, pictureError }` (each error when a file or
+ * picture is missing; the message then lacks it), or `{ reason }` when there is no recipient or sender.
  */
 export const buildTemplateMessage = async ({
   template,
@@ -171,14 +213,23 @@ export const buildTemplateMessage = async ({
     personId,
     orgId: template.orgId,
   });
+  const content = await buildEmailContent(emailBody ?? template.emailBody, values, template.orgId);
   const message = {
     from: senderFrom(name),
     replyTo: templateFrom,
     to,
     subject: substituteTokens(subject ?? template.subject, values),
-    text: substituteTokens(emailBody ?? template.emailBody, values),
+    text: content.text,
+    html: content.html,
   };
-  return { message };
+  const { attachments, error } = await loadAttachments(template.attachment, tripId);
+  const files = [...attachments, ...content.pictures];
+  return {
+    message: files.length ? { ...message, attachments: files } : message,
+    previewHtml: content.previewHtml,
+    attachmentError: error ?? null,
+    pictureError: content.pictureError,
+  };
 };
 
 /**
@@ -201,6 +252,7 @@ const applyOrganizationTestMode = async (tripId, templateOrgId, message) => {
       to: orgEmail,
       subject: `[Test] ${message.subject}`,
       text: `TEST MODE - intended for: ${message.to}\n\n${message.text}`,
+      html: `<p>TEST MODE - intended for: ${escapeHtml(message.to)}</p>${message.html}`,
     },
   };
 };
@@ -214,6 +266,8 @@ export const sendTemplateEmail = async (options) => {
   const { template, tripId, personId } = options;
   const built = await buildTemplateMessage(options);
   if (!built.message) return { status: "skipped", reason: built.reason };
+  if (built.attachmentError) return { status: "skipped", reason: built.attachmentError };
+  if (built.pictureError) return { status: "skipped", reason: built.pictureError };
   const { message, reason } = await applyOrganizationTestMode(tripId, template.orgId, built.message);
   if (!message) return { status: "skipped", reason };
   const { to } = message;

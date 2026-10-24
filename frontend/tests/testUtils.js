@@ -27,7 +27,14 @@ const feature1Routes = [
   { path: "/document-types", name: "documentTypes", component: Stub },
   { path: "/templates", name: "templates", component: Stub },
   { path: "/worker-roles", name: "workerRoles", component: Stub },
+  { path: "/email-pictures", name: "emailPictures", component: Stub },
   { path: "/medical-conditions", name: "medicalConditions", component: Stub },
+  { path: "/people", name: "people", component: Stub },
+  { path: "/trips", name: "trips", component: Stub },
+  { path: "/trips/:tripId", name: "tripView", component: Stub, props: true },
+  { path: "/trips/:tripId/status", name: "tripStatus", component: Stub, props: true },
+  { path: "/trips/:tripId/rooming", name: "tripRooming", component: Stub, props: true },
+  { path: "/trips/:tripId/flights", name: "tripFlights", component: Stub, props: true },
 ];
 
 export async function createFeature1Router(initialPath = "/") {

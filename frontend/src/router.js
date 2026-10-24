@@ -15,6 +15,7 @@ import EmailTemplatesList from "./views/EmailTemplatesList.vue";
 import EmailTypesList from "./views/EmailTypesList.vue";
 import EmailTokensList from "./views/EmailTokensList.vue";
 import WorkerRolesList from "./views/WorkerRolesList.vue";
+import EmailPicturesList from "./views/EmailPicturesList.vue";
 import MedicalConditionsList from "./views/MedicalConditionsList.vue";
 import DocumentTypesList from "./views/DocumentTypesList.vue";
 import AirportsList from "./views/AirportsList.vue";
@@ -72,6 +73,7 @@ const router = createRouter({
     { path: "/email-types", name: "emailTypes", component: EmailTypesList },
     { path: "/email-tokens", name: "emailTokens", component: EmailTokensList },
     { path: "/worker-roles", name: "workerRoles", component: WorkerRolesList },
+    { path: "/email-pictures", name: "emailPictures", component: EmailPicturesList },
     { path: "/medical-conditions", name: "medicalConditions", component: MedicalConditionsList },
     { path: "/document-types", name: "documentTypes", component: DocumentTypesList },
     { path: "/airports", name: "airports", component: AirportsList },
@@ -141,6 +143,10 @@ export function applyAuthGuards(router) {
       next({ name: "login" });
       return;
     }
+    if (Utils.isAgentUser(user) && !["home", "tripFlights"].includes(to.name)) {
+      next({ name: "home" });
+      return;
+    }
     if (to.name === "organizations" && !user.isAdmin) {
       next({ name: "home" });
       return;
@@ -172,7 +178,7 @@ export function applyAuthGuards(router) {
         return;
       }
     }
-    if (to.name === "workerRoles" && !user.isAdmin) {
+    if ((to.name === "workerRoles" || to.name === "emailPictures") && !user.isAdmin) {
       const isOrgAdmin = (user.orgRoles || []).some((r) => r.roleName === "Org Admin");
       if (!isOrgAdmin) {
         next({ name: "home" });

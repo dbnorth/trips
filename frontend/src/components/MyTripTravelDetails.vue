@@ -1,16 +1,30 @@
 <script setup>
-import { computed } from "vue";
+import { ref, computed } from "vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
+import TripServices from "../services/tripServices.js";
 
 const props = defineProps({
   info: { type: Object, required: true },
+  trip: { type: Object, default: null },
 });
 
 defineEmits(["edit-flights"]);
 
+const arrivalPdfError = ref("");
+
+const openArrivalPdf = async () => {
+  arrivalPdfError.value = "";
+  try {
+    await TripServices.openArrivalPdf(props.trip.id);
+  } catch {
+    arrivalPdfError.value = "Unable to open the Trip Arrival PDF.";
+  }
+};
+
 const room = computed(() => props.info.room || null);
 const segments = computed(() => props.info.flightSegments || []);
 const options = computed(() => props.info.selectedTravelOptions || []);
+const addonExpenses = computed(() => props.info.addonExpenses || []);
 const canEditFlights = computed(() => props.info.flightPurchaseOption === "self");
 
 const formatDate = (value) => {
@@ -38,6 +52,25 @@ const optionLabel = (option) => {
 </script>
 
 <template>
+  <v-row v-if="info.arrivalDate || info.departureDate" dense class="mt-2" data-testid="my-trip-dates">
+    <v-col cols="6" sm="3">
+      <div class="text-caption text-medium-emphasis">Arrive</div>
+      <div data-testid="my-trip-arrive">{{ formatDate(info.arrivalDate) }}</div>
+    </v-col>
+    <v-col cols="6" sm="3">
+      <div class="text-caption text-medium-emphasis">Depart</div>
+      <div data-testid="my-trip-depart">{{ formatDate(info.departureDate) }}</div>
+    </v-col>
+  </v-row>
+
+  <div v-if="info.hasArrivalPdf && trip" class="mt-4" data-testid="my-trip-arrival-info">
+    <h3 class="text-subtitle-1 font-weight-bold mb-2">Trip arrival info</h3>
+    <a href="#" data-testid="my-trip-arrival-link" @click.prevent="openArrivalPdf">
+      Trip Arrival - {{ trip.name }}.pdf
+    </a>
+    <v-alert v-if="arrivalPdfError" type="error" density="compact" class="mt-2">{{ arrivalPdfError }}</v-alert>
+  </div>
+
   <div v-if="room" class="mt-4" data-testid="my-trip-room">
     <h3 class="text-subtitle-1 font-weight-bold mb-2">Room</h3>
     <v-row dense>
@@ -103,6 +136,15 @@ const optionLabel = (option) => {
     <h3 class="text-subtitle-1 font-weight-bold mb-2">Trip options</h3>
     <ul class="pl-5">
       <li v-for="option in options" :key="option.id">{{ optionLabel(option) }}</li>
+    </ul>
+  </div>
+
+  <div v-if="addonExpenses.length" class="mt-4" data-testid="my-trip-addon-expenses">
+    <h3 class="text-subtitle-1 font-weight-bold mb-2">Add-on expenses</h3>
+    <ul class="pl-5">
+      <li v-for="(expense, index) in addonExpenses" :key="index">
+        {{ expense.description }} ({{ formatMoneyDisplay(Number(expense.cost).toFixed(2)) }})
+      </li>
     </ul>
   </div>
 </template>

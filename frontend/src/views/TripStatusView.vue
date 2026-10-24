@@ -3,9 +3,12 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import PersonContactDialog from "../components/PersonContactDialog.vue";
+import TripCostBreakdown from "../components/TripCostBreakdown.vue";
+import TripDateAdjustment from "../components/TripDateAdjustment.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { countryName } from "../utils/locationData.js";
 import { tripParticipantStatusLabel } from "../utils/tripParticipantStatus.js";
+import { flightBookedByLabel } from "../utils/flightBookedBy.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -34,10 +37,8 @@ const formatMoney = (value) => {
   return formatMoneyDisplay(value) || "$0.00";
 };
 
-const formatMissingItems = (items) => {
-  if (!items || !items.length) return "—";
-  return items.join(", ");
-};
+const openPositionsLabel = (count) =>
+  count ? `${count} ${count === 1 ? "position" : "positions"} open` : "All positions filled";
 
 const optionSelectedLabel = (row, optionId) => {
   const ids = (row.selectedTravelOptionIds || []).map(Number);
@@ -56,9 +57,13 @@ const headers = computed(() => {
     { title: "Participant", key: "displayName", sortable: true },
     { title: "Status", key: "status", sortable: true },
     { title: "Role", key: "workerRoleName", sortable: true },
+    { title: "Booked by", key: "bookedBy", sortable: true },
+    { title: "Arrives", key: "arrivalDate", sortable: true },
+    { title: "Departs", key: "departureDate", sortable: true },
     { title: "Missing items", key: "missingItems", sortable: false },
-    { title: "Amount owed", key: "amountOwed", sortable: true },
+    { title: "Total cost", key: "totalTripCost", sortable: true },
     { title: "Amount raised", key: "amountRaised", sortable: true },
+    { title: "Amount owed", key: "amountOwed", sortable: true },
   ];
   for (const option of travelOptions.value) {
     const setLabel =
@@ -77,7 +82,7 @@ const tableItems = computed(() =>
     const item = {
       ...row,
       workerRoleName: row.workerRoleName || "—",
-      missingItemsLabel: formatMissingItems(row.missingItems),
+      bookedBy: flightBookedByLabel(row.flightPurchaseOption, trip.value?.organizationName),
       statusLabel: tripParticipantStatusLabel(row.status),
     };
     for (const option of travelOptions.value) {
@@ -173,6 +178,7 @@ onMounted(load);
                 <th>Signed up</th>
                 <th>Reserved</th>
                 <th>Available</th>
+                <th>Filled</th>
               </tr>
             </thead>
             <tbody>
@@ -182,6 +188,17 @@ onMounted(load);
                 <td>{{ role.signedUpCount }}</td>
                 <td>{{ role.reservedCount ?? 0 }}</td>
                 <td>{{ role.availableCount }}</td>
+                <td>
+                  <v-icon
+                    :icon="role.availableCount ? 'mdi-alert-circle' : 'mdi-check-circle'"
+                    :color="role.availableCount ? 'error' : 'success'"
+                    size="small"
+                    role="img"
+                    :aria-hidden="false"
+                    :aria-label="openPositionsLabel(role.availableCount)"
+                    data-testid="role-filled-icon"
+                  />
+                </td>
               </tr>
             </tbody>
           </v-table>
@@ -221,8 +238,52 @@ onMounted(load);
           <template #item.status="{ item }">
             {{ item.statusLabel }}
           </template>
+          <template #item.arrivalDate="{ item }">
+            <TripDateAdjustment
+              :date="item.arrivalDate"
+              :adjustments="item.arrivalAdjustments"
+              :flight-date="item.flightArrivalDate"
+              direction="before"
+            />
+          </template>
+          <template #item.departureDate="{ item }">
+            <TripDateAdjustment
+              :date="item.departureDate"
+              :adjustments="item.departureAdjustments"
+              :flight-date="item.flightDepartureDate"
+              direction="after"
+            />
+          </template>
           <template #item.missingItems="{ item }">
-            {{ item.missingItemsLabel }}
+            <v-tooltip
+              v-if="item.missingItems?.length"
+              location="top"
+              color="surface"
+              content-class="border"
+              max-width="360"
+            >
+              <template #activator="{ props: activator }">
+                <v-icon
+                  v-bind="activator"
+                  icon="mdi-alert-circle"
+                  color="error"
+                  size="small"
+                  role="img"
+                  tabindex="0"
+                  :aria-hidden="false"
+                  :aria-label="`Missing items: ${item.missingItems.join('; ')}`"
+                  data-testid="missing-items-icon"
+                />
+              </template>
+              <div class="font-weight-bold mb-1">Missing items</div>
+              <ul class="ps-4 text-error" data-testid="missing-items-list">
+                <li v-for="(missing, index) in item.missingItems" :key="index">{{ missing }}</li>
+              </ul>
+            </v-tooltip>
+            <span v-else>—</span>
+          </template>
+          <template #item.totalTripCost="{ item }">
+            <TripCostBreakdown :breakdown="item.costBreakdown" />
           </template>
           <template #item.amountOwed="{ item }">
             {{ formatMoney(item.amountOwed) }}

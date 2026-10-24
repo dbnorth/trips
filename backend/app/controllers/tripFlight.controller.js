@@ -1,6 +1,7 @@
 import db from "../models/index.js";
 import {
   canAccessTrip,
+  isAgentForOrg,
   isOrgAdminForOrg,
   isSystemAdmin,
   isTripLeaderForTrip,
@@ -8,6 +9,7 @@ import {
 import { flightPurchaseInclude } from "../utils/flightPurchaseFields.js";
 import { buildFlightsData, renderFlightsPdf } from "../utils/flightsPdf.js";
 import { sendPdf } from "../utils/pdf.js";
+import { flightDatesFromSegments, participantTravelDates } from "../utils/tripDays.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
@@ -25,6 +27,9 @@ const exports = {};
 
 const canManageTripFlights = async (req, tripId) => {
   const access = await canAccessTrip(req, tripId);
+  if (access.trip && isAgentForOrg(req, access.trip.orgId)) {
+    return { ok: true, trip: access.trip };
+  }
   if (!access.ok) return { ok: false, status: 404, trip: null };
   if (isOrgAdminForOrg(req, access.trip.orgId) || isSystemAdmin(req)) {
     return { ok: true, trip: access.trip };
@@ -121,6 +126,17 @@ const deriveItinerary = (segments) => {
   };
 };
 
+/** Departure airport of the first Arrival segment and arrival airport of the last Return segment. */
+const flightAirports = (segments) => {
+  const ordered = sortSegments(segments).map(toSegmentJson);
+  const arrival = ordered.filter((s) => (s.segmentType || "arrival") === "arrival");
+  const ret = ordered.filter((s) => s.segmentType === "return");
+  return {
+    arrivalFlightOriginCode: arrival[0]?.departureAirport?.code || null,
+    returnFlightDestinationCode: ret.at(-1)?.arrivalAirport?.code || null,
+  };
+};
+
 const serializeApplicationFlightPurchase = (json) => {
   const option = json.flightPurchaseOption || null;
   const preferences =
@@ -175,13 +191,14 @@ const serializeApplicationFlightPurchase = (json) => {
   };
 };
 
-const loadEligibleAssignment = async (tripId, tripPeopleRoleId) => {
+const loadEligibleAssignment = async (tripId, tripPeopleRoleId, include = []) => {
   return TripPeopleRole.findOne({
     where: {
       id: tripPeopleRoleId,
       tripId,
       status: { [Op.in]: ELIGIBLE_STATUSES },
     },
+    include,
   });
 };
 
@@ -235,6 +252,7 @@ exports.findFlights = async (req, res) => {
       where: { tripId, status: { [Op.in]: ELIGIBLE_STATUSES } },
       include: [
         { model: db.person, as: "person", attributes: ["id", "firstName", "lastName"] },
+        { model: db.role, as: "role", attributes: ["roleName"] },
         ...flightPurchaseInclude,
         {
           model: TripFlight,
@@ -255,17 +273,20 @@ exports.findFlights = async (req, res) => {
     const tripJson = trip.toJSON();
     const organizationName = tripJson.organization?.name || null;
 
-    const participants = assignments.map((row) => {
+    const participants = [];
+    for (const row of assignments) {
       const json = row.toJSON();
       const flight = json.flight || null;
       const segments = flight?.segments || [];
       const itinerary = deriveItinerary(segments);
       const purchase = serializeApplicationFlightPurchase(json);
-      return {
+      participants.push({
         tripPeopleRoleId: json.id,
         peopleId: json.peopleId,
         firstName: json.person?.firstName || "",
         lastName: json.person?.lastName || "",
+        roleName: json.role?.roleName || null,
+        status: json.status,
         purchased: flight ? !!flight.purchased : false,
         cost: flight?.cost != null ? Number(flight.cost) : null,
         comments: flight?.comments || "",
@@ -273,8 +294,12 @@ exports.findFlights = async (req, res) => {
         initialDeparture: itinerary.initialDeparture,
         finalArrival: itinerary.finalArrival,
         ...purchase,
-      };
-    });
+        flightNotes: json.flightNotes || null,
+        ...(await participantTravelDates(trip, json.id)),
+        ...flightDatesFromSegments(segments),
+        ...flightAirports(segments),
+      });
+    }
 
     res.send({
       trip: {
@@ -282,6 +307,7 @@ exports.findFlights = async (req, res) => {
         name: tripJson.name,
         startDate: tripJson.startDate,
         endDate: tripJson.endDate,
+        orgId: tripJson.orgId,
         organizationName,
       },
       participants,
@@ -380,7 +406,7 @@ exports.findSegments = async (req, res) => {
     const manage = await canManageSegments(req, tripId, tripPeopleRoleId);
     if (!manage.ok) return forbid(res, manage);
 
-    const assignment = await loadEligibleAssignment(tripId, tripPeopleRoleId);
+    const assignment = await loadEligibleAssignment(tripId, tripPeopleRoleId, flightPurchaseInclude);
     if (!assignment) {
       return res.status(404).send({ message: "Participant not found for this trip." });
     }
@@ -398,7 +424,33 @@ exports.findSegments = async (req, res) => {
 
     const segments = sortSegments(flight?.segments || []).map(serializeSegment);
 
-    res.send({ tripPeopleRoleId, segments });
+    const trip = await Trip.findByPk(tripId, {
+      attributes: ["id", "startDate", "endDate"],
+      include: [
+        {
+          model: db.organization,
+          as: "organization",
+          attributes: ["id", "name"],
+          required: false,
+        },
+      ],
+    });
+    const { arrivalDate, departureDate } = await participantTravelDates(trip, tripPeopleRoleId);
+    const { flightPurchasePreferences, flightPurchasePreferencesText } =
+      serializeApplicationFlightPurchase(assignment.toJSON());
+
+    res.send({
+      tripPeopleRoleId,
+      flightPurchaseOption: assignment.flightPurchaseOption || null,
+      organizationName: trip?.organization?.name || null,
+      arrivalDate,
+      departureDate,
+      flightPurchasePreferences,
+      flightPurchasePreferencesText,
+      flightNotes: assignment.flightNotes || null,
+      confirmationNumber: flight?.confirmationNumber || null,
+      segments,
+    });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
@@ -425,6 +477,13 @@ exports.replaceSegments = async (req, res) => {
     if (!bodySegments) {
       await transaction.rollback();
       return res.status(400).send({ message: "segments array is required." });
+    }
+
+    const hasConfirmationNumber = Object.prototype.hasOwnProperty.call(req.body, "confirmationNumber");
+    const confirmationNumber = String(req.body.confirmationNumber ?? "").trim() || null;
+    if (confirmationNumber && confirmationNumber.length > 50) {
+      await transaction.rollback();
+      return res.status(400).send({ message: "Confirmation number must be 50 characters or fewer." });
     }
 
     const segmentKeys = new Set();
@@ -531,6 +590,7 @@ exports.replaceSegments = async (req, res) => {
     }
 
     const flight = await ensureFlight(tripPeopleRoleId, transaction);
+    if (hasConfirmationNumber) await flight.update({ confirmationNumber }, { transaction });
     await TripFlightSegment.destroy({ where: { tripFlightId: flight.id }, transaction });
     for (const seg of normalized) {
       await TripFlightSegment.create({ tripFlightId: flight.id, ...seg }, { transaction });
@@ -548,6 +608,7 @@ exports.replaceSegments = async (req, res) => {
     });
     res.send({
       tripPeopleRoleId,
+      confirmationNumber: flight.confirmationNumber || null,
       segments: reloaded.map(serializeSegment),
       ...deriveItinerary(reloaded),
     });

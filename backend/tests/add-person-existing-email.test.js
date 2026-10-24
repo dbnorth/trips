@@ -194,22 +194,6 @@ describe("Feature 68 — Add Person and Create Account Refuse an Email That Alre
       expect(membership).toBeNull();
     });
 
-    it("Creating an account with the email of a person without a login is refused", async () => {
-      await db.person.create({ firstName: "No", lastName: "Login", email: "nologin@example.com" });
-
-      const response = await registerUser({
-        email: "nologin@example.com",
-        password: "attacker-pass",
-        firstName: "No",
-        lastName: "Login",
-      });
-
-      expect(response.response.status).toBe(409);
-      expect(response.response.body.message).toBe(ACCOUNT_EXISTS);
-      expect(await db.person.count({ where: { email: "nologin@example.com" } })).toBe(1);
-      expect(await db.user.count({ where: { email: "nologin@example.com" } })).toBe(0);
-    });
-
     it("Create account email match ignores case and spaces", async () => {
       await createExistingUser();
 

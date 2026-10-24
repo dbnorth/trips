@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import EmailTemplateServices from "../services/emailTemplateServices.js";
 import TripServices from "../services/tripServices.js";
 import TripPeopleRoleServices from "../services/tripPeopleRoleServices.js";
+import EmailHtmlPreview from "./EmailHtmlPreview.vue";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -12,6 +13,7 @@ const props = defineProps({
   toAddress: { type: String, default: "" },
   subject: { type: String, default: "" },
   emailBody: { type: String, default: "" },
+  attachment: { type: String, default: "" },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -82,6 +84,7 @@ const loadPreview = async () => {
       toAddress: props.toAddress || "",
       subject: props.subject || "",
       emailBody: props.emailBody || "",
+      attachment: props.attachment || "",
     });
     preview.value = res.data;
   } catch (e) {
@@ -151,8 +154,14 @@ const close = () => emit("update:modelValue", false);
           <div class="mb-2"><strong>From email:</strong> {{ preview.fromEmail }}</div>
           <div class="mb-2"><strong>To:</strong> {{ preview.toAddress }}</div>
           <div class="mb-2"><strong>Subject:</strong> {{ preview.subject }}</div>
+          <div v-if="preview.attachmentError || preview.attachments?.length" class="mb-2" data-testid="preview-attachments">
+            <strong>Attachments:</strong> {{ preview.attachmentError || preview.attachments.join(", ") }}
+          </div>
           <div class="mb-1"><strong>Email body:</strong></div>
-          <div class="email-preview-body border rounded pa-3">{{ preview.emailBody }}</div>
+          <v-alert v-if="preview.pictureError" type="warning" density="compact" class="mb-2">
+            {{ preview.pictureError }}
+          </v-alert>
+          <EmailHtmlPreview :html="preview.emailBody" />
         </div>
       </v-card-text>
       <v-card-actions>
@@ -162,9 +171,3 @@ const close = () => emit("update:modelValue", false);
     </v-card>
   </v-dialog>
 </template>
-
-<style scoped>
-.email-preview-body {
-  white-space: pre-wrap;
-}
-</style>

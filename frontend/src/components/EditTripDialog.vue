@@ -14,6 +14,7 @@ import RoleReservationsDialog from "./RoleReservationsDialog.vue";
 import { parseEmailList, tooManyReservedEmailsError } from "../utils/emailList.js";
 import { parseMoneyAmount, formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { resolveCountryCode } from "../utils/locationData.js";
+import { DAYS_MESSAGE, parseDays } from "../utils/tripDays.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -74,6 +75,8 @@ const initialTravelOptionIds = ref([]);
 const addTravelDescription = ref("");
 const addTravelPriceAdjustment = ref("");
 const addTravelSetNumber = ref(1);
+const addTravelDaysBefore = ref(0);
+const addTravelDaysAfter = ref(0);
 const travelOptionsError = ref("");
 let travelOptionTempId = 0;
 
@@ -183,6 +186,8 @@ const resetTravelOptions = () => {
   addTravelDescription.value = "";
   addTravelPriceAdjustment.value = "";
   addTravelSetNumber.value = 1;
+  addTravelDaysBefore.value = 0;
+  addTravelDaysAfter.value = 0;
   travelOptionsError.value = "";
 };
 
@@ -311,10 +316,14 @@ const mapTravelOptionRow = (row) => ({
       ? String(row.priceAdjustment)
       : "0",
   setNumber: Number(row.setNumber) > 0 ? Number(row.setNumber) : 1,
+  daysBefore: Number(row.daysBefore) || 0,
+  daysAfter: Number(row.daysAfter) || 0,
   originalDescription: row.description || "",
   originalPriceAdjustment:
     row.priceAdjustment != null ? Number(row.priceAdjustment) : 0,
   originalSetNumber: Number(row.setNumber) > 0 ? Number(row.setNumber) : 1,
+  originalDaysBefore: Number(row.daysBefore) || 0,
+  originalDaysAfter: Number(row.daysAfter) || 0,
 });
 
 const loadTravelOptions = async (tripId) => {
@@ -342,6 +351,12 @@ const addTravelOption = () => {
     travelOptionsError.value = "Set number must be a positive whole number.";
     return;
   }
+  const daysBefore = parseDays(addTravelDaysBefore.value);
+  const daysAfter = parseDays(addTravelDaysAfter.value);
+  if (daysBefore == null || daysAfter == null) {
+    travelOptionsError.value = DAYS_MESSAGE;
+    return;
+  }
   travelOptionsError.value = "";
   travelOptions.value.push({
     id: null,
@@ -349,13 +364,19 @@ const addTravelOption = () => {
     description,
     priceAdjustment: String(priceAdjustment),
     setNumber,
+    daysBefore,
+    daysAfter,
     originalDescription: null,
     originalPriceAdjustment: null,
     originalSetNumber: null,
+    originalDaysBefore: null,
+    originalDaysAfter: null,
   });
   addTravelDescription.value = "";
   addTravelPriceAdjustment.value = "";
   addTravelSetNumber.value = 1;
+  addTravelDaysBefore.value = 0;
+  addTravelDaysAfter.value = 0;
 };
 
 const removeTravelOption = (localKey) => {
@@ -381,6 +402,8 @@ const syncTripTravelOptions = async (tripId) => {
           description: r.description.trim(),
           priceAdjustment: parseMoneyAmount(r.priceAdjustment, { allowNegative: true }),
           setNumber: Number(r.setNumber),
+          daysBefore: parseDays(r.daysBefore),
+          daysAfter: parseDays(r.daysAfter),
         })
       ),
     ...travelOptions.value
@@ -390,7 +413,9 @@ const syncTripTravelOptions = async (tripId) => {
         return (
           r.description.trim() !== (r.originalDescription || "") ||
           Number(amount) !== Number(r.originalPriceAdjustment) ||
-          Number(r.setNumber) !== Number(r.originalSetNumber)
+          Number(r.setNumber) !== Number(r.originalSetNumber) ||
+          parseDays(r.daysBefore) !== r.originalDaysBefore ||
+          parseDays(r.daysAfter) !== r.originalDaysAfter
         );
       })
       .map((r) =>
@@ -398,6 +423,8 @@ const syncTripTravelOptions = async (tripId) => {
           description: r.description.trim(),
           priceAdjustment: parseMoneyAmount(r.priceAdjustment, { allowNegative: true }),
           setNumber: Number(r.setNumber),
+          daysBefore: parseDays(r.daysBefore),
+          daysAfter: parseDays(r.daysAfter),
         })
       ),
   ]);
@@ -513,6 +540,10 @@ const save = async () => {
       formError.value = "Each travel option needs a positive set number.";
       return;
     }
+    if (parseDays(row.daysBefore) == null || parseDays(row.daysAfter) == null) {
+      formError.value = DAYS_MESSAGE;
+      return;
+    }
   }
 
   saving.value = true;
@@ -572,7 +603,7 @@ const save = async () => {
 </script>
 
 <template>
-  <v-dialog :model-value="modelValue" max-width="640" scrollable @update:model-value="(v) => !v && close()">
+  <v-dialog :model-value="modelValue" max-width="760" scrollable @update:model-value="(v) => !v && close()">
     <v-card>
       <v-card-title>Edit trip</v-card-title>
 
@@ -852,6 +883,8 @@ const save = async () => {
                   <th style="width: 100px">Set #</th>
                   <th>Description</th>
                   <th style="width: 160px">Price adjustment</th>
+                  <th style="width: 90px">Days before</th>
+                  <th style="width: 90px">Days after</th>
                   <th style="width: 90px"></th>
                 </tr>
               </thead>
@@ -880,6 +913,26 @@ const save = async () => {
                       label=""
                       allow-negative
                       hide-details
+                    />
+                  </td>
+                  <td>
+                    <v-text-field
+                      v-model="row.daysBefore"
+                      inputmode="numeric"
+                      density="compact"
+                      hide-details
+                      aria-label="Days before"
+                      data-testid="travel-option-days-before"
+                    />
+                  </td>
+                  <td>
+                    <v-text-field
+                      v-model="row.daysAfter"
+                      inputmode="numeric"
+                      density="compact"
+                      hide-details
+                      aria-label="Days after"
+                      data-testid="travel-option-days-after"
                     />
                   </td>
                   <td>
@@ -926,6 +979,22 @@ const save = async () => {
                   allow-negative
                   hide-details
                   style="max-width: 160px"
+                />
+                <v-text-field
+                  v-model="addTravelDaysBefore"
+                  inputmode="numeric"
+                  label="Days before"
+                  density="compact"
+                  hide-details
+                  style="max-width: 120px"
+                />
+                <v-text-field
+                  v-model="addTravelDaysAfter"
+                  inputmode="numeric"
+                  label="Days after"
+                  density="compact"
+                  hide-details
+                  style="max-width: 120px"
                 />
                 <v-btn
                   color="primary"

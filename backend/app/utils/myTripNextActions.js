@@ -14,6 +14,8 @@ import {
 import { getApplicationMissingItemLabels, travelOptionsIncompleteMessage } from "./applicationMissingItems.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "./organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "./pregnancyFields.js";
+import { amountOwed, participantTotals } from "./participantTotals.js";
+import { participantFlightDates, participantTravelDates } from "./tripDays.js";
 
 const todayDateOnly = () => {
   const now = new Date();
@@ -25,9 +27,6 @@ const todayDateOnly = () => {
 
 const toMoney = (value) =>
   value == null || value === "" || Number.isNaN(Number(value)) ? null : Number(value);
-
-const resolveParticipantCost = (assignment, trip) =>
-  toMoney(assignment?.participantCost) ?? toMoney(trip?.participantCost);
 
 /** Document-related reasons an application is incomplete, in display order. */
 const missingDocumentNames = async ({ assignment, trip, personDocuments }) => {
@@ -167,16 +166,36 @@ export const loadMyTripNextActions = async (assignment, trip, cache = {}) => {
   const actions = [];
   const amountRaised = await amountRaisedFor(trip.id, assignment.peopleId);
   const deposit = toMoney(trip.deposit);
-  const participantCost = resolveParticipantCost(assignment, trip);
   if (deposit != null && deposit > 0 && amountRaised < deposit) {
     actions.push({ code: "make-deposit", amountRaised, deposit });
-  } else if (participantCost != null) {
-    const amountOwed = Math.max(0, Math.round((participantCost - amountRaised) * 100) / 100);
-    if (amountOwed > 0) actions.push({ code: "make-donation", amountOwed });
+  } else {
+    const { totalTripCost } = await participantTotals(trip, assignment);
+    const owed = amountOwed(totalTripCost, amountRaised);
+    if (owed != null && owed > 0) actions.push({ code: "make-donation", amountOwed: owed });
   }
 
   if (assignment.flightPurchaseOption === "self" && (await flightSegmentCount(assignment.id)) === 0) {
     actions.push({ code: "enter-flights" });
+  }
+
+  const { arrivalDate, departureDate } = await participantTravelDates(trip, assignment.id);
+  const { flightArrivalDate, flightDepartureDate } = await participantFlightDates(assignment.id);
+  const canEditFlights = assignment.flightPurchaseOption === "self";
+  if (arrivalDate && flightArrivalDate && arrivalDate !== flightArrivalDate) {
+    actions.push({
+      code: "arrival-flight-mismatch",
+      flightDate: flightArrivalDate,
+      plannedDate: arrivalDate,
+      canEditFlights,
+    });
+  }
+  if (departureDate && flightDepartureDate && departureDate !== flightDepartureDate) {
+    actions.push({
+      code: "return-flight-mismatch",
+      flightDate: flightDepartureDate,
+      plannedDate: departureDate,
+      canEditFlights,
+    });
   }
   return actions.length ? actions : [{ code: "all-ready" }];
 };

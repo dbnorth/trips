@@ -27,6 +27,15 @@ import {
 } from "../utils/applicationCancel.js";
 import { flightPurchaseInclude } from "../utils/flightPurchaseFields.js";
 import { sendApplicationEventEmails } from "../utils/eventEmails.js";
+import { participantCostBreakdown } from "../utils/participantTotals.js";
+import {
+  ADDON_EXPENSE_DAYS_MESSAGES,
+  DAYS_MESSAGE,
+  daysLimitMessage,
+  parseDays,
+  participantFlightDates,
+  participantTravelDates,
+} from "../utils/tripDays.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -92,7 +101,49 @@ const listIncludes = [
     ],
   },
   ...flightPurchaseInclude,
+  {
+    model: db.tripPeopleRoleExpense,
+    as: "addonExpenses",
+    attributes: ["id", "description", "cost", "daysBefore", "daysAfter"],
+  },
 ];
+
+const ADDON_EXPENSE_MESSAGE = "Each add-on expense needs a description and a cost of $0 or more.";
+
+/** `{ list }` of validated `{ description, cost, daysBefore, daysAfter }` rows, or `{ message }`. */
+const parseAddonExpenses = (value) => {
+  if (!Array.isArray(value)) return { message: ADDON_EXPENSE_MESSAGE };
+  const list = [];
+  for (const item of value) {
+    const description = typeof item?.description === "string" ? item.description.trim() : "";
+    const cost = item?.cost == null || item.cost === "" ? NaN : Number(item.cost);
+    if (!description || description.length > 255 || !Number.isFinite(cost) || cost < 0) {
+      return { message: ADDON_EXPENSE_MESSAGE };
+    }
+    if (Math.abs(cost * 100 - Math.round(cost * 100)) > 1e-6) return { message: ADDON_EXPENSE_MESSAGE };
+    const daysBefore = parseDays(item.daysBefore);
+    const daysAfter = parseDays(item.daysAfter);
+    if (daysBefore == null || daysAfter == null) return { message: DAYS_MESSAGE };
+    list.push({ description, cost: Math.round(cost * 100) / 100, daysBefore, daysAfter });
+  }
+  const limitMessage = daysLimitMessage(list, ADDON_EXPENSE_DAYS_MESSAGES);
+  if (limitMessage) return { message: limitMessage };
+  return { list };
+};
+
+const withAddonExpenses = (row) => {
+  const json = row.toJSON();
+  json.addonExpenses = (json.addonExpenses || [])
+    .sort((a, b) => a.id - b.id)
+    .map(({ id, description, cost, daysBefore, daysAfter }) => ({
+      id,
+      description,
+      cost: Number(cost),
+      daysBefore,
+      daysAfter,
+    }));
+  return json;
+};
 
 const exports = {};
 
@@ -212,13 +263,23 @@ exports.findAll = async (req, res) => {
     const totalsByPersonId = new Map(
       totals.map((row) => [Number(row.personId), Number(row.donationTotal) || 0])
     );
+    const trip = await Trip.findByPk(tripId, {
+      attributes: ["id", "participantCost", "startDate", "endDate"],
+    });
 
-    res.send(
-      data.map((row) => ({
-        ...row.toJSON(),
+    const rows = [];
+    for (const row of data) {
+      const costBreakdown = await participantCostBreakdown(trip, row);
+      rows.push({
+        ...withAddonExpenses(row),
         donationTotal: totalsByPersonId.get(Number(row.peopleId)) || 0,
-      }))
-    );
+        totalTripCost: costBreakdown.totalTripCost,
+        costBreakdown,
+        ...(await participantTravelDates(trip, row.id)),
+        ...(await participantFlightDates(row.id)),
+      });
+    }
+    res.send(rows);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
@@ -258,7 +319,7 @@ exports.findOne = async (req, res) => {
 
     const travelOptions = await loadTravelOptionsForAssignment(row.tripId, row.id);
     res.send({
-      ...row.toJSON(),
+      ...withAddonExpenses(row),
       travelOptions,
     });
   } catch (err) {
@@ -343,6 +404,11 @@ exports.update = async (req, res) => {
     }
 
     const body = { ...req.body };
+    const hasAddonExpenses = Object.prototype.hasOwnProperty.call(body, "addonExpenses");
+    const parsedAddons = hasAddonExpenses ? parseAddonExpenses(body.addonExpenses) : null;
+    if (parsedAddons?.message) return res.status(400).send({ message: parsedAddons.message });
+    const addonExpenses = parsedAddons?.list ?? null;
+
     if (Object.prototype.hasOwnProperty.call(body, "tripWorkerRoleId")) {
       body.tripWorkerRoleId = normalizeTripWorkerRoleId(body.tripWorkerRoleId);
       const twrCheck = await validateTripWorkerRole(row.tripId, body.tripWorkerRoleId);
@@ -460,11 +526,21 @@ exports.update = async (req, res) => {
     }
 
     const previousStatus = row.status;
-    const result = await optimisticUpdate(TripPeopleRole, req.params.id, body, fields);
+    const result = await db.sequelize.transaction(async (transaction) => {
+      const updated = await optimisticUpdate(TripPeopleRole, req.params.id, body, fields, { transaction });
+      if (updated.ok && addonExpenses) {
+        await db.tripPeopleRoleExpense.destroy({ where: { tripPeopleRoleId: row.id }, transaction });
+        await db.tripPeopleRoleExpense.bulkCreate(
+          addonExpenses.map((expense) => ({ ...expense, tripPeopleRoleId: row.id })),
+          { transaction }
+        );
+      }
+      return updated;
+    });
     if (!result.ok) return res.status(result.status).send({ message: result.message });
     await sendApplicationEventEmails(result.data, previousStatus);
     const full = await TripPeopleRole.findByPk(req.params.id, { include: listIncludes });
-    res.send(full);
+    res.send(withAddonExpenses(full));
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

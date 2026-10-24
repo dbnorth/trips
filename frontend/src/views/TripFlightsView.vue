@@ -4,7 +4,13 @@ import { useRoute, useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import ExportServices from "../services/exportServices.js";
 import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
+import TripTeamEmailDialog from "../components/TripTeamEmailDialog.vue";
+import TripDateAdjustment from "../components/TripDateAdjustment.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
+import { flightBookedByLabel } from "../utils/flightBookedBy.js";
+import { flightAirportWarnings } from "../utils/flightAirportWarnings.js";
+import RowAction from "../components/RowAction.vue";
+import Utils from "../config/utils.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -13,6 +19,7 @@ const props = defineProps({
 const route = useRoute();
 const router = useRouter();
 const resolvedTripId = computed(() => props.tripId ?? route.params.tripId);
+const isAgentUser = Utils.isAgentUser(Utils.getStore("user"));
 
 const trip = ref(null);
 const participants = ref([]);
@@ -23,6 +30,16 @@ const message = ref("");
 const error = ref("");
 const showSegments = ref(false);
 const segmentsParticipant = ref(null);
+const showItineraryEmail = ref(false);
+
+const itineraryRecipients = computed(() =>
+  participants.value.map((p) => ({
+    peopleId: p.peopleId,
+    person: { firstName: p.firstName, lastName: p.lastName },
+    role: { roleName: p.roleName },
+    status: p.status,
+  }))
+);
 
 const pageTitle = computed(() =>
   trip.value?.name ? `${trip.value.name} — Flights` : "Flights"
@@ -52,16 +69,28 @@ const formatCostDisplay = (value) => {
   return formatMoneyDisplay(value) || String(value);
 };
 
-const formatFlightPurchase = (row) => {
-  if (row.flightPurchaseOption === "self") return "Participant purchases";
-  if (row.flightPurchaseOption === "organization") {
-    const org = trip.value?.organizationName || "Organization";
-    return `${org} purchases`;
-  }
-  return "—";
-};
+const formatFlightPurchase = (row) =>
+  flightBookedByLabel(row.flightPurchaseOption, trip.value?.organizationName);
 
 const participantPaysOwn = (row) => row?.flightPurchaseOption === "self";
+
+const airportLabel = (code, city) => (code ? `${code}${city ? ` (${city})` : ""}` : "");
+
+/** The participant's requested flight info as label/value lines, leaving out blanks. */
+const requestedFlightInfo = (row) => {
+  const prefs = row.flightPurchaseOption === "organization" ? row.flightPurchasePreferences || {} : {};
+  const refundable = { true: "Yes", false: "No" }[String(prefs.refundableTicket)] || "";
+  return [
+    ["Preferred departure airport", airportLabel(prefs.departureAirportCode, prefs.departureCity)],
+    ["Preferred return airport", airportLabel(prefs.returnAirportCode, prefs.returnCity)],
+    ["Class of travel", prefs.cabinClass],
+    ["Preferred airline", [prefs.airlineCode, prefs.airlineName].filter(Boolean).join(" — ")],
+    ["Refundable ticket", refundable],
+    ["Flight notes", row.flightNotes],
+  ]
+    .filter(([, value]) => value)
+    .map(([label, value]) => ({ label, value }));
+};
 
 const applyPayload = (data) => {
   trip.value = data?.trip || null;
@@ -72,6 +101,12 @@ const applyPayload = (data) => {
       costInput: paysOwn ? "0" : p.cost != null ? String(p.cost) : "",
       comments: p.comments || "",
       purchased: !!p.purchased,
+      requestedFlightInfo: requestedFlightInfo(p),
+      airportWarnings: flightAirportWarnings({
+        arrivalFlightOriginCode: p.arrivalFlightOriginCode,
+        returnFlightDestinationCode: p.returnFlightDestinationCode,
+        preferences: p.flightPurchaseOption === "organization" ? p.flightPurchasePreferences : null,
+      }),
     };
   });
 };
@@ -157,18 +192,24 @@ onMounted(load);
   <v-container>
     <div class="d-flex align-center justify-space-between mb-4 flex-wrap ga-2">
       <div class="d-flex align-center ga-2">
-        <v-btn variant="text" @click="router.push({ name: 'trips' })">Back to trips</v-btn>
+        <v-btn v-if="isAgentUser" variant="text" @click="router.push({ name: 'home' })">Back to home</v-btn>
+        <v-btn v-else variant="text" @click="router.push({ name: 'trips' })">Back to trips</v-btn>
         <h1 class="text-h5">{{ pageTitle }}</h1>
       </div>
-      <v-btn
-        variant="tonal"
-        color="primary"
-        :loading="downloadingPdf"
-        :disabled="loading || !trip"
-        @click="downloadPdf"
-      >
-        Flights PDF
-      </v-btn>
+      <div class="d-flex align-center ga-2">
+        <v-btn
+          variant="tonal"
+          color="primary"
+          :loading="downloadingPdf"
+          :disabled="loading || !trip"
+          @click="downloadPdf"
+        >
+          Flights PDF
+        </v-btn>
+        <v-btn variant="tonal" color="primary" :disabled="loading || !trip" @click="showItineraryEmail = true">
+          Email flight itinerary
+        </v-btn>
+      </div>
     </div>
 
     <v-progress-linear v-if="loading" indeterminate class="mb-4" />
@@ -193,7 +234,9 @@ onMounted(load);
             <tr>
               <th>First name</th>
               <th>Last name</th>
-              <th>Who purchases</th>
+              <th>Booked by</th>
+              <th>Arrives</th>
+              <th>Departs</th>
               <th>Cost</th>
               <th>Comments</th>
               <th>Initial departure</th>
@@ -206,13 +249,47 @@ onMounted(load);
               <td>{{ row.firstName || "—" }}</td>
               <td>{{ row.lastName || "—" }}</td>
               <td style="min-width: 200px; max-width: 320px">
-                <div>{{ formatFlightPurchase(row) }}</div>
-                <div
-                  v-if="row.flightPurchaseOption === 'organization' && row.flightPurchasePreferencesText"
-                  class="text-caption text-medium-emphasis"
-                >
-                  {{ row.flightPurchasePreferencesText }}
-                </div>
+                <span class="d-inline-flex align-center ga-1">
+                  <span>{{ formatFlightPurchase(row) }}</span>
+                  <v-tooltip v-if="row.requestedFlightInfo.length" location="top" max-width="400">
+                    <template #activator="{ props: activator }">
+                      <v-icon
+                        v-bind="activator"
+                        icon="mdi-information-outline"
+                        size="small"
+                        role="img"
+                        tabindex="0"
+                        :aria-hidden="false"
+                        aria-label="Requested flight info"
+                        data-testid="requested-flight-info"
+                      />
+                    </template>
+                    <div data-testid="requested-flight-details">
+                      <div class="font-weight-bold mb-1">Requested flight info</div>
+                      <div
+                        v-for="line in row.requestedFlightInfo"
+                        :key="line.label"
+                        class="text-pre-wrap"
+                      >{{ line.label }}: {{ line.value }}</div>
+                    </div>
+                  </v-tooltip>
+                </span>
+              </td>
+              <td class="text-no-wrap" data-testid="flights-arrives">
+                <TripDateAdjustment
+                  :date="row.arrivalDate"
+                  :adjustments="row.arrivalAdjustments"
+                  :flight-date="row.flightArrivalDate"
+                  direction="before"
+                />
+              </td>
+              <td class="text-no-wrap" data-testid="flights-departs">
+                <TripDateAdjustment
+                  :date="row.departureDate"
+                  :adjustments="row.departureAdjustments"
+                  :flight-date="row.flightDepartureDate"
+                  direction="after"
+                />
               </td>
               <td style="min-width: 110px">
                 <v-text-field
@@ -232,20 +309,41 @@ onMounted(load);
                   variant="underlined"
                 />
               </td>
-              <td>{{ formatItineraryPart(row.initialDeparture) }}</td>
-              <td>{{ formatItineraryPart(row.finalArrival) }}</td>
+              <td
+                v-for="part in [
+                  { key: 'initial-departure', value: row.initialDeparture, warning: row.airportWarnings.arrival },
+                  { key: 'final-arrival', value: row.finalArrival, warning: row.airportWarnings.return },
+                ]"
+                :key="part.key"
+                :data-testid="`flights-${part.key}`"
+              >
+                <span class="d-inline-flex align-center ga-1">
+                  <span>{{ formatItineraryPart(part.value) }}</span>
+                  <v-tooltip v-if="part.warning" location="top">
+                    <template #activator="{ props: activator }">
+                      <v-icon
+                        v-bind="activator"
+                        icon="mdi-alert"
+                        color="warning"
+                        size="small"
+                        :aria-label="part.warning"
+                        data-testid="airport-warning"
+                      />
+                    </template>
+                    <span data-testid="airport-warning-message">{{ part.warning }}</span>
+                  </v-tooltip>
+                </span>
+              </td>
               <td class="text-no-wrap">
-                <v-btn
-                  size="small"
-                  variant="text"
-                  :loading="savingId === row.tripPeopleRoleId"
-                  @click="saveRow(row)"
-                >
-                  Save
-                </v-btn>
-                <v-btn size="small" variant="text" @click="openSegments(row)">
-                  Flight segments
-                </v-btn>
+                <div class="d-flex flex-nowrap ga-1">
+                  <RowAction
+                    icon="mdi-content-save"
+                    label="Save"
+                    :loading="savingId === row.tripPeopleRoleId"
+                    @click="saveRow(row)"
+                  />
+                  <RowAction icon="mdi-airplane-edit" label="Flight segments" @click="openSegments(row)" />
+                </div>
               </td>
             </tr>
           </tbody>
@@ -261,6 +359,13 @@ onMounted(load);
       :trip-start-date="trip?.startDate || ''"
       :trip-end-date="trip?.endDate || ''"
       @saved="onSegmentsSaved"
+    />
+    <TripTeamEmailDialog
+      v-model="showItineraryEmail"
+      kind="flightItinerary"
+      :trip-id="resolvedTripId"
+      :org-id="trip?.orgId ?? null"
+      :participants="itineraryRecipients"
     />
   </v-container>
 </template>

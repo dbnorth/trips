@@ -9,7 +9,7 @@ import Login from "../src/views/Login.vue";
 import authServices from "../src/services/authServices.js";
 import Utils from "../src/config/utils.js";
 import { getRegistrationHostSubdomain } from "../src/utils/hostSubdomain.js";
-import { mountWithPlugins } from "./testUtils.js";
+import { createTestRouter, mountWithPlugins } from "./testUtils.js";
 
 vi.mock("../src/services/authServices.js", () => ({
   default: {
@@ -258,5 +258,41 @@ describe("Feature 33 — Person Preferred Name", () => {
     await field("Last name").vm.$emit("update:modelValue", "Lopez");
     await flushPromises();
     expect(field("Preferred name").props("modelValue")).toBe("Ada Lopez");
+  });
+});
+
+/**
+ * Feature 80 — Import Trip Master CSV
+ * Spec: features/feature-80-trip-master-import.md
+ */
+describe("Feature 80 — Import Trip Master CSV", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    getRegistrationHostSubdomain.mockReturnValue(null);
+    authServices.getRegisterOrganizations.mockResolvedValue({ data: [] });
+  });
+
+  describe("US-80.6 — Invite people to create an account", () => {
+    it("Invitation link opens Create account filled in", async () => {
+      const router = await createTestRouter("/?create=1&email=lyle%40example.org&firstName=Lyle&lastName=Lowry");
+      const { wrapper } = await mountWithPlugins(Login, { router });
+      await flushPromises();
+
+      const field = (label) =>
+        wrapper.findAllComponents({ name: "VTextField" }).find((c) => c.props("label") === label);
+      expect(wrapper.find(".v-card-title").text()).toBe("Create account");
+      expect(field("Email").props("modelValue")).toBe("lyle@example.org");
+      expect(field("First name").props("modelValue")).toBe("Lyle");
+      expect(field("Last name").props("modelValue")).toBe("Lowry");
+      expect(field("Preferred name").props("modelValue")).toBe("Lyle Lowry");
+      wrapper.unmount();
+
+      const plain = await mountWithPlugins(Login, { router: await createTestRouter("/?email=lyle%40example.org") });
+      await flushPromises();
+      expect(plain.wrapper.find(".v-card-title").text()).toBe("Mission Trips");
+      expect(plain.wrapper.findAll("button").some((b) => b.text().trim() === "Sign in")).toBe(true);
+      plain.wrapper.unmount();
+    });
   });
 });

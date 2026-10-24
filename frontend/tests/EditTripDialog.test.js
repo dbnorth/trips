@@ -177,3 +177,62 @@ describe("Feature 56 — Reserved Role Emails", () => {
     });
   });
 });
+
+/**
+ * Feature 78 — Days Before and After the Trip
+ * Spec: features/feature-78-days-before-after-trip.md
+ */
+describe("Feature 78 — Days Before and After the Trip", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    Utils.setStore("user", {
+      userId: 2,
+      personId: 2,
+      email: "omar@example.org",
+      isAdmin: false,
+      token: "t",
+      orgRoles: [{ orgId: 3, orgName: "Hope Missions", roleName: "Org Admin" }],
+      tripRoles: [],
+      currentOrgId: 3,
+    });
+    TripServices.get.mockResolvedValue({
+      data: { id: 7, orgId: 3, name: "Guatemala Clinic", status: "active", version: 1, leaderPeopleIds: [] },
+    });
+    PersonServices.getOrgTripLeaders.mockResolvedValue({ data: [] });
+    WorkerRoleServices.getAll.mockResolvedValue({ data: [] });
+    TripWorkerRoleServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({
+      data: [
+        { id: 1, description: "Arrive early", priceAdjustment: "0.00", setNumber: 1, daysBefore: 2, daysAfter: 0 },
+        { id: 2, description: "Arrive on time", priceAdjustment: "0.00", setNumber: 1, daysBefore: 0, daysAfter: 0 },
+      ],
+    });
+  });
+
+  describe("US-78.1 — Staff set days on trip options", () => {
+    it("Edit trip shows days on trip options", async () => {
+      const { wrapper } = await mountWithPlugins(EditTripDialog, {
+        props: { modelValue: false, tripId: 7 },
+        global: {
+          plugins: [vuetify],
+          stubs: {
+            VDialog: { props: ["modelValue"], template: '<div v-if="modelValue !== false"><slot /></div>' },
+          },
+        },
+      });
+      await wrapper.setProps({ modelValue: true });
+      await flushPromises();
+
+      const headers = wrapper.findAll("thead th").map((th) => th.text());
+      expect(headers).toContain("Days before");
+      expect(headers).toContain("Days after");
+      const row = wrapper
+        .findAll("tbody tr")
+        .find((tr) => tr.findAll("input").some((input) => input.element.value === "Arrive early"));
+      expect(row.find('[data-testid="travel-option-days-before"] input').element.value).toBe("2");
+      expect(row.find('[data-testid="travel-option-days-after"] input').element.value).toBe("0");
+      wrapper.unmount();
+    });
+  });
+});

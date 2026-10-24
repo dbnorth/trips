@@ -3,9 +3,11 @@ import {
   isSystemAdmin,
   parseOrganizationScopeHeader,
   ROLE_ORG_ADMIN,
+  ROLE_TRIP_LEADER,
   ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
 import { buildTemplateMessage, sendTemplateEmail } from "../utils/emailDelivery.js";
+import { cleanEmailBody, emailBodyIsBlank, pictureRuleError } from "../utils/emailHtml.js";
 
 const PERSON = "Person";
 const TRIP_PARTICIPANT = "Trip Participant";
@@ -50,7 +52,7 @@ const byLastThenFirst = (a, b) =>
 const selectedIds = (value) =>
   Array.isArray(value) ? [...new Set(value.map(Number))] : [];
 
-/** Approved Trip Participants on the selected trips with a selected worker role, each person once. */
+/** Approved Trip Participants and Trip Leaders on the selected trips with a selected worker role, each person once. */
 const loadRecipients = async (orgId, body) => {
   const orgTrips = await db.trip.findAll({ where: { orgId }, attributes: ["id"] });
   const orgTripIds = orgTrips.map((t) => t.id);
@@ -81,10 +83,13 @@ const loadRecipients = async (orgId, body) => {
     where.tripWorkerRoleId = tripRoles.filter((r) => roleIds.includes(r.workerRoleId)).map((r) => r.id);
   }
 
-  const participantRole = await db.role.findOne({ where: { roleName: ROLE_TRIP_PARTICIPANT } });
+  const memberRoles = await db.role.findAll({
+    where: { roleName: [ROLE_TRIP_PARTICIPANT, ROLE_TRIP_LEADER] },
+    attributes: ["id"],
+  });
   const assignments = tripIds.length
     ? await db.tripPeopleRole.findAll({
-        where: { ...where, roleId: participantRole.id },
+        where: { ...where, roleId: memberRoles.map((r) => r.id) },
         include: [{ model: db.person, as: "person", attributes: ["id", "firstName", "lastName", "email"] }],
       })
     : [];
@@ -127,9 +132,11 @@ const readPeopleEmailRequest = async (orgId, body) => {
   if (chosen.error) return chosen;
 
   const subject = typeof body.subject === "string" ? body.subject : "";
-  const emailBody = typeof body.emailBody === "string" ? body.emailBody : "";
+  const emailBody = cleanEmailBody(typeof body.emailBody === "string" ? body.emailBody : "");
   if (!subject.trim()) return badRequest("Subject is required.");
-  if (!emailBody.trim()) return badRequest("Email body is required.");
+  if (emailBodyIsBlank(emailBody)) return badRequest("Email body is required.");
+  const pictureError = await pictureRuleError(emailBody, orgId);
+  if (pictureError) return badRequest(pictureError);
   if (!selection.people.length) return badRequest("No people to send to.");
 
   return { ...chosen, subject, emailBody, people: selection.people };
@@ -218,14 +225,18 @@ exports.preview = async (req, res) => {
     if (!person) {
       return res.status(400).send({ message: "Preview person must be one of the recipients." });
     }
-    const { message, reason } = await buildTemplateMessage(messageOptions(request, person));
+    const { message, reason, previewHtml, attachmentError, pictureError } =
+      await buildTemplateMessage(messageOptions(request, person));
     if (!message) return res.status(400).send({ message: reason });
     res.send({
       from: message.from,
       replyTo: message.replyTo ?? null,
       to: message.to,
       subject: message.subject,
-      body: message.text,
+      body: previewHtml,
+      attachments: (message.attachments ?? []).filter((file) => !file.cid).map((file) => file.filename),
+      attachmentError,
+      pictureError,
     });
   } catch (err) {
     res.status(500).send({ message: err.message });

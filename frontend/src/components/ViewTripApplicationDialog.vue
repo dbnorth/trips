@@ -292,6 +292,9 @@ const confirmUncancelApplication = async () => {
                 }}
               </LabelValueRow>
             </template>
+            <LabelValueRow label="Flight notes">
+              <span class="text-pre-wrap">{{ application.flightNotes || "—" }}</span>
+            </LabelValueRow>
           </LabelValueTable>
 
           <div class="text-subtitle-2 mb-2 mt-4">Selected travel options</div>

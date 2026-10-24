@@ -2,6 +2,7 @@ import db from "../models/index.js";
 import {
   ROLE_TRIP_PARTICIPANT,
   ROLE_ORG_ADMIN,
+  isApprovedTripMember,
   isSystemAdmin,
 } from "../authorization/accessControl.js";
 import {
@@ -23,6 +24,13 @@ import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 import { loadDonationRecipients } from "../utils/donorPerson.js";
 import { loadMyTripNextActions } from "../utils/myTripNextActions.js";
 import { loadMyTripTravelDetails } from "../utils/myTripTravelDetails.js";
+import { participantTotals } from "../utils/participantTotals.js";
+import { loadTripWithArrivalPdf } from "../utils/tripArrivalPdf.js";
+import {
+  TRIP_OPTION_DAYS_MESSAGES,
+  daysLimitMessage,
+  participantTravelDates,
+} from "../utils/tripDays.js";
 import {
   cancelApplicationAssignment,
   uncancelApplicationAssignment,
@@ -45,6 +53,8 @@ const Op = db.Sequelize.Op;
 const LICENSE_STATUSES = ["yes", "yes_retired", "no"];
 
 const parseBool = (value) => value === true || value === 1 || value === "1" || value === "true";
+
+const parseFlightNotes = (value) => String(value ?? "").trim() || null;
 
 const roundMoney = (value) => Math.round(Number(value) * 100) / 100;
 
@@ -111,7 +121,18 @@ const validateSelectedTravelOptionIds = (travelOptions, selectedIds) => {
     }
   }
 
+  const daysMessage = daysLimitMessage(
+    (travelOptions || []).filter((o) => selected.has(Number(o.id))),
+    TRIP_OPTION_DAYS_MESSAGES
+  );
+  if (daysMessage) return { ok: false, message: daysMessage };
+
   return { ok: true, missingSelection };
+};
+
+const myTravelDates = async (trip, assignmentId) => {
+  const { arrivalDate, departureDate } = await participantTravelDates(trip, assignmentId);
+  return { arrivalDate, departureDate };
 };
 
 const syncTripPeopleRoleOptions = async (tripPeopleRoleId, travelOptions, selectedIds) => {
@@ -511,6 +532,7 @@ exports.getBrowseTrip = async (req, res) => {
         (await TripDonation.sum("amount", {
           where: { tripId: trip.id, personId: assignment.peopleId },
         })) || 0;
+      const totals = await participantTotals(trip, assignment);
       myTripInfo = {
         status: assignment.status || null,
         workerRoleName: assignment.tripWorkerRole?.workerRole?.name || null,
@@ -520,11 +542,24 @@ exports.getBrowseTrip = async (req, res) => {
             : trip.participantCost != null
               ? Number(trip.participantCost)
               : null,
+        totalTripCost: totals.totalTripCost,
+        addonExpenses: totals.addonExpenses.map(({ description, cost, daysBefore, daysAfter }) => ({
+          description,
+          cost,
+          daysBefore,
+          daysAfter,
+        })),
+        ...(["incomplete", "applied", "approved"].includes(assignment.status)
+          ? await myTravelDates(trip, assignment.id)
+          : { arrivalDate: null, departureDate: null }),
         donationTotal: Number(donationTotal) || 0,
         donationRecipients: ["incomplete", "applied", "approved"].includes(assignment.status)
           ? await loadDonationRecipients(trip.id)
           : [],
         tripPeopleRoleId: assignment.id,
+        hasArrivalPdf:
+          isApprovedTripMember(req, trip.id) &&
+          !!(await loadTripWithArrivalPdf(trip.id)).arrivalPdfFileName,
         nextActions: await loadMyTripNextActions(assignment, trip),
         ...(await loadMyTripTravelDetails(assignment)),
       };
@@ -710,6 +745,7 @@ exports.applyToTrip = async (req, res) => {
       preferredCabinClass: flightPurchase.preferredCabinClass,
       preferredAirlineId: flightPurchase.preferredAirlineId,
       preferredRefundableTicket: flightPurchase.preferredRefundableTicket,
+      flightNotes: parseFlightNotes(req.body?.flightNotes),
       agreementAccepted: agreement.agreementAccepted,
       agreementSignatureName: agreement.agreementSignatureName,
       agreementDate: agreement.agreementDate,
@@ -989,6 +1025,9 @@ exports.updateApplication = async (req, res) => {
       preferredCabinClass: flightPurchase.preferredCabinClass,
       preferredAirlineId: flightPurchase.preferredAirlineId,
       preferredRefundableTicket: flightPurchase.preferredRefundableTicket,
+      flightNotes: Object.prototype.hasOwnProperty.call(req.body || {}, "flightNotes")
+        ? parseFlightNotes(req.body.flightNotes)
+        : assignment.flightNotes,
       participantCost,
       agreementAccepted: agreement.agreementAccepted,
       agreementSignatureName: agreement.agreementSignatureName,

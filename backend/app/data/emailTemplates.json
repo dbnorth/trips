@@ -101,6 +101,42 @@
       "toAddress": "{{PARTICIPANT_EMAIL}}",
       "subject": "An update from {{ORG_NAME}}",
       "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nThank you for serving with {{ORG_NAME}}. We wanted to share some news with you.\n\n[Write your update here.]\n\nIf you have any questions, reply to this email or contact us at {{ORG_EMAIL}} or {{ORG_PHONE}}. You can find more information at {{ORG_WEBSITE}}.\n\nThank you,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "trip-arrival",
+      "functionCode": "Trip Participant",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "attachment": "{{TRIP_ARRIVAL_PDF}}",
+      "subject": "Arrival information for {{TRIP_NAME}}",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\n{{TRIP_NAME}} begins on {{TRIP_START_DATE}}. Your arrival information is attached. Please read it before you travel and keep a copy with you.\n\nIf you have questions, contact your trip leader, {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}}, at {{LEADER_EMAIL}}.\n\nSafe travels,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "trip-arrival-scheduled",
+      "functionCode": "Scheduled",
+      "scheduleRule": "before-start",
+      "scheduleDaysBefore": 3,
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "attachment": "{{TRIP_ARRIVAL_PDF}}",
+      "subject": "Arrival information for {{TRIP_NAME}}",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\n{{TRIP_NAME}} begins on {{TRIP_START_DATE}}. Your arrival information is attached. Please read it before you travel and keep a copy with you.\n\nIf you have questions, contact your trip leader, {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}}, at {{LEADER_EMAIL}}.\n\nSafe travels,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "account-invite",
+      "functionCode": "Trip Participant",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "Create your account for {{TRIP_NAME}}",
+      "emailBody": "<p>Hi {{PARTICIPANT_FIRST_NAME}},</p><p>You're on the team for {{TRIP_NAME}} in {{TRIP_LOCATION}}, {{TRIP_START_DATE}} to {{TRIP_END_DATE}}. Please create your {{ORG_NAME}} account so you can see your trip, finish your application, and keep your details up to date.</p><p><a href=\"{{CREATE_ACCOUNT_LINK}}\">Create your account</a></p><p>Please use this email address, {{PARTICIPANT_EMAIL}}, so your account is linked to your trip. If you already have an account, the link takes you to sign in.</p><p>If you have questions, contact your trip leader, {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}}, at {{LEADER_EMAIL}}.</p><p>Blessings,<br>{{ORG_NAME}}<br>{{ORG_WEBSITE}}</p>"
+    },
+    {
+      "typeCode": "flight-itinerary",
+      "functionCode": "Trip Participant",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "Your {{TRIP_NAME}} flight itinerary",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nHere is your flight itinerary for {{TRIP_NAME}} ({{PARTICIPANT_ARRIVAL_DATE}} to {{PARTICIPANT_DEPARTURE_DATE}}).\n\nConfirmation number: {{FLIGHT_CONFIRMATION_NUM}}\n\nArrival flight:\n{{ARRIVAL_FLIGHT}}\n\nReturn flight:\n{{RETURN_FLIGHT}}\n\nIf anything looks wrong, reply to this email.\n\nBlessings,\n{{ORG_NAME}}"
     }
   ]
 }

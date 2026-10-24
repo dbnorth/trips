@@ -7,6 +7,7 @@ import MoneyInput from "./MoneyInput.vue";
 import { formatMoneyDisplay, parseMoneyAmount } from "../utils/moneyUtils.js";
 import { TRIP_PARTICIPANT_STATUS_OPTIONS } from "../utils/tripParticipantStatus.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
+import { DAYS_MESSAGE, parseDays } from "../utils/tripDays.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -22,14 +23,24 @@ const { formError, formNotice, prepareSave, onLoadStart, onLoadSuccess, handleSa
   useVersionConflictForm();
 
 const statusItems = TRIP_PARTICIPANT_STATUS_OPTIONS;
+const ADDON_EXPENSE_MESSAGE = "Each add-on expense needs a description and a cost of $0 or more.";
 
 const form = ref({
   status: "incomplete",
   tripWorkerRoleId: null,
   participantCost: "",
+  addonExpenses: [],
   whygoText: "",
   version: 0,
 });
+
+const addonTotal = computed(() =>
+  form.value.addonExpenses.reduce((sum, expense) => sum + (parseMoneyAmount(expense.cost) || 0), 0)
+);
+
+const addAddonExpense = () =>
+  form.value.addonExpenses.push({ description: "", cost: "", daysBefore: "", daysAfter: "" });
+const removeAddonExpense = (index) => form.value.addonExpenses.splice(index, 1);
 
 const participantName = computed(() => {
   const p = props.participant?.person;
@@ -49,6 +60,12 @@ const applyParticipant = (row) => {
     status: row.status || "incomplete",
     tripWorkerRoleId: row.tripWorkerRoleId ?? null,
     participantCost: row.participantCost != null ? String(row.participantCost) : "",
+    addonExpenses: (row.addonExpenses || []).map((expense) => ({
+      description: expense.description || "",
+      cost: expense.cost != null ? Number(expense.cost).toFixed(2) : "",
+      daysBefore: expense.daysBefore ? String(expense.daysBefore) : "",
+      daysAfter: expense.daysAfter ? String(expense.daysAfter) : "",
+    })),
     whygoText: row.whygoText || "",
     version: row.version ?? 0,
   };
@@ -108,11 +125,40 @@ const save = async () => {
   if (!props.participant?.id) return;
 
   prepareSave();
+
+  const addonExpenses = [];
+  for (const expense of form.value.addonExpenses) {
+    const description = expense.description?.trim() || "";
+    const costText = expense.cost == null ? "" : String(expense.cost).trim();
+    if (!description && !costText) continue;
+    const cost = parseMoneyAmount(costText);
+    if (!description || cost == null) {
+      formError.value = ADDON_EXPENSE_MESSAGE;
+      return;
+    }
+    const daysBefore = parseDays(expense.daysBefore);
+    const daysAfter = parseDays(expense.daysAfter);
+    if (daysBefore == null || daysAfter == null) {
+      formError.value = DAYS_MESSAGE;
+      return;
+    }
+    addonExpenses.push({ description, cost, daysBefore, daysAfter });
+  }
+  if (addonExpenses.filter((expense) => expense.daysBefore > 0).length > 1) {
+    formError.value = "Only one add-on expense can have days before the trip.";
+    return;
+  }
+  if (addonExpenses.filter((expense) => expense.daysAfter > 0).length > 1) {
+    formError.value = "Only one add-on expense can have days after the trip.";
+    return;
+  }
+
   saving.value = true;
 
   const payload = {
     status: form.value.status,
     tripWorkerRoleId: form.value.tripWorkerRoleId ? Number(form.value.tripWorkerRoleId) : null,
+    addonExpenses,
     whygoText: form.value.whygoText?.trim() || null,
     version: form.value.version,
   };
@@ -138,7 +184,7 @@ const save = async () => {
 </script>
 
 <template>
-  <v-dialog :model-value="modelValue" max-width="480" @update:model-value="(v) => !v && close()">
+  <v-dialog :model-value="modelValue" max-width="720" @update:model-value="(v) => !v && close()">
     <v-card>
       <v-card-title>Edit participant</v-card-title>
       <v-card-subtitle class="px-4 pb-2">{{ participantName }}</v-card-subtitle>
@@ -169,6 +215,60 @@ const save = async () => {
         />
         <div v-if="tripDefaultCost != null" class="text-caption text-medium-emphasis mb-2">
           Leave blank to use the trip default of {{ formatMoneyDisplay(tripDefaultCost) }}.
+        </div>
+        <div class="text-subtitle-2 mt-2 mb-1">Add-on expenses</div>
+        <div
+          v-for="(expense, index) in form.addonExpenses"
+          :key="index"
+          class="d-flex align-center ga-2 mb-2"
+          data-testid="addon-expense-row"
+        >
+          <v-text-field
+            v-model="expense.description"
+            label="Description"
+            density="compact"
+            maxlength="255"
+            hide-details
+          />
+          <v-text-field
+            v-model="expense.cost"
+            label="Cost"
+            prefix="$"
+            inputmode="decimal"
+            density="compact"
+            hide-details
+            style="max-width: 130px"
+          />
+          <v-text-field
+            v-model="expense.daysBefore"
+            label="Days before"
+            inputmode="numeric"
+            density="compact"
+            hide-details
+            style="max-width: 110px"
+          />
+          <v-text-field
+            v-model="expense.daysAfter"
+            label="Days after"
+            inputmode="numeric"
+            density="compact"
+            hide-details
+            style="max-width: 110px"
+          />
+          <v-btn
+            icon="mdi-delete"
+            variant="text"
+            size="small"
+            aria-label="Remove add-on expense"
+            data-testid="remove-addon-expense"
+            @click="removeAddonExpense(index)"
+          />
+        </div>
+        <v-btn variant="text" size="small" data-testid="add-addon-expense" @click="addAddonExpense">
+          Add expense
+        </v-btn>
+        <div class="text-body-2 mb-3" data-testid="addon-total">
+          Add-on total: {{ formatMoneyDisplay(addonTotal.toFixed(2)) }}
         </div>
         <v-textarea v-model="form.whygoText" label="Why go" density="compact" rows="3" />
         <v-alert v-if="formNotice" type="info" density="compact" class="mt-2">{{ formNotice }}</v-alert>

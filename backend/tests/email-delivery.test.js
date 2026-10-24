@@ -47,7 +47,8 @@ describe("Feature 43 — Email Delivery", () => {
   let mailDir;
   const originalCreate = emailTransport.create;
 
-  const mailFiles = () => (fs.existsSync(mailDir) ? fs.readdirSync(mailDir) : []);
+  const mailFiles = () =>
+    fs.existsSync(mailDir) ? fs.readdirSync(mailDir).filter((name) => name.endsWith(".txt")) : [];
   const readOnlyMailFile = () => {
     const files = mailFiles();
     expect(files).toHaveLength(1);

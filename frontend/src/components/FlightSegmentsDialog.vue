@@ -4,6 +4,8 @@ import TripServices from "../services/tripServices.js";
 import AirportServices from "../services/airportServices.js";
 import AirlineServices from "../services/airlineServices.js";
 import { CABIN_CLASSES } from "../utils/cabinClasses.js";
+import { flightBookedByLabel } from "../utils/flightBookedBy.js";
+import { flightAirportWarnings } from "../utils/flightAirportWarnings.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -27,6 +29,18 @@ const error = ref("");
 const segments = ref([]);
 const airports = ref([]);
 const airlines = ref([]);
+const bookedBy = ref("");
+const plannedArrival = ref("");
+const plannedDeparture = ref("");
+const requested = ref("");
+const requestedPreferences = ref(null);
+const flightNotes = ref("");
+const confirmationNumber = ref("");
+
+const formatPlannedDate = (value) => {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[2]}/${match[3]}/${match[1]}` : "—";
+};
 
 const title = computed(
   () => `Flight segments — ${props.participantName || "Participant"}`
@@ -34,6 +48,17 @@ const title = computed(
 
 const segmentsForType = (segmentType) =>
   segments.value.filter((s) => s.segmentType === segmentType);
+
+const airportWarnings = computed(() => {
+  const byNumber = (type) =>
+    [...segmentsForType(type)].sort((a, b) => Number(a.segmentNumber) - Number(b.segmentNumber));
+  const warnings = flightAirportWarnings({
+    arrivalFlightOriginCode: byNumber("arrival")[0]?.departureAirportCode || null,
+    returnFlightDestinationCode: byNumber("return").at(-1)?.arrivalAirportCode || null,
+    preferences: requestedPreferences.value,
+  });
+  return [warnings.arrival, warnings.return].filter(Boolean);
+});
 
 const airportItems = computed(() =>
   airports.value.map((a) => ({
@@ -80,15 +105,19 @@ const blankSegment = (segmentType) => {
     prevSame || (segmentType === "return" && !prevSame ? lastArrival : null);
   const tripDefaultDate =
     segmentType === "arrival"
-      ? dateOnly(props.tripStartDate)
-      : dateOnly(props.tripEndDate);
+      ? plannedArrival.value || dateOnly(props.tripStartDate)
+      : plannedDeparture.value || dateOnly(props.tripEndDate);
   const defaultDate = isFirstOfType
     ? tripDefaultDate
     : chainFrom?.arrivalDate || "";
   return {
     segmentType,
     segmentNumber: ofType.length + 1,
-    departureAirportCode: chainFrom?.arrivalAirportCode ?? null,
+    departureAirportCode:
+      chainFrom?.arrivalAirportCode ??
+      (segmentType === "arrival" && isFirstOfType
+        ? requestedPreferences.value?.departureAirportCode || null
+        : null),
     airlineCode: null,
     flightNumber: "",
     departureDate: defaultDate,
@@ -144,6 +173,17 @@ const load = async () => {
     ]);
     airports.value = airportRes.data || [];
     airlines.value = airlineRes.data || [];
+    bookedBy.value = flightBookedByLabel(
+      segRes.data?.flightPurchaseOption,
+      segRes.data?.organizationName
+    );
+    plannedArrival.value = dateOnly(segRes.data?.arrivalDate);
+    plannedDeparture.value = dateOnly(segRes.data?.departureDate);
+    const orgBooked = segRes.data?.flightPurchaseOption === "organization";
+    requested.value = orgBooked ? segRes.data?.flightPurchasePreferencesText || "" : "";
+    requestedPreferences.value = orgBooked ? segRes.data?.flightPurchasePreferences || null : null;
+    flightNotes.value = segRes.data?.flightNotes || "";
+    confirmationNumber.value = segRes.data?.confirmationNumber || "";
     segments.value = (segRes.data?.segments || []).map((s) => ({
       segmentType: s.segmentType === "return" ? "return" : "arrival",
       segmentNumber: s.segmentNumber,
@@ -171,6 +211,7 @@ const save = async () => {
   error.value = "";
   try {
     await TripServices.updateFlightSegments(props.tripId, props.tripPeopleRoleId, {
+      confirmationNumber: confirmationNumber.value,
       segments: segments.value.map((s) => ({
         segmentType: s.segmentType,
         segmentNumber: Number(s.segmentNumber),
@@ -201,6 +242,13 @@ watch(
     if (open) load();
     if (!open) {
       segments.value = [];
+      bookedBy.value = "";
+      plannedArrival.value = "";
+      plannedDeparture.value = "";
+      requested.value = "";
+      requestedPreferences.value = null;
+      flightNotes.value = "";
+      confirmationNumber.value = "";
       error.value = "";
     }
   }
@@ -216,11 +264,46 @@ watch(
   >
     <v-card>
       <v-card-title>{{ title }}</v-card-title>
+      <v-card-subtitle v-if="bookedBy">Booked by: {{ bookedBy }}</v-card-subtitle>
       <v-card-text>
         <v-progress-linear v-if="loading" indeterminate class="mb-4" />
         <v-alert v-if="error" type="error" density="compact" class="mb-4">{{ error }}</v-alert>
 
         <template v-if="!loading">
+          <div class="mb-4" data-testid="flight-segments-plan">
+            <div class="d-flex flex-wrap ga-6">
+              <span data-testid="planned-arrival">
+                <strong>Planned arrival:</strong> {{ formatPlannedDate(plannedArrival) }}
+              </span>
+              <span data-testid="planned-departure">
+                <strong>Planned departure:</strong> {{ formatPlannedDate(plannedDeparture) }}
+              </span>
+            </div>
+            <div v-if="requested" class="mt-1" data-testid="flight-requested">
+              <strong>Requested:</strong> {{ requested }}
+            </div>
+            <div v-if="flightNotes" class="mt-1 text-pre-wrap" data-testid="flight-notes"><strong>Flight notes:</strong> {{ flightNotes }}</div>
+            <v-alert
+              v-for="warning in airportWarnings"
+              :key="warning"
+              type="warning"
+              density="compact"
+              class="mt-2"
+              data-testid="airport-warning-message"
+            >
+              {{ warning }}
+            </v-alert>
+          </div>
+          <v-text-field
+            v-model="confirmationNumber"
+            label="Confirmation number"
+            density="compact"
+            maxlength="50"
+            hide-details="auto"
+            class="mb-4"
+            style="max-width: 320px"
+            data-testid="flight-confirmation-number"
+          />
           <div
             v-for="(section, sectionIndex) in SEGMENT_SECTIONS"
             :key="section.type"

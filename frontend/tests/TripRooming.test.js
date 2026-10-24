@@ -117,7 +117,7 @@ describe("Feature 29 — Rooming List", () => {
     });
     await flushPromises();
 
-    const roomBtn = wrapper.findAll("button").find((b) => b.text().trim() === "Room list");
+    const roomBtn = wrapper.find('button[aria-label="Room list"]');
     expect(roomBtn).toBeTruthy();
 
     await roomBtn.trigger("click");

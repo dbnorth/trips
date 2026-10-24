@@ -62,6 +62,7 @@ const RECIPIENT_RULES = {
     return owed != null && owed > 0;
   },
   "pre-departure": async (trip, assignment) => isApproved(assignment),
+  "trip-arrival": async (trip, assignment) => isApproved(assignment),
 };
 
 /** The trip's own templates, plus its organization's templates for email types the trip has none of. */

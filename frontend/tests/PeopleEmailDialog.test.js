@@ -29,6 +29,10 @@ vi.mock("../src/services/personServices.js", () => ({
   default: { getAll: vi.fn() },
 }));
 
+vi.mock("../src/services/emailPictureServices.js", () => ({
+  default: { getAll: vi.fn().mockResolvedValue({ data: [] }), fileUrl: () => "" },
+}));
+
 import PeopleEmailServices from "../src/services/peopleEmailServices.js";
 import TripServices from "../src/services/tripServices.js";
 import PersonServices from "../src/services/personServices.js";
@@ -180,8 +184,44 @@ describe("Feature 62 — Email People", () => {
     expect(itemTitles(wrapper, "Template")).toEqual(["Newsletter"]);
     expect(component(wrapper, "VSelect", "Template").props("modelValue")).toBeNull();
     expect(component(wrapper, "VTextField", "Subject").props("modelValue")).toBe("");
-    expect(component(wrapper, "VTextarea", "Email body").props("modelValue")).toBe("");
+    expect(component(wrapper, "RichTextEditor", "Email body").props("modelValue")).toBe("");
 
     wrapper.unmount();
+  });
+
+  // Feature 75 — features/feature-75-people-email-trip-leaders.md
+  describe("Feature 75 — US-75.2 Trips and Roles never end up empty", () => {
+    const selection = (wrapper, label) => component(wrapper, "VSelect", label).props("modelValue");
+
+    it("Unticking All trips keeps All", async () => {
+      const wrapper = await mountDialog();
+      expect(wrapper.text()).toContain("Recipients: 3 people");
+      expect(component(wrapper, "VSelect", "Trips").find(".v-chip__close").exists()).toBe(false);
+
+      await setValue(wrapper, "VSelect", "Trips", []);
+
+      expect(selection(wrapper, "Trips")).toEqual(["all"]);
+      expect(wrapper.text()).toContain("Recipients: 3 people");
+
+      wrapper.unmount();
+    });
+
+    it("Removing the last trip or role selects All again", async () => {
+      const wrapper = await mountDialog();
+      await setValue(wrapper, "VSelect", "Trips", [CLINIC.id]);
+      await setValue(wrapper, "VSelect", "Roles", [1]);
+
+      await setValue(wrapper, "VSelect", "Roles", []);
+      expect(selection(wrapper, "Roles")).toEqual(["all"]);
+
+      await setValue(wrapper, "VSelect", "Trips", []);
+      expect(selection(wrapper, "Trips")).toEqual(["all"]);
+      expect(PeopleEmailServices.getRecipients).toHaveBeenLastCalledWith({
+        tripIds: "all",
+        workerRoleIds: "all",
+      });
+
+      wrapper.unmount();
+    });
   });
 });

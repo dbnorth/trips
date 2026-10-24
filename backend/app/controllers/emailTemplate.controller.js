@@ -10,12 +10,20 @@ import {
   ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
 import {
+  attachmentsAreValid,
   buildTokenValues,
   recipientsAreValid,
   senderIsValid,
   substituteRecipients,
   substituteTokens,
 } from "../utils/emailTokenValues.js";
+import { loadAttachments } from "../utils/emailDelivery.js";
+import {
+  buildEmailContent,
+  cleanEmailBody,
+  emailBodyIsBlank,
+  pictureRuleError,
+} from "../utils/emailHtml.js";
 
 const EmailTemplate = db.emailTemplate;
 const EmailType = db.emailType;
@@ -143,6 +151,17 @@ const hasFeature39Fields = (body) =>
 
 const trimRequired = (val) => (typeof val === "string" ? val.trim() : "");
 
+const ATTACHMENT_INVALID = "Attachment may only list attachment tokens.";
+
+const cleanBodyField = (body) => {
+  if (typeof body.emailBody === "string") body.emailBody = cleanEmailBody(body.emailBody);
+};
+
+const attachmentError = async (body) =>
+  Object.prototype.hasOwnProperty.call(body, "attachment") && !(await attachmentsAreValid(body.attachment))
+    ? ATTACHMENT_INVALID
+    : null;
+
 const validateSchedule = (body, functionCode) => {
   if (functionCode !== "Scheduled") {
     return { schedule: { scheduleRule: null, scheduleDaysBefore: null } };
@@ -202,7 +221,7 @@ const validateOrganizationTemplateFields = async (body) => {
       },
     };
   }
-  if (!trimRequired(body.emailBody)) {
+  if (emailBodyIsBlank(body.emailBody)) {
     return { error: { status: 400, message: "Email body is required." } };
   }
   return { ok: true, schedule };
@@ -340,6 +359,7 @@ exports.copySources = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
+    cleanBodyField(req.body);
     const feature39 = hasFeature39Fields(req.body);
     if (feature39 && (req.body.orgId == null || req.body.orgId === "")) {
       return res.status(400).send({ message: "Organization is required." });
@@ -376,6 +396,8 @@ exports.create = async (req, res) => {
     if (!feature39 && !req.body.subject?.trim()) {
       return res.status(400).send({ message: "Subject is required." });
     }
+    const createAttachmentError = await attachmentError(req.body);
+    if (createAttachmentError) return res.status(400).send({ message: createAttachmentError });
 
     if (isLeaderCreate && !isOrgAdmin && !isSystemAdmin(req)) {
       const trip = await Trip.findByPk(tripId, { attributes: ["id", "orgId"] });
@@ -395,6 +417,8 @@ exports.create = async (req, res) => {
     if (payload.functionCode === "Person" && payload.tripId != null) {
       return res.status(400).send({ message: PERSON_ON_TRIP });
     }
+    const createPictureError = await pictureRuleError(payload.emailBody, orgId);
+    if (createPictureError) return res.status(400).send({ message: createPictureError });
 
     const data = await EmailTemplate.create({ ...payload, orgId });
     res.send(await loadTemplate(data.id));
@@ -410,6 +434,7 @@ exports.update = async (req, res) => {
     if (!canManageTemplate(req, template)) {
       return res.status(403).send({ message: "Forbidden." });
     }
+    cleanBodyField(req.body);
     const feature39 = hasFeature39Fields(req.body);
     let orgId = template.orgId;
     let schedule = {};
@@ -447,6 +472,8 @@ exports.update = async (req, res) => {
     } else if (Object.prototype.hasOwnProperty.call(req.body, "subject") && !req.body.subject?.trim()) {
       return res.status(400).send({ message: "Subject is required." });
     }
+    const updateAttachmentError = await attachmentError(req.body);
+    if (updateAttachmentError) return res.status(400).send({ message: updateAttachmentError });
 
     const tripId = Object.prototype.hasOwnProperty.call(req.body, "tripId")
       ? req.body.tripId
@@ -462,6 +489,11 @@ exports.update = async (req, res) => {
     if (functionCode === "Person" && savedTripId != null) {
       return res.status(400).send({ message: PERSON_ON_TRIP });
     }
+    const updatePictureError = await pictureRuleError(
+      payload.emailBody ?? template.emailBody,
+      feature39 ? orgId : template.orgId
+    );
+    if (updatePictureError) return res.status(400).send({ message: updatePictureError });
 
     await template.update(payload);
     res.send(await loadTemplate(template.id));
@@ -472,7 +504,8 @@ exports.update = async (req, res) => {
 
 exports.preview = async (req, res) => {
   try {
-    const { orgId, tripId, personId, fromEmail, toAddress, subject, emailBody } = req.body || {};
+    const { orgId, tripId, personId, fromEmail, toAddress, subject, emailBody, attachment } =
+      req.body || {};
     if (orgId == null || orgId === "") {
       return res.status(400).send({ message: "Organization is required." });
     }
@@ -510,11 +543,16 @@ exports.preview = async (req, res) => {
       tripId: trip.id,
       personId: previewPersonId,
     });
+    const { attachments, error } = await loadAttachments(attachment, trip.id);
+    const content = await buildEmailContent(emailBody, values, Number(orgId));
     res.send({
       fromEmail: substituteTokens(fromEmail, values).trim(),
       toAddress: substituteRecipients(toAddress, values),
       subject: substituteTokens(subject, values),
-      emailBody: substituteTokens(emailBody, values),
+      emailBody: content.previewHtml,
+      attachments: attachments.map((file) => file.filename),
+      attachmentError: error ?? null,
+      pictureError: content.pictureError,
     });
   } catch (err) {
     res.status(500).send({ message: err.message });

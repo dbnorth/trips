@@ -141,12 +141,265 @@ describe("Feature 58 — Participant Documents PDF", () => {
     });
     await flushPromises();
 
-    const button = wrapper.findAll("button").find((b) => b.text().trim() === "Documents PDF");
+    const button = wrapper.find('button[aria-label="Documents PDF"]');
     expect(button).toBeTruthy();
     await button.trigger("click");
     await flushPromises();
 
     expect(ExportServices.participantDocumentsPdf).toHaveBeenCalledWith("42", 7, "Ana Lopez");
+
+    wrapper.unmount();
+  });
+});
+
+/**
+ * Feature 74 — Trip Add-on Expenses
+ * Spec: features/feature-74-trip-addon-expenses.md
+ */
+describe("Feature 74 — Trip Add-on Expenses", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    TripServices.get.mockResolvedValue({
+      data: { id: 42, name: "Guatemala Hospital Ezel", orgId: 10, status: "active", participantCost: 2000, leaderNames: [] },
+    });
+    TripPeopleRoleServices.getAll.mockResolvedValue({
+      data: [
+        {
+          id: 40,
+          peopleId: 5,
+          status: "approved",
+          participantCost: 2250,
+          totalTripCost: 3575,
+          costBreakdown: {
+            tripCost: 2000,
+            tripOptions: [{ description: "Private room", amount: 250 }],
+            adjustment: 0,
+            addonExpenses: [
+              { description: "Travel insurance", amount: 75 },
+              { description: "Antigua weekend excursion", amount: 400 },
+            ],
+            airfare: 850,
+            totalTripCost: 3575,
+          },
+          role: { roleName: "Trip Participant" },
+          person: { id: 5, firstName: "Nora", lastName: "Diaz" },
+        },
+      ],
+    });
+    DonationServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({ data: [] });
+  });
+
+  it("View Trip shows each participant's total cost", async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: { stubs: { TripWorkerRolesCard: Stub } },
+    });
+    await flushPromises();
+
+    const headers = wrapper.findAll("th").map((th) => th.text().trim());
+    const totalIndex = headers.indexOf("Total cost");
+    expect(totalIndex).toBe(headers.indexOf("Participant cost") + 1);
+    const cells = wrapper.find("tbody tr").findAll("td").map((td) => td.text().trim());
+    expect(cells[totalIndex - 1]).toBe("$2,250.00");
+    expect(cells[totalIndex]).toBe("$3,575.00");
+
+    wrapper.unmount();
+  });
+
+  it("Total cost icon lists the participant's cost details", async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: {
+        stubs: {
+          TripWorkerRolesCard: Stub,
+          VTooltip: { template: '<div><slot name="activator" :props="{}" /><slot /></div>' },
+        },
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="total-cost-info"]').exists()).toBe(true);
+    const lines = wrapper
+      .findAll('[data-testid="total-cost-breakdown"] > div')
+      .map((line) => line.findAll("span").map((s) => s.text().trim()));
+    expect(lines).toEqual([
+      ["Trip cost", "$2,000.00"],
+      ["Trip option: Private room", "$250.00"],
+      ["Add-on: Travel insurance", "$75.00"],
+      ["Add-on: Antigua weekend excursion", "$400.00"],
+      ["Flight", "$850.00"],
+      ["Total", "$3,575.00"],
+    ]);
+
+    wrapper.unmount();
+  });
+});
+
+/**
+ * Feature 78 — Days Before and After the Trip
+ * Spec: features/feature-78-days-before-after-trip.md
+ */
+describe("Feature 78 — Days Before and After the Trip", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    TripServices.get.mockResolvedValue({
+      data: { id: 42, name: "Guatemala Clinic", orgId: 10, status: "active", leaderNames: [] },
+    });
+    TripPeopleRoleServices.getAll.mockResolvedValue({
+      data: [
+        {
+          id: 40,
+          peopleId: 5,
+          status: "approved",
+          arrivalDate: "2026-06-07",
+          departureDate: "2026-06-18",
+          arrivalAdjustments: [
+            { type: "option", description: "Arrive early", days: 2 },
+            { type: "addon", description: "Extra hotel night", days: 1 },
+          ],
+          departureAdjustments: [{ type: "addon", description: "Extra hotel night", days: 1 }],
+          role: { roleName: "Trip Participant" },
+          person: { id: 5, firstName: "Ana", lastName: "Lopez" },
+        },
+        {
+          id: 41,
+          peopleId: 6,
+          status: "approved",
+          arrivalDate: "2026-06-10",
+          departureDate: "2026-06-17",
+          arrivalAdjustments: [],
+          departureAdjustments: [],
+          role: { roleName: "Trip Participant" },
+          person: { id: 6, firstName: "Ben", lastName: "Ruiz" },
+        },
+      ],
+    });
+    DonationServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({ data: [] });
+  });
+
+  it("View Trip shows Arrives and Departs", async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: {
+        stubs: {
+          TripWorkerRolesCard: Stub,
+          VTooltip: { template: '<div class="tooltip-stub"><slot name="activator" :props="{}" /><slot /></div>' },
+        },
+      },
+    });
+    await flushPromises();
+
+    const headers = wrapper.findAll("th").map((th) => th.text().trim());
+    const arrivesIndex = headers.indexOf("Arrives");
+    expect(arrivesIndex).toBe(headers.indexOf("Status") + 1);
+    expect(headers[arrivesIndex + 1]).toBe("Departs");
+    const rowCells = (name) =>
+      wrapper
+        .findAll("tbody tr")
+        .find((tr) => tr.text().includes(name))
+        .findAll("td");
+    const [arrives, departs] = rowCells("Ana").slice(arrivesIndex, arrivesIndex + 2);
+    const tooltipLines = (cell) =>
+      cell
+        .findAll('[data-testid="date-adjustments"] > div')
+        .map((line) => line.findAll("span").map((s) => s.text().trim()));
+    expect(arrives.text()).toContain("06/07/2026");
+    expect(arrives.find('[data-testid="date-adjustment-info"]').exists()).toBe(true);
+    expect(tooltipLines(arrives)).toEqual([
+      ["Trip option: Arrive early", "2 days before"],
+      ["Add-on: Extra hotel night", "1 day before"],
+    ]);
+    expect(departs.text()).toContain("06/18/2026");
+    expect(tooltipLines(departs)).toEqual([["Add-on: Extra hotel night", "1 day after"]]);
+
+    const benCells = rowCells("Ben").slice(arrivesIndex, arrivesIndex + 2);
+    expect(benCells.map((td) => td.text().trim())).toEqual(["06/10/2026", "06/17/2026"]);
+    expect(benCells.some((td) => td.find('[data-testid="date-adjustment-info"]').exists())).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  /**
+   * Feature 79 — Planned Arrival and Departure on Flights
+   * Spec: features/feature-79-flights-planned-dates.md
+   */
+  it("View Trip warns when flights differ from the plan", async () => {
+    const roster = (await TripPeopleRoleServices.getAll()).data;
+    TripPeopleRoleServices.getAll.mockResolvedValue({
+      data: [
+        { ...roster[0], flightArrivalDate: "2026-06-08", flightDepartureDate: "2026-06-18" },
+        { ...roster[1], flightArrivalDate: null, flightDepartureDate: null },
+      ],
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: {
+        stubs: {
+          TripWorkerRolesCard: Stub,
+          VTooltip: { template: '<div class="tooltip-stub"><slot name="activator" :props="{}" /><slot /></div>' },
+        },
+      },
+    });
+    await flushPromises();
+
+    const headers = wrapper.findAll("th").map((th) => th.text().trim());
+    const arrivesIndex = headers.indexOf("Arrives");
+    const rowCells = (name) =>
+      wrapper
+        .findAll("tbody tr")
+        .find((tr) => tr.text().includes(name))
+        .findAll("td")
+        .slice(arrivesIndex, arrivesIndex + 2);
+    const [arrives, departs] = rowCells("Ana");
+    expect(arrives.find('[data-testid="date-flight-mismatch"]').text()).toBe("Arrival flight lands 06/08/2026");
+    expect(departs.find('[data-testid="date-flight-warning"]').exists()).toBe(false);
+    expect(rowCells("Ben").some((td) => td.find('[data-testid="date-flight-warning"]').exists())).toBe(false);
 
     wrapper.unmount();
   });

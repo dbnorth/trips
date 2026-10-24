@@ -6,9 +6,11 @@ import OrganizationServices from "../services/organizationServices.js";
 import AddTripDialog from "../components/AddTripDialog.vue";
 import CopyTripDialog from "../components/CopyTripDialog.vue";
 import EditTripDialog from "../components/EditTripDialog.vue";
+import ImportTripMasterDialog from "../components/ImportTripMasterDialog.vue";
 import Utils from "../config/utils.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { donorTripPath } from "../utils/donateUrls.js";
+import RowAction from "../components/RowAction.vue";
 
 const router = useRouter();
 const trips = ref([]);
@@ -17,6 +19,8 @@ const showAddDialog = ref(false);
 const showCopyDialog = ref(false);
 const showEditDialog = ref(false);
 const editTripId = ref(null);
+const showImportDialog = ref(false);
+const importTrip = ref(null);
 const user = ref(null);
 
 const effectiveOrgId = computed(() => Utils.effectiveOrgId(user.value));
@@ -106,6 +110,14 @@ const openFlights = (trip) => {
   router.push({ name: "tripFlights", params: { tripId: trip.id } });
 };
 
+const canImport = (trip) =>
+  Utils.isOrgAdmin(user.value, trip.orgId) || Utils.isTripLeader(user.value, trip.id);
+
+const openImport = (trip) => {
+  importTrip.value = trip;
+  showImportDialog.value = true;
+};
+
 const donorLink = (trip) => donorTripPath(trip);
 
 const formatLeaders = (trip) => (trip.leaderNames || []).join(", ") || "—";
@@ -176,16 +188,20 @@ onUnmounted(() => {
         <a :href="donorLink(item)" target="_blank">Donate</a>
       </template>
       <template #item.actions="{ item }">
-        <v-btn size="small" variant="text" @click="openView(item)">View</v-btn>
-        <v-btn size="small" variant="text" @click="openStatus(item)">Status</v-btn>
-        <v-btn size="small" variant="text" @click="openRooming(item)">Room list</v-btn>
-        <v-btn size="small" variant="text" @click="openFlights(item)">Flights</v-btn>
-        <v-btn size="small" variant="text" @click="openEdit(item)">Edit</v-btn>
+        <div class="d-flex flex-nowrap ga-1">
+          <RowAction icon="mdi-eye" label="View" @click="openView(item)" />
+          <RowAction icon="mdi-clipboard-check-outline" label="Status" @click="openStatus(item)" />
+          <RowAction icon="mdi-bed" label="Room list" @click="openRooming(item)" />
+          <RowAction icon="mdi-airplane" label="Flights" @click="openFlights(item)" />
+          <RowAction v-if="canImport(item)" icon="mdi-file-import" label="Import" @click="openImport(item)" />
+          <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
+        </div>
       </template>
     </v-data-table>
 
     <AddTripDialog v-model="showAddDialog" @saved="onTripSaved" />
     <CopyTripDialog v-model="showCopyDialog" :trips="trips" @saved="onTripCopied" />
     <EditTripDialog v-model="showEditDialog" :trip-id="editTripId" @saved="onTripUpdated" />
+    <ImportTripMasterDialog v-model="showImportDialog" :trip="importTrip" @imported="load" />
   </v-container>
 </template>

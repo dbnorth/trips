@@ -28,6 +28,7 @@ import {
   missingRequiredRoleDocuments,
   needsExpirationWording,
   requiredRoleDocumentLabel,
+  travelOptionDaysError,
   validateTravelOptionSelections,
 } from "../utils/tripApplicationForm.js";
 import {
@@ -86,6 +87,7 @@ const form = ref({
   preferredCabinClass: "",
   preferredAirlineCode: null,
   preferredRefundableTicket: null,
+  flightNotes: "",
   agreementAccepted: false,
   agreementSignatureName: "",
   agreementAdultFirstName: "",
@@ -388,6 +390,7 @@ const resetForm = () => {
     preferredCabinClass: "",
     preferredAirlineCode: null,
     preferredRefundableTicket: null,
+    flightNotes: "",
     agreementAccepted: false,
     agreementSignatureName: "",
     agreementAdultFirstName: "",
@@ -423,6 +426,7 @@ const applyFormFromApplication = (row) => {
       row?.preferredRefundableTicket === true || row?.preferredRefundableTicket === false
         ? !!row.preferredRefundableTicket
         : null,
+    flightNotes: row?.flightNotes || "",
     agreementAccepted: !!row?.agreementAccepted,
     agreementSignatureName: row?.agreementSignatureName || "",
     agreementAdultFirstName: row?.agreementAdultFirstName || "",
@@ -662,6 +666,7 @@ const buildPayload = () => ({
         ? form.value.preferredRefundableTicket
         : null
       : null,
+  flightNotes: form.value.flightNotes?.trim() || null,
   agreementAccepted: agreementRequired.value ? !!form.value.agreementAccepted : false,
   agreementSignatureName:
     agreementRequired.value || medicalAgreementRequired.value
@@ -703,6 +708,11 @@ const save = async () => {
   }
   if (!form.value.tripWorkerRoleId) {
     formError.value = "Select a trip role with available positions.";
+    return;
+  }
+  const daysError = travelOptionDaysError(travelOptions.value, selectedTravelOptionIds.value);
+  if (daysError) {
+    formError.value = daysError;
     return;
   }
   // Unanswered questions are saved as an incomplete application instead of blocking the save.
@@ -935,6 +945,7 @@ const confirmUncancelApplication = async () => {
             v-model:preferred-cabin-class="form.preferredCabinClass"
             v-model:preferred-airline-code="form.preferredAirlineCode"
             v-model:preferred-refundable-ticket="form.preferredRefundableTicket"
+            v-model:flight-notes="form.flightNotes"
             :organization-name="trip?.organization?.name"
             :disabled="!canEdit"
           />
