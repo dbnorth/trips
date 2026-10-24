@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import ExportServices from "../services/exportServices.js";
 import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
+import TripTeamEmailDialog from "../components/TripTeamEmailDialog.vue";
 import TripDateAdjustment from "../components/TripDateAdjustment.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { flightBookedByLabel } from "../utils/flightBookedBy.js";
@@ -29,6 +30,16 @@ const message = ref("");
 const error = ref("");
 const showSegments = ref(false);
 const segmentsParticipant = ref(null);
+const showItineraryEmail = ref(false);
+
+const itineraryRecipients = computed(() =>
+  participants.value.map((p) => ({
+    peopleId: p.peopleId,
+    person: { firstName: p.firstName, lastName: p.lastName },
+    role: { roleName: p.roleName },
+    status: p.status,
+  }))
+);
 
 const pageTitle = computed(() =>
   trip.value?.name ? `${trip.value.name} — Flights` : "Flights"
@@ -185,15 +196,20 @@ onMounted(load);
         <v-btn v-else variant="text" @click="router.push({ name: 'trips' })">Back to trips</v-btn>
         <h1 class="text-h5">{{ pageTitle }}</h1>
       </div>
-      <v-btn
-        variant="tonal"
-        color="primary"
-        :loading="downloadingPdf"
-        :disabled="loading || !trip"
-        @click="downloadPdf"
-      >
-        Flights PDF
-      </v-btn>
+      <div class="d-flex align-center ga-2">
+        <v-btn
+          variant="tonal"
+          color="primary"
+          :loading="downloadingPdf"
+          :disabled="loading || !trip"
+          @click="downloadPdf"
+        >
+          Flights PDF
+        </v-btn>
+        <v-btn variant="tonal" color="primary" :disabled="loading || !trip" @click="showItineraryEmail = true">
+          Email flight itinerary
+        </v-btn>
+      </div>
     </div>
 
     <v-progress-linear v-if="loading" indeterminate class="mb-4" />
@@ -343,6 +359,13 @@ onMounted(load);
       :trip-start-date="trip?.startDate || ''"
       :trip-end-date="trip?.endDate || ''"
       @saved="onSegmentsSaved"
+    />
+    <TripTeamEmailDialog
+      v-model="showItineraryEmail"
+      kind="flightItinerary"
+      :trip-id="resolvedTripId"
+      :org-id="trip?.orgId ?? null"
+      :participants="itineraryRecipients"
     />
   </v-container>
 </template>

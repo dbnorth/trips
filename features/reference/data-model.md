@@ -403,6 +403,7 @@ Seeded from `backend/app/data/airlines.json` (OpenFlights active IATA set) via `
 | purchased | BOOLEAN | required, default `false` |
 | cost | DECIMAL(10,2) | nullable |
 | comments | TEXT | |
+| confirmationNumber | STRING(50) | nullable; one per participant flight; added by `ensureSchema` — Feature 86 |
 
 **Associations:** `belongsTo` tripPeopleRole; `hasMany` tripFlightSegment.
 

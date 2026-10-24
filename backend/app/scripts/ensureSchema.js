@@ -1485,6 +1485,21 @@ const ensureTripFlightSegmentCabinAndSeat = async () => {
   }
 };
 
+const ensureTripFlightConfirmationNumber = async () => {
+  if (!(await tableExists("tripFlights"))) return;
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tripFlights'
+       AND COLUMN_NAME = 'confirmationNumber'`
+  );
+  if (rows.length) return;
+  await db.sequelize.query(
+    "ALTER TABLE tripFlights ADD COLUMN confirmationNumber VARCHAR(50) NULL AFTER comments"
+  );
+  logger.info("tripFlights.confirmationNumber column added.");
+};
+
 const ensureLanguageCatalog = async () => {
   const [tables] = await db.sequelize.query(
     `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -1542,6 +1557,7 @@ export const ensureSchema = async () => {
   await ensureScheduledEmailSendsTable();
   await ensureTripPrimaryLeader();
   await ensureTripFlightSegmentCabinAndSeat();
+  await ensureTripFlightConfirmationNumber();
   await ensureOrganizationWebsiteUrl();
   await ensureOrganizationSubdomain();
   await ensureOrganizationAgreementFileName();

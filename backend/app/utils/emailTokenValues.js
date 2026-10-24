@@ -39,6 +39,9 @@ export const VALUE_SOURCES = [
   { valueSource: "participant.arrivalDate", label: "Participant arrival date" },
   { valueSource: "participant.departureDate", label: "Participant departure date" },
   { valueSource: "participant.createAccountLink", label: "Participant create account link" },
+  { valueSource: "participant.arrivalFlight", label: "Participant arrival flight" },
+  { valueSource: "participant.returnFlight", label: "Participant return flight" },
+  { valueSource: "participant.flightConfirmationNumber", label: "Participant flight confirmation number" },
   { valueSource: "primaryLeader.firstName", label: "Primary trip leader first name" },
   { valueSource: "primaryLeader.lastName", label: "Primary trip leader last name" },
   { valueSource: "primaryLeader.preferredName", label: "Primary trip leader preferred name" },
@@ -250,6 +253,68 @@ const EMPTY_FINANCIAL_VALUES = {
 };
 
 /**
+ * The flight of the person's earliest incomplete, applied, or approved assignment on the trip that has
+ * flight segments, with its segments (airports and airline included), or null.
+ */
+export const loadParticipantFlight = async (tripId, personId) => {
+  const assignment = await db.tripPeopleRole.findOne({
+    where: { tripId, peopleId: personId, status: ["incomplete", "applied", "approved"] },
+    include: [
+      {
+        model: db.tripFlight,
+        as: "flight",
+        required: true,
+        include: [
+          {
+            model: db.tripFlightSegment,
+            as: "segments",
+            required: true,
+            include: [
+              { model: db.airline, as: "airline", attributes: ["code", "name"] },
+              { model: db.airport, as: "departureAirport", attributes: ["code", "city"] },
+              { model: db.airport, as: "arrivalAirport", attributes: ["code", "city"] },
+            ],
+          },
+        ],
+      },
+    ],
+    order: [["id", "ASC"]],
+  });
+  return assignment?.flight || null;
+};
+
+/** `HH:MM` as a 12-hour time like `8:00 AM`. */
+const formatTime = (value) => {
+  const match = /^(\d{1,2}):(\d{2})/.exec(text(value));
+  if (!match) return "";
+  const hours = Number(match[1]);
+  return `${hours % 12 || 12}:${match[2]} ${hours >= 12 ? "PM" : "AM"}`;
+};
+
+const airportText = (airport) => [airport?.code, airport?.city && `(${airport.city})`].filter(Boolean).join(" ");
+
+const segmentLine = (segment) => {
+  const flight = [segment.airline?.name, segment.airline?.code, segment.flightNumber].filter(Boolean).join(" ");
+  const end = (airport, date, time) =>
+    [airportText(airport), formatDate(date), formatTime(time)].filter(Boolean).join(" ");
+  const route = `${end(segment.departureAirport, segment.departureDate, segment.departureTime)} to ${end(
+    segment.arrivalAirport,
+    segment.arrivalDate,
+    segment.arrivalTime
+  )}`;
+  return [`${flight}: ${route}`, segment.cabinClass, segment.seatNumber && `seat ${segment.seatNumber}`]
+    .filter(Boolean)
+    .join(", ");
+};
+
+const flightLines = (flight, segmentType) =>
+  (flight?.segments || [])
+    .filter((segment) => segment.segmentType === segmentType)
+    .sort((a, b) => a.segmentNumber - b.segmentNumber)
+    .map(segmentLine)
+    .join("\n");
+
+/**
  * Build the value for every value source from an organization and an optional trip and participant.
  * Missing data yields empty text.
  */
@@ -264,7 +329,9 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
   let tripRole = "";
   let financialValues = EMPTY_FINANCIAL_VALUES;
   let travelDates = { arrivalDate: null, departureDate: null };
+  let flight = null;
   if (trip && person) {
+    flight = await loadParticipantFlight(trip.id, person.id);
     tripRole = await loadParticipantTripRole(trip.id, person.id);
     const assignment = await db.tripPeopleRole.findOne({
       where: { tripId: trip.id, peopleId: person.id },
@@ -300,6 +367,9 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
     "participant.arrivalDate": formatDate(travelDates.arrivalDate),
     "participant.departureDate": formatDate(travelDates.departureDate),
     "participant.createAccountLink": createAccountLink(person),
+    "participant.arrivalFlight": flightLines(flight, "arrival"),
+    "participant.returnFlight": flightLines(flight, "return"),
+    "participant.flightConfirmationNumber": text(flight?.confirmationNumber),
     "primaryLeader.firstName": text(leader?.firstName),
     "primaryLeader.lastName": text(leader?.lastName),
     "primaryLeader.preferredName": preferredName(leader),

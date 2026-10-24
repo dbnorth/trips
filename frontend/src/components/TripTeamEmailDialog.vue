@@ -15,14 +15,34 @@ const SEND_TO_ITEMS = [
   { label: "Selected participants", value: "selected" },
 ];
 
+const KINDS = {
+  team: {
+    title: "Email team",
+    noTemplates: "No Trip Participant templates",
+    getTemplates: "getTeamEmailTemplates",
+    preview: "previewTeamEmail",
+    send: "sendTeamEmail",
+  },
+  flightItinerary: {
+    title: "Email flight itinerary",
+    noTemplates: "No flight itinerary templates for this trip.",
+    getTemplates: "getFlightItineraryEmailTemplates",
+    preview: "previewFlightItineraryEmail",
+    send: "sendFlightItineraryEmail",
+  },
+};
+
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   tripId: { type: [Number, String], default: null },
   orgId: { type: [Number, String], default: null },
   participants: { type: Array, default: () => [] },
+  kind: { type: String, default: "team" },
 });
 
 const emit = defineEmits(["update:modelValue"]);
+
+const config = computed(() => KINDS[props.kind] ?? KINDS.team);
 
 const templates = ref([]);
 const templatesLoading = ref(false);
@@ -103,7 +123,7 @@ const requestBody = () => ({
 const loadTemplates = async () => {
   templatesLoading.value = true;
   try {
-    const res = await TripServices.getTeamEmailTemplates(props.tripId);
+    const res = await TripServices[config.value.getTemplates](props.tripId);
     templates.value = res.data || [];
   } catch (e) {
     templates.value = [];
@@ -119,7 +139,7 @@ const loadPreview = async () => {
   previewLoading.value = true;
   error.value = "";
   try {
-    const res = await TripServices.previewTeamEmail(props.tripId, {
+    const res = await TripServices[config.value.preview](props.tripId, {
       ...requestBody(),
       personId: previewPersonId.value,
     });
@@ -141,7 +161,7 @@ const confirmSend = async () => {
   sending.value = true;
   error.value = "";
   try {
-    const res = await TripServices.sendTeamEmail(props.tripId, requestBody());
+    const res = await TripServices[config.value.send](props.tripId, requestBody());
     result.value = res.data;
   } catch (e) {
     error.value = e.response?.data?.message || "Unable to send email.";
@@ -196,7 +216,7 @@ const close = () => emit("update:modelValue", false);
 <template>
   <v-dialog :model-value="modelValue" max-width="760" scrollable @update:model-value="(v) => !v && close()">
     <v-card>
-      <v-card-title>Email team</v-card-title>
+      <v-card-title>{{ config.title }}</v-card-title>
       <v-card-text style="max-height: 75vh">
         <v-select
           v-model="emailTemplateId"
@@ -204,9 +224,17 @@ const close = () => emit("update:modelValue", false);
           label="Email template"
           density="compact"
           :loading="templatesLoading"
-          no-data-text="No Trip Participant templates"
+          :no-data-text="config.noTemplates"
           class="mb-2"
         />
+        <v-alert
+          v-if="kind === 'flightItinerary' && !templatesLoading && !templates.length"
+          type="info"
+          density="compact"
+          class="mb-2"
+        >
+          {{ config.noTemplates }}
+        </v-alert>
         <v-text-field
           v-model="subject"
           label="Subject"

@@ -74,6 +74,13 @@ router.get(
 router.get("/:id/team-email/templates", [authenticate], tripTeamEmail.findTemplates);
 router.post("/:id/team-email/preview", [authenticate], tripTeamEmail.preview);
 router.post("/:id/team-email", [authenticate], tripTeamEmail.send);
+router.get(
+  "/:id/flight-itinerary-email/templates",
+  [authenticate],
+  tripTeamEmail.findFlightItineraryTemplates
+);
+router.post("/:id/flight-itinerary-email/preview", [authenticate], tripTeamEmail.previewFlightItinerary);
+router.post("/:id/flight-itinerary-email", [authenticate], tripTeamEmail.sendFlightItinerary);
 router.get("/:id", [authenticate], trips.findOne);
 router.post("/", [authenticate], trips.create);
 router.post("/:id/copy", [authenticate], trips.copy);

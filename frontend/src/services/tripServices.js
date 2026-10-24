@@ -64,6 +64,15 @@ export default {
   sendTeamEmail(id, data) {
     return apiClient.post(`/trips/${id}/team-email`, data);
   },
+  getFlightItineraryEmailTemplates(id) {
+    return apiClient.get(`/trips/${id}/flight-itinerary-email/templates`);
+  },
+  previewFlightItineraryEmail(id, data) {
+    return apiClient.post(`/trips/${id}/flight-itinerary-email/preview`, data);
+  },
+  sendFlightItineraryEmail(id, data) {
+    return apiClient.post(`/trips/${id}/flight-itinerary-email`, data);
+  },
   create(data) {
     return apiClient.post("/trips", data);
   },

@@ -241,7 +241,10 @@ describe("Feature 30 — Participant Flights", () => {
     expect(dialog2.vm.segments.length).toBe(0);
     await dialog2.vm.save();
     await flushPromises();
-    expect(TripServices.updateFlightSegments).toHaveBeenCalledWith("42", 101, { segments: [] });
+    expect(TripServices.updateFlightSegments).toHaveBeenCalledWith("42", 101, {
+      confirmationNumber: "",
+      segments: [],
+    });
   });
 
   describe("Feature 73 — US-73.1 See who books each participant's flight", () => {
