@@ -87,20 +87,38 @@ const isWaitingListHeading = (position) => {
   return value.startsWith("caregiver waiting list") || value.endsWith("waiting list");
 };
 
+const HEADER_SEARCH_ROWS = 10;
+
 /**
- * The spreadsheet's rows by section, or the required columns it is missing. Row 1 is the title,
- * rows 2–3 the header; `row` is the spreadsheet row number. Rows after "Total" and before the
- * next section heading belong to no section and are left out.
+ * The columns of the first pair of rows (starting in the first 10) holding every required column,
+ * with the index of the pair's first row; otherwise the required columns missing from the pair
+ * that found the most.
+ */
+const findHeader = (records) => {
+  let closest = null;
+  for (let start = 0; start < Math.min(HEADER_SEARCH_ROWS, records.length); start += 1) {
+    const columns = findColumns(records[start], records[start + 1]);
+    const missing = REQUIRED.filter((key) => columns[key] == null).map((key) => COLUMNS[key]);
+    if (!missing.length) return { start, columns, missing };
+    if (!closest || missing.length < closest.missing.length) closest = { missing };
+  }
+  return closest || { missing: REQUIRED.map((key) => COLUMNS[key]) };
+};
+
+/**
+ * The spreadsheet's rows by section, or the required columns it is missing. The two header rows
+ * may have any rows above them; `row` is the spreadsheet row number. Rows after "Total" and before
+ * the next section heading belong to no section and are left out.
  */
 export const readTripMaster = (text) => {
   const records = parseCsv(text);
-  const columns = findColumns(records[1], records[2]);
-  const missing = REQUIRED.filter((key) => columns[key] == null).map((key) => COLUMNS[key]);
+  const { start, columns, missing } = findHeader(records);
   if (missing.length) return { missing, rows: [] };
 
+  const firstDataRow = start + 2;
   const rows = [];
   let section = "main";
-  records.slice(3).forEach((record, index) => {
+  records.slice(firstDataRow).forEach((record, index) => {
     const values = {};
     for (const [key, column] of Object.entries(columns)) values[key] = String(record[column] ?? "").trim();
 
@@ -115,7 +133,7 @@ export const readTripMaster = (text) => {
       return;
     }
     if (!section) return;
-    rows.push({ ...values, position: heading ? "" : values.position, row: index + 4, section });
+    rows.push({ ...values, position: heading ? "" : values.position, row: firstDataRow + index + 1, section });
   });
   return { missing: [], rows };
 };
