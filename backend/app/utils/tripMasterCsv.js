@@ -191,37 +191,53 @@ export const isNameTagOption = (option) => {
   return words.includes("name") && words.includes("tag");
 };
 
+const NEGATIONS = new Set(["no", "not"]);
+
 /**
- * The option per set that Travel Notes pick (most matched keywords), and the sets where options tie.
- * Keywords are an option's 3+ character words found in no other option's description.
+ * The option per set that Travel Notes pick, and the sets where options tie. Sets are matched lowest
+ * first. Keywords are an option's 3+ character words found in no other option of its set. A word
+ * after "no"/"not" picks the other of two options, or none. Words that pick an option aren't matched
+ * in later sets; negated words are never used up.
  */
 export const chooseNoteOptions = (notes, options) => {
-  const noteWords = wordsOf(notes).filter((word) => word.length >= 3);
-  if (!noteWords.length) return { chosen: [], tiedSets: [] };
+  const words = wordsOf(notes);
+  const isNegated = (index) => index > 0 && NEGATIONS.has(words[index - 1]);
+  const negated = words.filter((word, index) => word.length >= 3 && isNegated(index));
+  let unused = words.filter((word, index) => word.length >= 3 && !NEGATIONS.has(word) && !isNegated(index));
 
-  const optionWords = new Map(options.map((option) => [option, new Set(wordsOf(option.description))]));
-  const usage = new Map();
-  for (const words of optionWords.values()) {
-    for (const word of words) usage.set(word, (usage.get(word) || 0) + 1);
-  }
-
-  const bestBySet = new Map();
+  const bySet = new Map();
   for (const option of options) {
     if (isFlightOption(option) || isNameTagOption(option)) continue;
-    const keywords = [...optionWords.get(option)].filter((word) => word.length >= 3 && usage.get(word) === 1);
-    const score = keywords.filter((keyword) => noteWords.some((word) => keyword.startsWith(word))).length;
-    if (!score) continue;
     const setNumber = Number(option.setNumber) > 0 ? Number(option.setNumber) : 1;
-    const best = bestBySet.get(setNumber);
-    if (!best || score > best.score) bestBySet.set(setNumber, { score, options: [option] });
-    else if (score === best.score) best.options.push(option);
+    bySet.set(setNumber, [...(bySet.get(setNumber) || []), option]);
   }
 
   const chosen = [];
   const tiedSets = [];
-  for (const [setNumber, best] of [...bestBySet.entries()].sort((a, b) => a[0] - b[0])) {
-    if (best.options.length === 1) chosen.push(best.options[0]);
-    else tiedSets.push(setNumber);
+  for (const [setNumber, setOptions] of [...bySet.entries()].sort((a, b) => a[0] - b[0])) {
+    const optionWords = setOptions.map((option) => new Set(wordsOf(option.description)));
+    const keywords = optionWords.map((own) =>
+      [...own].filter((word) => word.length >= 3 && optionWords.every((other) => other === own || !other.has(word)))
+    );
+    const matches = (noteWords, index) =>
+      keywords[index].filter((keyword) => noteWords.some((word) => keyword.startsWith(word))).length;
+
+    const negatedIndex = setOptions.findIndex((_, index) => matches(negated, index) > 0);
+    if (negatedIndex >= 0) {
+      if (setOptions.length === 2) chosen.push(setOptions[1 - negatedIndex]);
+      continue;
+    }
+
+    const scores = setOptions.map((_, index) => matches(unused, index));
+    const best = Math.max(0, ...scores);
+    if (!best) continue;
+    const top = scores.flatMap((score, index) => (score === best ? [index] : []));
+    if (top.length > 1) {
+      tiedSets.push(setNumber);
+      continue;
+    }
+    chosen.push(setOptions[top[0]]);
+    unused = unused.filter((word) => !keywords[top[0]].some((keyword) => keyword.startsWith(word)));
   }
   return { chosen, tiedSets };
 };
