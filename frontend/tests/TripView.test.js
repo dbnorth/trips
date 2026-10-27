@@ -404,3 +404,75 @@ describe("Feature 78 — Days Before and After the Trip", () => {
     wrapper.unmount();
   });
 });
+
+/**
+ * Feature 89 — Negative Trip Days and Wider Option Descriptions
+ * Spec: features/feature-89-negative-trip-days.md
+ */
+describe("Feature 89 — Negative Trip Days", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    TripServices.get.mockResolvedValue({
+      data: { id: 42, name: "Clinica Ezell Hospital - January 2027", orgId: 10, status: "active", leaderNames: [] },
+    });
+    TripPeopleRoleServices.getAll.mockResolvedValue({
+      data: [
+        {
+          id: 40,
+          peopleId: 5,
+          status: "approved",
+          arrivalDate: "2027-01-17",
+          departureDate: "2027-01-21",
+          arrivalAdjustments: [{ type: "addon", description: "Late arrival", days: -1 }],
+          departureAdjustments: [{ type: "option", description: "Depart Friday", days: -2 }],
+          role: { roleName: "Trip Participant" },
+          person: { id: 5, firstName: "Ana", lastName: "Lopez" },
+        },
+      ],
+    });
+    DonationServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({ data: [] });
+  });
+
+  it("Negative days show later and earlier", async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: {
+        stubs: {
+          TripWorkerRolesCard: Stub,
+          VTooltip: { template: '<div class="tooltip-stub"><slot name="activator" :props="{}" /><slot /></div>' },
+        },
+      },
+    });
+    await flushPromises();
+
+    const headers = wrapper.findAll("th").map((th) => th.text().trim());
+    const arrivesIndex = headers.indexOf("Arrives");
+    const [arrives, departs] = wrapper
+      .findAll("tbody tr")
+      .find((tr) => tr.text().includes("Ana"))
+      .findAll("td")
+      .slice(arrivesIndex, arrivesIndex + 2);
+    const tooltipLines = (cell) =>
+      cell
+        .findAll('[data-testid="date-adjustments"] > div')
+        .map((line) => line.findAll("span").map((s) => s.text().trim()));
+    expect(arrives.text()).toContain("01/17/2027");
+    expect(tooltipLines(arrives)).toEqual([["Add-on: Late arrival", "1 day later"]]);
+    expect(departs.text()).toContain("01/21/2027");
+    expect(tooltipLines(departs)).toEqual([["Trip option: Depart Friday", "2 days earlier"]]);
+
+    wrapper.unmount();
+  });
+});

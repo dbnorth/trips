@@ -16,7 +16,7 @@ import {
   findRole,
 } from "./helpers.js";
 
-const DAYS_MESSAGE = "Days before and after must be whole numbers from 0 to 365.";
+const DAYS_MESSAGE = "Days before and after must be whole numbers from -365 to 365.";
 
 describe("Feature 78 — Days Before and After the Trip", () => {
   let omar;
@@ -152,7 +152,7 @@ describe("Feature 78 — Days Before and After the Trip", () => {
         daysAfter: 1,
       });
 
-      for (const daysBefore of [-1, 2.5]) {
+      for (const daysBefore of [-366, 2.5]) {
         const bad = await request(app)
           .put(`/trips/trip-travel-options/${options.arriveEarly.id}`)
           .set(omar.authHeader)
@@ -197,7 +197,7 @@ describe("Feature 78 — Days Before and After the Trip", () => {
       expect(refused.body.message).toBe("Only one add-on expense can have days after the trip.");
       expect(await db.tripPeopleRoleExpense.count({ where: { tripPeopleRoleId: anaAssignment.id } })).toBe(0);
 
-      const invalid = await updateAddons([{ ...extraNight, daysBefore: -1 }]);
+      const invalid = await updateAddons([{ ...extraNight, daysBefore: -366 }]);
       expect(invalid.status).toBe(400);
       expect(invalid.body.message).toBe(DAYS_MESSAGE);
 

@@ -144,11 +144,11 @@ const save = async () => {
     }
     addonExpenses.push({ description, cost, daysBefore, daysAfter });
   }
-  if (addonExpenses.filter((expense) => expense.daysBefore > 0).length > 1) {
+  if (addonExpenses.filter((expense) => expense.daysBefore).length > 1) {
     formError.value = "Only one add-on expense can have days before the trip.";
     return;
   }
-  if (addonExpenses.filter((expense) => expense.daysAfter > 0).length > 1) {
+  if (addonExpenses.filter((expense) => expense.daysAfter).length > 1) {
     formError.value = "Only one add-on expense can have days after the trip.";
     return;
   }
