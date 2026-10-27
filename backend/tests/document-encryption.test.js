@@ -19,6 +19,7 @@ import {
   createOrgAdminUser,
   findRole,
   TINY_PNG,
+  createDocumentType,
 } from "./helpers.js";
 
 const ENV_KEYS = ["FILE_ENCRYPTION_KEY", "FILE_ENCRYPTION_KEY_SECRET_ID", "SECRETS_AGENT_TOKEN_FILE"];
@@ -64,7 +65,7 @@ describe("Feature 63 — Encrypt Person Documents on Disk", () => {
     fs.readFileSync(path.join(DOCUMENTS_DIR, documentFileName));
 
   const addType = (fields = {}) =>
-    db.documentType.create({ type: "passport", description: "Passport", ...fields });
+    createDocumentType({ type: "passport", description: "Passport", ...fields });
 
   const uploadDocument = (owner, documentType, data, filename, contentType) =>
     request(app)

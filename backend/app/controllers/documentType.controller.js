@@ -1,5 +1,6 @@
 import db from "../models/index.js";
-import { isSystemAdmin } from "../authorization/accessControl.js";
+import { isOrgAdminForOrg, isSystemAdmin } from "../authorization/accessControl.js";
+import { canManagePerson } from "./personDocument.controller.js";
 
 const DocumentType = db.documentType;
 const DocumentTypeSpecialization = db.documentTypeSpecialization;
@@ -8,13 +9,15 @@ const DOCUMENT_TYPES = ["medical_licence", "passport", "certification", "diploma
 const DOCUMENT_TYPE_MESSAGE =
   "Type must be medical_licence, passport, certification, or diploma.";
 
-const requireSystemAdmin = (req, res) => {
-  if (!isSystemAdmin(req)) {
+const requireOrgAdmin = (req, res, orgId) => {
+  if (!isOrgAdminForOrg(req, orgId)) {
     res.status(403).send({ message: "Forbidden." });
     return false;
   }
   return true;
 };
+
+const hasValue = (value) => value != null && value !== "";
 
 const pickPayload = (body) => {
   const payload = {};
@@ -86,6 +89,7 @@ const specializationsInclude = {
   attributes: ["id", "name"],
 };
 const specializationsOrder = [{ model: DocumentTypeSpecialization, as: "specializations" }, "name", "ASC"];
+const organizationInclude = { model: db.organization, as: "organization", attributes: ["id", "name"] };
 
 const loadDocumentType = (id) =>
   DocumentType.findByPk(id, { include: [specializationsInclude], order: [specializationsOrder] });
@@ -138,12 +142,33 @@ exports.findAll = async (req, res) => {
     if (req.query.type && DOCUMENT_TYPES.includes(req.query.type)) {
       where.type = req.query.type;
     }
+    let include = [specializationsInclude];
+    let order = [["type", "ASC"], ["description", "ASC"], specializationsOrder];
 
-    const data = await DocumentType.findAll({
-      where,
-      include: [specializationsInclude],
-      order: [["type", "ASC"], ["description", "ASC"], specializationsOrder],
-    });
+    if (hasValue(req.query.orgId)) {
+      where.orgId = Number(req.query.orgId);
+    } else if (hasValue(req.query.personId)) {
+      if (!(await canManagePerson(req, req.query.personId))) {
+        return res.status(403).send({ message: "Forbidden." });
+      }
+      const links = await db.orgPeopleRole.findAll({
+        where: { peopleId: Number(req.query.personId) },
+        attributes: ["orgId"],
+      });
+      where.orgId = [...new Set(links.map((link) => Number(link.orgId)))];
+      include = [organizationInclude, specializationsInclude];
+      order = [
+        [{ model: db.organization, as: "organization" }, "name", "ASC"],
+        ["description", "ASC"],
+        specializationsOrder,
+      ];
+    } else if (isSystemAdmin(req)) {
+      include = [organizationInclude, specializationsInclude];
+    } else {
+      where.orgId = [...new Set((req.user?.orgRoles || []).map((r) => Number(r.orgId)))];
+    }
+
+    const data = await DocumentType.findAll({ where, include, order });
     res.send(data);
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -152,9 +177,9 @@ exports.findAll = async (req, res) => {
 
 exports.findOne = async (req, res) => {
   try {
-    if (!requireSystemAdmin(req, res)) return;
     const row = await loadDocumentType(req.params.id);
     if (!row) return res.status(404).send({ message: "Document type not found." });
+    if (!requireOrgAdmin(req, res, row.orgId)) return;
     res.send(row);
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -163,7 +188,11 @@ exports.findOne = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    if (!requireSystemAdmin(req, res)) return;
+    const orgId = Number(req.body.orgId);
+    if (!hasValue(req.body.orgId) || !Number.isInteger(orgId) || orgId < 1) {
+      return res.status(400).send({ message: "Organization is required." });
+    }
+    if (!requireOrgAdmin(req, res, orgId)) return;
 
     const payload = pickPayload(req.body);
     if (!payload.description) {
@@ -184,6 +213,7 @@ exports.create = async (req, res) => {
     const id = await db.sequelize.transaction(async (transaction) => {
       const data = await DocumentType.create(
         {
+          orgId,
           description: payload.description,
           type: payload.type,
           documentNumberRequired: payload.documentNumberRequired ?? false,
@@ -211,10 +241,9 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    if (!requireSystemAdmin(req, res)) return;
-
     const row = await DocumentType.findByPk(req.params.id);
     if (!row) return res.status(404).send({ message: "Document type not found." });
+    if (!requireOrgAdmin(req, res, row.orgId)) return;
 
     const payload = pickPayload(req.body);
     if (Object.prototype.hasOwnProperty.call(payload, "description") && !payload.description) {
@@ -264,10 +293,9 @@ exports.update = async (req, res) => {
 
 exports.delete = async (req, res) => {
   try {
-    if (!requireSystemAdmin(req, res)) return;
-
     const row = await DocumentType.findByPk(req.params.id);
     if (!row) return res.status(404).send({ message: "Document type not found." });
+    if (!requireOrgAdmin(req, res, row.orgId)) return;
     await row.destroy();
     res.send({ message: "Document type deleted." });
   } catch (err) {

@@ -87,20 +87,38 @@ const isWaitingListHeading = (position) => {
   return value.startsWith("caregiver waiting list") || value.endsWith("waiting list");
 };
 
+const HEADER_SEARCH_ROWS = 10;
+
 /**
- * The spreadsheet's rows by section, or the required columns it is missing. Row 1 is the title,
- * rows 2–3 the header; `row` is the spreadsheet row number. Rows after "Total" and before the
- * next section heading belong to no section and are left out.
+ * The columns of the first pair of rows (starting in the first 10) holding every required column,
+ * with the index of the pair's first row; otherwise the required columns missing from the pair
+ * that found the most.
+ */
+const findHeader = (records) => {
+  let closest = null;
+  for (let start = 0; start < Math.min(HEADER_SEARCH_ROWS, records.length); start += 1) {
+    const columns = findColumns(records[start], records[start + 1]);
+    const missing = REQUIRED.filter((key) => columns[key] == null).map((key) => COLUMNS[key]);
+    if (!missing.length) return { start, columns, missing };
+    if (!closest || missing.length < closest.missing.length) closest = { missing };
+  }
+  return closest || { missing: REQUIRED.map((key) => COLUMNS[key]) };
+};
+
+/**
+ * The spreadsheet's rows by section, or the required columns it is missing. The two header rows
+ * may have any rows above them; `row` is the spreadsheet row number. Rows after "Total" and before
+ * the next section heading belong to no section and are left out.
  */
 export const readTripMaster = (text) => {
   const records = parseCsv(text);
-  const columns = findColumns(records[1], records[2]);
-  const missing = REQUIRED.filter((key) => columns[key] == null).map((key) => COLUMNS[key]);
+  const { start, columns, missing } = findHeader(records);
   if (missing.length) return { missing, rows: [] };
 
+  const firstDataRow = start + 2;
   const rows = [];
   let section = "main";
-  records.slice(3).forEach((record, index) => {
+  records.slice(firstDataRow).forEach((record, index) => {
     const values = {};
     for (const [key, column] of Object.entries(columns)) values[key] = String(record[column] ?? "").trim();
 
@@ -115,7 +133,7 @@ export const readTripMaster = (text) => {
       return;
     }
     if (!section) return;
-    rows.push({ ...values, position: heading ? "" : values.position, row: index + 4, section });
+    rows.push({ ...values, position: heading ? "" : values.position, row: firstDataRow + index + 1, section });
   });
   return { missing: [], rows };
 };
@@ -191,37 +209,53 @@ export const isNameTagOption = (option) => {
   return words.includes("name") && words.includes("tag");
 };
 
+const NEGATIONS = new Set(["no", "not"]);
+
 /**
- * The option per set that Travel Notes pick (most matched keywords), and the sets where options tie.
- * Keywords are an option's 3+ character words found in no other option's description.
+ * The option per set that Travel Notes pick, and the sets where options tie. Sets are matched lowest
+ * first. Keywords are an option's 3+ character words found in no other option of its set. A word
+ * after "no"/"not" picks the other of two options, or none. Words that pick an option aren't matched
+ * in later sets; negated words are never used up.
  */
 export const chooseNoteOptions = (notes, options) => {
-  const noteWords = wordsOf(notes).filter((word) => word.length >= 3);
-  if (!noteWords.length) return { chosen: [], tiedSets: [] };
+  const words = wordsOf(notes);
+  const isNegated = (index) => index > 0 && NEGATIONS.has(words[index - 1]);
+  const negated = words.filter((word, index) => word.length >= 3 && isNegated(index));
+  let unused = words.filter((word, index) => word.length >= 3 && !NEGATIONS.has(word) && !isNegated(index));
 
-  const optionWords = new Map(options.map((option) => [option, new Set(wordsOf(option.description))]));
-  const usage = new Map();
-  for (const words of optionWords.values()) {
-    for (const word of words) usage.set(word, (usage.get(word) || 0) + 1);
-  }
-
-  const bestBySet = new Map();
+  const bySet = new Map();
   for (const option of options) {
     if (isFlightOption(option) || isNameTagOption(option)) continue;
-    const keywords = [...optionWords.get(option)].filter((word) => word.length >= 3 && usage.get(word) === 1);
-    const score = keywords.filter((keyword) => noteWords.some((word) => keyword.startsWith(word))).length;
-    if (!score) continue;
     const setNumber = Number(option.setNumber) > 0 ? Number(option.setNumber) : 1;
-    const best = bestBySet.get(setNumber);
-    if (!best || score > best.score) bestBySet.set(setNumber, { score, options: [option] });
-    else if (score === best.score) best.options.push(option);
+    bySet.set(setNumber, [...(bySet.get(setNumber) || []), option]);
   }
 
   const chosen = [];
   const tiedSets = [];
-  for (const [setNumber, best] of [...bestBySet.entries()].sort((a, b) => a[0] - b[0])) {
-    if (best.options.length === 1) chosen.push(best.options[0]);
-    else tiedSets.push(setNumber);
+  for (const [setNumber, setOptions] of [...bySet.entries()].sort((a, b) => a[0] - b[0])) {
+    const optionWords = setOptions.map((option) => new Set(wordsOf(option.description)));
+    const keywords = optionWords.map((own) =>
+      [...own].filter((word) => word.length >= 3 && optionWords.every((other) => other === own || !other.has(word)))
+    );
+    const matches = (noteWords, index) =>
+      keywords[index].filter((keyword) => noteWords.some((word) => keyword.startsWith(word))).length;
+
+    const negatedIndex = setOptions.findIndex((_, index) => matches(negated, index) > 0);
+    if (negatedIndex >= 0) {
+      if (setOptions.length === 2) chosen.push(setOptions[1 - negatedIndex]);
+      continue;
+    }
+
+    const scores = setOptions.map((_, index) => matches(unused, index));
+    const best = Math.max(0, ...scores);
+    if (!best) continue;
+    const top = scores.flatMap((score, index) => (score === best ? [index] : []));
+    if (top.length > 1) {
+      tiedSets.push(setNumber);
+      continue;
+    }
+    chosen.push(setOptions[top[0]]);
+    unused = unused.filter((word) => !keywords[top[0]].some((keyword) => keyword.startsWith(word)));
   }
   return { chosen, tiedSets };
 };

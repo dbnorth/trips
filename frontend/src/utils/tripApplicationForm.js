@@ -187,10 +187,10 @@ export const validateTravelOptionSelections = (options, selectedIds) => {
 export const travelOptionDaysError = (options, selectedIds) => {
   const selected = new Set((selectedIds || []).map(Number));
   const chosen = (options || []).filter((o) => selected.has(Number(o.id)));
-  if (chosen.filter((o) => Number(o.daysBefore) > 0).length > 1) {
+  if (chosen.filter((o) => Number(o.daysBefore)).length > 1) {
     return "Choose only one trip option with days before the trip.";
   }
-  if (chosen.filter((o) => Number(o.daysAfter) > 0).length > 1) {
+  if (chosen.filter((o) => Number(o.daysAfter)).length > 1) {
     return "Choose only one trip option with days after the trip.";
   }
   return null;

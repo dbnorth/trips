@@ -18,6 +18,7 @@ import {
   createOrgAdminUser,
   findRole,
   TINY_PNG,
+  createDocumentType,
 } from "./helpers.js";
 
 const TESTS_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -63,7 +64,7 @@ describe("Feature 58 — Participant Documents PDF", () => {
     });
 
   const addType = (description, type = "certification", extra = {}) =>
-    db.documentType.create({ description, type, ...extra });
+    createDocumentType({ description, type, ...extra });
 
   const addSpecialization = async (personDocument, name, fields) =>
     db.personDocumentSpecialization.create({

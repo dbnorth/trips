@@ -159,6 +159,13 @@ db.workerRole.belongsTo(db.organization, {
   onDelete: "CASCADE",
 });
 
+db.organization.hasMany(db.documentType, { foreignKey: "orgId", onDelete: "CASCADE" });
+db.documentType.belongsTo(db.organization, {
+  foreignKey: "orgId",
+  as: "organization",
+  onDelete: "CASCADE",
+});
+
 db.person.hasMany(db.personDocument, { foreignKey: "personId", onDelete: "CASCADE" });
 db.personDocument.belongsTo(db.person, {
   foreignKey: "personId",

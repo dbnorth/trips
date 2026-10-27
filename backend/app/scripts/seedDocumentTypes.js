@@ -8,18 +8,24 @@ import { ensureSchema } from "./ensureSchema.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataFile = path.join(__dirname, "../data/documentTypes.json");
 
+const SEED_ORG_ID = 1;
+
 /**
- * Add each seed document type that is missing (matched by description), then add missing
- * specializations (matched ignoring case) to types that allow specialization.
+ * Add each seed document type missing from organization 1 (matched by description), then add
+ * missing specializations (matched ignoring case) to types that allow specialization.
+ * Adds nothing when organization 1 doesn't exist.
  */
 export const seedDocumentTypes = async () => {
   const documentTypes = JSON.parse(fs.readFileSync(dataFile, "utf8"));
   let typesInserted = 0;
   let specializationsInserted = 0;
+  if (!(await db.organization.findByPk(SEED_ORG_ID))) {
+    return { total: documentTypes.length, typesInserted, specializationsInserted, missingOrg: true };
+  }
   for (const { specializations, ...fields } of documentTypes) {
     const [documentType, created] = await db.documentType.findOrCreate({
-      where: { description: fields.description },
-      defaults: fields,
+      where: { orgId: SEED_ORG_ID, description: fields.description },
+      defaults: { ...fields, orgId: SEED_ORG_ID },
     });
     if (created) typesInserted += 1;
     if (!documentType.allowSpecialization) continue;
@@ -42,7 +48,11 @@ const run = async () => {
     await db.documentType.sync();
     await db.documentTypeSpecialization.sync();
     await ensureSchema();
-    const { total, typesInserted, specializationsInserted } = await seedDocumentTypes();
+    const { total, typesInserted, specializationsInserted, missingOrg } = await seedDocumentTypes();
+    if (missingOrg) {
+      console.log("Document types: organization 1 not found, so no document types were added.");
+      process.exit(0);
+    }
     console.log(
       `Document types: ${total} in seed list, ${total - typesInserted} already present, ${typesInserted} inserted; ${specializationsInserted} specialization(s) inserted.`
     );

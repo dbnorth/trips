@@ -7,6 +7,7 @@ import { countryName, resolveCountryCode, US_COUNTRY_CODE } from "../utils/locat
 
 const props = defineProps({
   personId: { type: [Number, String], default: null },
+  orgId: { type: [Number, String], default: null },
 });
 
 const documents = ref([]);
@@ -59,16 +60,34 @@ const viewKind = computed(() => {
   return "unsupported";
 });
 
+/** The person's organizations' types, plus the type of the document being edited when it isn't one of them. */
+const offeredDocumentTypes = computed(() => {
+  const editing = documents.value.find((row) => Number(row.id) === Number(editingDocumentId.value));
+  const own = editing?.documentType;
+  if (!own || documentTypes.value.some((row) => Number(row.id) === Number(own.id))) {
+    return documentTypes.value;
+  }
+  return [...documentTypes.value, own];
+});
+
+const showOrganizationNames = computed(
+  () => new Set(documentTypes.value.map((row) => Number(row.orgId))).size > 1
+);
+
 const documentTypeItems = computed(() =>
-  documentTypes.value.map((row) => ({
-    title: row.description,
+  offeredDocumentTypes.value.map((row) => ({
+    title:
+      showOrganizationNames.value && row.organization?.name
+        ? `${row.description} (${row.organization.name})`
+        : row.description,
     value: row.id,
   }))
 );
 
 const selectedDocumentType = computed(
   () =>
-    documentTypes.value.find((row) => Number(row.id) === Number(form.value.documentTypeId)) || null
+    offeredDocumentTypes.value.find((row) => Number(row.id) === Number(form.value.documentTypeId)) ||
+    null
 );
 
 const uploadLabel = computed(() => {
@@ -211,6 +230,14 @@ watch(
 const load = async () => {
   if (!props.personId) {
     documents.value = [];
+    documentTypes.value = [];
+    if (props.orgId) {
+      try {
+        documentTypes.value = (await DocumentTypeServices.getAll({ orgId: props.orgId })).data || [];
+      } catch {
+        documentTypes.value = [];
+      }
+    }
     return;
   }
 
@@ -219,7 +246,7 @@ const load = async () => {
   try {
     const [docsRes, typesRes] = await Promise.all([
       PersonDocumentServices.getAll(props.personId),
-      DocumentTypeServices.getAll(),
+      DocumentTypeServices.getAll({ personId: props.personId }),
     ]);
     documents.value = docsRes.data || [];
     documentTypes.value = typesRes.data || [];
@@ -369,7 +396,7 @@ const removeDocument = async (row) => {
 };
 
 watch(
-  () => props.personId,
+  () => [props.personId, props.orgId],
   () => {
     resetForm();
     load();

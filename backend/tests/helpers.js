@@ -110,6 +110,13 @@ export const createOrganization = async (name = "Hope Mission") => {
   return db.organization.create({ name });
 };
 
+/** Create a document type; adds an organization for it when `orgId` isn't given. */
+export const createDocumentType = async (fields) =>
+  db.documentType.create({
+    ...fields,
+    orgId: fields.orgId ?? (await createOrganization("Document Types Org")).id,
+  });
+
 export const findRole = async (roleName) => {
   return db.role.findOne({ where: { roleName } });
 };

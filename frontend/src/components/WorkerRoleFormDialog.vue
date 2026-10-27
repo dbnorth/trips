@@ -51,8 +51,12 @@ const groupRequiredSpecializations = (specializations) => {
 };
 
 const loadDocumentTypes = async () => {
+  if (!props.orgId) {
+    documentTypes.value = [];
+    return;
+  }
   try {
-    const res = await DocumentTypeServices.getAll();
+    const res = await DocumentTypeServices.getAll({ orgId: props.orgId });
     documentTypes.value = res.data || [];
   } catch {
     documentTypes.value = [];
@@ -60,6 +64,15 @@ const loadDocumentTypes = async () => {
 };
 
 onMounted(loadDocumentTypes);
+watch(() => props.orgId, loadDocumentTypes);
+
+/** Keep required types from another organization that the role already has, so they still show. */
+const addRoleDocumentTypes = (required) => {
+  const missing = (required || []).filter(
+    (d) => !documentTypes.value.some((t) => Number(t.id) === Number(d.id))
+  );
+  if (missing.length) documentTypes.value = [...documentTypes.value, ...missing];
+};
 
 const isEdit = computed(() => props.roleId != null && props.roleId !== "");
 const title = computed(() => (isEdit.value ? "Edit worker role" : "Add worker role"));
@@ -82,6 +95,7 @@ const loadRole = async () => {
   try {
     const res = await WorkerRoleServices.get(props.roleId);
     const row = res.data;
+    addRoleDocumentTypes(row.requiredDocumentTypes);
     const requiredIds =
       row.requiredDocumentTypeIds ||
       (row.requiredDocumentTypes || []).map((d) => d.id) ||

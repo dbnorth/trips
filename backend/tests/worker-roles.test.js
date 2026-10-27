@@ -16,6 +16,7 @@ import {
   registerUser,
   createOrgAdminUser,
   assignOrgRole,
+  createDocumentType,
 } from "./helpers.js";
 
 const createTripAsAdmin = async (authHeader, orgId, overrides = {}) => {
@@ -54,7 +55,8 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
         email: "worker-role-admin@example.com",
         orgName: "Clinic Org",
       });
-      const docType = await db.documentType.create({
+      const docType = await createDocumentType({
+        orgId: org.id,
         type: "medical_licence",
         description: "Medical Licence",
       });
@@ -93,11 +95,13 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "multi-docs-admin@example.com",
       });
-      const typeA = await db.documentType.create({
+      const typeA = await createDocumentType({
+        orgId: org.id,
         type: "medical_licence",
         description: "RN License",
       });
-      const typeB = await db.documentType.create({
+      const typeB = await createDocumentType({
+        orgId: org.id,
         type: "certification",
         description: "First Aid",
       });
@@ -125,7 +129,8 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "clear-docs-admin@example.com",
       });
-      const typeA = await db.documentType.create({
+      const typeA = await createDocumentType({
+        orgId: org.id,
         type: "passport",
         description: "Passport",
       });
@@ -158,7 +163,8 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "migrate-docs-admin@example.com",
       });
-      const docType = await db.documentType.create({
+      const docType = await createDocumentType({
+        orgId: org.id,
         type: "medical_licence",
         description: "Legacy Licence",
       });

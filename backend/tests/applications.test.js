@@ -15,6 +15,7 @@ import {
   assignOrgRole,
   findRole,
   completePersonProfile,
+  createDocumentType,
 } from "./helpers.js";
 
 const createActiveTripWithRole = async (
@@ -176,7 +177,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       });
       await completePersonProfile(applicant.user.personId);
 
-      const docType = await db.documentType.create({
+      const docType = await createDocumentType({
         type: "passport",
         description: "Passport for gate test",
       });
@@ -236,7 +237,8 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "role-doc-admin@example.com",
       });
-      const docType = await db.documentType.create({
+      const docType = await createDocumentType({
+        orgId: org.id,
         type: "medical_licence",
         description: "RN License",
       });
@@ -331,11 +333,13 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "multi-role-docs-admin@example.com",
       });
-      const typeA = await db.documentType.create({
+      const typeA = await createDocumentType({
+        orgId: org.id,
         type: "medical_licence",
         description: "RN License",
       });
-      const typeB = await db.documentType.create({
+      const typeB = await createDocumentType({
+        orgId: org.id,
         type: "certification",
         description: "BLS",
       });
@@ -530,7 +534,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       expect(withoutPassport.status).toBe(200);
       expect(withoutPassport.body.applicationStatus).toBe("incomplete");
 
-      const passportType = await db.documentType.create({
+      const passportType = await createDocumentType({
         type: "passport",
         description: "US Passport",
       });

@@ -142,3 +142,43 @@ describe("Feature 78 — Days Before and After the Trip", () => {
     });
   });
 });
+
+/**
+ * Feature 89 — Negative Trip Days and Wider Option Descriptions
+ * Spec: features/feature-89-negative-trip-days.md
+ */
+describe("Feature 89 — Negative Trip Days", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    TripServices.get.mockResolvedValue({ data: { id: 7, participantCost: 950 } });
+    TripWorkerRoleServices.getAll.mockResolvedValue({ data: [] });
+    TripPeopleRoleServices.update.mockResolvedValue({ data: {} });
+  });
+
+  describe("US-89.1 — Staff give days that shorten the trip", () => {
+    it("Add-on days accept negative numbers", async () => {
+      const { wrapper } = await mountWithPlugins(EditTripParticipantDialog, {
+        props: { modelValue: false, participant: { ...NORA, person: { firstName: "Ana", lastName: "Lopez" } } },
+        global: { stubs: { VDialog: { template: "<div><slot /></div>" } } },
+      });
+      await wrapper.setProps({ modelValue: true });
+      await flushPromises();
+
+      await button(wrapper, "Add expense").trigger("click");
+      const inputs = wrapper.find('[data-testid="addon-expense-row"]').findAll("input");
+      await inputs[0].setValue("Late arrival");
+      await inputs[1].setValue("0");
+      await inputs[2].setValue("-1");
+      await button(wrapper, "Save").trigger("click");
+      await flushPromises();
+
+      expect(TripPeopleRoleServices.update).toHaveBeenCalledWith(
+        40,
+        expect.objectContaining({
+          addonExpenses: [{ description: "Late arrival", cost: 0, daysBefore: -1, daysAfter: 0 }],
+        })
+      );
+      wrapper.unmount();
+    });
+  });
+});

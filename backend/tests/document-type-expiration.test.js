@@ -14,6 +14,8 @@ import {
   createSystemAdminUser,
   completePersonProfile,
   TINY_PNG,
+  createDocumentType,
+  createOrganization,
 } from "./helpers.js";
 
 const applicationBody = (tripWorkerRoleId, signatureName) => ({
@@ -79,7 +81,7 @@ describe("Feature 57 — Document Type Has Expiration Date", () => {
       const { authHeader } = await createSystemAdminUser({
         email: "expiration-admin@example.com",
       });
-      const existing = await db.documentType.create({
+      const existing = await createDocumentType({
         type: "passport",
         description: "Passport",
       });
@@ -87,7 +89,7 @@ describe("Feature 57 — Document Type Has Expiration Date", () => {
       const create = await request(app)
         .post("/trips/document-types")
         .set(authHeader)
-        .send({ type: "diploma", description: "Diploma", hasExpirationDate: false });
+        .send({ orgId: (await createOrganization()).id, type: "diploma", description: "Diploma", hasExpirationDate: false });
       expect(create.status).toBe(200);
 
       const diploma = await request(app)
@@ -109,7 +111,7 @@ describe("Feature 57 — Document Type Has Expiration Date", () => {
       const { authHeader, user } = await registerUser({
         email: "no-expiration-owner@example.com",
       });
-      const diploma = await db.documentType.create({
+      const diploma = await createDocumentType({
         type: "diploma",
         description: "Diploma",
         hasExpirationDate: false,
@@ -142,7 +144,7 @@ describe("Feature 57 — Document Type Has Expiration Date", () => {
       const { authHeader, user } = await registerUser({
         email: "expiration-required-owner@example.com",
       });
-      const passport = await db.documentType.create({
+      const passport = await createDocumentType({
         type: "passport",
         description: "Passport",
       });
@@ -164,7 +166,8 @@ describe("Feature 57 — Document Type Has Expiration Date", () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "role-doc-expiration-admin@example.com",
       });
-      const diploma = await db.documentType.create({
+      const diploma = await createDocumentType({
+        orgId: org.id,
         type: "diploma",
         description: "Diploma",
         hasExpirationDate: false,
@@ -199,7 +202,7 @@ describe("Feature 57 — Document Type Has Expiration Date", () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "passport-expiration-admin@example.com",
       });
-      const passport = await db.documentType.create({
+      const passport = await createDocumentType({
         type: "passport",
         description: "Passport Card",
         hasExpirationDate: false,

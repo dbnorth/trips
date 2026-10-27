@@ -21,7 +21,7 @@ Notes:
 | `role` | 2 | Role catalog |
 | `orgPeopleRole` | 2 | Person ↔ org ↔ role |
 | `organization` | 3 | Sponsors / branding / agreement file |
-| `documentType` | 4, 22, 24, 25 | Passport / medical licence / certification / diploma catalog |
+| `documentType` | 4, 22, 24, 25, 91 | Passport / medical licence / certification / diploma catalog, per organization |
 | `personDocument` | 4, 22 | Uploaded person documents |
 | `trip` | 5 | Trip catalog |
 | `tripPeopleRole` | 5, 7 | Leaders, applications, participants |
@@ -192,19 +192,20 @@ Notes:
 
 ---
 
-## `documentType` — Features 4, 22
+## `documentType` — Features 4, 22, 91
 
 | Field | Type | Rules |
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
-| description | STRING(255) | required |
+| orgId | INTEGER | required FK → organization; CASCADE on delete (Feature 91). Added by `ensureSchema`, which sets every existing document type to organization 1 once, then makes it required (left optional when organization 1 doesn't exist) |
+| description | STRING(255) | required; may repeat across organizations |
 | type | ENUM(`medical_licence`,`passport`,`certification`,`diploma`) | required (`certification` — Feature 22; `diploma` — Feature 24) |
 | documentNumberRequired | BOOLEAN | required, default `false` (Feature 22) |
 | instructions | TEXT | nullable (Feature 22) |
 | allowSpecialization | BOOLEAN | required, default `false` (Feature 34) |
 | hasExpirationDate | BOOLEAN | required, default `true` (Feature 57) |
 
-**Associations:** `hasMany` workerRole (SET NULL); `hasMany` personDocument (RESTRICT); `hasMany` documentTypeSpecialization as `specializations` (CASCADE, Feature 59).
+**Associations:** `belongsTo` organization as `organization` (Feature 91); `hasMany` workerRole (SET NULL); `hasMany` personDocument (RESTRICT); `hasMany` documentTypeSpecialization as `specializations` (CASCADE, Feature 59).
 
 ---
 
@@ -219,7 +220,7 @@ Notes:
 
 **Associations:** `belongsTo` documentType; `hasMany` personDocumentSpecialization (RESTRICT); `hasMany` workerRoleSpecialization (RESTRICT). An entry used by either cannot be removed from the list.
 
-Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part of `npm run seed`) adds missing document types (by description) and their missing specializations.
+Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part of `npm run seed`) adds document types missing from organization 1 (by description) and their missing specializations; it adds nothing when organization 1 doesn't exist (Feature 91). `ensureSchema` also adds the Medical Licence / Passport / Certification / Diploma defaults to organization 1 when it has no type of that kind.
 
 ---
 
@@ -551,8 +552,8 @@ A reservation is **filled** when an `incomplete` / `applied` / `approved` applic
 | description | STRING(500) | required |
 | priceAdjustment | DECIMAL(10,2) | required, default `0` |
 | setNumber | INTEGER | required, default `1` (one selection per set on applications) |
-| daysBefore | INTEGER | required, default `0`; whole number 0–365 (Feature 78; added by `ensureSchema`) |
-| daysAfter | INTEGER | required, default `0`; whole number 0–365 (Feature 78; added by `ensureSchema`) |
+| daysBefore | INTEGER | required, default `0`; whole number −365 to 365 (Feature 78; negative allowed — Feature 89; added by `ensureSchema`) |
+| daysAfter | INTEGER | required, default `0`; whole number −365 to 365 (Feature 78; negative allowed — Feature 89; added by `ensureSchema`) |
 
 **Associations:** `belongsTo` trip; `hasMany` tripPeopleRoleOption.
 
@@ -581,8 +582,8 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 | tripPeopleRoleId | INTEGER | required FK → tripPeopleRole, `ON DELETE CASCADE` |
 | description | STRING(255) | required, trimmed |
 | cost | DECIMAL(10,2) | required, ≥ 0 |
-| daysBefore | INTEGER | required, default `0`; whole number 0–365 (Feature 78; added by `ensureSchema`) |
-| daysAfter | INTEGER | required, default `0`; whole number 0–365 (Feature 78; added by `ensureSchema`) |
+| daysBefore | INTEGER | required, default `0`; whole number −365 to 365 (Feature 78; negative allowed — Feature 89; added by `ensureSchema`) |
+| daysAfter | INTEGER | required, default `0`; whole number −365 to 365 (Feature 78; negative allowed — Feature 89; added by `ensureSchema`) |
 
 **Associations:** `belongsTo` tripPeopleRole. No dedicated REST resource; saved as a whole list through `PUT /trips/trip-people-roles/:id` `addonExpenses`.
 
@@ -748,6 +749,7 @@ organization ──1:N── trip ──1:N── tripPeopleRole ──N:1──
 tripPeopleRole ──1:N── tripPeopleRoleOption ──N:1── tripTravelOption
 tripPeopleRole ──1:N── tripPeopleRoleExpense
 person ──1:N── personDocument ──N:1── documentType
+organization ──1:N── documentType
 workerRole ──N:1── documentType (optional)
 organization ──1:N── emailTemplate ──N:1── trip (optional)
 emailType ──1:N── emailTemplate

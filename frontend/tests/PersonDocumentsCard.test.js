@@ -106,7 +106,7 @@ describe("Feature 22 — Document number & instructions", () => {
     });
 
     const { wrapper } = await mountWithPlugins(DocumentTypeFormDialog, {
-      props: { modelValue: true },
+      props: { modelValue: true, orgId: 3 },
       global: { stubs: { VDialog: dialogStub } },
     });
     await flushPromises();
@@ -140,6 +140,7 @@ describe("Feature 22 — Document number & instructions", () => {
       hasExpirationDate: true,
       instructions: "Bring original.",
       specializations: [],
+      orgId: 3,
     });
 
     wrapper.unmount();
@@ -480,5 +481,52 @@ describe("Feature 59 — Document Type Specialization List", () => {
     expect(addButton.props("disabled")).toBe(true);
 
     wrapper.unmount();
+  });
+});
+
+describe("Feature 91 — Document types by organization", () => {
+  const hope = { id: 1, name: "Hope Missions" };
+  const healing = { id: 2, name: "Healing Hands" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    PersonDocumentServices.getAll.mockResolvedValue({ data: [] });
+  });
+
+  const offeredTypes = async (wrapper) => {
+    await clickButton(wrapper, "Add Document");
+    const typeSelect = wrapper
+      .findAllComponents({ name: "VSelect" })
+      .find((c) => c.props("label") === "Document type");
+    return typeSelect.props("items").map((item) => item.title);
+  };
+
+  it("Document type choices show organization names", async () => {
+    DocumentTypeServices.getAll.mockResolvedValue({
+      data: [
+        { id: 7, orgId: 2, organization: healing, description: "CPR Certificate", type: "certification" },
+        { id: 2, orgId: 1, organization: hope, description: "Nursing License", type: "medical_licence" },
+        { id: 1, orgId: 1, organization: hope, description: "Passport", type: "passport" },
+      ],
+    });
+
+    const { wrapper } = await mountCard({ personId: 5 });
+    await flushPromises();
+
+    expect(DocumentTypeServices.getAll).toHaveBeenCalledWith({ personId: 5 });
+    expect(await offeredTypes(wrapper)).toEqual([
+      "CPR Certificate (Healing Hands)",
+      "Nursing License (Hope Missions)",
+      "Passport (Hope Missions)",
+    ]);
+    wrapper.unmount();
+
+    DocumentTypeServices.getAll.mockResolvedValue({
+      data: [{ id: 7, orgId: 2, organization: healing, description: "CPR Certificate", type: "certification" }],
+    });
+    const { wrapper: ben } = await mountCard({ personId: 6 });
+    await flushPromises();
+    expect(await offeredTypes(ben)).toEqual(["CPR Certificate"]);
+    ben.unmount();
   });
 });

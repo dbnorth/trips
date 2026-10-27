@@ -28,7 +28,7 @@ vi.mock("../src/services/tripWorkerRoleServices.js", () => ({
   },
 }));
 vi.mock("../src/services/tripTravelOptionServices.js", () => ({
-  default: { getAll: vi.fn() },
+  default: { getAll: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
 }));
 vi.mock("../src/services/personServices.js", () => ({
   default: { getOrgTripLeaders: vi.fn() },
@@ -232,6 +232,114 @@ describe("Feature 78 — Days Before and After the Trip", () => {
         .find((tr) => tr.findAll("input").some((input) => input.element.value === "Arrive early"));
       expect(row.find('[data-testid="travel-option-days-before"] input').element.value).toBe("2");
       expect(row.find('[data-testid="travel-option-days-after"] input').element.value).toBe("0");
+      wrapper.unmount();
+    });
+  });
+});
+
+/**
+ * Feature 89 — Negative Trip Days and Wider Option Descriptions
+ * Spec: features/feature-89-negative-trip-days.md
+ */
+describe("Feature 89 — Negative Trip Days and Wider Option Descriptions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    Utils.setStore("user", {
+      userId: 2,
+      personId: 2,
+      email: "omar@example.org",
+      isAdmin: false,
+      token: "t",
+      orgRoles: [{ orgId: 3, orgName: "Hope Missions", roleName: "Org Admin" }],
+      tripRoles: [],
+      currentOrgId: 3,
+    });
+    TripServices.get.mockResolvedValue({
+      data: {
+        id: 7,
+        orgId: 3,
+        name: "Clinica Ezell Hospital - January 2027",
+        status: "active",
+        version: 1,
+        leaderPeopleIds: [],
+      },
+    });
+    TripServices.update.mockResolvedValue({ data: { version: 2 } });
+    PersonServices.getOrgTripLeaders.mockResolvedValue({ data: [] });
+    WorkerRoleServices.getAll.mockResolvedValue({ data: [] });
+    TripWorkerRoleServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({
+      data: [
+        {
+          id: 1,
+          description: "Antigua Trip - stay Friday night",
+          priceAdjustment: "200.00",
+          setNumber: 4,
+          daysBefore: 0,
+          daysAfter: 0,
+        },
+        { id: 2, description: "Depart Friday", priceAdjustment: "150.00", setNumber: 4, daysBefore: 0, daysAfter: 0 },
+      ],
+    });
+    TripTravelOptionServices.update.mockResolvedValue({ data: {} });
+  });
+
+  const mountDialog = async () => {
+    const { wrapper } = await mountWithPlugins(EditTripDialog, {
+      props: { modelValue: false, tripId: 7 },
+      global: {
+        plugins: [vuetify],
+        stubs: {
+          VDialog: {
+            props: ["modelValue", "maxWidth"],
+            template: '<div v-if="modelValue !== false" :data-max-width="maxWidth"><slot /></div>',
+          },
+        },
+      },
+    });
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+    return wrapper;
+  };
+
+  describe("US-89.1 — Staff give days that shorten the trip", () => {
+    it("Travel option days accept negative numbers", async () => {
+      const wrapper = await mountDialog();
+      const departFriday = wrapper
+        .findAll("tbody tr")
+        .find((tr) => tr.findAll("input").some((input) => input.element.value === "Depart Friday"));
+      const daysAfter = departFriday.find('[data-testid="travel-option-days-after"] input');
+      const save = () => wrapper.findAll("button").find((b) => b.text() === "Save").trigger("click");
+
+      await daysAfter.setValue("-366");
+      await save();
+      await flushPromises();
+      expect(wrapper.text()).toContain("Days before and after must be whole numbers from -365 to 365.");
+      expect(TripTravelOptionServices.update).not.toHaveBeenCalled();
+
+      await daysAfter.setValue("-1");
+      await save();
+      await flushPromises();
+      expect(TripTravelOptionServices.update).toHaveBeenCalledWith(
+        2,
+        expect.objectContaining({ description: "Depart Friday", daysBefore: 0, daysAfter: -1 })
+      );
+      wrapper.unmount();
+    });
+  });
+
+  describe("US-89.2 — Travel option descriptions are readable in Edit trip", () => {
+    it("The travel option Description is wide", async () => {
+      const wrapper = await mountDialog();
+
+      expect(wrapper.find("[data-max-width]").attributes("data-max-width")).toBe("1000");
+      expect(wrapper.find('[data-testid="travel-option-description-header"]').attributes("style")).toContain(
+        "min-width: 360px"
+      );
+      expect(wrapper.find('[data-testid="add-travel-option-description"]').attributes("style")).toContain(
+        "min-width: 360px"
+      );
       wrapper.unmount();
     });
   });

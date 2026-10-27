@@ -2,6 +2,7 @@
 import { ref, computed, watch } from "vue";
 import TripServices from "../services/tripServices.js";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import EmailSendStatusDialog from "./EmailSendStatusDialog.vue";
 import RichTextEditor from "./RichTextEditor.vue";
 import EmailHtmlPreview from "./EmailHtmlPreview.vue";
 import { emailBodyIsBlank } from "../utils/emailBody.js";
@@ -58,6 +59,8 @@ const previewLoading = ref(false);
 const showConfirm = ref(false);
 const sending = ref(false);
 const result = ref(null);
+const sendError = ref("");
+const showStatus = ref(false);
 const error = ref("");
 
 const personName = (person) =>
@@ -158,17 +161,23 @@ const openPreview = () => {
 };
 
 const confirmSend = async () => {
+  showConfirm.value = false;
+  result.value = null;
+  sendError.value = "";
   sending.value = true;
-  error.value = "";
+  showStatus.value = true;
   try {
     const res = await TripServices[config.value.send](props.tripId, requestBody());
     result.value = res.data;
   } catch (e) {
-    error.value = e.response?.data?.message || "Unable to send email.";
+    sendError.value = e.response?.data?.message || "Unable to send email.";
   } finally {
     sending.value = false;
-    showConfirm.value = false;
   }
+};
+
+const onStatusOk = ({ allSent }) => {
+  if (allSent) close();
 };
 
 const reset = () => {
@@ -181,7 +190,9 @@ const reset = () => {
   previewPersonId.value = null;
   showPreview.value = false;
   showConfirm.value = false;
+  showStatus.value = false;
   result.value = null;
+  sendError.value = "";
   error.value = "";
 };
 
@@ -294,16 +305,6 @@ const close = () => emit("update:modelValue", false);
             <EmailHtmlPreview :html="preview.body" />
           </div>
         </div>
-
-        <v-alert v-if="result" type="info" density="compact" class="mb-2">
-          <div>{{ result.sent }} sent, {{ result.skipped }} skipped, {{ result.failed }} failed.</div>
-          <div
-            v-for="row in result.results.filter((r) => r.status !== 'sent')"
-            :key="row.personId"
-          >
-            {{ row.name || "Participant" }}: {{ row.status }} — {{ row.reason }}
-          </div>
-        </v-alert>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
@@ -318,8 +319,15 @@ const close = () => emit("update:modelValue", false);
       :message="`Send this email to ${recipientLabel(recipientCount)}?`"
       confirm-text="Send"
       cancel-text="Cancel"
-      :loading="sending"
       @confirm="confirmSend"
+    />
+    <EmailSendStatusDialog
+      v-model="showStatus"
+      :sending="sending"
+      :count="recipientCount"
+      :result="result"
+      :error="sendError"
+      @ok="onStatusOk"
     />
   </v-dialog>
 </template>
