@@ -6,6 +6,7 @@ import { DOCUMENT_TYPE_OPTIONS } from "../utils/documentTypes.js";
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   documentTypeId: { type: [Number, String], default: null },
+  orgId: { type: [Number, String], default: null },
 });
 
 const emit = defineEmits(["update:modelValue", "saved"]);
@@ -120,7 +121,7 @@ const save = async () => {
     if (isEdit.value) {
       await DocumentTypeServices.update(props.documentTypeId, payload);
     } else {
-      await DocumentTypeServices.create(payload);
+      await DocumentTypeServices.create({ ...payload, orgId: props.orgId });
     }
     emit("saved");
     close();

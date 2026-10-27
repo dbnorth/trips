@@ -127,7 +127,7 @@ describe("Feature 54 — Room List PDF", () => {
       endDate: "2027-01-09",
       status: "active",
     });
-    passportType = await db.documentType.create({ description: "Passport", type: "passport" });
+    passportType = await db.documentType.create({ orgId: admin.org.id, description: "Passport", type: "passport" });
   });
 
   afterEach(async () => {

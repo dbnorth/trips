@@ -3,6 +3,7 @@ import SequelizeInstance from "../config/sequelizeInstance.js";
 
 const DocumentType = SequelizeInstance.define("documentType", {
   id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
+  orgId: { type: Sequelize.INTEGER, allowNull: false },
   description: { type: Sequelize.STRING(255), allowNull: false },
     type: {
       type: Sequelize.ENUM("medical_licence", "passport", "certification", "diploma"),

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import DocumentTypeServices from "../services/documentTypeServices.js";
 import DocumentTypeFormDialog from "../components/DocumentTypeFormDialog.vue";
 import { documentTypeLabel } from "../utils/documentTypes.js";
@@ -13,18 +13,35 @@ const message = ref("");
 const showForm = ref(false);
 const editingId = ref(null);
 
+const effectiveOrgId = computed(() => Utils.effectiveOrgId(user.value));
 const isSystemAdmin = computed(() => Utils.isSystemAdmin(user.value));
+const isOrgAdmin = computed(() => {
+  if (isSystemAdmin.value) return true;
+  const orgId = effectiveOrgId.value;
+  if (!orgId) {
+    return (user.value?.orgRoles || []).some((r) => r.roleName === "Org Admin");
+  }
+  return Utils.isOrgAdmin(user.value, orgId);
+});
+const canManage = computed(() => isOrgAdmin.value && !!effectiveOrgId.value);
+const needsOrgSelection = computed(() => isSystemAdmin.value && !effectiveOrgId.value);
+const orgLabel = computed(() => {
+  const orgId = effectiveOrgId.value;
+  if (!orgId) return null;
+  return Utils.orgDisplayName(user.value, orgId);
+});
+const showOrgScopeNotice = computed(() => Utils.showOrgScopeNotice(user.value));
 
 const load = () => {
   user.value = Utils.getStore("user");
-  if (!isSystemAdmin.value) {
+  if (!canManage.value) {
     rows.value = [];
     return Promise.resolve();
   }
 
   loading.value = true;
   message.value = "";
-  return DocumentTypeServices.getAll()
+  return DocumentTypeServices.getAll({ orgId: effectiveOrgId.value })
     .then((r) => {
       rows.value = r.data || [];
     })
@@ -68,6 +85,11 @@ const onUserUpdated = () => {
   load();
 };
 
+watch(effectiveOrgId, () => {
+  if (!user.value) return;
+  load();
+});
+
 onMounted(() => {
   load();
   window.addEventListener("user-updated", onUserUpdated);
@@ -82,17 +104,34 @@ onUnmounted(() => {
   <v-container>
     <div class="d-flex align-center justify-space-between mb-4">
       <h1 class="text-h5">Document types</h1>
-      <v-btn v-if="isSystemAdmin" color="primary" @click="openAdd">Add document type</v-btn>
+      <v-btn v-if="canManage" color="primary" @click="openAdd">Add document type</v-btn>
     </div>
 
-    <v-alert v-if="!isSystemAdmin" type="warning" density="compact" class="mb-4">
-      Only system administrators can manage document types.
+    <v-alert v-if="needsOrgSelection" type="warning" density="compact" class="mb-4">
+      Select an organization using the menu bar to manage document types.
+    </v-alert>
+    <v-alert
+      v-else-if="!isOrgAdmin"
+      type="warning"
+      density="compact"
+      class="mb-4"
+    >
+      Only organization admins can manage document types.
+    </v-alert>
+    <v-alert
+      v-else-if="showOrgScopeNotice && orgLabel"
+      type="info"
+      variant="tonal"
+      density="compact"
+      class="mb-4"
+    >
+      Showing document types for {{ orgLabel }}.
     </v-alert>
 
     <v-alert v-if="message" type="info" density="compact" class="mb-4">{{ message }}</v-alert>
 
     <v-data-table
-      v-if="isSystemAdmin"
+      v-if="canManage"
       :items="rows"
       :loading="loading"
       :headers="[
@@ -114,6 +153,7 @@ onUnmounted(() => {
     <DocumentTypeFormDialog
       v-model="showForm"
       :document-type-id="editingId"
+      :org-id="effectiveOrgId"
       @saved="onSaved"
     />
   </v-container>

@@ -29,4 +29,4 @@ cd backend && npm run seed:catalogs
 |------|----------|
 | `documentTypes.json` | Document types (description, type, document number required, instructions, allow specialization, has expiration date), each with its `specializations` list (Feature 59) |
 
-`npm run seed` runs `seedDocumentTypes.js` last. It adds document types missing by description and, for types that allow specialization, adds specializations missing by name (ignoring case). It never changes or removes existing rows.
+`npm run seed` runs `seedDocumentTypes.js` last. It adds document types missing from organization 1 by description (nothing when organization 1 doesn't exist) and, for types that allow specialization, adds specializations missing by name (ignoring case). It never changes or removes existing rows.

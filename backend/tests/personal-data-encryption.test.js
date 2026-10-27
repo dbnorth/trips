@@ -23,6 +23,7 @@ import {
   createOrganization,
   completePersonProfile,
   findRole,
+  createDocumentType,
 } from "./helpers.js";
 
 const ENV_KEYS = [
@@ -231,7 +232,7 @@ describe("Feature 64 — Encrypt Personal and Medical Data in the Database", () 
 
     it("Document number is encrypted", async () => {
       const owner = await registerUser({ email: "doc-number@example.com" });
-      const documentType = await db.documentType.create({
+      const documentType = await createDocumentType({
         type: "passport",
         description: "Passport",
         documentNumberRequired: true,
@@ -383,7 +384,7 @@ describe("Feature 64 — Encrypt Personal and Medical Data in the Database", () 
     it("Room list PDF shows the decrypted passport number", async () => {
       const admin = await createOrgAdminUser({ email: "room-admin@example.com" });
       const trip = await db.trip.create({ orgId: admin.org.id, name: "Room Trip", status: "active" });
-      const passportType = await db.documentType.create({ type: "passport", description: "Passport" });
+      const passportType = await createDocumentType({ type: "passport", description: "Passport" });
       const person = await db.person.create({ firstName: "Ana", lastName: "Lopez", email: "ana@example.org" });
       const passport = await db.personDocument.create({
         personId: person.id,
@@ -555,7 +556,7 @@ describe("Feature 64 — Encrypt Personal and Medical Data in the Database", () 
         "UPDATE tripPeopleRoles SET isPregnant = '1', pregnancyDueDate = '2027-02-01' WHERE id = :id",
         { replacements: { id: assignment.id } }
       );
-      const documentType = await db.documentType.create({ type: "passport", description: "Passport" });
+      const documentType = await createDocumentType({ type: "passport", description: "Passport" });
       const document = await db.personDocument.create({ personId: person.id, documentTypeId: documentType.id });
       await db.sequelize.query("UPDATE personDocuments SET documentNumber = 'Z7654321' WHERE id = :id", {
         replacements: { id: document.id },

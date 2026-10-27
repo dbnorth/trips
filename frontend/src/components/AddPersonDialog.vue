@@ -354,7 +354,7 @@ const save = () => {
         </v-row>
         <PersonProfileFields v-model="form" :org-id="form.orgId" />
 
-        <PersonDocumentsCard />
+        <PersonDocumentsCard :org-id="form.orgId" />
       </v-card-text>
 
       <div v-if="formError" class="px-4 pt-2">

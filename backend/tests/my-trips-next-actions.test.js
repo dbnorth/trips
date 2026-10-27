@@ -13,6 +13,7 @@ import {
   createOrganization,
   findRole,
   completePersonProfile,
+  createDocumentType,
 } from "./helpers.js";
 
 const dateFromToday = (days) => {
@@ -137,7 +138,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
     it("Incomplete application lists missing documents", async () => {
       const { org, ada } = await setupParticipant("missing-docs@example.com");
       const trip = await createTrip(org.id, { requirePassport: true });
-      const board = await db.documentType.create({
+      const board = await createDocumentType({
         type: "certification",
         description: "Board certification",
         allowSpecialization: true,
@@ -197,7 +198,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
     it("Passport required by the role and the trip is listed once", async () => {
       const { org, ada } = await setupParticipant("passport-once@example.com");
       const trip = await createTrip(org.id, { requirePassport: true });
-      const passport = await db.documentType.create({ type: "passport", description: "Passport" });
+      const passport = await createDocumentType({ type: "passport", description: "Passport" });
       const workerRole = await db.workerRole.create({ orgId: org.id, name: "Translator" });
       await db.workerRoleDocumentType.create({ workerRoleId: workerRole.id, documentTypeId: passport.id });
       const tripWorkerRole = await db.tripWorkerRole.create({
