@@ -76,7 +76,7 @@ describe("Feature 90 — Trip Master Header Row", () => {
     await db.tripWorkerRole.create({ tripId: trip.id, workerRoleId: surgeon.id, quantity: 1 });
     const circulator = await db.workerRole.create({ orgId: org.id, name: "RN Circulator" });
     await db.tripWorkerRole.create({ tripId: trip.id, workerRoleId: circulator.id, quantity: 2 });
-    await db.documentType.create({ description: "Passport", type: "passport" });
+    await db.documentType.create({ orgId: org.id, description: "Passport", type: "passport" });
     await db.person.create({
       firstName: "Ana",
       lastName: "Lopez",

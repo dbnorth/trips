@@ -15,6 +15,8 @@ import {
   createSystemAdminUser,
   completePersonProfile,
   TINY_PNG,
+  createDocumentType,
+  createOrganization,
 } from "./helpers.js";
 
 const applicationBody = (tripWorkerRoleId, signatureName) => ({
@@ -28,8 +30,9 @@ const applicationBody = (tripWorkerRoleId, signatureName) => ({
   agreementSignatureName: signatureName,
 });
 
-const addBoardCertification = async (names) => {
-  const documentType = await db.documentType.create({
+const addBoardCertification = async (names, orgId) => {
+  const documentType = await createDocumentType({
+    orgId,
     type: "certification",
     description: "Board certification",
     allowSpecialization: true,
@@ -93,7 +96,7 @@ describe("Feature 59 — Document Type Specialization List", () => {
       const create = await request(app)
         .post("/trips/document-types")
         .set(authHeader)
-        .send({
+        .send({ orgId: (await createOrganization()).id,
           type: "certification",
           description: "Board certification",
           allowSpecialization: true,
@@ -144,7 +147,7 @@ describe("Feature 59 — Document Type Specialization List", () => {
       const response = await request(app)
         .post("/trips/document-types")
         .set(authHeader)
-        .send({
+        .send({ orgId: (await createOrganization()).id,
           type: "certification",
           description: "Board certification",
           allowSpecialization: true,
@@ -193,7 +196,7 @@ describe("Feature 59 — Document Type Specialization List", () => {
   describe("US-59.2 — Require specializations on a worker role", () => {
     it("Worker role saves required specializations", async () => {
       const { authHeader, org } = await createOrgAdminUser({ email: "role-spec-admin@example.com" });
-      const { documentType, list } = await addBoardCertification(["Pediatrics", "Emergency"]);
+      const { documentType, list } = await addBoardCertification(["Pediatrics", "Emergency"], org.id);
 
       const create = await request(app)
         .post("/trips/worker-roles")
@@ -230,7 +233,7 @@ describe("Feature 59 — Document Type Specialization List", () => {
 
     it("Required specialization must belong to a required document", async () => {
       const { authHeader, org } = await createOrgAdminUser({ email: "role-spec-bad-admin@example.com" });
-      const { list } = await addBoardCertification(["Pediatrics"]);
+      const { list } = await addBoardCertification(["Pediatrics"], org.id);
 
       const response = await request(app)
         .post("/trips/worker-roles")
@@ -277,7 +280,7 @@ describe("Feature 59 — Document Type Specialization List", () => {
 
     it("Specialization not in the type's list is rejected", async () => {
       const { authHeader, user } = await registerUser({ email: "person-spec-other@example.com" });
-      const diploma = await db.documentType.create({
+      const diploma = await createDocumentType({
         type: "diploma",
         description: "Diploma",
         allowSpecialization: true,
@@ -330,7 +333,7 @@ describe("Feature 59 — Document Type Specialization List", () => {
   describe("US-59.4 — Application checks require the role's specializations", () => {
     it("Application stays incomplete until the required specialization is added", async () => {
       const { authHeader, org } = await createOrgAdminUser({ email: "gate-spec-admin@example.com" });
-      const { documentType, list } = await addBoardCertification(["Pediatrics"]);
+      const { documentType, list } = await addBoardCertification(["Pediatrics"], org.id);
       const { trip, tripWorkerRole } = await createTripWithRole(authHeader, org.id, {
         requiredDocumentTypeIds: [documentType.id],
         requiredSpecializationIds: [list.Pediatrics.id],
@@ -372,7 +375,7 @@ describe("Feature 59 — Document Type Specialization List", () => {
 
     it("Missing specializations are named in the missing items", async () => {
       const { authHeader, org } = await createOrgAdminUser({ email: "missing-spec-admin@example.com" });
-      const { documentType, list } = await addBoardCertification(["Pediatrics", "Emergency"]);
+      const { documentType, list } = await addBoardCertification(["Pediatrics", "Emergency"], org.id);
       const { trip, tripWorkerRole } = await createTripWithRole(authHeader, org.id, {
         requiredDocumentTypeIds: [documentType.id],
         requiredSpecializationIds: [list.Pediatrics.id, list.Emergency.id],

@@ -377,8 +377,12 @@ const loadPersonDocuments = async () => {
 };
 
 const loadDocumentTypes = async () => {
+  if (!trip.value?.orgId) {
+    documentTypes.value = [];
+    return;
+  }
   try {
-    const res = await DocumentTypeServices.getAll();
+    const res = await DocumentTypeServices.getAll({ orgId: trip.value.orgId });
     documentTypes.value = res.data || [];
   } catch {
     documentTypes.value = [];
@@ -470,9 +474,9 @@ const load = async () => {
     const [res] = await Promise.all([
       TripServices.getApplication(props.tripId),
       loadPersonDocuments(),
-      loadDocumentTypes(),
     ]);
     trip.value = res.data?.trip || null;
+    await loadDocumentTypes();
     rolesNeeded.value = res.data?.rolesNeeded || [];
     application.value = res.data?.application || null;
     canEdit.value = !!res.data?.canEdit;

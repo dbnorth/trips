@@ -502,28 +502,7 @@ const ensureDocumentTypesTable = async () => {
     }
   }
 
-  const [orgIdCols] = await db.sequelize.query(
-    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = 'documentTypes'
-       AND COLUMN_NAME = 'orgId'`
-  );
-  if (orgIdCols.length) {
-    const [fks] = await db.sequelize.query(
-      `SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-       WHERE TABLE_SCHEMA = DATABASE()
-         AND TABLE_NAME = 'documentTypes'
-         AND COLUMN_NAME = 'orgId'
-         AND REFERENCED_TABLE_NAME IS NOT NULL`
-    );
-    for (const fk of fks) {
-      await db.sequelize.query(
-        `ALTER TABLE documentTypes DROP FOREIGN KEY \`${fk.CONSTRAINT_NAME}\``
-      );
-    }
-    await db.sequelize.query(`ALTER TABLE documentTypes DROP COLUMN orgId`);
-    logger.info("documentTypes.orgId column removed (now system-wide).");
-  }
+  await ensureDocumentTypeOrg();
 
   const [numberRequiredCols] = await db.sequelize.query(
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -585,6 +564,7 @@ const ensureDocumentTypesTable = async () => {
     logger.info("documentTypes.hasExpirationDate column added.");
   }
 
+  if (!(await organizationOneExists())) return;
   const seeds = [
     ["Medical Licence", "medical_licence"],
     ["Passport", "passport"],
@@ -593,17 +573,63 @@ const ensureDocumentTypesTable = async () => {
   ];
   for (const [description, type] of seeds) {
     const [rows] = await db.sequelize.query(
-      `SELECT id FROM documentTypes WHERE type = :type LIMIT 1`,
+      `SELECT id FROM documentTypes WHERE type = :type AND orgId = 1 LIMIT 1`,
       { replacements: { type } }
     );
     if (rows.length) continue;
     await db.sequelize.query(
-      `INSERT INTO documentTypes (description, type, createdAt, updatedAt)
-       VALUES (:description, :type, NOW(), NOW())`,
+      `INSERT INTO documentTypes (orgId, description, type, createdAt, updatedAt)
+       VALUES (1, :description, :type, NOW(), NOW())`,
       { replacements: { description, type } }
     );
     logger.info(`Document type seeded: ${description}.`);
   }
+};
+
+const organizationOneExists = async () => {
+  const [rows] = await db.sequelize.query(`SELECT id FROM organizations WHERE id = 1`);
+  return rows.length > 0;
+};
+
+/** Feature 91: every document type belongs to an organization; existing ones go to organization 1 once. */
+const ensureDocumentTypeOrg = async () => {
+  const [cols] = await db.sequelize.query(
+    `SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'documentTypes'
+       AND COLUMN_NAME = 'orgId'`
+  );
+  if (cols.length && cols[0].IS_NULLABLE === "NO") return;
+  if (!cols.length) {
+    await db.sequelize.query(`ALTER TABLE documentTypes ADD COLUMN orgId INT NULL AFTER id`);
+    logger.info("documentTypes.orgId column added.");
+  }
+  if (!(await organizationOneExists())) {
+    logger.warn("Organization 1 not found; document types were left without an organization.");
+    return;
+  }
+  const [result] = await db.sequelize.query(
+    `UPDATE documentTypes SET orgId = 1 WHERE orgId IS NULL`
+  );
+  await db.sequelize.query(`ALTER TABLE documentTypes MODIFY COLUMN orgId INT NOT NULL`);
+  const [fks] = await db.sequelize.query(
+    `SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'documentTypes'
+       AND COLUMN_NAME = 'orgId'
+       AND REFERENCED_TABLE_NAME IS NOT NULL`
+  );
+  if (!fks.length) {
+    await db.sequelize.query(
+      `ALTER TABLE documentTypes
+       ADD CONSTRAINT documentTypes_orgId_fk
+       FOREIGN KEY (orgId) REFERENCES organizations(id)
+       ON DELETE CASCADE ON UPDATE CASCADE`
+    );
+  }
+  logger.info(
+    `documentTypes.orgId is required; ${result?.affectedRows ?? 0} existing document type(s) set to organization 1.`
+  );
 };
 
 const ensurePersonDocumentsTable = async () => {

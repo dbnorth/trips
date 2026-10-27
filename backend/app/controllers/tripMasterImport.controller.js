@@ -223,7 +223,8 @@ const addPassport = async (person, row, notes, passportTypes, transaction) => {
     return;
   }
   const existing = await db.personDocument.count({
-    where: { personId: person.id, documentTypeId: passportTypes.map((type) => type.id) },
+    where: { personId: person.id },
+    include: [{ model: db.documentType, as: "documentType", where: { type: "passport" }, attributes: [] }],
     transaction,
   });
   if (existing) return;
@@ -253,7 +254,7 @@ const importRows = async (trip, rows, transaction) => {
     )
   );
   const passportTypes = await db.documentType.findAll({
-    where: { type: "passport" },
+    where: { type: "passport", orgId: trip.orgId },
     order: [["id", "ASC"]],
     transaction,
   });

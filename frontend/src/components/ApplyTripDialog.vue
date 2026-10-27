@@ -461,8 +461,12 @@ const loadPersonDocuments = async () => {
 };
 
 const loadDocumentTypes = async () => {
+  if (!trip.value?.orgId) {
+    documentTypes.value = [];
+    return;
+  }
   try {
-    const res = await DocumentTypeServices.getAll();
+    const res = await DocumentTypeServices.getAll({ orgId: trip.value.orgId });
     documentTypes.value = res.data || [];
   } catch {
     documentTypes.value = [];
@@ -584,8 +588,8 @@ const load = async () => {
   resetForm();
   try {
     await loadPersonDocuments();
-    await loadDocumentTypes();
     await loadNewApplication();
+    await loadDocumentTypes();
     // Load person after trip so medical-condition org context is known (Feature 17).
     await loadPerson();
   } catch (e) {

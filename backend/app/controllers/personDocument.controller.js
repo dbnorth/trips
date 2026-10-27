@@ -15,7 +15,7 @@ const OrgPeopleRole = db.orgPeopleRole;
 const Op = db.Sequelize.Op;
 const exports = {};
 
-const canManagePerson = async (req, personId) => {
+export const canManagePerson = async (req, personId) => {
   if (req.user?.isAdmin) return true;
   if (req.user?.personId && Number(req.user.personId) === Number(personId)) return true;
   const orgIds = (req.user?.orgRoles || [])

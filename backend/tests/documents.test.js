@@ -18,6 +18,8 @@ import {
   registerUser,
   createSystemAdminUser,
   TINY_PNG,
+  createDocumentType,
+  createOrganization,
 } from "./helpers.js";
 
 describe("Feature 4 — Document Types & Person Documents", () => {
@@ -42,7 +44,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       const create = await request(app)
         .post("/trips/document-types")
         .set(authHeader)
-        .send({ type: "passport", description: "US Passport" });
+        .send({ orgId: (await createOrganization()).id, type: "passport", description: "US Passport" });
 
       expect(create.status).toBe(200);
       expect(create.body).toMatchObject({
@@ -58,7 +60,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
     });
 
     it("Non-admin cannot delete a document type", async () => {
-      const docType = await db.documentType.create({
+      const docType = await createDocumentType({
         type: "passport",
         description: "Protected Passport Type",
       });
@@ -83,7 +85,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       const { authHeader, user } = await registerUser({
         email: "doc-owner@example.com",
       });
-      const docType = await db.documentType.create({
+      const docType = await createDocumentType({
         type: "passport",
         description: "Passport",
       });
@@ -124,7 +126,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
     it("Unauthorized user cannot view another person's document", async () => {
       const owner = await registerUser({ email: "doc-subject@example.com" });
       const stranger = await registerUser({ email: "doc-stranger@example.com" });
-      const docType = await db.documentType.create({
+      const docType = await createDocumentType({
         type: "medical_licence",
         description: "Medical Licence",
       });
@@ -161,7 +163,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       const create = await request(app)
         .post("/trips/document-types")
         .set(authHeader)
-        .send({
+        .send({ orgId: (await createOrganization()).id,
           type: "passport",
           description: "Passport with number",
           documentNumberRequired: true,
@@ -196,7 +198,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       const create = await request(app)
         .post("/trips/document-types")
         .set(authHeader)
-        .send({ type: "medical_licence", description: "Licence no number" });
+        .send({ orgId: (await createOrganization()).id, type: "medical_licence", description: "Licence no number" });
 
       expect(create.status).toBe(200);
       expect(create.body.documentNumberRequired).toBe(false);
@@ -211,7 +213,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       const create = await request(app)
         .post("/trips/document-types")
         .set(authHeader)
-        .send({
+        .send({ orgId: (await createOrganization()).id,
           type: "certification",
           description: "First Aid Certification",
           documentNumberRequired: true,
@@ -239,7 +241,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       const create = await request(app)
         .post("/trips/document-types")
         .set(authHeader)
-        .send({
+        .send({ orgId: (await createOrganization()).id,
           type: "diploma",
           description: "Nursing Diploma",
         });
@@ -263,7 +265,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       const create = await request(app)
         .post("/trips/document-types")
         .set(authHeader)
-        .send({
+        .send({ orgId: (await createOrganization()).id,
           type: "not_a_real_type",
           description: "Invalid",
         });
@@ -277,7 +279,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       const { authHeader, user } = await registerUser({
         email: "doc-number-owner@example.com",
       });
-      const docType = await db.documentType.create({
+      const docType = await createDocumentType({
         type: "passport",
         description: "Numbered Passport",
         documentNumberRequired: true,
@@ -319,7 +321,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       const { authHeader, user } = await registerUser({
         email: "doc-no-file@example.com",
       });
-      const docType = await db.documentType.create({
+      const docType = await createDocumentType({
         type: "certification",
         description: "First Aid",
       });
@@ -352,7 +354,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
         const create = await request(app)
           .post("/trips/document-types")
           .set(authHeader)
-          .send({
+          .send({ orgId: (await createOrganization()).id,
             type: "certification",
             description: "Board certification",
             allowSpecialization: true,
@@ -376,7 +378,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
         const { authHeader, user } = await registerUser({
           email: "spec-docs@example.com",
         });
-        const docType = await db.documentType.create({
+        const docType = await createDocumentType({
           type: "certification",
           description: "Medical specialty",
           allowSpecialization: true,
@@ -448,7 +450,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
         const { authHeader, user } = await registerUser({
           email: "spec-nofile@example.com",
         });
-        const docType = await db.documentType.create({
+        const docType = await createDocumentType({
           type: "certification",
           description: "Specialty without file",
           allowSpecialization: true,
