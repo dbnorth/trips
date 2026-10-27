@@ -31,7 +31,11 @@ const flightMessage = computed(
 
 const label = (item) => `${item.type === "option" ? "Trip option" : "Add-on"}: ${item.description}`;
 
-const days = (item) => `${item.days} ${item.days === 1 ? "day" : "days"} ${props.direction}`;
+const days = (item) => {
+  const count = Math.abs(item.days);
+  const way = item.days > 0 ? props.direction : props.direction === "before" ? "later" : "earlier";
+  return `${count} ${count === 1 ? "day" : "days"} ${way}`;
+};
 </script>
 
 <template>

@@ -603,7 +603,7 @@ const save = async () => {
 </script>
 
 <template>
-  <v-dialog :model-value="modelValue" max-width="760" scrollable @update:model-value="(v) => !v && close()">
+  <v-dialog :model-value="modelValue" max-width="1000" scrollable @update:model-value="(v) => !v && close()">
     <v-card>
       <v-card-title>Edit trip</v-card-title>
 
@@ -881,7 +881,7 @@ const save = async () => {
               <thead>
                 <tr>
                   <th style="width: 100px">Set #</th>
-                  <th>Description</th>
+                  <th style="min-width: 360px" data-testid="travel-option-description-header">Description</th>
                   <th style="width: 160px">Price adjustment</th>
                   <th style="width: 90px">Days before</th>
                   <th style="width: 90px">Days after</th>
@@ -971,7 +971,8 @@ const save = async () => {
                   density="compact"
                   hide-details
                   autocomplete="off"
-                  style="min-width: 220px; flex: 1"
+                  style="min-width: 360px; flex: 1"
+                  data-testid="add-travel-option-description"
                 />
                 <MoneyInput
                   v-model="addTravelPriceAdjustment"

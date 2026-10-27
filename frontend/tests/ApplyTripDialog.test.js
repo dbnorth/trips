@@ -9,6 +9,8 @@
  * Spec: features/feature-57-document-type-expiration-date.md
  * Feature 59 — Document Type Specialization List
  * Spec: features/feature-59-document-type-specialization-list.md
+ * Feature 89 — Negative Trip Days and Wider Option Descriptions
+ * Spec: features/feature-89-negative-trip-days.md
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -21,6 +23,7 @@ import {
   getSubmitUnavailableReasons,
 } from "../src/utils/applicationSubmitAvailability.js";
 import { getMissingProfileFields } from "../src/utils/personProfile.js";
+import { travelOptionDaysError } from "../src/utils/tripApplicationForm.js";
 import { mountWithPlugins } from "./testUtils.js";
 
 vi.mock("../src/services/tripServices.js", () => ({
@@ -441,6 +444,25 @@ describe("Feature 47 — Simplify Application Warnings", () => {
         "Upload the following required documents with an expiration date past the end of the trip (2026-12-10) before submitting your application: Board certification (Pediatrics)."
       );
       wrapper.unmount();
+    });
+  });
+});
+
+/**
+ * Feature 89 — Negative Trip Days and Wider Option Descriptions
+ * Spec: features/feature-89-negative-trip-days.md
+ */
+describe("Feature 89 — Negative Trip Days", () => {
+  describe("US-89.1 — Staff give days that shorten the trip", () => {
+    it("Negative option days count toward the one-each limit", () => {
+      const options = [
+        { id: 1, description: "Depart Friday", daysBefore: 0, daysAfter: -1 },
+        { id: 2, description: "Volcano hike", daysBefore: 0, daysAfter: 1 },
+        { id: 3, description: "Arrive Saturday", daysBefore: 0, daysAfter: 0 },
+      ];
+
+      expect(travelOptionDaysError(options, [1, 2])).toBe("Choose only one trip option with days after the trip.");
+      expect(travelOptionDaysError(options, [1, 3])).toBeNull();
     });
   });
 });

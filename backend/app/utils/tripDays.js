@@ -1,6 +1,6 @@
 import db from "../models/index.js";
 
-export const DAYS_MESSAGE = "Days before and after must be whole numbers from 0 to 365.";
+export const DAYS_MESSAGE = "Days before and after must be whole numbers from -365 to 365.";
 
 export const TRIP_OPTION_DAYS_MESSAGES = {
   before: "Choose only one trip option with days before the trip.",
@@ -12,18 +12,18 @@ export const ADDON_EXPENSE_DAYS_MESSAGES = {
   after: "Only one add-on expense can have days after the trip.",
 };
 
-/** Whole number of days from 0 to 365 (blank is 0), or `null` when invalid. */
+/** Whole number of days from -365 to 365 (blank is 0), or `null` when invalid. */
 export const parseDays = (value) => {
   if (value == null || value === "") return 0;
   const days = Number(value);
-  if (!Number.isInteger(days) || days < 0 || days > 365) return null;
-  return days;
+  if (!Number.isInteger(days) || days < -365 || days > 365) return null;
+  return days || 0;
 };
 
-/** The message when more than one item has days before (or after), otherwise `null`. */
+/** The message when more than one item has days before (or after) that aren't 0, otherwise `null`. */
 export const daysLimitMessage = (items, messages) => {
-  if ((items || []).filter((item) => Number(item.daysBefore) > 0).length > 1) return messages.before;
-  if ((items || []).filter((item) => Number(item.daysAfter) > 0).length > 1) return messages.after;
+  if ((items || []).filter((item) => Number(item.daysBefore)).length > 1) return messages.before;
+  if ((items || []).filter((item) => Number(item.daysAfter)).length > 1) return messages.after;
   return null;
 };
 
@@ -40,7 +40,7 @@ const sumDays = (items, key) => items.reduce((total, item) => total + (Number(it
 /** `{ type, description, days }` for each item with days in `key`. */
 const adjustments = (items, key) =>
   items
-    .filter((item) => Number(item[key]) > 0)
+    .filter((item) => Number(item[key]))
     .map((item) => ({ type: item.type, description: item.description, days: Number(item[key]) }));
 
 /**
