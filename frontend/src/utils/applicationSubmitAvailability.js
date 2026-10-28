@@ -133,11 +133,7 @@ export const getIncompleteSubmitReasons = ({
   }
   if (!requiredRoleDocumentUploaded) {
     const names = (missingRoleDocumentNames || []).filter(Boolean);
-    reasons.push(
-      names.length
-        ? `Required role document(s): ${names.join(", ")}`
-        : "Required role document(s)"
-    );
+    reasons.push(...(names.length ? names : ["Required role document(s)"]));
   }
   if (requirePassport && !requiredPassportUploaded) {
     reasons.push("Passport document (with valid expiration)");
