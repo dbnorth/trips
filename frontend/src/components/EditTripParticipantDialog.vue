@@ -4,10 +4,12 @@ import TripServices from "../services/tripServices.js";
 import TripPeopleRoleServices from "../services/tripPeopleRoleServices.js";
 import TripWorkerRoleServices from "../services/tripWorkerRoleServices.js";
 import MoneyInput from "./MoneyInput.vue";
+import TripApplicationTravelOptions from "./TripApplicationTravelOptions.vue";
 import { formatMoneyDisplay, parseMoneyAmount } from "../utils/moneyUtils.js";
 import { TRIP_PARTICIPANT_STATUS_OPTIONS } from "../utils/tripParticipantStatus.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
 import { DAYS_MESSAGE, parseDays } from "../utils/tripDays.js";
+import { travelOptionDaysError } from "../utils/tripApplicationForm.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -18,6 +20,8 @@ const emit = defineEmits(["update:modelValue", "saved"]);
 
 const tripDefaultCost = ref(null);
 const tripWorkerRoles = ref([]);
+const travelOptions = ref([]);
+const selectedTravelOptionIds = ref([]);
 const saving = ref(false);
 const { formError, formNotice, prepareSave, onLoadStart, onLoadSuccess, handleSaveError } =
   useVersionConflictForm();
@@ -97,10 +101,48 @@ const loadTripWorkerRoles = async (tripId) => {
   }
 };
 
+const loadTravelOptions = async (assignmentId) => {
+  travelOptions.value = [];
+  selectedTravelOptionIds.value = [];
+  if (!assignmentId) return;
+  try {
+    const res = await TripPeopleRoleServices.get(assignmentId);
+    travelOptions.value = res.data?.travelOptions || [];
+    selectedTravelOptionIds.value = travelOptions.value
+      .filter((option) => option.selected)
+      .map((option) => Number(option.id));
+  } catch {
+    travelOptions.value = [];
+  }
+};
+
+const optionsTotal = (ids) => {
+  const selected = new Set(ids.map(Number));
+  return travelOptions.value.reduce(
+    (sum, option) => (selected.has(Number(option.id)) ? sum + (Number(option.priceAdjustment) || 0) : sum),
+    0
+  );
+};
+
+const onTravelOptionsChange = (ids) => {
+  const difference = Math.round((optionsTotal(ids) - optionsTotal(selectedTravelOptionIds.value)) * 100) / 100;
+  selectedTravelOptionIds.value = ids;
+  if (!difference) return;
+  const typed = form.value.participantCost;
+  const base =
+    typed != null && typed !== "" ? parseMoneyAmount(typed) : parseMoneyAmount(tripDefaultCost.value);
+  if (base == null) return;
+  form.value.participantCost = (Math.round((base + difference) * 100) / 100).toFixed(2);
+};
+
 const load = async ({ afterConflict = false } = {}) => {
   onLoadStart({ afterConflict });
   const tripId = props.participant?.tripId;
-  await Promise.all([loadTripDefault(tripId), loadTripWorkerRoles(tripId)]);
+  await Promise.all([
+    loadTripDefault(tripId),
+    loadTripWorkerRoles(tripId),
+    loadTravelOptions(props.participant?.id),
+  ]);
   applyParticipant(props.participant);
   onLoadSuccess({ afterConflict });
 };
@@ -152,6 +194,11 @@ const save = async () => {
     formError.value = "Only one add-on expense can have days after the trip.";
     return;
   }
+  const optionDaysError = travelOptionDaysError(travelOptions.value, selectedTravelOptionIds.value);
+  if (optionDaysError) {
+    formError.value = optionDaysError;
+    return;
+  }
 
   saving.value = true;
 
@@ -162,6 +209,7 @@ const save = async () => {
     whygoText: form.value.whygoText?.trim() || null,
     version: form.value.version,
   };
+  if (travelOptions.value.length) payload.selectedTravelOptionIds = selectedTravelOptionIds.value;
 
   const costText = form.value.participantCost;
   if (costText == null || costText === "") {
@@ -216,6 +264,15 @@ const save = async () => {
         <div v-if="tripDefaultCost != null" class="text-caption text-medium-emphasis mb-2">
           Leave blank to use the trip default of {{ formatMoneyDisplay(tripDefaultCost) }}.
         </div>
+        <TripApplicationTravelOptions
+          v-if="travelOptions.length"
+          title="Trip options"
+          :show-totals="false"
+          :options="travelOptions"
+          :selected-ids="selectedTravelOptionIds"
+          data-testid="participant-trip-options"
+          @update:selected-ids="onTravelOptionsChange"
+        />
         <div class="text-subtitle-2 mt-2 mb-1">Add-on expenses</div>
         <div
           v-for="(expense, index) in form.addonExpenses"
@@ -264,10 +321,16 @@ const save = async () => {
             @click="removeAddonExpense(index)"
           />
         </div>
-        <v-btn variant="text" size="small" data-testid="add-addon-expense" @click="addAddonExpense">
+        <v-btn
+          color="primary"
+          variant="outlined"
+          prepend-icon="mdi-plus"
+          data-testid="add-addon-expense"
+          @click="addAddonExpense"
+        >
           Add expense
         </v-btn>
-        <div class="text-body-2 mb-3" data-testid="addon-total">
+        <div class="text-body-2 mt-2 mb-3" data-testid="addon-total">
           Add-on total: {{ formatMoneyDisplay(addonTotal.toFixed(2)) }}
         </div>
         <v-textarea v-model="form.whygoText" label="Why go" density="compact" rows="3" />
