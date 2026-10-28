@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import PersonServices from "../services/personServices.js";
@@ -196,7 +196,14 @@ const leaderInitials = (leader) => {
   return (leader?.name || "L").slice(0, 2).toUpperCase();
 };
 
-onMounted(load);
+onMounted(() => {
+  load();
+  window.addEventListener("user-updated", load);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("user-updated", load);
+});
 </script>
 
 <template>

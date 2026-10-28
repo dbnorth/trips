@@ -47,11 +47,71 @@ export const activeRequiredSpecializations = (workerRole) => {
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
 };
 
-/** "Board certification (Pediatrics, Emergency)" for a missing required role document. */
-export const requiredRoleDocumentLabel = (docType) => {
-  const name = docType?.description || "required document";
-  const missing = docType?.missingSpecializations || [];
-  return missing.length ? `${name} (${missing.join(", ")})` : name;
+const formatDocumentDate = (ymd) => {
+  const [y, m, d] = String(ymd).slice(0, 10).split("-");
+  return `${m}/${d}/${y}`;
+};
+
+const joinWords = (items) => {
+  if (items.length <= 1) return items.join("");
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+};
+
+const specializationText = (names) =>
+  `the ${joinWords(names)} specialization${names.length > 1 ? "s" : ""}`;
+
+/**
+ * What is missing for one unmet required document type, from the person's closest document of
+ * the type (fewest problems, ties → most recently added), e.g.
+ * "Board Certification: select the Emergency Medicine specialization".
+ */
+export const requiredRoleDocumentMessage = (
+  docType,
+  { documents = [], compareDate = null, requiredSpecializations = [] } = {}
+) => {
+  const id = Number(docType?.id ?? docType);
+  const name = docType?.description || "Required document";
+  const needed = (requiredSpecializations || [])
+    .filter((s) => Number(s.documentTypeId) === id)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  const ofType = (documents || []).filter((doc) => Number(doc.documentTypeId) === id);
+
+  if (!ofType.length) {
+    const expires = !!compareDate && docType?.hasExpirationDate !== false;
+    let text = `${name}: add this document`;
+    if (expires) text += ` with an expiration date after ${formatDocumentDate(compareDate)}`;
+    if (needed.length) {
+      text += `${expires ? " and" : " with"} ${specializationText(needed.map((s) => s.name))} selected`;
+    }
+    return text;
+  }
+
+  let best = null;
+  for (const doc of ofType) {
+    const parts = [];
+    if (!doc.documentFileName || String(doc.documentFileName).trim() === "") {
+      parts.push("upload the file");
+    }
+    if (compareDate && doc.documentType?.hasExpirationDate !== false) {
+      const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+      if (!expirationDate) {
+        parts.push(`add an expiration date after ${formatDocumentDate(compareDate)}`);
+      } else if (expirationDate <= compareDate) {
+        parts.push(
+          `the expiration date ${formatDocumentDate(expirationDate)} must be after ${formatDocumentDate(compareDate)}`
+        );
+      }
+    }
+    const have = new Set((doc.specializations || []).map((s) => Number(s.documentTypeSpecializationId)));
+    const missing = needed.filter((s) => !have.has(Number(s.id))).map((s) => s.name);
+    if (missing.length) parts.push(`select ${specializationText(missing)}`);
+    const count = parts.length - (missing.length ? 1 : 0) + missing.length;
+    if (!best || count < best.count || (count === best.count && Number(doc.id) > Number(best.id))) {
+      best = { count, id: doc.id, parts };
+    }
+  }
+  return `${name}: ${joinWords(best.parts)}`;
 };
 
 /**

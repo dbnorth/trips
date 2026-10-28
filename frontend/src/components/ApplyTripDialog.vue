@@ -27,7 +27,7 @@ import {
   isRequiredRoleDocumentUploaded,
   missingRequiredRoleDocuments,
   needsExpirationWording,
-  requiredRoleDocumentLabel,
+  requiredRoleDocumentMessage,
   travelOptionDaysError,
   validateTravelOptionSelections,
 } from "../utils/tripApplicationForm.js";
@@ -214,13 +214,15 @@ const documentRequirementWarning = computed(() => {
   });
   if (!missing.length) return "";
 
-  const names = missing.map(requiredRoleDocumentLabel).join(", ");
-  if (!needsExpirationWording(missing)) {
-    return `Upload the following required documents before submitting your application: ${names}.`;
-  }
-  const endDate = dateOnly(trip.value?.endDate);
-  const endPart = endDate ? ` (${endDate})` : "";
-  return `Upload the following required documents with an expiration date past the end of the trip${endPart} before submitting your application: ${names}.`;
+  const sentences = missing.map(
+    (docType) =>
+      `${requiredRoleDocumentMessage(docType, {
+        documents: personDocuments.value,
+        compareDate,
+        requiredSpecializations: requiredSpecializations.value,
+      })}.`
+  );
+  return `Before submitting your application, update these documents on your profile. ${sentences.join(" ")}`;
 });
 
 const profileComplete = computed(() =>
@@ -356,7 +358,13 @@ const submitUnavailableReasons = computed(() => {
     travelOptionsMessage: travelError,
     personDocumentsUploaded: personDocumentsUploaded.value,
     requiredRoleDocumentUploaded: hasRequiredDocumentForTrip.value,
-    missingRoleDocumentNames: missingRoleDocs.map(requiredRoleDocumentLabel),
+    missingRoleDocumentNames: missingRoleDocs.map((docType) =>
+      requiredRoleDocumentMessage(docType, {
+        documents: personDocuments.value,
+        compareDate,
+        requiredSpecializations: requiredSpecializations.value,
+      })
+    ),
     requiredPassportUploaded: hasRequiredPassportForTrip.value,
     requirePassport: !!trip.value?.requirePassport,
   });

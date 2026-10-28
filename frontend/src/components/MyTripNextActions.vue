@@ -23,7 +23,7 @@ const tone = computed(() => nextActionsTone(props.actions));
     >
       <span>{{ nextActionText(action) }}</span>
       <span v-if="action.missingDocuments?.length" class="text-medium-emphasis">
-        Missing documents: {{ action.missingDocuments.join(", ") }}.
+        Missing documents: {{ action.missingDocuments.join("; ") }}.
       </span>
       <template v-if="APPLICATION_ACTION_CODES.includes(action.code)">
         <v-btn size="small" color="primary" @click="$emit('update')">
