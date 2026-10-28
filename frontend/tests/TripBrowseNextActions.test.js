@@ -1,6 +1,8 @@
 /**
  * Feature 60 — My Trips Next Actions (trip page)
  * Spec: features/feature-60-my-trips-next-actions.md
+ * Feature 94 — Role Document Requirement Message
+ * Spec: features/feature-94-role-document-requirement-message.md
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -94,6 +96,46 @@ describe("Feature 60 — My Trips Next Actions (trip page)", () => {
     expect(confirm.props("modelValue")).toBe(true);
     expect(confirm.props("message")).toBe("Cancel this application? Your role slot will be freed.");
 
+    wrapper.unmount();
+  });
+
+  /**
+   * Feature 94 — Role Document Requirement Message
+   * Spec: features/feature-94-role-document-requirement-message.md
+   */
+  it("Saving the profile from the menu bar refreshes the trip page", async () => {
+    const missing = "Board Certification: select the Emergency Medicine specialization";
+    const browseData = (missingDocuments) => ({
+      data: {
+        trip: { id: 7, orgId: 3, name: "Guatemala Clinic", status: "active", startDate: "2027-01-10", endDate: "2027-01-20" },
+        rolesNeeded: [],
+        alreadyApplied: true,
+        applicationStatus: "incomplete",
+        tripLeaders: [],
+        myTripInfo: {
+          status: "incomplete",
+          workerRoleName: "ER Physician",
+          participantCost: 1800,
+          donationTotal: 0,
+          donationRecipients: [],
+          tripPeopleRoleId: 70,
+          nextActions: missingDocuments.length
+            ? [{ code: "complete-application", missingDocuments }]
+            : [{ code: "submit-application" }],
+        },
+      },
+    });
+    TripServices.getBrowseTrip.mockResolvedValue(browseData([missing]));
+    const wrapper = await mountView();
+    expect(wrapper.text()).toContain(`Missing documents: ${missing}.`);
+
+    TripServices.getBrowseTrip.mockResolvedValue(browseData([]));
+    window.dispatchEvent(new CustomEvent("user-updated"));
+    await flushPromises();
+
+    expect(TripServices.getBrowseTrip).toHaveBeenCalledTimes(2);
+    expect(wrapper.text()).not.toContain("Missing documents");
+    expect(wrapper.text()).toContain("Submit your application.");
     wrapper.unmount();
   });
 });

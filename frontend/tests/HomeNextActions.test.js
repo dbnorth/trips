@@ -295,4 +295,28 @@ describe("Feature 60 — My Trips Next Actions", () => {
 
     wrapper.unmount();
   });
+
+  /**
+   * Feature 94 — Role Document Requirement Message
+   * Spec: features/feature-94-role-document-requirement-message.md
+   */
+  it("Missing documents are separated by semicolons", async () => {
+    const wrapper = await mountHome([
+      myTrip(1, "Guatemala Clinic", "incomplete", [
+        {
+          code: "complete-application",
+          missingDocuments: [
+            "Board Certification: select the Emergency Medicine specialization",
+            "CPR Card: add this document",
+          ],
+        },
+      ]),
+    ]);
+
+    expect(nextActionsRowFor(wrapper, "Guatemala Clinic").text()).toContain(
+      "Missing documents: Board Certification: select the Emergency Medicine specialization; CPR Card: add this document."
+    );
+
+    wrapper.unmount();
+  });
 });

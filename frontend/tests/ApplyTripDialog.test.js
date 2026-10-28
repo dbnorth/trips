@@ -11,6 +11,8 @@
  * Spec: features/feature-59-document-type-specialization-list.md
  * Feature 89 — Negative Trip Days and Wider Option Descriptions
  * Spec: features/feature-89-negative-trip-days.md
+ * Feature 94 — Role Document Requirement Message
+ * Spec: features/feature-94-role-document-requirement-message.md
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -391,7 +393,7 @@ describe("Feature 47 — Simplify Application Warnings", () => {
       await flushPromises();
 
       expect(wrapper.text()).toContain(
-        "Upload the following required documents before submitting your application: Diploma."
+        "Before submitting your application, update these documents on your profile. Diploma: add this document."
       );
       expect(wrapper.text()).not.toContain("expiration date");
       wrapper.unmount();
@@ -441,7 +443,113 @@ describe("Feature 47 — Simplify Application Warnings", () => {
       await flushPromises();
 
       expect(wrapper.text()).toContain(
-        "Upload the following required documents with an expiration date past the end of the trip (2026-12-10) before submitting your application: Board certification (Pediatrics)."
+        "Before submitting your application, update these documents on your profile. Board certification: select the Pediatrics specialization."
+      );
+      wrapper.unmount();
+    });
+  });
+
+  describe("Feature 94 — US-94.1 Applicants see exactly what is missing from a required document", () => {
+    const WARNING = "Before submitting your application, update these documents on your profile.";
+    const ER_TRIP = { ...TRIP, startDate: "2027-01-16", endDate: "2027-01-23" };
+    const BOARD = {
+      id: 7,
+      description: "Board Certification",
+      type: "certification",
+      hasExpirationDate: true,
+      allowSpecialization: true,
+    };
+    const CPR = { id: 8, description: "CPR Card", type: "certification", hasExpirationDate: false };
+    const EMERGENCY = { id: 71, name: "Emergency Medicine", documentTypeId: 7 };
+    const PEDIATRICS_ID = 72;
+    const erRole = (requiredDocumentTypes = [BOARD]) => ({
+      ...OPEN_ROLE,
+      workerRole: { name: "ER Physician", requiredDocumentTypes, requiredSpecializations: [EMERGENCY] },
+    });
+    const boardDocument = (fields = {}) => ({
+      id: 1,
+      documentTypeId: 7,
+      expirationDate: "2028-06-30",
+      documentFileName: "people/board.png",
+      documentType: { id: 7, hasExpirationDate: true },
+      specializations: [{ documentTypeSpecializationId: PEDIATRICS_ID }],
+      ...fields,
+    });
+    const openWithRole = async (role) => {
+      browseTrip({ trip: ER_TRIP, rolesNeeded: [role] });
+      const wrapper = await openDialog();
+      wrapper
+        .findAllComponents({ name: "VSelect" })
+        .find((c) => c.props("label") === "Trip role")
+        .vm.$emit("update:modelValue", OPEN_ROLE.id);
+      await flushPromises();
+      return wrapper;
+    };
+
+    const openSavedApplication = async (role) => {
+      browseTrip({ trip: ER_TRIP, rolesNeeded: [role], alreadyApplied: true, applicationStatus: "incomplete" });
+      TripServices.getApplication.mockResolvedValue({
+        data: {
+          trip: ER_TRIP,
+          rolesNeeded: [role],
+          travelOptions: [],
+          canEdit: true,
+          applicationStatus: "incomplete",
+          application: { status: "incomplete", tripWorkerRoleId: role.id },
+        },
+      });
+      return openDialog();
+    };
+    const checklistItems = (wrapper) =>
+      wrapper
+        .findAllComponents({ name: "VAlert" })
+        .find((a) => a.text().includes(CHECKLIST_INTRO))
+        .findAll("li")
+        .map((li) => li.text());
+
+    it("A wrong specialization names the specialization to select", async () => {
+      PersonDocumentServices.getAll.mockResolvedValue({ data: [boardDocument()] });
+      const wrapper = await openSavedApplication(erRole());
+
+      expect(wrapper.text()).toContain(
+        `${WARNING} Board Certification: select the Emergency Medicine specialization.`
+      );
+      expect(checklistItems(wrapper)).toContain(
+        "Board Certification: select the Emergency Medicine specialization"
+      );
+      wrapper.unmount();
+    });
+
+    it("Each problem on the document is named", async () => {
+      PersonDocumentServices.getAll.mockResolvedValue({
+        data: [
+          boardDocument({
+            expirationDate: "2026-12-31",
+            specializations: [{ documentTypeSpecializationId: EMERGENCY.id }],
+          }),
+        ],
+      });
+      let wrapper = await openWithRole(erRole());
+      expect(wrapper.text()).toContain(
+        `${WARNING} Board Certification: the expiration date 12/31/2026 must be after 01/23/2027.`
+      );
+      wrapper.unmount();
+
+      PersonDocumentServices.getAll.mockResolvedValue({
+        data: [boardDocument({ documentFileName: null, expirationDate: null })],
+      });
+      wrapper = await openSavedApplication(erRole());
+      expect(checklistItems(wrapper)).toContain(
+        "Board Certification: upload the file, add an expiration date after 01/23/2027, and select the Emergency Medicine specialization"
+      );
+      wrapper.unmount();
+    });
+
+    it("A missing document says what it will need", async () => {
+      const wrapper = await openWithRole(erRole([BOARD, CPR]));
+
+      expect(wrapper.text()).toContain(
+        `${WARNING} Board Certification: add this document with an expiration date after 01/23/2027 and the Emergency Medicine specialization selected. CPR Card: add this document.`
       );
       wrapper.unmount();
     });

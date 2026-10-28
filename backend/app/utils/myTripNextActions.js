@@ -8,7 +8,7 @@ import {
   loadPersonForCompleteness,
   loadWorkerRoleDocumentRequirements,
   missingRequiredRoleDocuments,
-  requiredRoleDocumentLabel,
+  requiredRoleDocumentMessage,
   tripDocumentCompareDate,
 } from "./tripParticipantApplicationStatus.js";
 import { getApplicationMissingItemLabels, travelOptionsIncompleteMessage } from "./applicationMissingItems.js";
@@ -39,7 +39,9 @@ const missingDocumentNames = async ({ assignment, trip, personDocuments }) => {
     compareDate,
     requiredSpecializations,
   });
-  const names = missingRoleDocuments.map(requiredRoleDocumentLabel).filter(Boolean);
+  const names = missingRoleDocuments.map((docType) =>
+    requiredRoleDocumentMessage(docType, { documents: personDocuments, compareDate, requiredSpecializations })
+  );
   const passportListed = missingRoleDocuments.some(
     (docType) => String(docType.type || "").toLowerCase() === "passport"
   );
