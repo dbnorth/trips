@@ -26,11 +26,14 @@ import { loadMyTripNextActions } from "../utils/myTripNextActions.js";
 import { loadMyTripTravelDetails } from "../utils/myTripTravelDetails.js";
 import { participantTotals } from "../utils/participantTotals.js";
 import { loadTripWithArrivalPdf } from "../utils/tripArrivalPdf.js";
+import { participantTravelDates } from "../utils/tripDays.js";
 import {
-  TRIP_OPTION_DAYS_MESSAGES,
-  daysLimitMessage,
-  participantTravelDates,
-} from "../utils/tripDays.js";
+  computeParticipantCostWithOptions,
+  loadTripTravelOptions,
+  parseSelectedTravelOptionIds,
+  syncTripPeopleRoleOptions,
+  validateSelectedTravelOptionIds,
+} from "../utils/tripOptionSelection.js";
 import {
   cancelApplicationAssignment,
   uncancelApplicationAssignment,
@@ -43,7 +46,6 @@ import {
 const Trip = db.trip;
 const TripWorkerRole = db.tripWorkerRole;
 const TripPeopleRole = db.tripPeopleRole;
-const TripTravelOption = db.tripTravelOption;
 const TripPeopleRoleOption = db.tripPeopleRoleOption;
 const TripDonation = db.tripDonation;
 const WorkerRole = db.workerRole;
@@ -56,115 +58,9 @@ const parseBool = (value) => value === true || value === 1 || value === "1" || v
 
 const parseFlightNotes = (value) => String(value ?? "").trim() || null;
 
-const roundMoney = (value) => Math.round(Number(value) * 100) / 100;
-
-const loadTripTravelOptions = async (tripId) =>
-  TripTravelOption.findAll({
-    where: { tripId },
-    order: [
-      ["setNumber", "ASC"],
-      ["id", "ASC"],
-    ],
-  });
-
-const parseSelectedTravelOptionIds = (body) => {
-  const raw = body?.selectedTravelOptionIds;
-  if (!Array.isArray(raw)) return [];
-  return [
-    ...new Set(
-      raw
-        .map((id) => Number(id))
-        .filter((id) => Number.isInteger(id) && id > 0)
-    ),
-  ];
-};
-
-const computeParticipantCostWithOptions = (baseCost, travelOptions, selectedIds) => {
-  const base = Number(baseCost);
-  const safeBase = Number.isFinite(base) ? base : 0;
-  const selected = new Set((selectedIds || []).map(Number));
-  const adjustment = (travelOptions || []).reduce((sum, option) => {
-    if (!selected.has(Number(option.id))) return sum;
-    const amount = Number(option.priceAdjustment);
-    return sum + (Number.isFinite(amount) ? amount : 0);
-  }, 0);
-  return roundMoney(safeBase + adjustment);
-};
-
-const validateSelectedTravelOptionIds = (travelOptions, selectedIds) => {
-  const byId = new Map((travelOptions || []).map((o) => [Number(o.id), o]));
-  const invalid = (selectedIds || []).filter((id) => !byId.has(Number(id)));
-  if (invalid.length) {
-    return { ok: false, message: "One or more selected travel options are invalid for this trip." };
-  }
-
-  const groups = new Map();
-  for (const option of travelOptions || []) {
-    const setNumber = Number(option.setNumber) > 0 ? Number(option.setNumber) : 1;
-    if (!groups.has(setNumber)) groups.set(setNumber, []);
-    groups.get(setNumber).push(option);
-  }
-
-  const selected = new Set((selectedIds || []).map(Number));
-  // An unanswered option group keeps the application incomplete rather than blocking the save.
-  let missingSelection = false;
-  for (const [, setOptions] of [...groups.entries()].sort((a, b) => a[0] - b[0])) {
-    const selectedInSet = setOptions.filter((o) => selected.has(Number(o.id)));
-    if (selectedInSet.length > 1) {
-      return {
-        ok: false,
-        message: "Only one travel option can be selected per trip option group.",
-      };
-    }
-    if (setOptions.length > 1 && selectedInSet.length !== 1) {
-      missingSelection = true;
-    }
-  }
-
-  const daysMessage = daysLimitMessage(
-    (travelOptions || []).filter((o) => selected.has(Number(o.id))),
-    TRIP_OPTION_DAYS_MESSAGES
-  );
-  if (daysMessage) return { ok: false, message: daysMessage };
-
-  return { ok: true, missingSelection };
-};
-
 const myTravelDates = async (trip, assignmentId) => {
   const { arrivalDate, departureDate } = await participantTravelDates(trip, assignmentId);
   return { arrivalDate, departureDate };
-};
-
-const syncTripPeopleRoleOptions = async (tripPeopleRoleId, travelOptions, selectedIds) => {
-  const selected = new Set((selectedIds || []).map(Number));
-  const existing = await TripPeopleRoleOption.findAll({ where: { tripPeopleRoleId } });
-  const existingByOptionId = new Map(
-    existing.map((row) => [Number(row.tripTravelOptionId), row])
-  );
-  const keepOptionIds = new Set((travelOptions || []).map((o) => Number(o.id)));
-
-  for (const option of travelOptions || []) {
-    const optionId = Number(option.id);
-    const isSelected = selected.has(optionId);
-    const row = existingByOptionId.get(optionId);
-    if (row) {
-      if (!!row.selected !== isSelected) {
-        await row.update({ selected: isSelected });
-      }
-    } else {
-      await TripPeopleRoleOption.create({
-        tripPeopleRoleId,
-        tripTravelOptionId: optionId,
-        selected: isSelected,
-      });
-    }
-  }
-
-  for (const row of existing) {
-    if (!keepOptionIds.has(Number(row.tripTravelOptionId))) {
-      await row.destroy();
-    }
-  }
 };
 
 const loadTravelOptionsForApplication = async (tripId, tripPeopleRoleId = null) => {
