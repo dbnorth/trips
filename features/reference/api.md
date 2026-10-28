@@ -94,10 +94,10 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/organizations` | auth | List (scoped) |
+| `GET` | `/trips/organizations` | auth | List (scoped): System Admin → all; Org Admin → only organizations they are Org Admin of (the Organizations page then shows only the menu bar's selected one — Feature 93) |
 | `GET` | `/trips/organizations/:id` | auth | Detail |
 | `POST` | `/trips/organizations` | sysadmin | Create |
-| `PUT` | `/trips/organizations/:id` | auth | Update (org admin / sysadmin) |
+| `PUT` | `/trips/organizations/:id` | auth | Update (Org Admin of that organization / System Admin; otherwise `403` "Forbidden."); `subdomain` ignored unless System Admin |
 | `PUT` | `/trips/organizations/:id/logo` | auth | Logo (`multipart` field `logo`) |
 | `GET` | `/trips/organizations/:id/agreement` | auth | Agreement markdown |
 | `PUT` | `/trips/organizations/:id/agreement` | auth | Save agreement `{ content }` |
