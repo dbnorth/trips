@@ -1,6 +1,8 @@
 /**
  * Feature 7 — Trip Applications & Participants
  * Spec: features/feature-7-trip-applications-and-participants.md
+ * Feature 95 — Role Availability on Public Trip Pages
+ * Spec: features/feature-95-public-trip-role-availability.md
  */
 
 import request from "supertest";
@@ -1479,6 +1481,56 @@ describe("Feature 7 — Trip Applications & Participants", () => {
 
       const fetched = await request(app).get(`/trips/trips/browse/${trip.id}/application`).set(ana.authHeader);
       expect(fetched.body.application.flightNotes).toBeNull();
+    });
+  });
+
+  /**
+   * Feature 95 — Role Availability on Public Trip Pages
+   * Spec: features/feature-95-public-trip-role-availability.md
+   */
+  describe("Feature 95 — US-95.1 Visitors see how many positions are open before applying", () => {
+    it("Browse trips include role availability", async () => {
+      const { authHeader, org } = await createOrgAdminUser({ email: "availability-admin@example.com" });
+      const { trip, tripWorkerRole: nurse } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Clinica Ezell Hospital - January 2027",
+        quantity: 4,
+      });
+      const doctor = await db.tripWorkerRole.create({
+        tripId: trip.id,
+        workerRoleId: (await db.workerRole.create({ orgId: org.id, name: "Doctor" })).id,
+        quantity: 2,
+      });
+      const participant = await findRole("Trip Participant");
+      const signUp = async (role, email, status) => {
+        const { user } = await registerUser({ email, firstName: "Pat", lastName: "Person", orgIds: [org.id] });
+        await db.tripPeopleRole.create({
+          tripId: trip.id,
+          peopleId: user.personId,
+          roleId: participant.id,
+          tripWorkerRoleId: role.id,
+          status,
+        });
+      };
+      await signUp(nurse, "nurse1@example.com", "applied");
+      await signUp(nurse, "nurse2@example.com", "approved");
+      await signUp(nurse, "nurse-cancelled@example.com", "cancelled");
+      await signUp(doctor, "doctor1@example.com", "incomplete");
+      await db.tripWorkerRoleReservation.create({ tripId: trip.id, tripWorkerRoleId: nurse.id, email: "ana@example.com" });
+      await db.tripWorkerRoleReservation.create({ tripId: trip.id, tripWorkerRoleId: doctor.id, email: "cy@example.com" });
+      const ben = await registerUser({ email: "ben@example.com", firstName: "Ben", lastName: "Baker", orgIds: [org.id] });
+      const ana = await registerUser({ email: "ana@example.com", firstName: "Ana", lastName: "Lopez", orgIds: [org.id] });
+      const browseFor = async (person) => {
+        const list = await request(app).get("/trips/trips/browse").query({ orgId: org.id }).set(person.authHeader);
+        expect(list.status).toBe(200);
+        return list.body.find((t) => t.id === trip.id);
+      };
+
+      const forBen = await browseFor(ben);
+      expect(forBen.roleAvailability).toEqual({ reserved: 2, open: 1 });
+      expect(forBen.myReservedTripWorkerRoleId).toBeNull();
+      const forAna = await browseFor(ana);
+      expect(forAna.roleAvailability).toEqual({ reserved: 2, open: 1 });
+      expect(forAna.myReservedTripWorkerRoleId).toBe(nurse.id);
     });
   });
 });

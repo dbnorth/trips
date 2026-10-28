@@ -31,6 +31,7 @@ import {
   travelOptionDaysError,
   validateTravelOptionSelections,
 } from "../utils/tripApplicationForm.js";
+import { noSpotMessage } from "../utils/roleAvailability.js";
 import {
   canShowPrimarySubmitButton,
   getIncompleteSubmitReasons,
@@ -47,6 +48,7 @@ const emit = defineEmits(["update:modelValue", "saved"]);
 const loading = ref(false);
 const saving = ref(false);
 const formError = ref("");
+const noSpot = ref("");
 const trip = ref(null);
 const rolesNeeded = ref([]);
 const myReservedRoleId = ref(null);
@@ -571,6 +573,12 @@ const loadNewApplication = async () => {
     ? res.data.medicalAgreement.content || ""
     : "";
 
+  noSpot.value = noSpotMessage({
+    rolesNeeded: rolesNeeded.value,
+    myReservedTripWorkerRoleId: res.data?.myReservedTripWorkerRoleId,
+    alreadyApplied: !!res.data?.alreadyApplied,
+  });
+
   if (!res.data?.alreadyApplied) return;
 
   const status = res.data?.applicationStatus;
@@ -593,6 +601,7 @@ const load = async () => {
   if (!props.tripId) return;
   loading.value = true;
   formError.value = "";
+  noSpot.value = "";
   resetForm();
   try {
     await loadPersonDocuments();
@@ -843,7 +852,9 @@ const confirmUncancelApplication = async () => {
       <v-card-text class="overflow-y-auto flex-grow-1">
         <v-progress-linear v-if="loading" indeterminate class="mb-4" />
 
-        <template v-if="!loading && trip">
+        <p v-if="!loading && noSpot" class="text-body-1" data-testid="no-spot-message">{{ noSpot }}</p>
+
+        <template v-else-if="!loading && trip">
           <DonorTripHeading :trip="trip" :show-org-website="false" />
 
           <v-alert
@@ -989,12 +1000,17 @@ const confirmUncancelApplication = async () => {
 
         <v-alert v-if="formError" type="error" density="compact" class="mt-3">{{ formError }}</v-alert>
       </v-card-text>
+      <v-card-actions v-if="noSpot" class="flex-shrink-0">
+        <v-spacer />
+        <v-btn color="primary" @click="close">OK</v-btn>
+      </v-card-actions>
       <ApplicationSubmitUnavailableAlert
+        v-if="!noSpot"
         class="mx-4 flex-shrink-0"
         :reasons="submitUnavailableReasons"
         :intro="submitUnavailableIntro"
       />
-      <v-card-actions class="flex-shrink-0">
+      <v-card-actions v-if="!noSpot" class="flex-shrink-0">
         <v-btn
           v-if="canCancelApplication"
           color="error"
