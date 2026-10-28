@@ -36,6 +36,15 @@ import {
   participantFlightDates,
   participantTravelDates,
 } from "../utils/tripDays.js";
+import {
+  loadSelectedTravelOptionIds,
+  loadTripTravelOptions,
+  parseSelectedTravelOptionIds,
+  selectedOptionsTotal,
+  shiftParticipantCost,
+  syncTripPeopleRoleOptions,
+  validateSelectedTravelOptionIds,
+} from "../utils/tripOptionSelection.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -409,6 +418,23 @@ exports.update = async (req, res) => {
     if (parsedAddons?.message) return res.status(400).send({ message: parsedAddons.message });
     const addonExpenses = parsedAddons?.list ?? null;
 
+    let travelOptions = null;
+    let selectedTravelOptionIds = null;
+    if (Object.prototype.hasOwnProperty.call(body, "selectedTravelOptionIds")) {
+      travelOptions = await loadTripTravelOptions(row.tripId);
+      selectedTravelOptionIds = parseSelectedTravelOptionIds(body);
+      const selectionCheck = validateSelectedTravelOptionIds(travelOptions, selectedTravelOptionIds);
+      if (!selectionCheck.ok) return res.status(400).send({ message: selectionCheck.message });
+      if (!Object.prototype.hasOwnProperty.call(body, "participantCost")) {
+        const previousIds = await loadSelectedTravelOptionIds(row.id);
+        const difference =
+          selectedOptionsTotal(travelOptions, selectedTravelOptionIds) -
+          selectedOptionsTotal(travelOptions, previousIds);
+        const trip = await Trip.findByPk(row.tripId, { attributes: ["participantCost"] });
+        body.participantCost = shiftParticipantCost(row.participantCost, trip?.participantCost, difference);
+      }
+    }
+
     if (Object.prototype.hasOwnProperty.call(body, "tripWorkerRoleId")) {
       body.tripWorkerRoleId = normalizeTripWorkerRoleId(body.tripWorkerRoleId);
       const twrCheck = await validateTripWorkerRole(row.tripId, body.tripWorkerRoleId);
@@ -534,6 +560,9 @@ exports.update = async (req, res) => {
           addonExpenses.map((expense) => ({ ...expense, tripPeopleRoleId: row.id })),
           { transaction }
         );
+      }
+      if (updated.ok && selectedTravelOptionIds) {
+        await syncTripPeopleRoleOptions(row.id, travelOptions, selectedTravelOptionIds, { transaction });
       }
       return updated;
     });

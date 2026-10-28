@@ -8,6 +8,8 @@ const props = defineProps({
   options: { type: Array, default: () => [] },
   selectedIds: { type: Array, default: () => [] },
   disabled: { type: Boolean, default: false },
+  title: { type: String, default: "Travel options" },
+  showTotals: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(["update:selectedIds"]);
@@ -94,7 +96,7 @@ defineExpose({
 
 <template>
   <div class="mt-4">
-    <div class="text-subtitle-2 mb-2">Travel options</div>
+    <div class="text-subtitle-2 mb-2">{{ title }}</div>
 
     <v-alert
       v-if="!hasOptions"
@@ -107,7 +109,7 @@ defineExpose({
     </v-alert>
 
     <template v-else>
-      <div class="text-body-2 mb-3">
+      <div v-if="showTotals" class="text-body-2 mb-3">
         Trip price:
         <strong>{{ formatCost(baseCostNumber) }}</strong>
       </div>
@@ -166,7 +168,7 @@ defineExpose({
         </v-radio-group>
       </div>
 
-      <div class="text-body-2 mt-3">
+      <div v-if="showTotals" class="text-body-2 mt-3">
         New trip price:
         <strong>{{ formatCost(adjustedCost) }}</strong>
       </div>
