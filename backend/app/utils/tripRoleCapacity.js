@@ -73,6 +73,21 @@ export const withCapacityFields = async (tripId, roles) => {
   });
 };
 
+/** Unfilled reservations and Available positions summed across the trip's roles (Feature 95). */
+export const tripRoleAvailability = async (tripId) => {
+  const roles = await withCapacityFields(
+    tripId,
+    await db.tripWorkerRole.findAll({ where: { tripId }, attributes: ["id", "quantity"] })
+  );
+  return roles.reduce(
+    (sum, role) => ({
+      reserved: sum.reserved + (role.reservedCount || 0),
+      open: sum.open + (role.availableCount || 0),
+    }),
+    { reserved: 0, open: 0 }
+  );
+};
+
 /** The reservation on the trip matching the person's email, or null. */
 export const findReservationForPerson = async (tripId, peopleId) => {
   if (!peopleId) return null;

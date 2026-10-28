@@ -13,6 +13,8 @@
  * Spec: features/feature-89-negative-trip-days.md
  * Feature 94 — Role Document Requirement Message
  * Spec: features/feature-94-role-document-requirement-message.md
+ * Feature 95 — Role Availability on Public Trip Pages
+ * Spec: features/feature-95-public-trip-role-availability.md
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -309,8 +311,10 @@ describe("Feature 47 — Simplify Application Warnings", () => {
       browseTrip({ rolesNeeded: [{ ...OPEN_ROLE, availableCount: 0 }] });
       const wrapper = await openDialog();
 
-      expect(wrapper.text()).toContain("This application cannot be saved or submitted yet:");
-      expect(wrapper.text()).toContain("There are no trip roles with available positions.");
+      // Feature 95 FR-009: with no spot, the message replaces the form and its blockers.
+      expect(wrapper.text()).toContain(
+        "Thanks for your interest, but there are no spots available on this trip."
+      );
       expect(wrapper.text()).not.toContain(CHECKLIST_INTRO);
       wrapper.unmount();
     });
@@ -551,6 +555,26 @@ describe("Feature 47 — Simplify Application Warnings", () => {
       expect(wrapper.text()).toContain(
         `${WARNING} Board Certification: add this document with an expiration date after 01/23/2027 and the Emergency Medicine specialization selected. CPR Card: add this document.`
       );
+      wrapper.unmount();
+    });
+  });
+
+  describe("Feature 95 — US-95.2 Signed-in applicants are told when there is no spot for them", () => {
+    it("Apply dialog shows the no spot message instead of the form", async () => {
+      browseTrip({ rolesNeeded: [{ ...OPEN_ROLE, availableCount: 0, reservedCount: 2 }] });
+      const wrapper = await openDialog();
+
+      expect(wrapper.find('[data-testid="no-spot-message"]').text()).toBe(
+        "Thanks for your interest, but all remaining spots on this trip are reserved."
+      );
+      expect(wrapper.findAllComponents({ name: "VSelect" }).find((c) => c.props("label") === "Trip role")).toBeUndefined();
+      const buttons = wrapper.findAll("button").map((b) => b.text().trim());
+      expect(buttons).toContain("OK");
+      expect(buttons).not.toContain("Save Incomplete Application");
+
+      await wrapper.findAll("button").find((b) => b.text().trim() === "OK").trigger("click");
+      await flushPromises();
+      expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual([false]);
       wrapper.unmount();
     });
   });

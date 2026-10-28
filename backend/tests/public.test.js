@@ -1,6 +1,8 @@
 /**
  * Feature 9 — Public Fundraising Pages
  * Spec: features/feature-9-public-fundraising-pages.md
+ * Feature 95 — Role Availability on Public Trip Pages
+ * Spec: features/feature-95-public-trip-role-availability.md
  */
 
 import request from "supertest";
@@ -10,6 +12,8 @@ import {
   syncTestDatabase,
   resetTestDatabase,
   createOrgAdminUser,
+  findRole,
+  registerUser,
 } from "./helpers.js";
 
 /** Date-only string offset from today. Public org pages hide trips that already ended. */
@@ -167,6 +171,52 @@ describe("Feature 9 — Public Fundraising Pages", () => {
       expect(donor).not.toBeNull();
       expect(donation).not.toBeNull();
       expect(donation.donorId).toBe(donor.id);
+    });
+  });
+
+  /**
+   * Feature 95 — Role Availability on Public Trip Pages
+   * Spec: features/feature-95-public-trip-role-availability.md
+   */
+  describe("Feature 95 — US-95.1 Visitors see how many positions are open before applying", () => {
+    it("Organization trips include role availability", async () => {
+      const { org, trip } = await createPublicTripFixture({
+        orgName: "Hope Missions",
+        tripName: "Clinica Ezell Hospital - January 2027",
+      });
+      const participant = await findRole("Trip Participant");
+      const addRole = async (name, quantity) =>
+        db.tripWorkerRole.create({
+          tripId: trip.id,
+          workerRoleId: (await db.workerRole.create({ orgId: org.id, name })).id,
+          quantity,
+        });
+      const nurse = await addRole("Nurse", 4);
+      const doctor = await addRole("Doctor", 2);
+      const signUp = async (role, email, status = "applied") => {
+        const { user } = await registerUser({ email, firstName: "Pat", lastName: "Person", orgIds: [org.id] });
+        await db.tripPeopleRole.create({
+          tripId: trip.id,
+          peopleId: user.personId,
+          roleId: participant.id,
+          tripWorkerRoleId: role.id,
+          status,
+        });
+      };
+      await signUp(nurse, "nurse1@example.com");
+      await signUp(nurse, "nurse2@example.com", "approved");
+      await signUp(nurse, "nurse-cancelled@example.com", "cancelled");
+      await signUp(doctor, "doctor1@example.com", "incomplete");
+      await db.tripWorkerRoleReservation.create({ tripId: trip.id, tripWorkerRoleId: nurse.id, email: "ana@example.com" });
+      await db.tripWorkerRoleReservation.create({ tripId: trip.id, tripWorkerRoleId: doctor.id, email: "cy@example.com" });
+
+      const response = await request(app).get("/trips/public/orgs/by-name/Hope_Missions");
+
+      expect(response.status).toBe(200);
+      expect(response.body.trips.find((t) => t.id === trip.id).roleAvailability).toEqual({
+        reserved: 2,
+        open: 1,
+      });
     });
   });
 });

@@ -15,6 +15,7 @@ import MyTripNextActions from "../components/MyTripNextActions.vue";
 import MyTripTravelDetails from "../components/MyTripTravelDetails.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { hasApplicationAction } from "../utils/myTripNextActions.js";
+import { noSpotMessage } from "../utils/roleAvailability.js";
 import { donorParticipantPath } from "../utils/donateUrls.js";
 import { storeAuthenticatedUser } from "../utils/authSession.js";
 import {
@@ -30,6 +31,7 @@ const router = useRouter();
 const trip = ref(null);
 const rolesNeeded = ref([]);
 const alreadyApplied = ref(false);
+const myReservedTripWorkerRoleId = ref(null);
 const applicationStatus = ref(null);
 const myTripInfo = ref(null);
 const tripLeaders = ref([]);
@@ -55,7 +57,17 @@ const canUpdateApplication = computed(
     (applicationStatus.value === "incomplete" || applicationStatus.value === "applied")
 );
 
-const showApplyInvite = computed(() => !!trip.value && !alreadyApplied.value);
+const noSpot = computed(() =>
+  noSpotMessage({
+    rolesNeeded: rolesNeeded.value,
+    myReservedTripWorkerRoleId: myReservedTripWorkerRoleId.value,
+    alreadyApplied: alreadyApplied.value,
+  })
+);
+const showNoSpotDialog = ref(false);
+let noSpotShown = false;
+
+const showApplyInvite = computed(() => !!trip.value && !alreadyApplied.value && !noSpot.value);
 
 const tripOrgId = computed(() => trip.value?.orgId ?? trip.value?.organization?.id ?? null);
 
@@ -94,9 +106,14 @@ const load = async () => {
     trip.value = res.data?.trip || null;
     rolesNeeded.value = res.data?.rolesNeeded || [];
     alreadyApplied.value = !!res.data?.alreadyApplied;
+    myReservedTripWorkerRoleId.value = res.data?.myReservedTripWorkerRoleId ?? null;
     applicationStatus.value = res.data?.applicationStatus || null;
     myTripInfo.value = res.data?.myTripInfo || null;
     tripLeaders.value = res.data?.tripLeaders || [];
+    if (noSpot.value && !noSpotShown) {
+      showNoSpotDialog.value = true;
+      noSpotShown = true;
+    }
   } catch (e) {
     messageType.value = "error";
     message.value = e.response?.data?.message || "Unable to load trip.";
@@ -431,5 +448,14 @@ onUnmounted(() => {
       :loading="cancelAppSaving"
       @confirm="confirmCancelApplication"
     />
+    <v-dialog v-model="showNoSpotDialog" max-width="420">
+      <v-card class="pa-2" data-testid="no-spot-dialog">
+        <v-card-text>{{ noSpot }}</v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn color="primary" @click="showNoSpotDialog = false">OK</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>

@@ -16,6 +16,7 @@ import ParticipantDonateDialog from "../components/ParticipantDonateDialog.vue";
 import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
 import MyTripNextActions from "../components/MyTripNextActions.vue";
 import { hasApplicationAction } from "../utils/myTripNextActions.js";
+import { roleAvailabilityText, myApplyButtonLabel } from "../utils/roleAvailability.js";
 import {
   isProfileComplete,
 } from "../utils/personProfile.js";
@@ -832,12 +833,17 @@ onUnmounted(() => {
                   <td>{{ item.location || "—" }}</td>
                   <td>{{ formatDate(item.startDate) }}</td>
                   <td>{{ formatDate(item.endDate) }}</td>
-                  <td>—</td>
+                  <td data-testid="role-availability">{{ roleAvailabilityText(item.roleAvailability) }}</td>
                   <td class="text-right">
                     <div class="d-flex justify-end ga-2 flex-wrap">
                       <v-btn size="small" variant="tonal" @click="viewBrowseTrip(item)">View</v-btn>
-                      <v-btn size="small" color="primary" @click="openApplyDialog(item)">
-                        Apply
+                      <v-btn
+                        v-if="myApplyButtonLabel(item.roleAvailability, item.myReservedTripWorkerRoleId)"
+                        size="small"
+                        color="primary"
+                        @click="openApplyDialog(item)"
+                      >
+                        {{ myApplyButtonLabel(item.roleAvailability, item.myReservedTripWorkerRoleId) }}
                       </v-btn>
                     </div>
                   </td>
