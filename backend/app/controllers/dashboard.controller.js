@@ -8,7 +8,7 @@ import {
   ROLE_TRIP_LEADER,
   ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
-import { withCapacityFields } from "../utils/tripRoleCapacity.js";
+import { tripRoleAvailability, withCapacityFields } from "../utils/tripRoleCapacity.js";
 import { sendDonationEventEmails } from "../utils/eventEmails.js";
 import { findOrCreateLinkedDonor, isApprovedTripMember } from "../utils/donorPerson.js";
 
@@ -290,8 +290,14 @@ exports.getOrgTripsBySlug = async (req, res) => {
     });
 
     const openTrips = trips.filter((t) => !t.endDate || String(t.endDate) >= today);
+    const tripsWithAvailability = await Promise.all(
+      openTrips.map(async (trip) => ({
+        ...trip.toJSON(),
+        roleAvailability: await tripRoleAvailability(trip.id),
+      }))
+    );
 
-    res.send({ organization, trips: openTrips });
+    res.send({ organization, trips: tripsWithAvailability });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

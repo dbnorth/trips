@@ -19,7 +19,7 @@ import {
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
-import { findReservationForPerson, withCapacityFields } from "../utils/tripRoleCapacity.js";
+import { findReservationForPerson, tripRoleAvailability, withCapacityFields } from "../utils/tripRoleCapacity.js";
 import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 import { loadDonationRecipients } from "../utils/donorPerson.js";
 import { loadMyTripNextActions } from "../utils/myTripNextActions.js";
@@ -387,14 +387,19 @@ exports.listActiveTrips = async (req, res) => {
     }
 
     res.send(
-      trips.map((trip) => {
-        const assignment = assignmentByTripId.get(Number(trip.id));
-        return {
-          ...trip.toJSON(),
-          alreadyApplied: !!assignment,
-          applicationStatus: assignment?.status || null,
-        };
-      })
+      await Promise.all(
+        trips.map(async (trip) => {
+          const assignment = assignmentByTripId.get(Number(trip.id));
+          const reservation = await findReservationForPerson(trip.id, peopleId);
+          return {
+            ...trip.toJSON(),
+            alreadyApplied: !!assignment,
+            applicationStatus: assignment?.status || null,
+            roleAvailability: await tripRoleAvailability(trip.id),
+            myReservedTripWorkerRoleId: reservation ? Number(reservation.tripWorkerRoleId) : null,
+          };
+        })
+      )
     );
   } catch (err) {
     res.status(500).send({ message: err.message });

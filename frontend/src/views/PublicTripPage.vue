@@ -4,6 +4,11 @@ import { useRouter } from "vue-router";
 import PublicServices from "../services/publicServices.js";
 import DonorTripHeading from "../components/DonorTripHeading.vue";
 import { toUrlSlug, donorTripPath, orgPublicRoute } from "../utils/donateUrls.js";
+import {
+  totalRoleAvailability,
+  roleAvailabilityText,
+  applyButtonLabel,
+} from "../utils/roleAvailability.js";
 
 const props = defineProps({
   tripSlug: { type: String, required: true },
@@ -26,6 +31,9 @@ const organizationId = computed(
 );
 
 const organizationName = computed(() => trip.value?.organization?.name || "");
+
+const roleAvailability = computed(() => totalRoleAvailability(rolesNeeded.value));
+const applyLabel = computed(() => applyButtonLabel(roleAvailability.value));
 
 const positionsLabel = (role) => {
   const available = Number(role?.availableCount) || 0;
@@ -99,9 +107,12 @@ onMounted(load);
     <DonorTripHeading :trip="trip" />
 
     <template v-if="trip">
+      <div class="text-body-1 mb-2" data-testid="role-availability">
+        {{ roleAvailabilityText(roleAvailability) }}
+      </div>
       <div class="d-flex flex-wrap ga-2 mb-6">
         <v-btn color="primary" variant="flat" :to="donorTripPath(trip)">Donate</v-btn>
-        <v-btn variant="tonal" @click="openApply">Apply</v-btn>
+        <v-btn v-if="applyLabel" variant="tonal" @click="openApply">{{ applyLabel }}</v-btn>
       </div>
 
       <h2 class="text-h6 font-weight-bold mb-3">Roles needed</h2>

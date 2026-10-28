@@ -6,6 +6,7 @@ import OrganizationServices from "../services/organizationServices.js";
 import TripServices from "../services/tripServices.js";
 import { toUrlSlug, donorTripPath, publicTripPath } from "../utils/donateUrls.js";
 import { countryName } from "../utils/locationData.js";
+import { roleAvailabilityText, applyButtonLabel } from "../utils/roleAvailability.js";
 
 const props = defineProps({
   orgSlug: { type: String, required: true },
@@ -136,6 +137,9 @@ onMounted(load);
             </v-card-subtitle>
             <v-card-text class="flex-grow-1">
               <div class="text-body-2 text-medium-emphasis">{{ formatDates(trip) }}</div>
+              <div class="text-body-2 mt-1" data-testid="role-availability">
+                {{ roleAvailabilityText(trip.roleAvailability) }}
+              </div>
             </v-card-text>
             <v-card-actions class="px-4 pb-4 pt-0 flex-wrap ga-2">
               <v-btn variant="tonal" :to="publicTripPath(trip)">View</v-btn>
@@ -147,10 +151,11 @@ onMounted(load);
                 Donate
               </v-btn>
               <v-btn
+                v-if="applyButtonLabel(trip.roleAvailability)"
                 variant="tonal"
                 @click="openApply(trip)"
               >
-                Apply
+                {{ applyButtonLabel(trip.roleAvailability) }}
               </v-btn>
             </v-card-actions>
           </v-card>
