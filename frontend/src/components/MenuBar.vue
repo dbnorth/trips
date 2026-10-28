@@ -274,7 +274,7 @@ onMounted(() => {
     <template v-if="!Utils.isAgentUser(user)">
       <v-btn v-if="showProfileNav" variant="text" @click="openProfile">Profile</v-btn>
       <v-btn v-if="user.isAdmin || showOrgAdminNav" variant="text" :to="{ name: 'people' }">People</v-btn>
-      <v-btn v-if="user.isAdmin" variant="text" :to="{ name: 'organizations' }">Organizations</v-btn>
+      <v-btn v-if="user.isAdmin || showOrgAdminNav" variant="text" :to="{ name: 'organizations' }">Organizations</v-btn>
       <v-btn v-if="user.isAdmin || showOrgAdminNav" variant="text" :to="{ name: 'documentTypes' }">Document types</v-btn>
       <v-btn v-if="user.isAdmin" variant="text" :to="{ name: 'emailTypes' }">Email types</v-btn>
       <v-btn v-if="user.isAdmin" variant="text" :to="{ name: 'emailTokens' }">Email tokens</v-btn>

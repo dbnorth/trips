@@ -147,10 +147,6 @@ export function applyAuthGuards(router) {
       next({ name: "home" });
       return;
     }
-    if (to.name === "organizations" && !user.isAdmin) {
-      next({ name: "home" });
-      return;
-    }
     if ((to.name === "emailTypes" || to.name === "emailTokens") && !user.isAdmin) {
       next({ name: "home" });
       return;
@@ -175,7 +171,10 @@ export function applyAuthGuards(router) {
       }
     }
     if (
-      (to.name === "workerRoles" || to.name === "emailPictures" || to.name === "documentTypes") &&
+      (to.name === "workerRoles" ||
+        to.name === "emailPictures" ||
+        to.name === "documentTypes" ||
+        to.name === "organizations") &&
       !user.isAdmin
     ) {
       const isOrgAdmin = (user.orgRoles || []).some((r) => r.roleName === "Org Admin");
