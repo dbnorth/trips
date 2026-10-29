@@ -20,6 +20,7 @@ They do **not** authorize new scope — implement only from `features/feature-*.
 | System admin = `user.isAdmin` | `accessControl.js` | Features 1–10 |
 | Org roles via `orgPeopleRole` + role names | `accessControl.js`, seed roles | Feature 2 |
 | System admin People list with no acting org (“All organizations”) returns **all** persons, including those with no org membership | `person.controller` `findAll` | Feature 11 |
+| People page **Name** filter: the X clears it and lists everyone again (still limited by the **Trip** filter) | `PeopleList.vue` (`filteredPeople`) | Feature 98 |
 | Trip role privileges use **approved** `tripPeopleRole` only | `authenticate` loads `tripRoles` | Feature 7 |
 | Acting org header `X-Acting-Organization-Id` scopes lists for system admins | Axios + accessControl | Features 2–5 |
 | Person optional at register; **required for profile completeness** / application applied; create-account and add/edit person show it after first name; display/list names include it when set; public URL slugs use first+last only | `person.middleName`, Login/Apply create-account, Add/Edit person, `isProfileComplete` | Feature 20 |
