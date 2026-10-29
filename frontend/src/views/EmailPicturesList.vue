@@ -143,7 +143,7 @@ onUnmounted(() => {
         <input
           ref="fileInput"
           type="file"
-          accept="image/png,image/jpeg,image/gif"
+          accept="image/png,image/jpeg,image/gif,image/heic,image/heif,.heic,.heif"
           hidden
           data-testid="picture-upload-input"
           @change="onFileChosen"

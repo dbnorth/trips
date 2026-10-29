@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 import db from "./app/models/index.js";
 import logger from "./app/config/logger.js";
 import { ensureSchema } from "./app/scripts/ensureSchema.js";
+import { convertHeicDocuments } from "./app/scripts/convertHeicDocuments.js";
 import { loadPersonalDataKey } from "./app/utils/personalDataEncryption.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -52,6 +53,7 @@ export const startServer = async () => {
   db.sequelize
     .sync(syncOptions)
     .then(() => ensureSchema())
+    .then(() => convertHeicDocuments())
     .then(() => {
       if (syncOptions.alter) {
         logger.info("Database sync completed with alter: true.");

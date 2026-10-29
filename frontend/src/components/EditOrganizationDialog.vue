@@ -169,7 +169,7 @@ const save = async () => {
             </div>
             <v-file-input
               label="Upload logo"
-              accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+              accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,image/heic,image/heif,.heic,.heif"
               density="compact"
               prepend-icon="mdi-camera"
               show-size
