@@ -19,6 +19,7 @@ They do **not** authorize new scope — implement only from `features/feature-*.
 | Passwords bcrypt-hashed; never returned | User `defaultScope` | Feature 1 |
 | System admin = `user.isAdmin` | `accessControl.js` | Features 1–10 |
 | Org roles via `orgPeopleRole` + role names | `accessControl.js`, seed roles | Feature 2 |
+| **Edit person** **Organizations** section (role table with **Remove**, and **Add Role**) is shown to System Admins and Org Admins. An Org Admin sees only the person's roles in organizations they administer; **Organization** lists those organizations where the person already has a role (none selected), and **Role** lists every catalog role (Org Admin, Trip Leader, Trip Participant, Pending User, Agent). The API refuses an Org Admin adding a role for someone not already in that organization, and refuses anyone removing (or changing) an organization's only Org Admin role: "An organization must keep at least one Org Admin.". The **System administrator** switch stays System Admin-only | `EditPersonDialog.vue`, `orgPeopleRole.controller.js` | Feature 99 |
 | System admin People list with no acting org (“All organizations”) returns **all** persons, including those with no org membership | `person.controller` `findAll` | Feature 11 |
 | People page **Name** filter: the X clears it and lists everyone again (still limited by the **Trip** filter) | `PeopleList.vue` (`filteredPeople`) | Feature 98 |
 | Trip role privileges use **approved** `tripPeopleRole` only | `authenticate` loads `tripRoles` | Feature 7 |
