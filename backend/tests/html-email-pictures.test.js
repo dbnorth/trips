@@ -175,7 +175,7 @@ describe("Feature 77 — HTML Emails, Rich Text Editor, and Picture Library", ()
         contentType: "application/pdf",
       });
       expect(pdf.status).toBe(400);
-      expect(pdf.body.message).toBe("Upload a PNG, JPEG, or GIF picture.");
+      expect(pdf.body.message).toBe("Upload a PNG, JPEG, GIF, or HEIC picture.");
 
       const large = await upload(omar.authHeader, org.id, { content: Buffer.alloc(3 * 1024 * 1024) });
       expect(large.status).toBe(400);

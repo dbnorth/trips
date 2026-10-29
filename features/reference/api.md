@@ -79,7 +79,7 @@
 | `GET` | `/trips/people/:id` | auth | Person detail |
 | `POST` | `/trips/people` | auth | Create person (+ optional org/role); omitted or blank `preferredName` stores first name + last name (Feature 33). Email already used by a user or person (trimmed, lower-cased) → `409` "A person with this email already exists." and nothing changes; success → `{ person, message }` (Feature 68) |
 | `PUT` | `/trips/people/:id` | auth | Update person (`version`); accepts `emergencyContactRelationship` (`spouse`, `father`, `mother`, `child`, `grandmother`, `grandfather`, `other`); `preferredName` blank stores first name + last name, omitted leaves the stored value (Feature 33). `password` for someone else → `403` "Forbidden. System admin required to set a password." unless System Admin (your own → `400`, use change-password); a System Admin setting it ends all that user's sessions. Changing the email of a person with a login account (`userId`; trimmed, lower-cased compare) → `403` "Forbidden. System admin required to change a login email." unless System Admin or the person themselves. Refused requests change nothing (Feature 71) |
-| `PUT` | `/trips/people/:id/picture` | auth | Upload picture (`multipart` field `picture`) |
+| `PUT` | `/trips/people/:id/picture` | auth | Upload picture (`multipart` field `picture`); PNG, JPEG, GIF, WebP, or HEIC (HEIC stored as `.jpg`; unreadable → `400` "This HEIC photo couldn't be read. Upload it as a JPG or PNG instead.", Feature 96) |
 | `DELETE` | `/trips/people/:id` | sysadmin | Delete person |
 | `GET` | `/trips/org-people-roles` | auth | List org memberships |
 | `POST` | `/trips/org-people-roles` | auth | Assign org role |
@@ -98,7 +98,7 @@ Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 | `GET` | `/trips/organizations/:id` | auth | Detail |
 | `POST` | `/trips/organizations` | sysadmin | Create |
 | `PUT` | `/trips/organizations/:id` | auth | Update (Org Admin of that organization / System Admin; otherwise `403` "Forbidden."); `subdomain` ignored unless System Admin |
-| `PUT` | `/trips/organizations/:id/logo` | auth | Logo (`multipart` field `logo`) |
+| `PUT` | `/trips/organizations/:id/logo` | auth | Logo (`multipart` field `logo`); same types and HEIC handling as the profile picture (Feature 96) |
 | `GET` | `/trips/organizations/:id/agreement` | auth | Agreement markdown |
 | `PUT` | `/trips/organizations/:id/agreement` | auth | Save agreement `{ content }` |
 | `GET` | `/trips/organizations/:id/medical-agreement` | auth | Medical agreement markdown |
@@ -119,7 +119,7 @@ Create, update, and detail include `testMode` (boolean, default `false`) — Fea
 | `PUT` | `/trips/document-types/:id` | auth | Update (Org Admin of the type's organization or System Admin; `orgId` in the body is ignored — Feature 91); `specializations: [{ id?, name }]` replaces the list when sent — with `id` keeps (and renames) the entry, without adds, left out removes; removing one used by a person document or worker role → `400` "<name> is in use and cannot be removed." and nothing is saved; same name and "Add at least one specialization." rules as `POST` (Feature 59) |
 | `DELETE` | `/trips/document-types/:id` | auth | Delete (Org Admin of the type's organization or System Admin — Feature 91) |
 | `GET` | `/trips/people/:id/documents` | auth | List; includes `specializations` (`id`, `documentTypeSpecializationId`, `name` from the list entry, `date`, `documentFileName`) when present; `expirationDate` may be null and `documentType` includes `hasExpirationDate` (Feature 57) |
-| `POST` | `/trips/people/:id/documents` | auth | Upload (`multipart` field `document`); optional `documentNumber` (required when type says so); `expirationDate` required only when the type has `hasExpirationDate`, otherwise stored null and any value sent is ignored (`400` "Expiration date is required.", Feature 57); `specializations` JSON (`[{ id?, documentTypeSpecializationId, date, replaceFile }]`) plus `specializationFiles` when the type allows them (Feature 34). `400` "Specialization is not in the list for this document type." / "Each specialization can be added only once per document." (Feature 59) |
+| `POST` | `/trips/people/:id/documents` | auth | Upload (`multipart` field `document`); optional `documentNumber` (required when type says so); `expirationDate` required only when the type has `hasExpirationDate`, otherwise stored null and any value sent is ignored (`400` "Expiration date is required.", Feature 57); `specializations` JSON (`[{ id?, documentTypeSpecializationId, date, replaceFile }]`) plus `specializationFiles` when the type allows them (Feature 34). `400` "Specialization is not in the list for this document type." / "Each specialization can be added only once per document." (Feature 59). HEIC document and specialization files are stored as JPEG (`…-<name>.jpg`); unreadable HEIC → `400` "This HEIC photo couldn't be read. Upload it as a JPG, PNG, or PDF instead." and nothing saved (Feature 96) |
 | `PUT` | `/trips/people/:id/documents/:documentId` | auth | Update/replace; same `expirationDate` and specialization rules as `POST`; specialization list replaces stored rows when sent and the type allows them |
 | `DELETE` | `/trips/people/:id/documents/:documentId` | auth | Delete |
 | `GET` | `/trips/people/:id/documents/:documentId/view` | auth | Inline view |
@@ -156,7 +156,7 @@ Uploaded document and specialization files are stored encrypted and returned dec
 | `POST` | `/trips/trips` | auth | Create (+ optional `leaderPeopleIds`, `primaryLeaderPeopleId`, `requirePassport`, `deposit`). `primaryLeaderPeopleId` must be in `leaderPeopleIds` (`400`); omitted → first leader (Feature 40) |
 | `POST` | `/trips/trips/:id/copy` | auth | Copy source trip → new trip (name required; leaders and primary trip leader, worker roles, travel options, `requirePassport`, `deposit`; not participants/donations) — Features 21, 23, 38, 40; copied travel options keep `daysBefore` / `daysAfter` — Feature 78 |
 | `PUT` | `/trips/trips/:id` | auth | Update (optional `deposit`, Feature 38; optional `leaderPeopleIds` / `primaryLeaderPeopleId`, Feature 40) |
-| `PUT` | `/trips/trips/:id/image` | auth | Image (`multipart` field `image`) |
+| `PUT` | `/trips/trips/:id/image` | auth | Image (`multipart` field `image`); same types and HEIC handling as the profile picture (Feature 96) |
 | `POST` | `/trips/trips/:id/arrival-pdf` | Trip Leader of the trip, Org Admin of the trip org, or System Admin | Multipart field `file`; saves or replaces the Trip Arrival PDF (new file saved, then the old one deleted) → `{ hasArrivalPdf: true }`; not a PDF → `400` "Upload a PDF file."; over 10 MB → `400` "The PDF must be 10 MB or smaller."; nothing changes on error — Feature 76 |
 | `GET` | `/trips/trips/:id/arrival-pdf` | trip staff (as above) or an approved Trip Participant / Trip Leader of the trip | The PDF inline: `application/pdf`, `Content-Disposition: inline; filename="Trip Arrival - <trip name>.pdf"`; anyone else → `403`; none (or file missing) → `404` "No Trip Arrival PDF." — Feature 76 |
 | `DELETE` | `/trips/trips/:id/arrival-pdf` | trip staff (as above) | Removes the Trip Arrival PDF and its file → `{ hasArrivalPdf: false }` — Feature 76 |
@@ -314,7 +314,7 @@ Upload roles: System Admin, Org Admin of the organization, or Trip Leader of any
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | `GET` | `/trips/email-pictures?orgId=` | upload roles | The organization's pictures by name |
-| `POST` | `/trips/email-pictures` | upload roles | Multipart `file`, `orgId`, optional `name` (defaults to the file name without its extension, up to 100 characters) → the new picture. Not PNG/JPEG/GIF → `400` "Upload a PNG, JPEG, or GIF picture."; over 2 MB → `400` "The picture must be 2 MB or smaller." |
+| `POST` | `/trips/email-pictures` | upload roles | Multipart `file`, `orgId`, optional `name` (defaults to the file name without its extension, up to 100 characters) → the new picture. HEIC is stored as JPEG (`contentType` `image/jpeg`; unreadable → `400` "This HEIC photo couldn't be read. Upload it as a JPG or PNG instead.", Feature 96). Not PNG/JPEG/GIF/HEIC → `400` "Upload a PNG, JPEG, GIF, or HEIC picture."; over 2 MB → `400` "The picture must be 2 MB or smaller." |
 | `PUT` | `/trips/email-pictures/:id` | rename and delete roles | `{ name }` → the picture; blank → `400` "Name is required." |
 | `DELETE` | `/trips/email-pictures/:id` | rename and delete roles | Deletes the picture and its file; used in any template body of its organization → `400` "This picture is used by N templates." |
 

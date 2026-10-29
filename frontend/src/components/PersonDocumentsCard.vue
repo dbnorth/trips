@@ -56,7 +56,7 @@ const viewKind = computed(() => {
   const type = (viewType.value || "").toLowerCase();
   const name = (viewName.value || "").toLowerCase();
   if (type.includes("pdf") || name.endsWith(".pdf")) return "pdf";
-  if (type.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|heic|heif)$/.test(name)) return "image";
+  if (type.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp)$/.test(name)) return "image";
   return "unsupported";
 });
 
@@ -349,6 +349,10 @@ const revokeViewUrl = () => {
 const viewDocument = async (row, specialization = null) => {
   message.value = "";
   revokeViewUrl();
+  if (/\.(heic|heif)$/i.test(specialization?.documentFileName || row.documentFileName || "")) {
+    message.value = "This HEIC file can't be previewed. You can still download it.";
+    return;
+  }
   viewRow.value = row;
   viewSpecialization.value = specialization;
   viewName.value = specialization?.name || fileName(row);
@@ -360,12 +364,7 @@ const viewDocument = async (row, specialization = null) => {
     viewUrl.value = url;
     viewType.value = type;
   } catch (e) {
-    const heicError = e?.code != null || /heic|heif/i.test(String(e?.message || ""));
-    message.value =
-      e.response?.data?.message ||
-      (heicError
-        ? "Unable to preview this HEIC image. You can still download it."
-        : "Unable to load document.");
+    message.value = e.response?.data?.message || "Unable to load document.";
     viewDialog.value = false;
   } finally {
     viewLoading.value = false;

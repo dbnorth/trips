@@ -43,7 +43,7 @@ exports.create = async (req, res) => {
     const orgId = Number(req.body.orgId);
     if (!orgId) return res.status(400).send({ message: "Organization is required." });
     if (!canAccessOrg(req, orgId)) return res.status(403).send({ message: "Forbidden." });
-    if (!req.file) return res.status(400).send({ message: "Upload a PNG, JPEG, or GIF picture." });
+    if (!req.file) return res.status(400).send({ message: "Upload a PNG, JPEG, GIF, or HEIC picture." });
 
     const fallbackName = path.parse(req.file.originalname || "").name;
     const name = String(req.body.name || fallbackName).trim().slice(0, 100);

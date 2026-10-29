@@ -3,12 +3,17 @@ import people from "../controllers/person.controller.js";
 import personDocuments from "../controllers/personDocument.controller.js";
 import authenticate, { requireSystemAdmin } from "../authorization/accessControl.js";
 import { nameDocumentFiles, uploadPersonDocument, uploadPersonPicture } from "../config/multer.js";
+import {
+  convertHeicUpload,
+  convertUploadedPicture,
+  HEIC_DOCUMENT_UNREADABLE,
+} from "../utils/heicToJpeg.js";
 
 const router = Router();
 
 const handlePictureUpload = (req, res, next) => {
   uploadPersonPicture.single("picture")(req, res, (err) => {
-    if (!err) return next();
+    if (!err) return convertUploadedPicture(req, res, next);
     if (err.code === "LIMIT_FILE_SIZE") {
       return res.status(400).send({ message: "Image must be 2MB or smaller." });
     }
@@ -20,9 +25,16 @@ const handleDocumentUpload = (req, res, next) => {
   uploadPersonDocument.fields([
     { name: "document", maxCount: 1 },
     { name: "specializationFiles", maxCount: 30 },
-  ])(req, res, (err) => {
+  ])(req, res, async (err) => {
     if (!err) {
       nameDocumentFiles(req);
+      for (const group of Object.values(req.files || {})) {
+        for (const file of group) {
+          if (!(await convertHeicUpload(file))) {
+            return res.status(400).send({ message: HEIC_DOCUMENT_UNREADABLE });
+          }
+        }
+      }
       return next();
     }
     if (err.code === "LIMIT_FILE_SIZE") {
