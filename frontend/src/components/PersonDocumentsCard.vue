@@ -4,6 +4,7 @@ import DocumentTypeServices from "../services/documentTypeServices.js";
 import PersonDocumentServices from "../services/personDocumentServices.js";
 import CountrySelect from "./CountrySelect.vue";
 import { countryName, resolveCountryCode, US_COUNTRY_CODE } from "../utils/locationData.js";
+import { pdfFirstPageUrl } from "../utils/pdfThumbnail.js";
 
 const props = defineProps({
   personId: { type: [Number, String], default: null },
@@ -138,6 +139,51 @@ const newSpecialization = (row = {}) => ({
 
 const fileName = (row) => String(row.documentFileName || "").split("/").pop() || "Document";
 
+/** The saved file shown in the Edit Document dialog: `state` is none, loading, image, or unavailable. */
+const thumbnail = ref(null);
+let thumbnailRequest = 0;
+
+const revokeThumbnail = () => {
+  thumbnailRequest += 1;
+  if (thumbnail.value?.url) URL.revokeObjectURL(thumbnail.value.url);
+  thumbnail.value = null;
+};
+
+const loadThumbnail = async (row) => {
+  revokeThumbnail();
+  if (!row.documentFileName) {
+    thumbnail.value = { row, state: "none" };
+    return;
+  }
+  const request = thumbnailRequest;
+  const name = fileName(row).replace(/^person-\d+-\d+-/, "");
+  thumbnail.value = { row, name, state: "loading" };
+  let url = null;
+  try {
+    if (/\.(heic|heif)$/i.test(name)) throw new Error("HEIC can't be previewed.");
+    const view = await PersonDocumentServices.view(props.personId, row);
+    if (/pdf/i.test(view.type) || /\.pdf$/i.test(name)) {
+      try {
+        url = await pdfFirstPageUrl(view.url);
+      } finally {
+        URL.revokeObjectURL(view.url);
+      }
+    } else if (/^image\//i.test(view.type) || /\.(jpe?g|png|gif|webp)$/i.test(name)) {
+      url = view.url;
+    } else {
+      URL.revokeObjectURL(view.url);
+      throw new Error("This file type can't be previewed.");
+    }
+    if (request !== thumbnailRequest) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+    thumbnail.value = { row, name, state: "image", url };
+  } catch {
+    if (request === thumbnailRequest) thumbnail.value = { row, name, state: "unavailable" };
+  }
+};
+
 const countryLabel = (code) => countryName(code) || code || "—";
 
 const onFileSelected = (files) => {
@@ -162,6 +208,7 @@ const removeSpecialization = (index) => {
 const resetForm = () => {
   formDialog.value = false;
   editingDocumentId.value = null;
+  revokeThumbnail();
   form.value = {
     documentTypeId: null,
     countryIssued: US_COUNTRY_CODE,
@@ -278,6 +325,7 @@ const startEdit = (row) => {
   fieldErrors.value = emptyFieldErrors();
   fileInputKey.value += 1;
   formDialog.value = true;
+  loadThumbnail(row);
 };
 
 const closeForm = () => {
@@ -547,6 +595,32 @@ onMounted(load);
         </v-col>
       </v-row>
 
+      <div v-if="thumbnail" class="mb-3" data-testid="current-file">
+        <div class="text-subtitle-2 mb-1">Current file</div>
+        <div v-if="thumbnail.state === 'none'" class="text-body-2 text-medium-emphasis">
+          No file uploaded
+        </div>
+        <div v-else-if="thumbnail.state === 'loading'" class="document-thumbnail d-flex align-center justify-center">
+          <v-progress-circular indeterminate size="24" />
+        </div>
+        <template v-else>
+          <button
+            type="button"
+            class="document-thumbnail"
+            :aria-label="`View ${thumbnail.name}`"
+            data-testid="current-file-thumbnail"
+            @click="viewDocument(thumbnail.row)"
+          >
+            <img v-if="thumbnail.state === 'image'" :src="thumbnail.url" alt="Current file" />
+            <span v-else class="d-flex flex-column align-center justify-center h-100 px-3">
+              <v-icon icon="mdi-file-document-outline" size="36" />
+              <span class="text-caption">Preview not available</span>
+            </span>
+          </button>
+          <div class="text-caption">{{ thumbnail.name }}</div>
+        </template>
+      </div>
+
       <v-file-input
         :key="fileInputKey"
         :label="uploadLabel"
@@ -678,6 +752,24 @@ onMounted(load);
 .person-section-rule {
   margin: 16px -16px 12px;
   opacity: 1;
+}
+
+.document-thumbnail {
+  height: 120px;
+  min-width: 90px;
+  max-width: 100%;
+  padding: 4px;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.document-thumbnail img {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  object-fit: contain;
 }
 </style>
 
