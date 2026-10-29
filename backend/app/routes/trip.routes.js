@@ -8,12 +8,13 @@ import participantDocumentsPdf from "../controllers/participantDocumentsPdf.cont
 import tripMasterImport, { FILE_MESSAGE } from "../controllers/tripMasterImport.controller.js";
 import authenticate from "../authorization/accessControl.js";
 import { uploadTripArrivalPdf, uploadTripImage, uploadTripMasterCsv } from "../config/multer.js";
+import { convertUploadedPicture } from "../utils/heicToJpeg.js";
 
 const router = Router();
 
 const handleTripImageUpload = (req, res, next) => {
   uploadTripImage.single("image")(req, res, (err) => {
-    if (!err) return next();
+    if (!err) return convertUploadedPicture(req, res, next);
     if (err.code === "LIMIT_FILE_SIZE") {
       return res.status(400).send({ message: "Image must be 2MB or smaller." });
     }

@@ -1,11 +1,12 @@
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import { isHeicUpload } from "../utils/heicToJpeg.js";
 
 const imageFilter = (_req, file, cb) => {
   const allowed = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"];
-  if (allowed.includes(file.mimetype)) cb(null, true);
-  else cb(new Error("Only PNG, JPEG, GIF, and WebP images are allowed."), false);
+  if (allowed.includes(file.mimetype) || isHeicUpload(file)) cb(null, true);
+  else cb(new Error("Only PNG, JPEG, GIF, WebP, and HEIC images are allowed."), false);
 };
 
 const makeStorage = (dir, filenameFn) =>
@@ -102,8 +103,8 @@ export const uploadTripMasterCsv = multer({
 });
 
 const emailPictureFilter = (_req, file, cb) => {
-  if (["image/png", "image/jpeg", "image/gif"].includes(file.mimetype)) cb(null, true);
-  else cb(new Error("Upload a PNG, JPEG, or GIF picture."), false);
+  if (["image/png", "image/jpeg", "image/gif"].includes(file.mimetype) || isHeicUpload(file)) cb(null, true);
+  else cb(new Error("Upload a PNG, JPEG, GIF, or HEIC picture."), false);
 };
 
 /** Kept in memory: the controller writes the file to `images/email-pictures` after access checks. */

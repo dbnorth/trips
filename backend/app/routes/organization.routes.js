@@ -2,12 +2,13 @@ import { Router } from "express";
 import orgs from "../controllers/organization.controller.js";
 import authenticate, { requireSystemAdmin } from "../authorization/accessControl.js";
 import { uploadOrgLogo } from "../config/multer.js";
+import { convertUploadedPicture } from "../utils/heicToJpeg.js";
 
 const router = Router();
 
 const handleLogoUpload = (req, res, next) => {
   uploadOrgLogo.single("logo")(req, res, (err) => {
-    if (!err) return next();
+    if (!err) return convertUploadedPicture(req, res, next);
     if (err.code === "LIMIT_FILE_SIZE") {
       return res.status(400).send({ message: "Logo must be 2MB or smaller." });
     }

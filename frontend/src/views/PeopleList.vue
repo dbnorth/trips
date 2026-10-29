@@ -76,7 +76,7 @@ const personDisplayName = (person) =>
     .toLowerCase();
 
 const filteredPeople = computed(() => {
-  const q = filterName.value.trim().toLowerCase();
+  const q = (filterName.value || "").trim().toLowerCase();
   if (!q) return people.value;
   return people.value.filter((p) => personDisplayName(p).includes(q));
 });
