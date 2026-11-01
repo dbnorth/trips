@@ -11,6 +11,7 @@ import Utils from "../config/utils.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { donorTripPath } from "../utils/donateUrls.js";
 import RowAction from "../components/RowAction.vue";
+import { formatDateRange } from "../utils/dateFormat.js";
 
 const router = useRouter();
 const trips = ref([]);
@@ -183,7 +184,7 @@ onUnmounted(() => {
       <template #item.activeParticipantCount="{ item }">{{ item.activeParticipantCount ?? 0 }}</template>
       <template #item.totalParticipantCost="{ item }">{{ formatMoney(item.totalParticipantCost) }}</template>
       <template #item.donationTotal="{ item }">{{ formatMoney(item.donationTotal) }}</template>
-      <template #item.dates="{ item }">{{ item.startDate }} – {{ item.endDate }}</template>
+      <template #item.dates="{ item }">{{ formatDateRange(item.startDate, item.endDate) }}</template>
       <template #item.link="{ item }">
         <a :href="donorLink(item)" target="_blank">Donate</a>
       </template>

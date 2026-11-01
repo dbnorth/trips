@@ -163,7 +163,10 @@ const refreshRoleCounts = async () => {
   const res = await TripWorkerRoleServices.getAll(props.tripId);
   for (const saved of res.data || []) {
     const row = selectedRoles.value.find((r) => Number(r.id) === Number(saved.id));
-    if (row) row.availableCount = saved.availableCount;
+    if (row) {
+      row.availableCount = saved.availableCount;
+      row.signedUpCount = saved.signedUpCount ?? 0;
+    }
   }
   const changed = selectedRoles.value.find((r) => Number(r.id) === Number(reservationsRoleId.value));
   if (changed) changed.emails = await loadReservedEmails(changed.id);
@@ -198,6 +201,7 @@ const mapTripRoleRow = (row) => ({
   quantity: Number(row.quantity) || 1,
   originalQuantity: Number(row.quantity) || 1,
   availableCount: row.availableCount ?? 0,
+  signedUpCount: row.signedUpCount ?? 0,
   emails: [],
 });
 
@@ -789,6 +793,7 @@ const save = async () => {
                       Reserved emails
                     </v-btn>
                     <v-btn
+                      v-if="!(row.id != null && row.signedUpCount > 0)"
                       size="small"
                       variant="text"
                       color="error"

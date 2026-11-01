@@ -8,6 +8,8 @@ import {
 import {
   arePersonDocumentsUploaded,
   isRequiredPassportUploaded,
+  isDoctorPermissionUploaded,
+  loadDoctorPermissionTypes,
   activeRequiredSpecializations,
   isRequiredRoleDocumentUploaded,
   loadPersonDocumentsForCompleteness,
@@ -251,6 +253,16 @@ const getPersonAssignment = async (tripId, peopleId) => {
   });
 };
 
+/** Trip JSON plus whether a pregnant applicant needs a Doctor Permission document (Feature 102). */
+const withDoctorPermissionFlags = async (trip) => {
+  const doctorPermissionTypes = await loadDoctorPermissionTypes(trip.orgId);
+  return {
+    ...trip.toJSON(),
+    requiresDoctorPermissionWhenPregnant: doctorPermissionTypes.length > 0,
+    doctorPermissionHasExpiration: doctorPermissionTypes.some((t) => t.hasExpirationDate !== false),
+  };
+};
+
 const exports = {};
 
 exports.listBrowseOrgs = async (req, res) => {
@@ -469,7 +481,7 @@ exports.getBrowseTrip = async (req, res) => {
     const reservation = await findReservationForPerson(trip.id, req.user?.personId);
 
     res.send({
-      trip,
+      trip: await withDoctorPermissionFlags(trip),
       rolesNeeded,
       myReservedTripWorkerRoleId: reservation ? Number(reservation.tripWorkerRoleId) : null,
       alreadyApplied: !!assignment,
@@ -583,6 +595,7 @@ exports.applyToTrip = async (req, res) => {
     }
 
     const documentCompareDate = tripDocumentCompareDate(trip);
+    const doctorPermissionTypes = await loadDoctorPermissionTypes(trip.orgId);
     const status = resolveAppliedOrIncompleteStatus({
       person,
       tripWorkerRoleId,
@@ -623,6 +636,12 @@ exports.applyToTrip = async (req, res) => {
       requiredPassportUploaded: isRequiredPassportUploaded({
         documents: personDocuments,
         requirePassport: !!trip.requirePassport,
+        compareDate: documentCompareDate,
+      }),
+      doctorPermissionUploaded: isDoctorPermissionUploaded({
+        documents: personDocuments,
+        isPregnant: pregnancy.isPregnant,
+        doctorPermissionRequired: doctorPermissionTypes.length > 0,
         compareDate: documentCompareDate,
       }),
       orgId: trip.orgId,
@@ -733,7 +752,7 @@ exports.getApplication = async (req, res) => {
     const travelOptions = await loadTravelOptionsForApplication(trip.id, assignment.id);
     const reservation = await findReservationForPerson(trip.id, peopleId);
     res.send({
-      trip,
+      trip: await withDoctorPermissionFlags(trip),
       rolesNeeded,
       myReservedTripWorkerRoleId: reservation ? Number(reservation.tripWorkerRoleId) : null,
       application: assignment,
@@ -837,6 +856,7 @@ exports.updateApplication = async (req, res) => {
     );
 
     const documentCompareDate = tripDocumentCompareDate(trip);
+    const doctorPermissionTypes = await loadDoctorPermissionTypes(trip.orgId);
     const status = resolveAppliedOrIncompleteStatus({
       person,
       tripWorkerRoleId,
@@ -877,6 +897,12 @@ exports.updateApplication = async (req, res) => {
       requiredPassportUploaded: isRequiredPassportUploaded({
         documents: personDocuments,
         requirePassport: !!trip.requirePassport,
+        compareDate: documentCompareDate,
+      }),
+      doctorPermissionUploaded: isDoctorPermissionUploaded({
+        documents: personDocuments,
+        isPregnant: pregnancy.isPregnant,
+        doctorPermissionRequired: doctorPermissionTypes.length > 0,
         compareDate: documentCompareDate,
       }),
       orgId: trip.orgId,

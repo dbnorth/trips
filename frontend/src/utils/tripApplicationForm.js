@@ -1,3 +1,5 @@
+import { formatDate } from "./dateFormat.js";
+
 const isBlank = (value) => value == null || String(value).trim() === "";
 
 /** Every person-document row must have an uploaded file. */
@@ -47,10 +49,7 @@ export const activeRequiredSpecializations = (workerRole) => {
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
 };
 
-const formatDocumentDate = (ymd) => {
-  const [y, m, d] = String(ymd).slice(0, 10).split("-");
-  return `${m}/${d}/${y}`;
-};
+const formatDocumentDate = (ymd) => formatDate(String(ymd).slice(0, 10));
 
 const joinWords = (items) => {
   if (items.length <= 1) return items.join("");
@@ -186,6 +185,30 @@ export const isRequiredPassportUploaded = ({
     const expirationDate = String(doc.expirationDate || "").slice(0, 10);
     return expirationDate && expirationDate > compareDate;
   });
+};
+
+/** A Doctor Permission document with a file that is good through compareDate. */
+export const meetsDoctorPermissionRule = (doc, compareDate) => {
+  if ((doc.documentType?.type ?? doc.type ?? null) !== "doctor_permission") return false;
+  if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
+  if (!compareDate) return true;
+  const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+  if (expirationDate) return expirationDate >= compareDate;
+  return doc.documentType?.hasExpirationDate === false;
+};
+
+/**
+ * When the trip requires it and the applicant is pregnant, she must have a Doctor Permission
+ * document that is good through compareDate (meetsDoctorPermissionRule).
+ */
+export const isDoctorPermissionUploaded = ({
+  documents = [],
+  isPregnant = null,
+  doctorPermissionRequired = false,
+  compareDate = null,
+}) => {
+  if (!doctorPermissionRequired || isPregnant !== true) return true;
+  return (documents || []).some((doc) => meetsDoctorPermissionRule(doc, compareDate));
 };
 
 /** Missing-document messages mention expiration unless every listed type has none. */

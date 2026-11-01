@@ -137,6 +137,10 @@ function emptyForm() {
 
 const isSystemAdmin = computed(() => Utils.isSystemAdmin(Utils.getStore("user")));
 
+const canManageOrgRoles = computed(
+  () => isSystemAdmin.value || Utils.getOrgAdminOrgs(Utils.getStore("user")).length > 0
+);
+
 const resolvedMedicalOrgId = computed(() => {
   if (props.medicalConditionOrgId != null && props.medicalConditionOrgId !== "") {
     return Number(props.medicalConditionOrgId);
@@ -207,13 +211,17 @@ const applyPersonData = (data) => {
 };
 
 const loadOrgRoleOptions = async () => {
-  if (!isSystemAdmin.value) return;
-  const [orgRes, roleRes] = await Promise.all([
-    OrganizationServices.getAllForMenu(),
-    RoleServices.getAll(),
-  ]);
-  organizations.value = orgRes.data || [];
-  roles.value = roleRes.data || [];
+  if (!canManageOrgRoles.value) return;
+  if (isSystemAdmin.value) {
+    const [orgRes, roleRes] = await Promise.all([
+      OrganizationServices.getAllForMenu(),
+      RoleServices.getAll(),
+    ]);
+    organizations.value = orgRes.data || [];
+    roles.value = roleRes.data || [];
+  } else {
+    roles.value = (await RoleServices.getAll()).data || [];
+  }
   const pendingRole = roles.value.find((r) => r.roleName === "Pending User");
   newOrgRole.value = {
     orgId: null,
@@ -231,14 +239,26 @@ const apiErrorMessage = (error, fallback) => {
 
 const normalizeOrgRoleRows = (data) => (Array.isArray(data) ? data : []);
 
+/** Org Admins may add roles only in organizations where the person already has one (rows are already limited to their organizations). */
+const organizationsFromRows = (rows) => {
+  const byId = new Map();
+  for (const row of rows) {
+    if (!byId.has(Number(row.orgId))) {
+      byId.set(Number(row.orgId), { id: Number(row.orgId), name: row.organization?.name || String(row.orgId) });
+    }
+  }
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+};
+
 const loadOrgRoles = async () => {
   const peopleId = personRecordId();
-  if (!isSystemAdmin.value || !peopleId) return;
+  if (!canManageOrgRoles.value || !peopleId) return;
   orgRolesLoading.value = true;
   orgRoleError.value = "";
   try {
     const res = await OrgPeopleRoleServices.getByPerson(peopleId);
     orgRoles.value = normalizeOrgRoleRows(res.data);
+    if (!isSystemAdmin.value) organizations.value = organizationsFromRows(orgRoles.value);
   } catch (e) {
     orgRoleError.value = apiErrorMessage(e, "Unable to load organization roles.");
   } finally {
@@ -255,7 +275,7 @@ const loadPerson = async ({ afterConflict = false } = {}) => {
     if (resolvedMedicalOrgId.value != null) params.orgId = resolvedMedicalOrgId.value;
     const r = await PersonServices.get(props.personId, params);
     applyPersonData(r.data || {});
-    if (isSystemAdmin.value) {
+    if (canManageOrgRoles.value) {
       await Promise.all([loadOrgRoleOptions(), loadOrgRoles()]);
     }
     onLoadSuccess({ afterConflict });
@@ -393,7 +413,7 @@ const save = async () => {
   const { valid } = (await formRef.value?.validate()) ?? { valid: true };
   if (!valid) return;
 
-  if (isSystemAdmin.value && newOrgRole.value.orgId) {
+  if (canManageOrgRoles.value && newOrgRole.value.orgId) {
     await addOrgRole();
     if (orgRoleError.value) return;
   }
@@ -606,7 +626,7 @@ const save = async () => {
           <PersonDocumentsCard v-if="form.id" :person-id="form.id" />
           </v-form>
 
-          <template v-if="isSystemAdmin">
+          <template v-if="canManageOrgRoles">
             <v-divider class="person-section-rule" />
             <div class="text-subtitle-2 font-weight-bold mb-2">Organizations</div>
             <v-progress-linear v-if="orgRolesLoading" indeterminate class="mb-2" />

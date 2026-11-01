@@ -264,7 +264,7 @@ describe("Feature 78 — Days Before and After the Trip", () => {
           emailBody: "You arrive {{PARTICIPANT_ARRIVAL_DATE}} and leave {{PARTICIPANT_DEPARTURE_DATE}}.",
         });
       expect(preview.status).toBe(200);
-      expect(preview.body.emailBody).toBe("You arrive June 7, 2026 and leave June 18, 2026.");
+      expect(preview.body.emailBody).toBe("You arrive 06/07/2026 and leave 06/18/2026.");
 
       const sysAdmin = await createSystemAdminUser();
       const sources = await request(app).get("/trips/email-tokens/value-sources").set(sysAdmin.authHeader);

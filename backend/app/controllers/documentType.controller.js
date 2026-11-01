@@ -5,9 +5,9 @@ import { canManagePerson } from "./personDocument.controller.js";
 const DocumentType = db.documentType;
 const DocumentTypeSpecialization = db.documentTypeSpecialization;
 const SPECIALIZATION_NAME_MAX = 100;
-const DOCUMENT_TYPES = ["medical_licence", "passport", "certification", "diploma"];
+const DOCUMENT_TYPES = ["medical_licence", "passport", "certification", "diploma", "doctor_permission"];
 const DOCUMENT_TYPE_MESSAGE =
-  "Type must be medical_licence, passport, certification, or diploma.";
+  "Type must be medical_licence, passport, certification, diploma, or doctor_permission.";
 
 const requireOrgAdmin = (req, res, orgId) => {
   if (!isOrgAdminForOrg(req, orgId)) {

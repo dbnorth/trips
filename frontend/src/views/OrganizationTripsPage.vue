@@ -7,6 +7,7 @@ import TripServices from "../services/tripServices.js";
 import { toUrlSlug, donorTripPath, publicTripPath } from "../utils/donateUrls.js";
 import { countryName } from "../utils/locationData.js";
 import { roleAvailabilityText, applyButtonLabel } from "../utils/roleAvailability.js";
+import { formatDateRange } from "../utils/dateFormat.js";
 
 const props = defineProps({
   orgSlug: { type: String, required: true },
@@ -26,13 +27,7 @@ const orgWebsiteUrl = computed(() => {
   return `https://${url}`;
 });
 
-const formatDates = (trip) => {
-  const start = trip?.startDate;
-  const end = trip?.endDate;
-  if (!start && !end) return "—";
-  if (start && end) return `${start} – ${end}`;
-  return start || end;
-};
+const formatDates = (trip) => formatDateRange(trip?.startDate, trip?.endDate) || "—";
 
 const tripLocation = (trip) => {
   if (trip?.location) return trip.location;

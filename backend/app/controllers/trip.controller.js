@@ -24,9 +24,11 @@ import {
 import { withCapacityFields } from "../utils/tripRoleCapacity.js";
 import {
   arePersonDocumentsUploaded,
+  isDoctorPermissionUploaded,
   isRequiredPassportUploaded,
   isRequiredRoleDocumentUploaded,
   isUnder18,
+  loadDoctorPermissionTypes,
   isProfileComplete,
   loadPersonDocumentsForCompleteness,
   loadPersonForCompleteness,
@@ -265,6 +267,7 @@ exports.findStatus = async (req, res) => {
     const medicalAgreementExists =
       !!medicalAgreement?.exists && !!medicalAgreement?.content?.trim();
     const documentCompareDate = tripDocumentCompareDate(tripJson);
+    const doctorPermissionRequired = (await loadDoctorPermissionTypes(orgId)).length > 0;
 
     const participants = [];
     for (const assignment of assignments) {
@@ -338,6 +341,14 @@ exports.findStatus = async (req, res) => {
           compareDate: documentCompareDate,
         }),
         requirePassport: !!tripJson.requirePassport,
+        doctorPermissionUploaded:
+          missingRoleDocs.some((docType) => docType.type === "doctor_permission") ||
+          isDoctorPermissionUploaded({
+            documents: personDocuments,
+            isPregnant: pregnancy.ok ? pregnancy.isPregnant : null,
+            doctorPermissionRequired,
+            compareDate: documentCompareDate,
+          }),
       });
 
       const costBreakdown = await participantCostBreakdown(tripJson, json);

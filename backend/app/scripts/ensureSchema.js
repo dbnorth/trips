@@ -459,7 +459,7 @@ const ensureDocumentTypesTable = async () => {
       CREATE TABLE documentTypes (
         id INT NOT NULL AUTO_INCREMENT,
         description VARCHAR(255) NOT NULL,
-        type ENUM('medical_licence', 'passport', 'certification', 'diploma') NOT NULL,
+        type ENUM('medical_licence', 'passport', 'certification', 'diploma', 'doctor_permission') NOT NULL,
         documentNumberRequired TINYINT(1) NOT NULL DEFAULT 0,
         instructions TEXT NULL,
         createdAt DATETIME NOT NULL,
@@ -488,17 +488,17 @@ const ensureDocumentTypesTable = async () => {
       `);
       await db.sequelize.query(`
         ALTER TABLE documentTypes
-        MODIFY COLUMN type ENUM('medical_licence', 'passport', 'certification', 'diploma') NOT NULL
+        MODIFY COLUMN type ENUM('medical_licence', 'passport', 'certification', 'diploma', 'doctor_permission') NOT NULL
       `);
       logger.info(
-        "documentTypes.type enum updated to medical_licence, passport, certification, and diploma."
+        "documentTypes.type enum updated to medical_licence, passport, certification, diploma, and doctor_permission."
       );
-    } else if (!columnType.includes("diploma")) {
+    } else if (!columnType.includes("doctor_permission")) {
       await db.sequelize.query(`
         ALTER TABLE documentTypes
-        MODIFY COLUMN type ENUM('medical_licence', 'passport', 'certification', 'diploma') NOT NULL
+        MODIFY COLUMN type ENUM('medical_licence', 'passport', 'certification', 'diploma', 'doctor_permission') NOT NULL
       `);
-      logger.info("documentTypes.type enum added diploma.");
+      logger.info("documentTypes.type enum added doctor_permission.");
     }
   }
 

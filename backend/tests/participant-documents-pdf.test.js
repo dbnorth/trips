@@ -130,15 +130,15 @@ describe("Feature 58 — Participant Documents PDF", () => {
       expect(data.trip).toEqual({
         name: "Guatemala Clinic",
         location: "Antigua, Guatemala",
-        dates: "January 2, 2027 to January 9, 2027",
+        dates: "01/02/2027 to 01/09/2027",
       });
       expect(data.documents).toEqual([
         {
           type: "Passport",
           documentNumber: "P1234567",
           countryIssued: "United States",
-          issueDate: "June 15, 2021",
-          expirationDate: "June 15, 2031",
+          issueDate: "06/15/2021",
+          expirationDate: "06/15/2031",
           specializations: [],
         },
       ]);
@@ -160,8 +160,8 @@ describe("Feature 58 — Participant Documents PDF", () => {
       const data = await buildParticipantDocumentsData(trip.id, assignment.id);
 
       expect(data.documents[0].specializations).toEqual([
-        { name: "Pediatrics", date: "March 1, 2024" },
-        { name: "Emergency", date: "May 10, 2025" },
+        { name: "Pediatrics", date: "03/01/2024" },
+        { name: "Emergency", date: "05/10/2025" },
       ]);
     });
 
@@ -191,7 +191,7 @@ describe("Feature 58 — Participant Documents PDF", () => {
       expect(data.pages[1].details).toEqual([
         ["Document type", "Board certification"],
         ["Specialization", "Pediatrics"],
-        ["Date", "March 1, 2024"],
+        ["Date", "03/01/2024"],
       ]);
       expect(data.pages.map((page) => page.file.kind)).toEqual(["image", "image", "image"]);
     });

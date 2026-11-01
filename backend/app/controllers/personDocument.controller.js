@@ -271,7 +271,10 @@ const validatePayload = async (body) => {
       countryIssued: body.countryIssued?.trim()?.toUpperCase() || null,
       documentNumber,
       issueDate: body.issueDate || null,
-      expirationDate: documentType.hasExpirationDate ? body.expirationDate : null,
+      expirationDate:
+        documentType.hasExpirationDate || documentType.type === "doctor_permission"
+          ? body.expirationDate || null
+          : null,
     },
   };
 };

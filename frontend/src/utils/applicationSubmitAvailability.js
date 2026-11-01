@@ -70,6 +70,7 @@ export const getIncompleteSubmitReasons = ({
   missingRoleDocumentNames = [],
   requiredPassportUploaded = true,
   requirePassport = false,
+  doctorPermissionUploaded = true,
 } = {}) => {
   const reasons = [];
 
@@ -137,6 +138,9 @@ export const getIncompleteSubmitReasons = ({
   }
   if (requirePassport && !requiredPassportUploaded) {
     reasons.push("Passport document (with valid expiration)");
+  }
+  if (!doctorPermissionUploaded) {
+    reasons.push("Doctor Permission document");
   }
 
   return reasons;

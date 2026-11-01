@@ -5,11 +5,23 @@ import PersonDocumentServices from "../services/personDocumentServices.js";
 import CountrySelect from "./CountrySelect.vue";
 import { countryName, resolveCountryCode, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { pdfFirstPageUrl } from "../utils/pdfThumbnail.js";
+import { formatDate } from "../utils/dateFormat.js";
 
 const props = defineProps({
   personId: { type: [Number, String], default: null },
   orgId: { type: [Number, String], default: null },
+  /** When set, only documents and `orgId` document types of this Type are shown and offered. */
+  onlyType: { type: String, default: "" },
+  addLabel: { type: String, default: "Add Document" },
+  showAdd: { type: Boolean, default: true },
+  /**
+   * With `onlyType`: lists only documents good through this date, and new documents are saved
+   * with it as their expiration date (the field is hidden).
+   */
+  validThrough: { type: String, default: "" },
 });
+
+const emit = defineEmits(["saved"]);
 
 const documents = ref([]);
 const documentTypes = ref([]);
@@ -108,6 +120,12 @@ const documentNumberRequired = computed(
 const allowSpecialization = computed(() => !!selectedDocumentType.value?.allowSpecialization);
 
 const hasExpirationDate = computed(() => selectedDocumentType.value?.hasExpirationDate !== false);
+
+const fixedExpirationDate = computed(() =>
+  props.onlyType && props.validThrough && !isEditing.value ? props.validThrough : ""
+);
+
+const showExpirationField = computed(() => hasExpirationDate.value && !fixedExpirationDate.value);
 
 const specializationOptions = computed(() => selectedDocumentType.value?.specializations || []);
 
@@ -237,7 +255,7 @@ const validateForm = () => {
   if (!form.value.issueDate) {
     errors.issueDate = "Issue date is required.";
   }
-  if (hasExpirationDate.value && !form.value.expirationDate) {
+  if (showExpirationField.value && !form.value.expirationDate) {
     errors.expirationDate = "Expiration date is required.";
   }
   if (allowSpecialization.value) {
@@ -293,10 +311,14 @@ const load = async () => {
   try {
     const [docsRes, typesRes] = await Promise.all([
       PersonDocumentServices.getAll(props.personId),
-      DocumentTypeServices.getAll({ personId: props.personId }),
+      DocumentTypeServices.getAll(
+        props.onlyType ? { orgId: props.orgId } : { personId: props.personId }
+      ),
     ]);
     documents.value = docsRes.data || [];
-    documentTypes.value = typesRes.data || [];
+    documentTypes.value = (typesRes.data || []).filter(
+      (row) => !props.onlyType || row.type === props.onlyType
+    );
   } catch (e) {
     message.value = e.response?.data?.message || "Unable to load documents.";
   } finally {
@@ -306,8 +328,25 @@ const load = async () => {
 
 const openAdd = () => {
   resetForm();
+  if (props.onlyType) form.value.documentTypeId = documentTypes.value[0]?.id ?? null;
   formDialog.value = true;
 };
+
+const isGoodThrough = (row, date) => {
+  if (!date) return true;
+  const expirationDate = String(row.expirationDate || "").slice(0, 10);
+  if (expirationDate) return expirationDate >= date;
+  return row.documentType?.hasExpirationDate === false;
+};
+
+const onlyTypeDocuments = computed(() =>
+  documents.value.filter(
+    (row) =>
+      row.documentType?.type === props.onlyType &&
+      row.documentFileName &&
+      isGoodThrough(row, props.validThrough)
+  )
+);
 
 const startEdit = (row) => {
   message.value = "";
@@ -344,7 +383,8 @@ const saveDocument = async () => {
       : null,
     countryIssued: resolveCountryCode(form.value.countryIssued) || null,
     issueDate: form.value.issueDate,
-    expirationDate: hasExpirationDate.value ? form.value.expirationDate : null,
+    expirationDate:
+      fixedExpirationDate.value || (hasExpirationDate.value ? form.value.expirationDate : null),
     file: form.value.file || undefined,
   };
   if (allowSpecialization.value) {
@@ -371,6 +411,7 @@ const saveDocument = async () => {
     }
     resetForm();
     await load();
+    emit("saved");
   } catch (e) {
     message.value =
       e.response?.data?.message ||
@@ -454,13 +495,36 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="mt-4 mb-2">
-    <v-divider class="person-section-rule" />
-    <div class="d-flex align-center justify-space-between mb-2">
+  <div :class="props.onlyType ? 'mb-3' : 'mt-4 mb-2'">
+    <div v-if="props.onlyType" data-testid="only-type-documents">
+      <div
+        v-for="row in onlyTypeDocuments"
+        :key="row.id"
+        class="d-flex align-center ga-2 mb-1"
+      >
+        <v-icon icon="mdi-check-circle" color="success" size="small" />
+        <span>{{ row.documentType?.description }} uploaded</span>
+        <span v-if="row.expirationDate" class="text-medium-emphasis">
+          expires {{ formatDate(row.expirationDate) }}
+        </span>
+        <v-btn size="small" variant="text" @click="viewDocument(row)">View</v-btn>
+      </div>
+      <v-btn
+        v-if="props.showAdd"
+        size="small"
+        color="primary"
+        :disabled="!props.personId || !documentTypes.length"
+        @click="openAdd"
+      >
+        {{ props.addLabel }}
+      </v-btn>
+    </div>
+    <v-divider v-if="!props.onlyType" class="person-section-rule" />
+    <div v-if="!props.onlyType" class="d-flex align-center justify-space-between mb-2">
       <div class="text-subtitle-2 font-weight-bold">Documents</div>
       <div class="d-flex align-center ga-2">
         <v-btn size="small" color="primary" :disabled="!props.personId" @click="openAdd">
-          Add Document
+          {{ props.addLabel }}
         </v-btn>
         <v-progress-circular v-if="loading" indeterminate size="18" width="2" />
       </div>
@@ -468,7 +532,7 @@ onMounted(load);
 
     <v-alert v-if="message" type="info" density="compact" class="mb-3">{{ message }}</v-alert>
 
-    <v-table v-if="documents.length" density="compact" class="border rounded mb-3">
+    <v-table v-if="!props.onlyType && documents.length" density="compact" class="border rounded mb-3">
       <thead>
         <tr>
           <th>Type</th>
@@ -486,8 +550,8 @@ onMounted(load);
           <td>{{ row.documentType?.description || row.documentTypeId }}</td>
           <td>{{ row.documentNumber || "—" }}</td>
           <td>{{ countryLabel(row.countryIssued) }}</td>
-          <td>{{ row.issueDate || "—" }}</td>
-          <td>{{ row.expirationDate || "—" }}</td>
+          <td>{{ formatDate(row.issueDate) || "—" }}</td>
+          <td>{{ formatDate(row.expirationDate) || "—" }}</td>
           <td>
             <v-btn
               v-if="row.documentFileName"
@@ -515,7 +579,7 @@ onMounted(load);
               class="d-flex align-center py-1"
             >
               <span>{{ spec.name }}</span>
-              <span class="ms-4">{{ spec.date }}</span>
+              <span class="ms-4">{{ formatDate(spec.date) }}</span>
               <span class="ms-auto">
                 <v-btn size="small" variant="text" @click="viewDocument(row, spec)">View</v-btn>
                 <v-btn size="small" variant="text" @click="downloadDocument(row, spec)">Download</v-btn>
@@ -527,7 +591,7 @@ onMounted(load);
       </tbody>
     </v-table>
 
-    <p v-else class="text-body-2 text-medium-emphasis mb-3">No documents</p>
+    <p v-else-if="!props.onlyType" class="text-body-2 text-medium-emphasis mb-3">No documents</p>
 
     <v-dialog
       :model-value="formDialog"
@@ -584,7 +648,7 @@ onMounted(load);
             :error-messages="fieldErrors.issueDate"
           />
         </v-col>
-        <v-col v-if="hasExpirationDate" cols="12" sm="6">
+        <v-col v-if="showExpirationField" cols="12" sm="6">
           <v-text-field
             v-model="form.expirationDate"
             label="Expiration date"

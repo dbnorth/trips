@@ -11,6 +11,7 @@ import TripApplicationTravelOptions from "./TripApplicationTravelOptions.vue";
 import TripApplicationFlightPurchase from "./TripApplicationFlightPurchase.vue";
 import EditPersonDialog from "./EditPersonDialog.vue";
 import PersonProfileFields from "./PersonProfileFields.vue";
+import PersonDocumentsCard from "./PersonDocumentsCard.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import ApplicationSubmitUnavailableAlert from "./ApplicationSubmitUnavailableAlert.vue";
 import {
@@ -23,6 +24,7 @@ import {
   activeRequiredSpecializations,
   arePersonDocumentsUploaded,
   isApplicationFormComplete,
+  isDoctorPermissionUploaded,
   isRequiredPassportUploaded,
   isRequiredRoleDocumentUploaded,
   missingRequiredRoleDocuments,
@@ -32,6 +34,7 @@ import {
   validateTravelOptionSelections,
 } from "../utils/tripApplicationForm.js";
 import { noSpotMessage } from "../utils/roleAvailability.js";
+import { formatDate } from "../utils/dateFormat.js";
 import {
   canShowPrimarySubmitButton,
   getIncompleteSubmitReasons,
@@ -183,6 +186,23 @@ const hasRequiredPassportForTrip = computed(() => {
   });
 });
 
+const doctorPermissionRequired = computed(
+  () => !!trip.value?.requiresDoctorPermissionWhenPregnant
+);
+
+const doctorPermissionListedForRole = computed(() =>
+  requiredDocumentTypes.value.some((d) => d.type === "doctor_permission")
+);
+
+const hasDoctorPermissionForTrip = computed(() =>
+  isDoctorPermissionUploaded({
+    documents: personDocuments.value,
+    isPregnant: normalizeYesNo(healthForm.value.isPregnant),
+    doctorPermissionRequired: doctorPermissionRequired.value,
+    compareDate: dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate),
+  })
+);
+
 const personDocumentsUploaded = computed(() =>
   arePersonDocumentsUploaded(personDocuments.value)
 );
@@ -191,7 +211,8 @@ const documentsCompleteForSubmit = computed(
   () =>
     personDocumentsUploaded.value &&
     hasRequiredDocumentForTrip.value &&
-    hasRequiredPassportForTrip.value
+    hasRequiredPassportForTrip.value &&
+    hasDoctorPermissionForTrip.value
 );
 
 const documentRequirementWarning = computed(() => {
@@ -204,8 +225,16 @@ const documentRequirementWarning = computed(() => {
       return "Upload a passport before submitting your application.";
     }
     const endDate = dateOnly(trip.value?.endDate);
-    const endPart = endDate ? ` (${endDate})` : "";
+    const endPart = endDate ? ` (${formatDate(endDate)})` : "";
     return `Upload a passport with an expiration date past the end of the trip${endPart} before submitting your application.`;
+  }
+  if (!hasDoctorPermissionForTrip.value && !doctorPermissionListedForRole.value) {
+    if (!trip.value?.doctorPermissionHasExpiration) {
+      return "Upload a Doctor Permission document before submitting your application.";
+    }
+    const endDate = dateOnly(trip.value?.endDate);
+    const endPart = endDate ? ` (${formatDate(endDate)})` : "";
+    return `Upload a Doctor Permission document with an expiration date on or after the end of the trip${endPart} before submitting your application.`;
   }
   const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
   const missing = missingRequiredRoleDocuments({
@@ -369,6 +398,7 @@ const submitUnavailableReasons = computed(() => {
     ),
     requiredPassportUploaded: hasRequiredPassportForTrip.value,
     requirePassport: !!trip.value?.requirePassport,
+    doctorPermissionUploaded: hasDoctorPermissionForTrip.value || doctorPermissionListedForRole.value,
   });
 });
 
@@ -922,8 +952,21 @@ const confirmUncancelApplication = async () => {
             :org-id="trip?.orgId"
             health-only
             :disabled="!canEdit"
+            :doctor-document-on-file="doctorPermissionRequired && hasDoctorPermissionForTrip"
             @update-profile="showProfileDialog = true"
-          />
+          >
+            <template v-if="doctorPermissionRequired" #pregnancy>
+              <PersonDocumentsCard
+                :person-id="personId"
+                :org-id="trip?.orgId"
+                only-type="doctor_permission"
+                add-label="Upload Doctor Permission document"
+                :show-add="canEdit && !hasDoctorPermissionForTrip"
+                :valid-through="dateOnly(trip?.endDate) || dateOnly(trip?.startDate) || ''"
+                @saved="loadPersonDocuments"
+              />
+            </template>
+          </PersonProfileFields>
 
           <div class="text-subtitle-2 mb-1 mt-2">Funding</div>
           <v-checkbox

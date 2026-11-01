@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import { formatDate as formatDateText } from "../utils/dateFormat.js";
 
 const props = defineProps({
   date: { type: String, default: null },
@@ -8,10 +9,7 @@ const props = defineProps({
   flightDate: { type: String, default: null },
 });
 
-const formatDate = (value) => {
-  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return match ? `${match[2]}/${match[3]}/${match[1]}` : "—";
-};
+const formatDate = (value) => formatDateText(String(value || "").slice(0, 10)) || "—";
 
 const formatted = computed(() => formatDate(props.date));
 

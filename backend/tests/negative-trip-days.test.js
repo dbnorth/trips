@@ -132,7 +132,7 @@ describe("Feature 89 — Negative Trip Days", () => {
           emailBody: "You leave {{PARTICIPANT_DEPARTURE_DATE}}.",
         });
       expect(preview.status).toBe(200);
-      expect(preview.body.emailBody).toBe("You leave January 22, 2027.");
+      expect(preview.body.emailBody).toBe("You leave 01/22/2027.");
     });
 
     it("An add-on expense takes negative days", async () => {

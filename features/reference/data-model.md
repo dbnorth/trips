@@ -199,7 +199,7 @@ Notes:
 | id | INTEGER PK | autoIncrement |
 | orgId | INTEGER | required FK → organization; CASCADE on delete (Feature 91). Added by `ensureSchema`, which sets every existing document type to organization 1 once, then makes it required (left optional when organization 1 doesn't exist) |
 | description | STRING(255) | required; may repeat across organizations |
-| type | ENUM(`medical_licence`,`passport`,`certification`,`diploma`) | required (`certification` — Feature 22; `diploma` — Feature 24) |
+| type | ENUM(`medical_licence`,`passport`,`certification`,`diploma`,`doctor_permission`) | required (`certification` — Feature 22; `diploma` — Feature 24; `doctor_permission` — Feature 102, added to the existing column by `ensureSchema`) |
 | documentNumberRequired | BOOLEAN | required, default `false` (Feature 22) |
 | instructions | TEXT | nullable (Feature 22) |
 | allowSpecialization | BOOLEAN | required, default `false` (Feature 34) |
