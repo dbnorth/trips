@@ -10,6 +10,8 @@ import { TRIP_PARTICIPANT_STATUSES } from "../models/tripPeopleRole.model.js";
 import {
   arePersonDocumentsUploaded,
   isRequiredPassportUploaded,
+  isDoctorPermissionUploaded,
+  loadDoctorPermissionTypes,
   isRequiredRoleDocumentUploaded,
   loadPersonDocumentsForCompleteness,
   loadWorkerRoleDocumentRequirements,
@@ -245,6 +247,12 @@ const computeStatusForPayload = async (payload, orgId) => {
     requiredPassportUploaded: isRequiredPassportUploaded({
       documents: personDocuments,
       requirePassport: !!trip?.requirePassport,
+      compareDate: documentCompareDate,
+    }),
+    doctorPermissionUploaded: isDoctorPermissionUploaded({
+      documents: personDocuments,
+      isPregnant: pregnancy.ok ? pregnancy.isPregnant : null,
+      doctorPermissionRequired: (await loadDoctorPermissionTypes(orgId)).length > 0,
       compareDate: documentCompareDate,
     }),
     orgId,

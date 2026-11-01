@@ -19,6 +19,8 @@ const props = defineProps({
    */
   healthOnly: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
+  /** Hides the doctor-document message when a Doctor Permission document is on file (Feature 102). */
+  doctorDocumentOnFile: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue", "update-profile"]);
@@ -458,9 +460,10 @@ const onTakesMedicationChange = (value) => {
         :disabled="disabled"
         @update:model-value="update('pregnancyDueDate', $event)"
       />
-      <v-alert type="info" density="compact" class="mb-2">
+      <v-alert v-if="!doctorDocumentOnFile" type="info" density="compact" class="mb-2">
         {{ DOCTOR_TRAVEL_DOCUMENT_MESSAGE }}
       </v-alert>
+      <slot name="pregnancy" />
     </template>
   </template>
 

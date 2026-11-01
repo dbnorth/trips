@@ -6,7 +6,7 @@ const DocumentType = SequelizeInstance.define("documentType", {
   orgId: { type: Sequelize.INTEGER, allowNull: false },
   description: { type: Sequelize.STRING(255), allowNull: false },
     type: {
-      type: Sequelize.ENUM("medical_licence", "passport", "certification", "diploma"),
+      type: Sequelize.ENUM("medical_licence", "passport", "certification", "diploma", "doctor_permission"),
       allowNull: false,
     },
   documentNumberRequired: {
