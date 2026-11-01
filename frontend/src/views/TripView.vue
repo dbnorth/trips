@@ -23,6 +23,7 @@ import { countryName } from "../utils/locationData.js";
 import { donorTripPath, donorParticipantPath } from "../utils/donateUrls.js";
 import PersonServices from "../services/personServices.js";
 import RowAction from "../components/RowAction.vue";
+import { formatDate as formatDateText } from "../utils/dateFormat.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -84,7 +85,7 @@ const unassignedDonations = computed(() =>
   sumDonations(donations.value.filter((row) => row.personId == null))
 );
 
-const formatDate = (value) => value || "—";
+const formatDate = (value) => formatDateText(value) || "—";
 
 const participantName = (row) => {
   const p = row.person;

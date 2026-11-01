@@ -1,3 +1,5 @@
+import { formatDate } from "./dateFormat.js";
+
 const isBlank = (value) => value == null || String(value).trim() === "";
 
 /** Every person-document row must have an uploaded file. */
@@ -47,10 +49,7 @@ export const activeRequiredSpecializations = (workerRole) => {
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
 };
 
-const formatDocumentDate = (ymd) => {
-  const [y, m, d] = String(ymd).slice(0, 10).split("-");
-  return `${m}/${d}/${y}`;
-};
+const formatDocumentDate = (ymd) => formatDate(String(ymd).slice(0, 10));
 
 const joinWords = (items) => {
   if (items.length <= 1) return items.join("");

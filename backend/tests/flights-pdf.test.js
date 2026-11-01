@@ -106,7 +106,7 @@ describe("Feature 55 — Flights PDF", () => {
       const data = await buildFlightsData(trip.id);
 
       expect(data.organization).toEqual({ name: "Hope Mission", logoFile: null });
-      expect(data.trip).toEqual({ name: "Guatemala Clinic", dates: "January 2, 2027 to January 9, 2027" });
+      expect(data.trip).toEqual({ name: "Guatemala Clinic", dates: "01/02/2027 to 01/09/2027" });
       expect(data.participants).toEqual([
         {
           name: "Ana Maria Lopez",

@@ -9,6 +9,7 @@ import Utils from "../config/utils.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { formatDonorName } from "../utils/donorUtils.js";
 import RowAction from "../components/RowAction.vue";
+import { formatDateTime } from "../utils/dateFormat.js";
 
 const user = ref(null);
 const trips = ref([]);
@@ -47,10 +48,7 @@ const unassignedDonations = computed(() =>
 const formatCost = (value) =>
   value != null && value !== "" ? formatMoneyDisplay(value) : "—";
 
-const formatDate = (value) => {
-  if (!value) return "—";
-  return new Date(value).toLocaleString();
-};
+const formatDate = (value) => formatDateTime(value) || "—";
 
 const formatAmount = (value) => formatMoneyDisplay(value) || "—";
 

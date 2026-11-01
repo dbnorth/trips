@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import DonationServices from "../services/donationServices.js";
 import DonationFormDialog from "./DonationFormDialog.vue";
 import { formatDonorName } from "../utils/donorUtils.js";
+import { formatDateTime } from "../utils/dateFormat.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -46,10 +47,7 @@ const tableHeaders = computed(() => {
 
 const personId = computed(() => props.participant?.person?.id ?? props.participant?.peopleId ?? null);
 
-const formatDate = (value) => {
-  if (!value) return "—";
-  return new Date(value).toLocaleString();
-};
+const formatDate = (value) => formatDateTime(value) || "—";
 
 const formatAmount = (value) => `$${Number(value || 0).toFixed(2)}`;
 

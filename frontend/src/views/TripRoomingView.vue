@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
+import { formatDate } from "../utils/dateFormat.js";
 import { useRoute, useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import ExportServices from "../services/exportServices.js";
@@ -161,7 +162,7 @@ onMounted(load);
     <v-card v-if="trip" class="pa-4 mb-6">
       <v-card-title class="px-0 pt-0">{{ trip.name }}</v-card-title>
       <v-card-subtitle class="px-0">
-        {{ trip.startDate || "—" }} – {{ trip.endDate || "—" }}
+        {{ formatDate(trip.startDate) || "—" }} – {{ formatDate(trip.endDate) || "—" }}
       </v-card-subtitle>
       <v-card-text class="px-0">
         <v-row dense>

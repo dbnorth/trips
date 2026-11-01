@@ -251,7 +251,7 @@ Uploaded document and specialization files are stored encrypted and returned dec
 | `POST` | `/trips/trip-people-roles/:id/uncancel` | auth | Staff uncancel → auto `incomplete`/`applied`; fails if role full |
 | `PUT` | `/trips/trip-people-roles/:id` | auth | Update / approve / decline; sends `application-submitted` / `application-approved` event emails for Trip Participants — Feature 45; optional `addonExpenses` `[{ description, cost }]` replaces the add-on list in the same transaction (omitted → unchanged); a row without a description (≤ 255) or a cost ≥ 0 with at most 2 decimals → `400` "Each add-on expense needs a description and a cost of $0 or more." and nothing is saved — Feature 74; rows accept `daysBefore` / `daysAfter` (whole numbers −365 to 365, blank → 0, otherwise `400` "Days before and after must be whole numbers from -365 to 365." — Feature 89); more than one row with days before (or after) that aren't 0 → `400` "Only one add-on expense can have days before the trip." / "Only one add-on expense can have days after the trip." and nothing is saved — Feature 78; optional `selectedTravelOptionIds` (trip option ids) replaces the saved trip options in the same transaction (omitted → options and cost unchanged), checked like an application: an option of another trip → `400` "One or more selected travel options are invalid for this trip.", two in one set → `400` "Only one travel option can be selected per trip option group.", two with days before (after) → `400` with the Feature 78 trip option message; unanswered sets allowed; without `participantCost` the saved participant cost shifts by (new − old selected options' price adjustments), a blank cost starting from the trip's participant cost (blank with no trip cost stays blank) — Feature 92 |
 | `DELETE` | `/trips/trip-people-roles/:id` | auth | Delete |
-| `GET` | `/trips/export/trips/:tripId/participants.csv` | auth | Participants CSV; **Preferred Name** column after **Last Name** (Feature 33); trip staff only — approved Trip Participant → `403` "Forbidden.", no trip access → `404` "Trip not found." (Feature 69) |
+| `GET` | `/trips/export/trips/:tripId/participants.csv` | auth | Participants CSV; **Preferred Name** column after **Last Name** (Feature 33); trip staff only — approved Trip Participant → `403` "Forbidden.", no trip access → `404` "Trip not found." (Feature 69); dates `MM/DD/YYYY`, date-times `MM/DD/YYYY h:mm AM/PM` in `SCHEDULED_EMAIL_TIMEZONE` (Feature 101) |
 
 Browse/apply UI is blocked for system admins (router); see `behavior.md`.
 
@@ -271,7 +271,7 @@ Browse/apply UI is blocked for system admins (router); see `behavior.md`.
 | `POST` | `/trips/donors` | auth | Create donor (`personId` ignored) |
 | `PUT` | `/trips/donors/:id` | auth | Update donor |
 | `GET` | `/trips/export/trips/:tripId/donors.csv` | auth | Donors CSV |
-| `GET` | `/trips/export/trips/:tripId/donations.csv` | auth | Donations CSV |
+| `GET` | `/trips/export/trips/:tripId/donations.csv` | auth | Donations CSV; **Date** `MM/DD/YYYY h:mm AM/PM` in `SCHEDULED_EMAIL_TIMEZONE` (Feature 101) |
 
 ---
 

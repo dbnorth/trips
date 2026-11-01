@@ -32,6 +32,7 @@ import {
   validateTravelOptionSelections,
 } from "../utils/tripApplicationForm.js";
 import { noSpotMessage } from "../utils/roleAvailability.js";
+import { formatDate } from "../utils/dateFormat.js";
 import {
   canShowPrimarySubmitButton,
   getIncompleteSubmitReasons,
@@ -204,7 +205,7 @@ const documentRequirementWarning = computed(() => {
       return "Upload a passport before submitting your application.";
     }
     const endDate = dateOnly(trip.value?.endDate);
-    const endPart = endDate ? ` (${endDate})` : "";
+    const endPart = endDate ? ` (${formatDate(endDate)})` : "";
     return `Upload a passport with an expiration date past the end of the trip${endPart} before submitting your application.`;
   }
   const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);

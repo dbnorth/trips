@@ -157,11 +157,11 @@ describe("Feature 54 — Room List PDF", () => {
       expect(data.trip).toEqual({
         name: "Guatemala Clinic",
         location: "Antigua, Guatemala",
-        dates: "January 2, 2027 to January 9, 2027",
+        dates: "01/02/2027 to 01/09/2027",
       });
       expect(data.hotel).toEqual({
         hotelName: "Hotel Casa Santo Domingo",
-        checkInDate: "January 2, 2027",
+        checkInDate: "01/02/2027",
         notes: "Late arrival",
       });
       expect(data.rows).toEqual([
@@ -171,7 +171,7 @@ describe("Feature 54 — Room List PDF", () => {
           numberOfNights: 7,
           name: "Ana Maria Lopez",
           passportNumber: "P1234567",
-          passportExpiration: "June 15, 2031",
+          passportExpiration: "06/15/2031",
           flightArrival: "",
           email: "ana@example.org",
         },
@@ -226,7 +226,7 @@ describe("Feature 54 — Room List PDF", () => {
 
       expect(data.rows[0]).toMatchObject({
         passportNumber: "NEW222",
-        passportExpiration: "June 15, 2031",
+        passportExpiration: "06/15/2031",
       });
     });
 

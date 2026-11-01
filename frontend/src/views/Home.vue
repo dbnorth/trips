@@ -24,6 +24,7 @@ import { tripParticipantStatusLabel, tripParticipantStatusColor } from "../utils
 import { orgPublicRoute } from "../utils/donateUrls.js";
 import { useRouter } from "vue-router";
 import RowAction from "../components/RowAction.vue";
+import { formatDate as formatDateText } from "../utils/dateFormat.js";
 
 const router = useRouter();
 const user = ref(null);
@@ -401,7 +402,7 @@ const onProfileSaved = async () => {
 
 const formatLeaders = (trip) => (trip.leaderNames || []).join(", ") || "—";
 
-const formatDate = (value) => value || "—";
+const formatDate = (value) => formatDateText(value) || "—";
 
 const openLeaderTrip = (trip) => {
   if (trip.orgId != null) {

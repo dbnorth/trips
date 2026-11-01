@@ -9,6 +9,7 @@ import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { countryName } from "../utils/locationData.js";
 import { tripParticipantStatusLabel } from "../utils/tripParticipantStatus.js";
 import { flightBookedByLabel } from "../utils/flightBookedBy.js";
+import { formatDate as formatDateText } from "../utils/dateFormat.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -30,7 +31,7 @@ const rolesNeeded = computed(() => board.value?.rolesNeeded || []);
 const travelOptions = computed(() => board.value?.travelOptions || []);
 const participants = computed(() => board.value?.participants || []);
 
-const formatDate = (value) => value || "—";
+const formatDate = (value) => formatDateText(value) || "—";
 
 const formatMoney = (value) => {
   if (value == null || value === "") return "—";
