@@ -1,8 +1,10 @@
 import db from "../models/index.js";
 import {
   arePersonDocumentsUploaded,
+  isDoctorPermissionUploaded,
   isProfileComplete,
   isRequiredPassportUploaded,
+  loadDoctorPermissionTypes,
   isUnder18,
   loadPersonDocumentsForCompleteness,
   loadPersonForCompleteness,
@@ -54,6 +56,18 @@ const missingDocumentNames = async ({ assignment, trip, personDocuments }) => {
     })
   ) {
     names.push("Passport");
+  }
+  const doctorPermissionListed = missingRoleDocuments.some((docType) => docType.type === "doctor_permission");
+  if (
+    !doctorPermissionListed &&
+    !isDoctorPermissionUploaded({
+      documents: personDocuments,
+      isPregnant: assignment.isPregnant,
+      doctorPermissionRequired: (await loadDoctorPermissionTypes(trip.orgId)).length > 0,
+      compareDate,
+    })
+  ) {
+    names.push("Doctor Permission");
   }
   if (!arePersonDocumentsUploaded(personDocuments)) {
     names.push("A file for every profile document");

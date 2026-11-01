@@ -12,6 +12,7 @@ import TripApplicationTravelOptions from "../components/TripApplicationTravelOpt
 import TripApplicationFlightPurchase from "../components/TripApplicationFlightPurchase.vue";
 import EditPersonDialog from "../components/EditPersonDialog.vue";
 import PersonProfileFields from "../components/PersonProfileFields.vue";
+import PersonDocumentsCard from "../components/PersonDocumentsCard.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import ApplicationSubmitUnavailableAlert from "../components/ApplicationSubmitUnavailableAlert.vue";
 import {
@@ -24,6 +25,7 @@ import {
   activeRequiredSpecializations,
   arePersonDocumentsUploaded,
   isApplicationFormComplete,
+  isDoctorPermissionUploaded,
   isRequiredPassportUploaded,
   isRequiredRoleDocumentUploaded,
   missingRequiredRoleDocuments,
@@ -174,6 +176,23 @@ const hasRequiredPassportForTrip = computed(() => {
   });
 });
 
+const doctorPermissionRequired = computed(
+  () => !!trip.value?.requiresDoctorPermissionWhenPregnant
+);
+
+const doctorPermissionListedForRole = computed(() =>
+  requiredDocumentTypes.value.some((d) => d.type === "doctor_permission")
+);
+
+const hasDoctorPermissionForTrip = computed(() =>
+  isDoctorPermissionUploaded({
+    documents: personDocuments.value,
+    isPregnant: normalizeYesNo(healthForm.value.isPregnant),
+    doctorPermissionRequired: doctorPermissionRequired.value,
+    compareDate: dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate),
+  })
+);
+
 const personDocumentsUploaded = computed(() =>
   arePersonDocumentsUploaded(personDocuments.value)
 );
@@ -182,7 +201,8 @@ const documentsCompleteForSubmit = computed(
   () =>
     personDocumentsUploaded.value &&
     hasRequiredDocumentForTrip.value &&
-    hasRequiredPassportForTrip.value
+    hasRequiredPassportForTrip.value &&
+    hasDoctorPermissionForTrip.value
 );
 
 const documentRequirementWarning = computed(() => {
@@ -197,6 +217,14 @@ const documentRequirementWarning = computed(() => {
     const endDate = dateOnly(trip.value?.endDate);
     const endPart = endDate ? ` (${formatDate(endDate)})` : "";
     return `Upload a passport with an expiration date past the end of the trip${endPart} before submitting your application.`;
+  }
+  if (!hasDoctorPermissionForTrip.value && !doctorPermissionListedForRole.value) {
+    if (!trip.value?.doctorPermissionHasExpiration) {
+      return "Upload a Doctor Permission document before submitting your application.";
+    }
+    const endDate = dateOnly(trip.value?.endDate);
+    const endPart = endDate ? ` (${formatDate(endDate)})` : "";
+    return `Upload a Doctor Permission document with an expiration date on or after the end of the trip${endPart} before submitting your application.`;
   }
   const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
   const missing = missingRequiredRoleDocuments({
@@ -358,6 +386,7 @@ const submitUnavailableReasons = computed(() => {
     ),
     requiredPassportUploaded: hasRequiredPassportForTrip.value,
     requirePassport: !!trip.value?.requirePassport,
+    doctorPermissionUploaded: hasDoctorPermissionForTrip.value || doctorPermissionListedForRole.value,
   });
 });
 
@@ -834,8 +863,21 @@ onMounted(load);
           :org-id="trip?.orgId"
           health-only
           :disabled="!canEdit"
+          :doctor-document-on-file="doctorPermissionRequired && hasDoctorPermissionForTrip"
           @update-profile="showProfileDialog = true"
-        />
+        >
+          <template v-if="doctorPermissionRequired" #pregnancy>
+            <PersonDocumentsCard
+              :person-id="personId"
+              :org-id="trip?.orgId"
+              only-type="doctor_permission"
+              add-label="Upload Doctor Permission document"
+              :show-add="canEdit && !hasDoctorPermissionForTrip"
+              :valid-through="dateOnly(trip?.endDate) || dateOnly(trip?.startDate) || ''"
+              @saved="loadPersonDocuments"
+            />
+          </template>
+        </PersonProfileFields>
 
         <div class="text-subtitle-2 mb-1 mt-2">Funding</div>
         <v-checkbox

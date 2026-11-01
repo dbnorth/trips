@@ -280,6 +280,38 @@ export const isRequiredPassportUploaded = ({
   });
 };
 
+/** The organization's Doctor Permission document types; any one makes pregnant applicants need the document. */
+export const loadDoctorPermissionTypes = async (orgId) => {
+  if (orgId == null || orgId === "") return [];
+  return db.documentType.findAll({
+    where: { orgId, type: "doctor_permission" },
+    attributes: ["id", "description", "hasExpirationDate"],
+    order: [["id", "ASC"]],
+  });
+};
+
+/**
+ * A pregnant applicant on a trip that requires it needs a doctor_permission-type document with a
+ * file. A document with an expiration date counts for trips ending on or before it; one without
+ * counts only when its type has no expiration date.
+ */
+export const isDoctorPermissionUploaded = ({
+  documents = [],
+  isPregnant = null,
+  doctorPermissionRequired = false,
+  compareDate = null,
+}) => {
+  if (!doctorPermissionRequired || isPregnant !== true) return true;
+  return (documents || []).some((doc) => {
+    if ((doc.documentType?.type ?? doc.type ?? null) !== "doctor_permission") return false;
+    if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
+    if (!compareDate) return true;
+    const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+    if (expirationDate) return expirationDate >= compareDate;
+    return doc.documentType?.hasExpirationDate === false;
+  });
+};
+
 export const isApplicationComplete = ({
   tripWorkerRoleId,
   willSelfFund,
@@ -310,6 +342,7 @@ export const isApplicationComplete = ({
   personDocumentsUploaded = true,
   requiredRoleDocumentUploaded = true,
   requiredPassportUploaded = true,
+  doctorPermissionUploaded = true,
 }) => {
   if (tripWorkerRoleId == null || tripWorkerRoleId === "") return false;
   if (!willSelfFund && !willRaiseFunds) return false;
@@ -330,6 +363,7 @@ export const isApplicationComplete = ({
   if (!personDocumentsUploaded) return false;
   if (!requiredRoleDocumentUploaded) return false;
   if (!requiredPassportUploaded) return false;
+  if (!doctorPermissionUploaded) return false;
   if (agreementRequired) {
     if (!agreementAccepted) return false;
     if (isBlank(agreementSignatureName)) return false;
@@ -377,6 +411,7 @@ export const resolveAppliedOrIncompleteStatus = ({
   personDocumentsUploaded = true,
   requiredRoleDocumentUploaded = true,
   requiredPassportUploaded = true,
+  doctorPermissionUploaded = true,
   orgId = null,
 }) => {
   const participantUnder18 = isUnder18(person?.birthDate);
@@ -410,6 +445,7 @@ export const resolveAppliedOrIncompleteStatus = ({
     personDocumentsUploaded,
     requiredRoleDocumentUploaded,
     requiredPassportUploaded,
+    doctorPermissionUploaded,
   });
   const profileOk = isProfileComplete(person, { orgId });
   return applicationOk && profileOk ? "applied" : "incomplete";
