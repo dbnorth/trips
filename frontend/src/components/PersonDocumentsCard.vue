@@ -5,6 +5,7 @@ import PersonDocumentServices from "../services/personDocumentServices.js";
 import CountrySelect from "./CountrySelect.vue";
 import { countryName, resolveCountryCode, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { pdfFirstPageUrl } from "../utils/pdfThumbnail.js";
+import { formatDate } from "../utils/dateFormat.js";
 
 const props = defineProps({
   personId: { type: [Number, String], default: null },
@@ -486,8 +487,8 @@ onMounted(load);
           <td>{{ row.documentType?.description || row.documentTypeId }}</td>
           <td>{{ row.documentNumber || "—" }}</td>
           <td>{{ countryLabel(row.countryIssued) }}</td>
-          <td>{{ row.issueDate || "—" }}</td>
-          <td>{{ row.expirationDate || "—" }}</td>
+          <td>{{ formatDate(row.issueDate) || "—" }}</td>
+          <td>{{ formatDate(row.expirationDate) || "—" }}</td>
           <td>
             <v-btn
               v-if="row.documentFileName"
@@ -515,7 +516,7 @@ onMounted(load);
               class="d-flex align-center py-1"
             >
               <span>{{ spec.name }}</span>
-              <span class="ms-4">{{ spec.date }}</span>
+              <span class="ms-4">{{ formatDate(spec.date) }}</span>
               <span class="ms-auto">
                 <v-btn size="small" variant="text" @click="viewDocument(row, spec)">View</v-btn>
                 <v-btn size="small" variant="text" @click="downloadDocument(row, spec)">Download</v-btn>

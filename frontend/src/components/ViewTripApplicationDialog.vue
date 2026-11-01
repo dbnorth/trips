@@ -10,6 +10,7 @@ import { isUnder18, personDisplayName } from "../utils/personProfile.js";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import LabelValueTable from "./LabelValueTable.vue";
 import LabelValueRow from "./LabelValueRow.vue";
+import { formatDate as formatDateText, formatDateTime as formatDateTimeText } from "../utils/dateFormat.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -76,14 +77,8 @@ const formatAdjustment = (value) => {
   return amount > 0 ? `+${formatted}` : `-${formatted}`;
 };
 
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return String(value);
-  }
-};
+const formatDateTime = (value) => formatDateTimeText(value) || "—";
+const formatDate = (value) => formatDateText(value) || "—";
 
 const yesNo = (value) => (value ? "Yes" : "No");
 
@@ -347,7 +342,7 @@ const confirmUncancelApplication = async () => {
                 v-if="application.isPregnant === true || application.isPregnant === 1"
                 label="Due date"
               >
-                {{ application.pregnancyDueDate || "—" }}
+                {{ formatDate(application.pregnancyDueDate) }}
               </LabelValueRow>
             </LabelValueTable>
           </template>

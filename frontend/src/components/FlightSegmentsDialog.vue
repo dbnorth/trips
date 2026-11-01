@@ -6,6 +6,7 @@ import AirlineServices from "../services/airlineServices.js";
 import { CABIN_CLASSES } from "../utils/cabinClasses.js";
 import { flightBookedByLabel } from "../utils/flightBookedBy.js";
 import { flightAirportWarnings } from "../utils/flightAirportWarnings.js";
+import { formatDate } from "../utils/dateFormat.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -37,10 +38,7 @@ const requestedPreferences = ref(null);
 const flightNotes = ref("");
 const confirmationNumber = ref("");
 
-const formatPlannedDate = (value) => {
-  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return match ? `${match[2]}/${match[3]}/${match[1]}` : "—";
-};
+const formatPlannedDate = (value) => formatDate(String(value || "").slice(0, 10)) || "—";
 
 const title = computed(
   () => `Flight segments — ${props.participantName || "Participant"}`

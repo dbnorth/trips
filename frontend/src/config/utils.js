@@ -1,14 +1,4 @@
 export default class Utils {
-  static formatDate = (dateStr) => {
-    if (!dateStr) return "–";
-    try {
-      const d = new Date(dateStr + "T12:00:00");
-      return d.toLocaleDateString();
-    } catch {
-      return dateStr;
-    }
-  };
-
   static setStore = (name, content) => {
     if (!name) return;
     if (typeof content !== "string") content = JSON.stringify(content);

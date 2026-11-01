@@ -11,6 +11,7 @@ import { emergencyContactRelationshipLabel } from "../utils/emergencyContactRela
 import { displayPreferredName } from "../utils/preferredName.js";
 import { countryName } from "../utils/locationData.js";
 import { formatCountryCode, formatPhoneForDisplay } from "../utils/phoneUtils.js";
+import { formatDate } from "../utils/dateFormat.js";
 import LabelValueTable from "./LabelValueTable.vue";
 import LabelValueRow from "./LabelValueRow.vue";
 
@@ -74,7 +75,7 @@ const fieldRows = computed(() => {
       value: formatPhone(p.phoneContryCode, p.phoneNumber),
       missingKeys: ["phoneContryCode", "phoneNumber"],
     },
-    { key: "birthDate", label: "Birthdate", value: p.birthDate },
+    { key: "birthDate", label: "Birthdate", value: formatDate(p.birthDate) },
     { key: "gender", label: "Gender", value: formatGender(p.gender) },
     { key: "emergencyContactName", label: "Emergency contact name", value: p.emergencyContactName },
     {

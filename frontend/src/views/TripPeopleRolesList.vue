@@ -13,6 +13,7 @@ import { countryName } from "../utils/locationData.js";
 import { donorTripPath } from "../utils/donateUrls.js";
 import { tripParticipantStatusLabel } from "../utils/tripParticipantStatus.js";
 import RowAction from "../components/RowAction.vue";
+import { formatDate as formatDateText } from "../utils/dateFormat.js";
 
 const route = useRoute();
 const user = ref(null);
@@ -55,7 +56,7 @@ const donorLink = computed(() => (trip.value ? donorTripPath(trip.value) : null)
 
 const formatLeaders = computed(() => (trip.value?.leaderNames || []).join(", ") || "—");
 
-const formatDate = (value) => value || "—";
+const formatDate = (value) => formatDateText(value) || "—";
 
 const participantName = (row) => {
   const p = row.person;

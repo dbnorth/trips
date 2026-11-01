@@ -2,6 +2,7 @@
 import { ref, computed } from "vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import TripServices from "../services/tripServices.js";
+import { formatDate as formatDateText } from "../utils/dateFormat.js";
 
 const props = defineProps({
   info: { type: Object, required: true },
@@ -27,10 +28,7 @@ const options = computed(() => props.info.selectedTravelOptions || []);
 const addonExpenses = computed(() => props.info.addonExpenses || []);
 const canEditFlights = computed(() => props.info.flightPurchaseOption === "self");
 
-const formatDate = (value) => {
-  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return match ? `${match[2]}/${match[3]}/${match[1]}` : "—";
-};
+const formatDate = (value) => formatDateText(String(value || "").slice(0, 10)) || "—";
 
 const formatTime = (time) => {
   const match = String(time || "").match(/^(\d{1,2}):(\d{2})/);

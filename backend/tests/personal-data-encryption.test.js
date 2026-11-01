@@ -376,7 +376,7 @@ describe("Feature 64 — Encrypt Personal and Medical Data in the Database", () 
         .set(admin.authHeader);
 
       expect(response.status).toBe(200);
-      for (const value of ["123 Main St", "Springfield", "62701", "1990-05-15", "Peanuts", "2027-03-01"]) {
+      for (const value of ["123 Main St", "Springfield", "62701", "05/15/1990", "Peanuts", "03/01/2027"]) {
         expect(response.text).toContain(value);
       }
     });

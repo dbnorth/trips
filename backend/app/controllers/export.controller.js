@@ -8,6 +8,7 @@ import {
 import { toCsv, sendCsv } from "../utils/csvExport.js";
 import { emergencyContactRelationshipLabel } from "../utils/emergencyContactRelationship.js";
 import { displayPreferredName } from "../utils/preferredName.js";
+import { formatDate, formatDateTime } from "../utils/emailTokenValues.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const TripDonation = db.tripDonation;
@@ -197,7 +198,7 @@ exports.participantsCsv = async (req, res) => {
       const personDocs = documentsByPersonId.get(Number(r.peopleId)) || [];
       const documentLabels = personDocs.map((doc) => {
         const typeName = doc.documentType?.description || doc.documentType?.type || "Document";
-        const expires = doc.expirationDate ? ` expires ${doc.expirationDate}` : "";
+        const expires = doc.expirationDate ? ` expires ${formatDate(doc.expirationDate)}` : "";
         return `${typeName}${expires}`.trim();
       });
 
@@ -219,7 +220,7 @@ exports.participantsCsv = async (req, res) => {
         postalCode: person.postalCode || "",
         country: person.country || "",
         phone: formatPhone(person.phoneContryCode, person.phoneNumber),
-        birthDate: person.birthDate || "",
+        birthDate: formatDate(person.birthDate),
         gender: person.gender || "",
         emergencyContactName: person.emergencyContactName || "",
         emergencyContactRelationship: emergencyContactRelationshipLabel(
@@ -232,7 +233,7 @@ exports.participantsCsv = async (req, res) => {
         hasAllergies: yesNo(person.hasAllergies),
         allergiesDescription: person.allergiesDescription || "",
         isPregnant: yesNo(r.isPregnant),
-        pregnancyDueDate: r.pregnancyDueDate || "",
+        pregnancyDueDate: formatDate(r.pregnancyDueDate),
         takesMedication: yesNo(person.takesMedication),
         currentChurchHome: person.currentChurchHome || "",
         currentChurchHomeCity: person.currentChurchHomeCity || "",
@@ -251,12 +252,12 @@ exports.participantsCsv = async (req, res) => {
         travelOptions: joinValues(selectedOptions),
         agreementAccepted: yesNo(r.agreementAccepted),
         agreementSignatureName: r.agreementSignatureName || "",
-        agreementDate: r.agreementDate || "",
+        agreementDate: formatDateTime(r.agreementDate),
         agreementAdultName: adultName,
         agreementAdultEmail: r.agreementAdultEmail || "",
         agreementAdultRelationship: r.agreementAdultRelationship || "",
         whygoText: r.whygoText || "",
-        assiginmentDateTime: r.assiginmentDateTime || "",
+        assiginmentDateTime: formatDateTime(r.assiginmentDateTime),
       };
     });
 
@@ -319,7 +320,7 @@ exports.donationsCsv = async (req, res) => {
     });
     const csvRows = donations.map((d) => ({
       amount: d.amount,
-      dateTime: d.dateTime,
+      dateTime: formatDateTime(d.dateTime),
       participant: d.participant ? `${d.participant.firstName} ${d.participant.lastName}` : "",
       donor: d.donor
         ? `${d.donor.firstName || ""} ${d.donor.lastName || ""}`.trim()

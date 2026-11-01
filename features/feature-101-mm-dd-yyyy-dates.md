@@ -2,7 +2,7 @@
 
 **Feature ID:** 101
 **Branch pattern:** `feature/101-mm-dd-yyyy-dates`
-**Status:** Draft
+**Status:** Implemented
 **Created:** 2026-10-31
 **Input:** "create a spec to update all the date displays as mm/dd/yyyy throughout the UI"
 
@@ -217,14 +217,14 @@ Tests per the Test Coverage Map; update existing tests that expect the old forma
 
 ## Definition of Done
 
-*   [ ] Shared date formatters per **FR-001**, **FR-002**
-*   [ ] Every screen date per **FR-003**, sorting per **FR-004**
-*   [ ] Emails, PDFs, and CSVs per **FR-005**–**FR-007**
-*   [ ] Inputs and API values unchanged per **FR-008**
-*   [ ] Automated tests for every Gherkin scenario; existing tests that expected old formats updated
-*   [ ] Backend `npm test` and frontend `npx vitest run` green
-*   [ ] **SC-002** search done
-*   [ ] `features/reference/` updated
+*   [x] Shared date formatters per **FR-001**, **FR-002**
+*   [x] Every screen date per **FR-003**, sorting per **FR-004**
+*   [x] Emails, PDFs, and CSVs per **FR-005**–**FR-007**
+*   [x] Inputs and API values unchanged per **FR-008**
+*   [x] Automated tests for every Gherkin scenario; existing tests that expected old formats updated
+*   [x] Backend `npm test` and frontend `npx vitest run` green
+*   [x] **SC-002** search done
+*   [x] `features/reference/` updated
 *   [ ] PR to `dev`
 
 ## Out of Scope

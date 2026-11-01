@@ -19,6 +19,7 @@ import {
   tripParticipantStatusColor,
 } from "../utils/tripParticipantStatus.js";
 import { isProfileComplete, isUnder18, normalizeYesNo, otherLanguageFieldsFromPerson } from "../utils/personProfile.js";
+import { formatDate } from "../utils/dateFormat.js";
 import {
   activeRequiredSpecializations,
   arePersonDocumentsUploaded,
@@ -194,7 +195,7 @@ const documentRequirementWarning = computed(() => {
       return "Upload a passport before submitting your application.";
     }
     const endDate = dateOnly(trip.value?.endDate);
-    const endPart = endDate ? ` (${endDate})` : "";
+    const endPart = endDate ? ` (${formatDate(endDate)})` : "";
     return `Upload a passport with an expiration date past the end of the trip${endPart} before submitting your application.`;
   }
   const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);

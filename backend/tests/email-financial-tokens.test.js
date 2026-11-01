@@ -162,9 +162,9 @@ describe("Feature 52 — Participant Financial Statement Email Tokens", () => {
       ]);
 
       expect(values).toEqual({
-        PARTICIPANT_DONATIONS: "October 1, 2026: $300.00",
+        PARTICIPANT_DONATIONS: "10/01/2026: $300.00",
         PARTICIPANT_DONATIONS_TOTAL: "$300.00",
-        PARTICIPANT_TRIP_DONATIONS: "October 5, 2026: $250.00\nOctober 9, 2026: $50.00",
+        PARTICIPANT_TRIP_DONATIONS: "10/05/2026: $250.00\n10/09/2026: $50.00",
         PARTICIPANT_TRIP_DONATIONS_TOTAL: "$300.00",
       });
     });
@@ -177,8 +177,8 @@ describe("Feature 52 — Participant Financial Statement Email Tokens", () => {
       const values = await sendTokens(["PARTICIPANT_DONATIONS", "PARTICIPANT_TRIP_DONATIONS"]);
 
       expect(values).toEqual({
-        PARTICIPANT_DONATIONS: "October 1, 2026: $300.00",
-        PARTICIPANT_TRIP_DONATIONS: "October 2, 2026: $100.00",
+        PARTICIPANT_DONATIONS: "10/01/2026: $300.00",
+        PARTICIPANT_TRIP_DONATIONS: "10/02/2026: $100.00",
       });
     });
 

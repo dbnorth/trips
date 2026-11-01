@@ -10,6 +10,7 @@ import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { flightBookedByLabel } from "../utils/flightBookedBy.js";
 import { flightAirportWarnings } from "../utils/flightAirportWarnings.js";
 import RowAction from "../components/RowAction.vue";
+import { formatDate } from "../utils/dateFormat.js";
 import Utils from "../config/utils.js";
 
 const props = defineProps({
@@ -60,7 +61,7 @@ const formatTimeAmPm = (time) => {
 
 const formatItineraryPart = (part) => {
   if (!part) return "—";
-  const bits = [part.date, formatTimeAmPm(part.time), part.city].filter(Boolean);
+  const bits = [formatDate(part.date), formatTimeAmPm(part.time), part.city].filter(Boolean);
   return bits.length ? bits.join(" · ") : "—";
 };
 
@@ -219,7 +220,7 @@ onMounted(load);
     <v-card v-if="trip" class="pa-4 mb-6">
       <v-card-title class="px-0 pt-0">{{ trip.name }}</v-card-title>
       <v-card-subtitle class="px-0">
-        {{ trip.startDate || "—" }} – {{ trip.endDate || "—" }}
+        {{ formatDate(trip.startDate) || "—" }} – {{ formatDate(trip.endDate) || "—" }}
       </v-card-subtitle>
     </v-card>
 

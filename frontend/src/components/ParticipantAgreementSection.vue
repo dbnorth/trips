@@ -1,6 +1,7 @@
 <script setup>
 import { computed, watch } from "vue";
 import { markdownToHtml } from "../utils/markdownPreview.js";
+import { formatDateTime } from "../utils/dateFormat.js";
 
 const props = defineProps({
   content: { type: String, default: "" },
@@ -38,8 +39,8 @@ const showSignatureBlock = computed(
   () => showAgreement.value || (props.showMedicalAgreement && showMedicalContent.value)
 );
 
-const agreementDateLabel = computed(() => formatAgreementDate(props.agreementDate));
-const medicalAgreementDateLabel = computed(() => formatAgreementDate(props.medicalAgreementDate));
+const agreementDateLabel = computed(() => formatDateTime(props.agreementDate));
+const medicalAgreementDateLabel = computed(() => formatDateTime(props.medicalAgreementDate));
 
 const signatureLabel = computed(() =>
   props.under18
@@ -52,19 +53,6 @@ const signatureHint = computed(() =>
     ? "Type the adult's full name as the electronic signature"
     : "Type your full name as your electronic signature"
 );
-
-function formatAgreementDate(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 const clearAdultFields = () => {
   emit("update:agreementAdultFirstName", "");

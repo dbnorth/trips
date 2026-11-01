@@ -67,30 +67,34 @@ export const TOKEN_CODE_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 
 const TOKEN_PATTERN = /\{\{([A-Z][A-Z0-9_]*)\}\}/g;
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
 const text = (value) => (value == null ? "" : String(value));
 
 export const formatDate = (value) => {
   if (!value) return "";
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
   if (!match) return "";
-  const month = MONTHS[Number(match[2]) - 1];
-  if (!month) return "";
-  return `${month} ${Number(match[3])}, ${match[1]}`;
+  return `${match[2]}/${match[3]}/${match[1]}`;
+};
+
+/** `MM/DD/YYYY h:mm AM/PM` for a timestamp, in the app's email time zone. */
+export const formatDateTime = (value) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: process.env.SCHEDULED_EMAIL_TIMEZONE || "America/Chicago",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })
+      .formatToParts(date)
+      .map((part) => [part.type, part.value])
+  );
+  return `${parts.month}/${parts.day}/${parts.year} ${parts.hour}:${parts.minute} ${parts.dayPeriod.toUpperCase()}`;
 };
 
 const moneyFormat = new Intl.NumberFormat("en-US", {

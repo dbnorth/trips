@@ -3,6 +3,7 @@ import { computed } from "vue";
 import OrganizationServices from "../services/organizationServices.js";
 import TripServices from "../services/tripServices.js";
 import { countryName } from "../utils/locationData.js";
+import { formatDateRange } from "../utils/dateFormat.js";
 
 const props = defineProps({
   trip: { type: Object, default: null },
@@ -20,13 +21,7 @@ const orgWebsiteUrl = computed(() => {
 });
 const tripImageUrl = computed(() => TripServices.getImageUrl(props.trip?.image));
 
-const tripDates = computed(() => {
-  const start = props.trip?.startDate;
-  const end = props.trip?.endDate;
-  if (!start && !end) return "";
-  if (start && end) return `${start} – ${end}`;
-  return start || end;
-});
+const tripDates = computed(() => formatDateRange(props.trip?.startDate, props.trip?.endDate));
 </script>
 
 <template>

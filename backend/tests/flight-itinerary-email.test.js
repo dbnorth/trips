@@ -25,11 +25,11 @@ import {
 const SEED_TEMPLATES = JSON.parse(fs.readFileSync(path.resolve("app/data/emailTemplates.json"), "utf8"));
 
 const ANA_ARRIVAL = [
-  "American Airlines AA 100: BNA (Nashville) March 1, 2027 8:00 AM to MIA (Miami) March 1, 2027 11:00 AM, Economy, seat 12A",
-  "American Airlines AA 200: MIA (Miami) March 1, 2027 1:00 PM to GUA (Guatemala City) March 1, 2027 4:30 PM, Economy",
+  "American Airlines AA 100: BNA (Nashville) 03/01/2027 8:00 AM to MIA (Miami) 03/01/2027 11:00 AM, Economy, seat 12A",
+  "American Airlines AA 200: MIA (Miami) 03/01/2027 1:00 PM to GUA (Guatemala City) 03/01/2027 4:30 PM, Economy",
 ].join("\n");
 const ANA_RETURN =
-  "American Airlines AA 300: GUA (Guatemala City) March 10, 2027 9:00 AM to BNA (Nashville) March 10, 2027 2:00 PM, Economy, seat 8B";
+  "American Airlines AA 300: GUA (Guatemala City) 03/10/2027 9:00 AM to BNA (Nashville) 03/10/2027 2:00 PM, Economy, seat 8B";
 
 const segment = (segmentType, segmentNumber, fields) => ({
   segmentType,
