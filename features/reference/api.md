@@ -81,10 +81,10 @@
 | `PUT` | `/trips/people/:id` | auth | Update person (`version`); accepts `emergencyContactRelationship` (`spouse`, `father`, `mother`, `child`, `grandmother`, `grandfather`, `other`); `preferredName` blank stores first name + last name, omitted leaves the stored value (Feature 33). `password` for someone else → `403` "Forbidden. System admin required to set a password." unless System Admin (your own → `400`, use change-password); a System Admin setting it ends all that user's sessions. Changing the email of a person with a login account (`userId`; trimmed, lower-cased compare) → `403` "Forbidden. System admin required to change a login email." unless System Admin or the person themselves. Refused requests change nothing (Feature 71) |
 | `PUT` | `/trips/people/:id/picture` | auth | Upload picture (`multipart` field `picture`); PNG, JPEG, GIF, WebP, or HEIC (HEIC stored as `.jpg`; unreadable → `400` "This HEIC photo couldn't be read. Upload it as a JPG or PNG instead.", Feature 96) |
 | `DELETE` | `/trips/people/:id` | sysadmin | Delete person |
-| `GET` | `/trips/org-people-roles` | auth | List org memberships |
-| `POST` | `/trips/org-people-roles` | auth | Assign org role |
-| `PUT` | `/trips/org-people-roles/:id` | auth | Update membership |
-| `DELETE` | `/trips/org-people-roles/:id` | auth | Remove membership |
+| `GET` | `/trips/org-people-roles` | auth | List org memberships (`?orgId=` or `?peopleId=`). `?peopleId=`: System Admin gets all rows; an Org Admin gets only rows in organizations they administer; anyone else `403` "Forbidden." (Feature 99) |
+| `POST` | `/trips/org-people-roles` | auth | Assign org role (System Admin, or Org Admin of the org). An Org Admin can only assign to a person who already has a role in that org, else `403` "Forbidden." (Feature 99) |
+| `PUT` | `/trips/org-people-roles/:id` | auth | Update membership. An Org Admin can't move a row to an org they don't administer (`403`); changing the role or org of an organization's only Org Admin row → `400` "An organization must keep at least one Org Admin." (Feature 99) |
+| `DELETE` | `/trips/org-people-roles/:id` | auth | Remove membership. Removing an organization's only Org Admin row → `400` "An organization must keep at least one Org Admin." for every caller (Feature 99) |
 
 Optional query: `GET /trips/people?tripId=` intersects with trip assignments.
 

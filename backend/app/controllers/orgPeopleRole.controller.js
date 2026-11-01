@@ -1,10 +1,31 @@
 import db from "../models/index.js";
-import { canAccessOrg, isOrgAdminForOrg, isSystemAdmin } from "../authorization/accessControl.js";
+import {
+  ROLE_ORG_ADMIN,
+  canAccessOrg,
+  isOrgAdminForOrg,
+  isSystemAdmin,
+} from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import { ensureOrgPeopleRole } from "../utils/userPerson.js";
 
 const OrgPeopleRole = db.orgPeopleRole;
 const fields = ["orgId", "peopleId", "roleId"];
+const LAST_ORG_ADMIN_MESSAGE = "An organization must keep at least one Org Admin.";
+
+const orgAdminOrgIds = (req) => [
+  ...new Set(
+    (req.user?.orgRoles || [])
+      .filter((r) => r.role?.roleName === ROLE_ORG_ADMIN)
+      .map((r) => Number(r.orgId))
+  ),
+];
+
+const isLastOrgAdminRow = async (row) => {
+  const orgAdminRole = await db.role.findOne({ where: { roleName: ROLE_ORG_ADMIN } });
+  if (!orgAdminRole || Number(row.roleId) !== Number(orgAdminRole.id)) return false;
+  const count = await OrgPeopleRole.count({ where: { orgId: row.orgId, roleId: orgAdminRole.id } });
+  return count <= 1;
+};
 
 const exports = {};
 
@@ -17,7 +38,8 @@ exports.findAll = async (req, res) => {
     ];
 
     if (peopleId) {
-      if (!isSystemAdmin(req)) {
+      const adminOrgIds = isSystemAdmin(req) ? null : orgAdminOrgIds(req);
+      if (adminOrgIds && !adminOrgIds.length) {
         return res.status(403).send({ message: "Forbidden." });
       }
       const personId = parseInt(peopleId, 10);
@@ -25,7 +47,7 @@ exports.findAll = async (req, res) => {
         return res.status(400).send({ message: "Invalid peopleId." });
       }
       const data = await OrgPeopleRole.findAll({
-        where: { peopleId: personId },
+        where: adminOrgIds ? { peopleId: personId, orgId: adminOrgIds } : { peopleId: personId },
         include,
         order: [["orgId", "ASC"]],
       });
@@ -60,6 +82,10 @@ exports.create = async (req, res) => {
     }
     const person = await db.person.findByPk(peopleId);
     if (!person) return res.status(404).send({ message: "Person not found." });
+    if (!isSystemAdmin(req)) {
+      const member = await OrgPeopleRole.findOne({ where: { orgId, peopleId } });
+      if (!member) return res.status(403).send({ message: "Forbidden." });
+    }
 
     const result = await ensureOrgPeopleRole(orgId, peopleId, roleId);
     const data = await OrgPeopleRole.findByPk(result.link.id, {
@@ -86,6 +112,16 @@ exports.update = async (req, res) => {
     if (!isOrgAdminForOrg(req, row.orgId) && !isSystemAdmin(req)) {
       return res.status(403).send({ message: "Forbidden." });
     }
+    const newOrgId = req.body.orgId == null ? row.orgId : Number(req.body.orgId);
+    const newRoleId = req.body.roleId == null ? row.roleId : Number(req.body.roleId);
+    if (!isSystemAdmin(req) && !isOrgAdminForOrg(req, newOrgId)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+    const movesRow =
+      Number(newOrgId) !== Number(row.orgId) || Number(newRoleId) !== Number(row.roleId);
+    if (movesRow && (await isLastOrgAdminRow(row))) {
+      return res.status(400).send({ message: LAST_ORG_ADMIN_MESSAGE });
+    }
     const result = await optimisticUpdate(OrgPeopleRole, req.params.id, req.body, fields);
     if (!result.ok) return res.status(result.status).send({ message: result.message });
     res.send(result.data);
@@ -100,6 +136,9 @@ exports.delete = async (req, res) => {
     if (!row) return res.status(404).send({ message: "Record not found." });
     if (!isOrgAdminForOrg(req, row.orgId) && !isSystemAdmin(req)) {
       return res.status(403).send({ message: "Forbidden." });
+    }
+    if (await isLastOrgAdminRow(row)) {
+      return res.status(400).send({ message: LAST_ORG_ADMIN_MESSAGE });
     }
     await OrgPeopleRole.destroy({ where: { id: req.params.id } });
     res.send({ message: "Deleted." });
