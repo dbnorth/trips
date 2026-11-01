@@ -228,7 +228,13 @@ onMounted(() => {
           <td class="text-no-wrap">
             <div class="d-flex flex-nowrap ga-1">
               <RowAction icon="mdi-email-lock" label="Reserved emails" @click="openReservations(row)" />
-              <RowAction icon="mdi-minus-circle-outline" label="Remove" color="error" @click="remove(row)" />
+              <RowAction
+                v-if="!(row.signedUpCount > 0)"
+                icon="mdi-minus-circle-outline"
+                label="Remove"
+                color="error"
+                @click="remove(row)"
+              />
             </div>
           </td>
         </tr>

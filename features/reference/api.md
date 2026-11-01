@@ -180,7 +180,7 @@ Uploaded document and specialization files are stored encrypted and returned dec
 | `GET` | `/trips/trip-worker-roles` | auth | Needs for `?tripId=`; each role has `signedUpCount`, `reservedCount`, `availableCount` (Feature 26, 56) |
 | `POST` | `/trips/trip-worker-roles` | auth | Add role quantity; optional `emails: string[]` reserved with the role (validated like `POST …/reservations`, open slots = quantity; on `400` neither the role nor reservations are saved) — Feature 56 |
 | `PUT` | `/trips/trip-worker-roles/:id` | auth | Update quantity; `400` "Remove reserved emails first." when quantity < reservations (Feature 56) |
-| `DELETE` | `/trips/trip-worker-roles/:id` | auth | Remove (also removes its reservations) |
+| `DELETE` | `/trips/trip-worker-roles/:id` | auth | Remove (also removes its reservations and clears the role on its cancelled / declined applications); `400` "People have signed up for this role. Move or cancel them before removing it." when it has `incomplete` / `applied` / `approved` applications — Feature 103 |
 | `GET` | `/trips/trip-worker-roles/:id/reservations` | auth + trip staff | `[{ id, email, filled, applicantName, applicationStatus }]` ordered by email — Feature 56 |
 | `POST` | `/trips/trip-worker-roles/:id/reservations` | auth + trip staff | Body `{ emails: string[] }`; `201` with created rows; `400` for invalid emails, duplicates on the trip, emails that already applied, or more emails than open slots ("Only N open slots for this role.") — Feature 56 |
 | `DELETE` | `/trips/trip-worker-roles/:id/reservations/:reservationId` | auth + trip staff | Remove a reservation — Feature 56 |

@@ -162,6 +162,15 @@ exports.delete = async (req, res) => {
     const { ok } = await canManage(req, row.tripId);
     if (!ok) return res.status(403).send({ message: "Forbidden." });
 
+    const activeCount = await TripPeopleRole.count({
+      where: { tripWorkerRoleId: row.id, status: { [Op.in]: ROLE_OCCUPYING_STATUSES } },
+    });
+    if (activeCount > 0) {
+      return res.status(400).send({
+        message: "People have signed up for this role. Move or cancel them before removing it.",
+      });
+    }
+
     // Clear participant assignments before removing the trip worker role.
     await TripPeopleRole.update(
       { tripWorkerRoleId: null },
