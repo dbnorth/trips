@@ -13,7 +13,9 @@ const DocumentType = db.documentType;
 const WorkerRoleDocumentType = db.workerRoleDocumentType;
 const WorkerRoleSpecialization = db.workerRoleSpecialization;
 const DocumentTypeSpecialization = db.documentTypeSpecialization;
+const TripWorkerRole = db.tripWorkerRole;
 const STATUSES = ["active", "inactive"];
+const ROLE_IN_USE = "This role is used on a trip and cannot be deleted.";
 const SPECIALIZATION_NOT_REQUIRED_DOCUMENT =
   "Required specializations must belong to a required document.";
 const OTHER_ORG_DOCUMENT = "Required documents must be document types of this organization.";
@@ -70,11 +72,27 @@ const formatRole = (role) => {
   return json;
 };
 
+/** A role is in use when any trip has a trip role for it. */
+const inUseRoleIds = async (roleIds) => {
+  if (!roleIds.length) return new Set();
+  const rows = await TripWorkerRole.findAll({
+    where: { workerRoleId: roleIds },
+    attributes: ["workerRoleId"],
+    group: ["workerRoleId"],
+  });
+  return new Set(rows.map((r) => Number(r.workerRoleId)));
+};
+
+const formatRoles = async (roles) => {
+  const inUse = await inUseRoleIds(roles.map((r) => r.id));
+  return roles.map((role) => ({ ...formatRole(role), inUse: inUse.has(Number(role.id)) }));
+};
+
 const loadRole = async (id) => {
   const role = await WorkerRole.findByPk(id, {
     include: roleIncludes,
   });
-  return role ? formatRole(role) : null;
+  return role ? (await formatRoles([role]))[0] : null;
 };
 
 const pickPayload = (body) => {
@@ -219,7 +237,7 @@ exports.findAll = async (req, res) => {
         ["name", "ASC"],
       ],
     });
-    res.send(data.map(formatRole));
+    res.send(await formatRoles(data));
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
@@ -339,7 +357,14 @@ exports.delete = async (req, res) => {
     if (!canManageOrg(req, role.orgId)) {
       return res.status(403).send({ message: "Forbidden." });
     }
-    await role.destroy();
+    if ((await inUseRoleIds([role.id])).size) {
+      return res.status(400).send({ message: ROLE_IN_USE });
+    }
+    await db.sequelize.transaction(async (transaction) => {
+      await WorkerRoleSpecialization.destroy({ where: { workerRoleId: role.id }, transaction });
+      await WorkerRoleDocumentType.destroy({ where: { workerRoleId: role.id }, transaction });
+      await role.destroy({ transaction });
+    });
     res.send({ message: "Worker role deleted." });
   } catch (err) {
     res.status(500).send({ message: err.message });

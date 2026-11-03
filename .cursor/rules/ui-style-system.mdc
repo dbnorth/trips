@@ -83,6 +83,7 @@ Hide `MenuBar` on login and register routes (Feature 1). Introduce `MenuBar` in 
 *   Cards: `<v-card rounded="lg">` on `surface`; prefer medium elevation for content cards.
 *   Errors: `<v-alert type="error" density="compact">`.
 *   Dialogs: `<v-dialog>` for create / rename / confirm flows; round-eight radius; primary confirm + secondary/text cancel.
+*   Confirmations ("Are you sure?"): always use `components/ConfirmDialog.vue` — never `window.confirm`, `window.alert`, or `window.prompt`. Title "Are you sure?"; message names the action and item (`Delete worker role "Dentist"?`); confirm button is the action verb (**Delete**, **Send**, **Cancel App**) and `confirm-color="error"` when destructive; cancel is **Cancel**; pass `:loading` while the request runs. Pattern: hold the target row in a ref (`deleting`), open the dialog with `:model-value="!!deleting"`, run the request in `@confirm`, then clear the ref.
 *   Theme color tokens only in components — hex values belong in `plugins/vuetify.js`.
 
 ## View States

@@ -75,6 +75,18 @@ const openEdit = (row) => {
   showForm.value = true;
 };
 
+const remove = async (row) => {
+  if (!window.confirm(`Delete worker role "${row.name}"?`)) return;
+  message.value = "";
+  try {
+    await WorkerRoleServices.delete(row.id);
+    await load();
+    message.value = "Worker role deleted.";
+  } catch (e) {
+    message.value = e.response?.data?.message || "Unable to delete worker role.";
+  }
+};
+
 const onSaved = () => {
   message.value = "Worker role saved.";
   load();
@@ -146,7 +158,16 @@ onUnmounted(() => {
       <template #item.requiredDocuments="{ item }">{{ requiredDocumentsLabel(item) }}</template>
       <template #item.status="{ item }">{{ item.status === "active" ? "Active" : "Inactive" }}</template>
       <template #item.actions="{ item }">
-        <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
+        <div class="d-flex flex-nowrap ga-1">
+          <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
+          <RowAction
+            v-if="!item.inUse"
+            icon="mdi-delete"
+            label="Delete"
+            color="error"
+            @click="remove(item)"
+          />
+        </div>
       </template>
     </v-data-table>
 
