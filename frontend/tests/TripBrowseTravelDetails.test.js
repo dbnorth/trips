@@ -140,7 +140,7 @@ describe("Feature 61 — Trip Page My Travel Details", () => {
     });
 
     it("No fundraising link before approval", async () => {
-      mockTrip({ status: "applied" });
+      mockTrip({ status: "pre_approved" });
       const wrapper = await mountView();
 
       expect(wrapper.findAll("a").find((a) => a.text().trim() === "My fundraising page")).toBeUndefined();

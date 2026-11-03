@@ -212,7 +212,7 @@ describe("Feature 81 — Row Action Icons with Tooltips", () => {
       const person = (id, firstName, lastName) => ({ id, firstName, lastName });
       TripPeopleRoleServices.getAll.mockResolvedValue({
         data: [
-          { id: 1, peopleId: 5, status: "applied", role: { roleName: "Trip Participant" }, person: person(5, "Ana", "Lopez") },
+          { id: 1, peopleId: 5, status: "pre_approved", role: { roleName: "Trip Participant" }, person: person(5, "Ana", "Lopez") },
           { id: 2, peopleId: 6, status: "approved", role: { roleName: "Trip Participant" }, person: person(6, "Lyle", "Lowry") },
           { id: 3, peopleId: 7, status: "cancelled", role: { roleName: "Trip Participant" }, person: person(7, "Kris", "Smith") },
         ],
@@ -243,7 +243,15 @@ describe("Feature 81 — Row Action Icons with Tooltips", () => {
       expect(action(lyle, "Cancel").classes()).toContain("text-error");
       expect(action(kris, "Cancel").exists()).toBe(false);
       expect(iconOf(action(kris, "Uncancel"))).toBe("mdi-restore");
-      expect(namesOf(lyle)).toEqual(["View App", "Cancel", "Edit", "View donations", "Documents PDF", "Donate page"]);
+      expect(namesOf(lyle)).toEqual([
+        "View App",
+        "Review documents",
+        "Cancel",
+        "Edit",
+        "View donations",
+        "Documents PDF",
+        "Donate page",
+      ]);
 
       const donate = action(kris, "Donate page");
       expect(donate.attributes("href")).toContain("/donate/trip/Guatemala_Clinic_2027/participant/");

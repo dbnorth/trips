@@ -108,7 +108,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
         startDate: dateFromToday(-40),
         endDate: dateFromToday(-30),
       });
-      const upcomingAssignment = await createAssignment(upcoming.id, ada.user.personId, { status: "applied" });
+      const upcomingAssignment = await createAssignment(upcoming.id, ada.user.personId, { status: "pre_approved" });
       await createAssignment(past.id, ada.user.personId, { status: "incomplete" });
 
       const trips = await loadMyTrips(ada, org.id);
@@ -121,7 +121,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
     it("Trip page returns my next actions", async () => {
       const { org, ada } = await setupParticipant("trip-page@example.com");
       const trip = await createTrip(org.id);
-      const assignment = await createAssignment(trip.id, ada.user.personId, { status: "applied" });
+      const assignment = await createAssignment(trip.id, ada.user.personId, { status: "pre_approved" });
 
       const res = await request(app).get(`/trips/trips/browse/${trip.id}`).set(ada.authHeader);
 

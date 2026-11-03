@@ -8,7 +8,7 @@ import EmailHtmlPreview from "./EmailHtmlPreview.vue";
 import { emailBodyIsBlank } from "../utils/emailBody.js";
 
 const POTENTIAL_ROLES = ["Trip Participant", "Trip Leader"];
-const POTENTIAL_STATUSES = ["incomplete", "applied", "approved"];
+const POTENTIAL_STATUSES = ["incomplete", "pre_approved", "approved"];
 
 const SEND_TO_ITEMS = [
   { label: "All potential participants", value: "potential" },

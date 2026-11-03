@@ -257,12 +257,12 @@ const EMPTY_FINANCIAL_VALUES = {
 };
 
 /**
- * The flight of the person's earliest incomplete, applied, or approved assignment on the trip that has
+ * The flight of the person's earliest incomplete, pre-approved, or approved assignment on the trip that has
  * flight segments, with its segments (airports and airline included), or null.
  */
 export const loadParticipantFlight = async (tripId, personId) => {
   const assignment = await db.tripPeopleRole.findOne({
-    where: { tripId, peopleId: personId, status: ["incomplete", "applied", "approved"] },
+    where: { tripId, peopleId: personId, status: ["incomplete", "pre_approved", "approved"] },
     include: [
       {
         model: db.tripFlight,

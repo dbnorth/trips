@@ -193,7 +193,7 @@ describe("Feature 9 — Public Fundraising Pages", () => {
         });
       const nurse = await addRole("Nurse", 4);
       const doctor = await addRole("Doctor", 2);
-      const signUp = async (role, email, status = "applied") => {
+      const signUp = async (role, email, status = "pre_approved") => {
         const { user } = await registerUser({ email, firstName: "Pat", lastName: "Person", orgIds: [org.id] });
         await db.tripPeopleRole.create({
           tripId: trip.id,

@@ -19,7 +19,7 @@ const Airport = db.airport;
 const Airline = db.airline;
 const Op = db.Sequelize.Op;
 
-const ELIGIBLE_STATUSES = ["incomplete", "applied", "approved"];
+const ELIGIBLE_STATUSES = ["incomplete", "pre_approved", "approved"];
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_HHMM = /^\d{2}:\d{2}$/;
 

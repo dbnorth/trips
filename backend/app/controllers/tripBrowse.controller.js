@@ -6,17 +6,10 @@ import {
   isSystemAdmin,
 } from "../authorization/accessControl.js";
 import {
-  arePersonDocumentsUploaded,
-  isRequiredPassportUploaded,
-  isDoctorPermissionUploaded,
   loadDoctorPermissionTypes,
-  activeRequiredSpecializations,
-  isRequiredRoleDocumentUploaded,
-  loadPersonDocumentsForCompleteness,
   loadPersonForCompleteness,
-  resolveAppliedOrIncompleteStatus,
+  resolvePreApprovedOrIncompleteStatus,
   isUnder18,
-  tripDocumentCompareDate,
 } from "../utils/tripParticipantApplicationStatus.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
@@ -335,7 +328,7 @@ exports.listMyTrips = async (req, res) => {
     const links = await TripPeopleRole.findAll({
       where: {
         peopleId,
-        status: { [Op.in]: ["incomplete", "applied", "approved", "cancelled"] },
+        status: { [Op.in]: ["incomplete", "pre_approved", "approved", "cancelled"] },
       },
       include: [
         {
@@ -462,11 +455,11 @@ exports.getBrowseTrip = async (req, res) => {
           daysBefore,
           daysAfter,
         })),
-        ...(["incomplete", "applied", "approved"].includes(assignment.status)
+        ...(["incomplete", "pre_approved", "approved"].includes(assignment.status)
           ? await myTravelDates(trip, assignment.id)
           : { arrivalDate: null, departureDate: null }),
         donationTotal: Number(donationTotal) || 0,
-        donationRecipients: ["incomplete", "applied", "approved"].includes(assignment.status)
+        donationRecipients: ["incomplete", "pre_approved", "approved"].includes(assignment.status)
           ? await loadDonationRecipients(trip.id)
           : [],
         tripPeopleRoleId: assignment.id,
@@ -518,7 +511,7 @@ exports.applyToTrip = async (req, res) => {
         message:
           existing.status === "approved"
             ? "You are already on this trip."
-            : existing.status === "incomplete" || existing.status === "applied"
+            : existing.status === "incomplete" || existing.status === "pre_approved"
               ? "You have already applied to this trip."
               : `Your previous application for this trip is ${existing.status}.`,
         alreadyApplied: true,
@@ -567,7 +560,6 @@ exports.applyToTrip = async (req, res) => {
     const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const agreementRequired = !!participantAgreement.exists && !!participantAgreement.content?.trim();
     const person = await loadPersonForCompleteness(peopleId);
-    const personDocuments = await loadPersonDocumentsForCompleteness(peopleId);
     const medicalAgreementRequired = medicalAgreementRequiredForPerson(medicalAgreement, person);
     const participantUnder18 = isUnder18(person?.birthDate);
     const agreement = parseAgreementSignature(req.body, { agreementRequired, participantUnder18 });
@@ -594,9 +586,7 @@ exports.applyToTrip = async (req, res) => {
       });
     }
 
-    const documentCompareDate = tripDocumentCompareDate(trip);
-    const doctorPermissionTypes = await loadDoctorPermissionTypes(trip.orgId);
-    const status = resolveAppliedOrIncompleteStatus({
+    const status = resolvePreApprovedOrIncompleteStatus({
       person,
       tripWorkerRoleId,
       willSelfFund,
@@ -622,28 +612,6 @@ exports.applyToTrip = async (req, res) => {
       isPregnant: pregnancy.isPregnant,
       pregnancyDueDate: pregnancy.pregnancyDueDate,
       travelOptionsComplete: !selectionCheck.missingSelection,
-      personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
-      requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
-        documents: personDocuments,
-        documentTypeIds:
-          selectedRole.workerRole?.requiredDocumentTypes?.map((d) => d.id) ||
-          (selectedRole.workerRole?.documentTypeId != null
-            ? [selectedRole.workerRole.documentTypeId]
-            : []),
-        compareDate: documentCompareDate,
-        requiredSpecializations: activeRequiredSpecializations(selectedRole.workerRole),
-      }),
-      requiredPassportUploaded: isRequiredPassportUploaded({
-        documents: personDocuments,
-        requirePassport: !!trip.requirePassport,
-        compareDate: documentCompareDate,
-      }),
-      doctorPermissionUploaded: isDoctorPermissionUploaded({
-        documents: personDocuments,
-        isPregnant: pregnancy.isPregnant,
-        doctorPermissionRequired: doctorPermissionTypes.length > 0,
-        compareDate: documentCompareDate,
-      }),
       orgId: trip.orgId,
     });
 
@@ -708,7 +676,7 @@ exports.applyToTrip = async (req, res) => {
   }
 };
 
-const EDITABLE_APPLICATION_STATUSES = ["incomplete", "applied"];
+const EDITABLE_APPLICATION_STATUSES = ["incomplete", "pre_approved"];
 
 const loadApplicationAssignment = async (tripId, peopleId) => {
   if (!peopleId) return null;
@@ -836,7 +804,6 @@ exports.updateApplication = async (req, res) => {
     const medicalAgreement = await loadOrganizationMedicalAgreement(trip.orgId);
     const agreementRequired = !!participantAgreement.exists && !!participantAgreement.content?.trim();
     const person = await loadPersonForCompleteness(peopleId);
-    const personDocuments = await loadPersonDocumentsForCompleteness(peopleId);
     const medicalAgreementRequired = medicalAgreementRequiredForPerson(medicalAgreement, person);
     const participantUnder18 = isUnder18(person?.birthDate);
     const agreement = parseAgreementSignature(req.body, { agreementRequired, participantUnder18 });
@@ -855,9 +822,7 @@ exports.updateApplication = async (req, res) => {
       selectedTravelOptionIds
     );
 
-    const documentCompareDate = tripDocumentCompareDate(trip);
-    const doctorPermissionTypes = await loadDoctorPermissionTypes(trip.orgId);
-    const status = resolveAppliedOrIncompleteStatus({
+    const status = resolvePreApprovedOrIncompleteStatus({
       person,
       tripWorkerRoleId,
       willSelfFund,
@@ -883,28 +848,6 @@ exports.updateApplication = async (req, res) => {
       isPregnant: pregnancy.isPregnant,
       pregnancyDueDate: pregnancy.pregnancyDueDate,
       travelOptionsComplete: !selectionCheck.missingSelection,
-      personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
-      requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
-        documents: personDocuments,
-        documentTypeIds:
-          selectedRole.workerRole?.requiredDocumentTypes?.map((d) => d.id) ||
-          (selectedRole.workerRole?.documentTypeId != null
-            ? [selectedRole.workerRole.documentTypeId]
-            : []),
-        compareDate: documentCompareDate,
-        requiredSpecializations: activeRequiredSpecializations(selectedRole.workerRole),
-      }),
-      requiredPassportUploaded: isRequiredPassportUploaded({
-        documents: personDocuments,
-        requirePassport: !!trip.requirePassport,
-        compareDate: documentCompareDate,
-      }),
-      doctorPermissionUploaded: isDoctorPermissionUploaded({
-        documents: personDocuments,
-        isPregnant: pregnancy.isPregnant,
-        doctorPermissionRequired: doctorPermissionTypes.length > 0,
-        compareDate: documentCompareDate,
-      }),
       orgId: trip.orgId,
     });
 

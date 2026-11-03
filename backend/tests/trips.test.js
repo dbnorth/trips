@@ -301,16 +301,12 @@ describe("Feature 5 — Trip Catalog Management", () => {
       });
       await completePersonProfile(participant.user.personId);
       const participantRole = await findRole("Trip Participant");
-      const assignment = await request(app)
-        .post("/trips/trip-people-roles")
-        .set(authHeader)
-        .send({
-          tripId: source.body.id,
-          peopleId: participant.user.personId,
-          roleId: participantRole.id,
-          status: "approved",
-        });
-      expect(assignment.status).toBe(200);
+      await db.tripPeopleRole.create({
+        tripId: source.body.id,
+        peopleId: participant.user.personId,
+        roleId: participantRole.id,
+        status: "approved",
+      });
 
       const donation = await request(app)
         .post("/trips/donations")

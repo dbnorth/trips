@@ -154,9 +154,6 @@ describe("Feature 27 — Application Submit Unavailable Info Message", () => {
         willRaiseFunds: false,
         agreementRequired: true,
         agreementAccepted: false,
-        personDocumentsUploaded: true,
-        requiredRoleDocumentUploaded: true,
-        requiredPassportUploaded: true,
         travelOptionsComplete: true,
       });
 
@@ -397,7 +394,7 @@ describe("Feature 47 — Simplify Application Warnings", () => {
       await flushPromises();
 
       expect(wrapper.text()).toContain(
-        "Before submitting your application, update these documents on your profile. Diploma: add this document."
+        "Before your application can be approved, update these documents on your profile. Diploma: add this document."
       );
       expect(wrapper.text()).not.toContain("expiration date");
       wrapper.unmount();
@@ -447,14 +444,14 @@ describe("Feature 47 — Simplify Application Warnings", () => {
       await flushPromises();
 
       expect(wrapper.text()).toContain(
-        "Before submitting your application, update these documents on your profile. Board certification: select the Pediatrics specialization."
+        "Before your application can be approved, update these documents on your profile. Board certification: select the Pediatrics specialization."
       );
       wrapper.unmount();
     });
   });
 
   describe("Feature 94 — US-94.1 Applicants see exactly what is missing from a required document", () => {
-    const WARNING = "Before submitting your application, update these documents on your profile.";
+    const WARNING = "Before your application can be approved, update these documents on your profile.";
     const ER_TRIP = { ...TRIP, startDate: "2027-01-16", endDate: "2027-01-23" };
     const BOARD = {
       id: 7,
@@ -504,22 +501,12 @@ describe("Feature 47 — Simplify Application Warnings", () => {
       });
       return openDialog();
     };
-    const checklistItems = (wrapper) =>
-      wrapper
-        .findAllComponents({ name: "VAlert" })
-        .find((a) => a.text().includes(CHECKLIST_INTRO))
-        .findAll("li")
-        .map((li) => li.text());
-
     it("A wrong specialization names the specialization to select", async () => {
       PersonDocumentServices.getAll.mockResolvedValue({ data: [boardDocument()] });
       const wrapper = await openSavedApplication(erRole());
 
       expect(wrapper.text()).toContain(
         `${WARNING} Board Certification: select the Emergency Medicine specialization.`
-      );
-      expect(checklistItems(wrapper)).toContain(
-        "Board Certification: select the Emergency Medicine specialization"
       );
       wrapper.unmount();
     });
@@ -543,8 +530,8 @@ describe("Feature 47 — Simplify Application Warnings", () => {
         data: [boardDocument({ documentFileName: null, expirationDate: null })],
       });
       wrapper = await openSavedApplication(erRole());
-      expect(checklistItems(wrapper)).toContain(
-        "Board Certification: upload the file, add an expiration date after 01/23/2027, and select the Emergency Medicine specialization"
+      expect(wrapper.text()).toContain(
+        "Upload a file for every document on your profile before your application can be approved."
       );
       wrapper.unmount();
     });

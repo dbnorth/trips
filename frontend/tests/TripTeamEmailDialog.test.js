@@ -29,7 +29,7 @@ const participant = (peopleId, firstName, status, roleName = "Trip Participant")
 
 const PARTICIPANTS = [
   participant(1, "Ana", "incomplete"),
-  participant(2, "Ben", "applied"),
+  participant(2, "Ben", "pre_approved"),
   participant(3, "Cy", "approved"),
   participant(4, "Dee", "declined"),
   participant(5, "Lee", "approved", "Trip Leader"),

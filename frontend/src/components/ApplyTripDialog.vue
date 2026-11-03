@@ -26,7 +26,6 @@ import {
   isApplicationFormComplete,
   isDoctorPermissionUploaded,
   isRequiredPassportUploaded,
-  isRequiredRoleDocumentUploaded,
   missingRequiredRoleDocuments,
   needsExpirationWording,
   requiredRoleDocumentMessage,
@@ -111,7 +110,7 @@ const showConfirmCancel = ref(false);
 const showConfirmUncancel = ref(false);
 
 const canCancelApplication = computed(() =>
-  ["incomplete", "applied", "approved"].includes(String(applicationStatus.value || "").toLowerCase())
+  ["incomplete", "pre_approved", "approved"].includes(String(applicationStatus.value || "").toLowerCase())
 );
 const canUncancelApplication = computed(
   () => String(applicationStatus.value || "").toLowerCase() === "cancelled"
@@ -167,16 +166,6 @@ const dateOnly = (value) => {
   return String(value).slice(0, 10);
 };
 
-const hasRequiredDocumentForTrip = computed(() => {
-  const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
-  return isRequiredRoleDocumentUploaded({
-    documents: personDocuments.value,
-    documentTypeIds: requiredDocumentTypes.value.map((d) => d.id),
-    compareDate,
-    requiredSpecializations: requiredSpecializations.value,
-  });
-});
-
 const hasRequiredPassportForTrip = computed(() => {
   const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
   return isRequiredPassportUploaded({
@@ -207,34 +196,26 @@ const personDocumentsUploaded = computed(() =>
   arePersonDocumentsUploaded(personDocuments.value)
 );
 
-const documentsCompleteForSubmit = computed(
-  () =>
-    personDocumentsUploaded.value &&
-    hasRequiredDocumentForTrip.value &&
-    hasRequiredPassportForTrip.value &&
-    hasDoctorPermissionForTrip.value
-);
-
 const documentRequirementWarning = computed(() => {
   if (!personDocumentsUploaded.value) {
-    return "Upload a file for every document on your profile before submitting your application.";
+    return "Upload a file for every document on your profile before your application can be approved.";
   }
   if (trip.value?.requirePassport && !hasRequiredPassportForTrip.value) {
     const passportTypes = documentTypes.value.filter((t) => t.type === "passport");
     if (!needsExpirationWording(passportTypes)) {
-      return "Upload a passport before submitting your application.";
+      return "Upload a passport before your application can be approved.";
     }
     const endDate = dateOnly(trip.value?.endDate);
     const endPart = endDate ? ` (${formatDate(endDate)})` : "";
-    return `Upload a passport with an expiration date past the end of the trip${endPart} before submitting your application.`;
+    return `Upload a passport with an expiration date past the end of the trip${endPart} before your application can be approved.`;
   }
   if (!hasDoctorPermissionForTrip.value && !doctorPermissionListedForRole.value) {
     if (!trip.value?.doctorPermissionHasExpiration) {
-      return "Upload a Doctor Permission document before submitting your application.";
+      return "Upload a Doctor Permission document before your application can be approved.";
     }
     const endDate = dateOnly(trip.value?.endDate);
     const endPart = endDate ? ` (${formatDate(endDate)})` : "";
-    return `Upload a Doctor Permission document with an expiration date on or after the end of the trip${endPart} before submitting your application.`;
+    return `Upload a Doctor Permission document with an expiration date on or after the end of the trip${endPart} before your application can be approved.`;
   }
   const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
   const missing = missingRequiredRoleDocuments({
@@ -253,7 +234,7 @@ const documentRequirementWarning = computed(() => {
         requiredSpecializations: requiredSpecializations.value,
       })}.`
   );
-  return `Before submitting your application, update these documents on your profile. ${sentences.join(" ")}`;
+  return `Before your application can be approved, update these documents on your profile. ${sentences.join(" ")}`;
 });
 
 const profileComplete = computed(() =>
@@ -308,20 +289,20 @@ const travelOptionsComplete = computed(
   () => !validateTravelOptionSelections(travelOptions.value, selectedTravelOptionIds.value)
 );
 
-/** Matches the backend "applied" status: profile + form + agreement + travel options + documents. */
+/** Matches the backend "pre_approved" status: profile + form + agreement + travel options (documents are checked at approval). */
 const readyToSubmit = computed(
   () =>
     profileComplete.value &&
     applicationFormComplete.value &&
     agreementComplete.value &&
     medicalAgreementComplete.value &&
-    travelOptionsComplete.value &&
-    documentsCompleteForSubmit.value
+    travelOptionsComplete.value
 );
 
-const primaryActionLabel = computed(() =>
-  readyToSubmit.value ? "Submit Application" : "Save Incomplete Application"
-);
+const primaryActionLabel = computed(() => {
+  if (!readyToSubmit.value) return "Save Incomplete Application";
+  return applicationStatus.value === "pre_approved" ? "Update Application" : "Submit Application";
+});
 
 const showPrimarySubmitButton = computed(() =>
   canShowPrimarySubmitButton({
@@ -347,13 +328,6 @@ const submitUnavailableReasons = computed(() => {
   if (!editingApplication.value) return [];
   if (!showPrimarySubmitButton.value || readyToSubmit.value) return [];
 
-  const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
-  const missingRoleDocs = missingRequiredRoleDocuments({
-    documents: personDocuments.value,
-    requiredDocumentTypes: requiredDocumentTypes.value,
-    compareDate,
-    requiredSpecializations: requiredSpecializations.value,
-  });
   const travelError = validateTravelOptionSelections(
     travelOptions.value,
     selectedTravelOptionIds.value
@@ -387,18 +361,6 @@ const submitUnavailableReasons = computed(() => {
     medicalAgreementAccepted: form.value.medicalAgreementAccepted,
     travelOptionsComplete: travelOptionsComplete.value,
     travelOptionsMessage: travelError,
-    personDocumentsUploaded: personDocumentsUploaded.value,
-    requiredRoleDocumentUploaded: hasRequiredDocumentForTrip.value,
-    missingRoleDocumentNames: missingRoleDocs.map((docType) =>
-      requiredRoleDocumentMessage(docType, {
-        documents: personDocuments.value,
-        compareDate,
-        requiredSpecializations: requiredSpecializations.value,
-      })
-    ),
-    requiredPassportUploaded: hasRequiredPassportForTrip.value,
-    requirePassport: !!trip.value?.requirePassport,
-    doctorPermissionUploaded: hasDoctorPermissionForTrip.value || doctorPermissionListedForRole.value,
   });
 });
 
@@ -612,7 +574,7 @@ const loadNewApplication = async () => {
   if (!res.data?.alreadyApplied) return;
 
   const status = res.data?.applicationStatus;
-  if (["incomplete", "applied", "approved", "cancelled"].includes(status)) {
+  if (["incomplete", "pre_approved", "approved", "cancelled"].includes(status)) {
     await loadExistingApplication();
     return;
   }
@@ -929,7 +891,7 @@ const confirmUncancelApplication = async () => {
 
           <v-alert
             v-if="documentRequirementWarning"
-            type="warning"
+            type="info"
             density="compact"
             class="mb-3"
           >
@@ -1105,7 +1067,7 @@ const confirmUncancelApplication = async () => {
   <ConfirmDialog
     v-model="showConfirmUncancel"
     title="Are you sure?"
-    message="Uncancel this application? It will return to incomplete or applied based on completeness."
+    message="Uncancel this application? It will return to incomplete or pre-approved based on completeness."
     confirm-text="Uncancel"
     :loading="saving"
     @confirm="confirmUncancelApplication"

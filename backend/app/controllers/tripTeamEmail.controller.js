@@ -16,7 +16,7 @@ const Op = db.Sequelize.Op;
 const FUNCTION_CODE = "Trip Participant";
 const POTENTIAL = {
   roleNames: [ROLE_TRIP_PARTICIPANT, ROLE_TRIP_LEADER],
-  statuses: ["incomplete", "applied", "approved"],
+  statuses: ["incomplete", "pre_approved", "approved"],
 };
 const SEND_TO = {
   potential: POTENTIAL,

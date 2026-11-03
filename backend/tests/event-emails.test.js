@@ -202,7 +202,7 @@ describe("Feature 45 — Send Now Event Emails", () => {
         .send({ ...application, willSelfFund: true, version: started.body.assignment.version });
 
       expect(submitted.status).toBe(200);
-      expect(submitted.body.applicationStatus).toBe("applied");
+      expect(submitted.body.applicationStatus).toBe("pre_approved");
       const logs = await sentEmails();
       expect(logs.map((log) => log.subject)).toEqual(["Application received"]);
       expect(logs[0].toEmail).toBe("applicant@example.org");
@@ -212,7 +212,7 @@ describe("Feature 45 — Send Now Event Emails", () => {
       await addTemplate("application-approved", "Application approved");
       const trip = await createTrip();
       const person = await createPerson();
-      const assignment = await addAssignment(trip, person, "applied");
+      const assignment = await addAssignment(trip, person, "pre_approved");
 
       const response = await request(app)
         .put(`/trips/trip-people-roles/${assignment.id}`)
@@ -336,7 +336,7 @@ describe("Feature 45 — Send Now Event Emails", () => {
     it("A failed event email does not block the save", async () => {
       await addTemplate("application-approved", "Application approved");
       const trip = await createTrip();
-      const assignment = await addAssignment(trip, await createPerson(), "applied");
+      const assignment = await addAssignment(trip, await createPerson(), "pre_approved");
       process.env.EMAIL_MODE = "smtp";
       emailTransport.create = () => ({
         sendMail: async () => {

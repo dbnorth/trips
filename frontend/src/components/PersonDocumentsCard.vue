@@ -541,6 +541,7 @@ onMounted(load);
           <th>Issue date</th>
           <th>Expiration date</th>
           <th>Document</th>
+          <th>Reviewed</th>
           <th class="text-right" style="width: 220px">Actions</th>
         </tr>
       </thead>
@@ -563,6 +564,15 @@ onMounted(load);
             </v-btn>
             <span v-else class="text-medium-emphasis">Need Document</span>
           </td>
+          <td>
+            <v-checkbox-btn
+              :model-value="!!row.reviewed"
+              readonly
+              density="compact"
+              :aria-label="`Reviewed: ${row.reviewed ? 'yes' : 'no'}`"
+              data-testid="document-reviewed"
+            />
+          </td>
           <td class="text-right">
             <v-btn size="small" variant="text" @click="startEdit(row)">Edit</v-btn>
             <v-btn size="small" variant="text" @click="downloadDocument(row)">Download</v-btn>
@@ -572,7 +582,7 @@ onMounted(load);
           </td>
         </tr>
         <tr v-if="row.specializations?.length">
-          <td colspan="7">
+          <td colspan="8">
             <div
               v-for="spec in row.specializations"
               :key="spec.id"

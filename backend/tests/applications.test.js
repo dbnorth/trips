@@ -20,6 +20,19 @@ import {
   createDocumentType,
 } from "./helpers.js";
 
+const APPROVAL_DOCUMENTS_MESSAGE = "Upload and review all required documents before approving.";
+
+const approveApplication = async (adminAuth, assignmentId) => {
+  const row = await db.tripPeopleRole.findByPk(assignmentId);
+  return request(app)
+    .put(`/trips/trip-people-roles/${assignmentId}`)
+    .set(adminAuth)
+    .send({ status: "approved", version: row.version });
+};
+
+const markDocumentsReviewed = (personId) =>
+  db.personDocument.update({ reviewed: true }, { where: { personId } });
+
 const createActiveTripWithRole = async (
   adminAuth,
   orgId,
@@ -164,11 +177,11 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body.applicationStatus).toBe("applied");
-      expect(response.body.assignment.status).toBe("applied");
+      expect(response.body.applicationStatus).toBe("pre_approved");
+      expect(response.body.assignment.status).toBe("pre_approved");
     });
 
-    it("Application stays incomplete until all documents are uploaded", async () => {
+    it("Approval waits until all documents are uploaded", async () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "docs-gate-admin@example.com",
       });
@@ -207,35 +220,23 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         });
 
       expect(incomplete.status).toBe(200);
-      expect(incomplete.body.applicationStatus).toBe("incomplete");
-      expect(incomplete.body.assignment.status).toBe("incomplete");
+      expect(incomplete.body.applicationStatus).toBe("pre_approved");
+
+      const refused = await approveApplication(authHeader, incomplete.body.assignment.id);
+      expect(refused.status).toBe(400);
+      expect(refused.body.message).toBe(APPROVAL_DOCUMENTS_MESSAGE);
 
       await db.personDocument.update(
         { documentFileName: "people/docs-gate-passport.png" },
         { where: { personId: applicant.user.personId } }
       );
 
-      const applied = await request(app)
-        .put(`/trips/trips/browse/${trip.id}/application`)
-        .set(applicant.authHeader)
-        .send({
-          tripWorkerRoleId: tripWorkerRole.id,
-          willSelfFund: true,
-          flightPurchaseOption: "self",
-          willRaiseFunds: false,
-          hasPreferredRoommate: false,
-          isPregnant: false,
-          agreementAccepted: true,
-          agreementSignatureName: "Docs Gate Applicant",
-          version: incomplete.body.assignment.version,
-        });
-
-      expect(applied.status).toBe(200);
-      expect(applied.body.applicationStatus).toBe("applied");
-      expect(applied.body.application.status).toBe("applied");
+      const approved = await approveApplication(authHeader, incomplete.body.assignment.id);
+      expect(approved.status).toBe(200);
+      expect(approved.body.status).toBe("approved");
     });
 
-    it("Application stays incomplete until role-required document is uploaded", async () => {
+    it("Approval waits until the role-required document is uploaded and reviewed", async () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "role-doc-admin@example.com",
       });
@@ -299,7 +300,9 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         });
 
       expect(withoutDoc.status).toBe(200);
-      expect(withoutDoc.body.applicationStatus).toBe("incomplete");
+      expect(withoutDoc.body.applicationStatus).toBe("pre_approved");
+      const assignmentId = withoutDoc.body.assignment.id;
+      expect((await approveApplication(authHeader, assignmentId)).status).toBe(400);
 
       await db.personDocument.create({
         personId: applicant.user.personId,
@@ -309,29 +312,15 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         expirationDate: "2030-01-01",
         documentFileName: "people/rn-license.png",
       });
+      expect((await approveApplication(authHeader, assignmentId)).status).toBe(400);
 
-      const withDoc = await request(app)
-        .put(`/trips/trips/browse/${trip.body.id}/application`)
-        .set(applicant.authHeader)
-        .send({
-          tripWorkerRoleId: tripWorkerRole.body.id,
-          willSelfFund: true,
-          flightPurchaseOption: "self",
-          willRaiseFunds: false,
-          licenseStatus: "yes",
-          hasPreferredRoommate: false,
-          isPregnant: false,
-          agreementAccepted: true,
-          agreementSignatureName: "Role Doc Applicant",
-          version: withoutDoc.body.assignment.version,
-        });
-
-      expect(withDoc.status).toBe(200);
-      expect(withDoc.body.applicationStatus).toBe("applied");
-      expect(withDoc.body.application.status).toBe("applied");
+      await markDocumentsReviewed(applicant.user.personId);
+      const approved = await approveApplication(authHeader, assignmentId);
+      expect(approved.status).toBe(200);
+      expect(approved.body.status).toBe("approved");
     });
 
-    it("Application stays incomplete until all role-required documents are uploaded", async () => {
+    it("Approval waits until all role-required documents are uploaded", async () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "multi-role-docs-admin@example.com",
       });
@@ -408,7 +397,10 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         });
 
       expect(incomplete.status).toBe(200);
-      expect(incomplete.body.applicationStatus).toBe("incomplete");
+      expect(incomplete.body.applicationStatus).toBe("pre_approved");
+      await markDocumentsReviewed(applicant.user.personId);
+      const assignmentId = incomplete.body.assignment.id;
+      expect((await approveApplication(authHeader, assignmentId)).status).toBe(400);
 
       await db.personDocument.create({
         personId: applicant.user.personId,
@@ -417,25 +409,10 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         issueDate: "2020-01-01",
         expirationDate: "2030-01-01",
         documentFileName: "people/bls.png",
+        reviewed: true,
       });
 
-      const applied = await request(app)
-        .put(`/trips/trips/browse/${trip.body.id}/application`)
-        .set(applicant.authHeader)
-        .send({
-          tripWorkerRoleId: tripWorkerRole.body.id,
-          willSelfFund: true,
-          flightPurchaseOption: "self",
-          willRaiseFunds: false,
-          hasPreferredRoommate: false,
-          isPregnant: false,
-          agreementAccepted: true,
-          agreementSignatureName: "Multi Doc Applicant",
-          version: incomplete.body.assignment.version,
-        });
-
-      expect(applied.status).toBe(200);
-      expect(applied.body.applicationStatus).toBe("applied");
+      expect((await approveApplication(authHeader, assignmentId)).status).toBe(200);
     });
 
     it("Role with no required documents does not block on this gate", async () => {
@@ -473,10 +450,10 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body.applicationStatus).toBe("applied");
+      expect(response.body.applicationStatus).toBe("pre_approved");
     });
 
-    it("Application stays incomplete until passport is uploaded when required", async () => {
+    it("Approval waits until the passport is uploaded when required", async () => {
       const { authHeader, org } = await createOrgAdminUser({
         email: "passport-req-admin@example.com",
       });
@@ -534,7 +511,9 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         });
 
       expect(withoutPassport.status).toBe(200);
-      expect(withoutPassport.body.applicationStatus).toBe("incomplete");
+      expect(withoutPassport.body.applicationStatus).toBe("pre_approved");
+      const assignmentId = withoutPassport.body.assignment.id;
+      expect((await approveApplication(authHeader, assignmentId)).status).toBe(400);
 
       const passportType = await createDocumentType({
         type: "passport",
@@ -547,26 +526,10 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         issueDate: "2020-01-01",
         expirationDate: "2030-01-01",
         documentFileName: "people/passport-required.png",
+        reviewed: true,
       });
 
-      const withPassport = await request(app)
-        .put(`/trips/trips/browse/${trip.body.id}/application`)
-        .set(applicant.authHeader)
-        .send({
-          tripWorkerRoleId: tripWorkerRole.body.id,
-          willSelfFund: true,
-          flightPurchaseOption: "self",
-          willRaiseFunds: false,
-          hasPreferredRoommate: false,
-          isPregnant: false,
-          agreementAccepted: true,
-          agreementSignatureName: "Passport Required Applicant",
-          version: withoutPassport.body.assignment.version,
-        });
-
-      expect(withPassport.status).toBe(200);
-      expect(withPassport.body.applicationStatus).toBe("applied");
-      expect(withPassport.body.application.status).toBe("applied");
+      expect((await approveApplication(authHeader, assignmentId)).status).toBe(200);
     });
 
     it("Passport is not required when Require Passport is unchecked", async () => {
@@ -600,7 +563,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body.applicationStatus).toBe("applied");
+      expect(response.body.applicationStatus).toBe("pre_approved");
     });
 
     it("Pregnancy answers are saved on the application", async () => {
@@ -925,7 +888,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
           agreementSignatureName: "To Approve",
         });
       expect(apply.status).toBe(200);
-      expect(apply.body.applicationStatus).toBe("applied");
+      expect(apply.body.applicationStatus).toBe("pre_approved");
 
       const approve = await request(app)
         .put(`/trips/trip-people-roles/${apply.body.assignment.id}`)
@@ -1128,7 +1091,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
           agreementSignatureName: "Person A",
         });
       expect(applyA.status).toBe(200);
-      expect(applyA.body.applicationStatus).toBe("applied");
+      expect(applyA.body.applicationStatus).toBe("pre_approved");
 
       const applyB = await request(app)
         .post(`/trips/trips/browse/${trip.id}/apply`)
@@ -1197,7 +1160,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
           agreementSignatureName: "Person B",
         });
       expect(applyB.status).toBe(200);
-      expect(applyB.body.applicationStatus).toBe("applied");
+      expect(applyB.body.applicationStatus).toBe("pre_approved");
     });
   });
 
@@ -1277,7 +1240,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
           agreementSignatureName: "Uncancel Self",
         });
       expect(apply.status).toBe(200);
-      expect(apply.body.applicationStatus).toBe("applied");
+      expect(apply.body.applicationStatus).toBe("pre_approved");
 
       await request(app)
         .put(`/trips/trip-people-roles/${apply.body.assignment.id}`)
@@ -1293,7 +1256,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .post(`/trips/trips/browse/${trip.id}/application/uncancel`)
         .set(applicant.authHeader);
       expect(uncancel.status).toBe(200);
-      expect(["incomplete", "applied"]).toContain(uncancel.body.applicationStatus);
+      expect(["incomplete", "pre_approved"]).toContain(uncancel.body.applicationStatus);
       expect(uncancel.body.applicationStatus).not.toBe("approved");
     });
 
@@ -1429,7 +1392,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .post(`/trips/trip-people-roles/${apply.body.assignment.id}/uncancel`)
         .set(leader.authHeader);
       expect(uncancel.status).toBe(200);
-      expect(["incomplete", "applied"]).toContain(uncancel.body.status);
+      expect(["incomplete", "pre_approved"]).toContain(uncancel.body.status);
       expect(uncancel.body.status).not.toBe("approved");
     });
   });
@@ -1511,7 +1474,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
           status,
         });
       };
-      await signUp(nurse, "nurse1@example.com", "applied");
+      await signUp(nurse, "nurse1@example.com", "pre_approved");
       await signUp(nurse, "nurse2@example.com", "approved");
       await signUp(nurse, "nurse-cancelled@example.com", "cancelled");
       await signUp(doctor, "doctor1@example.com", "incomplete");

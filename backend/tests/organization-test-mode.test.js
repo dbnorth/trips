@@ -178,7 +178,7 @@ describe("Feature 49 — Organization Email Test Mode", () => {
           tripId: trip.id,
           peopleId: person.id,
           roleId: participantRole.id,
-          status: "applied",
+          status: "pre_approved",
         });
       }
       const emailType = await db.emailType.create({

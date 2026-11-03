@@ -171,7 +171,7 @@ describe("Feature 78 — Days Before and After the Trip", () => {
 
   describe("US-78.2 — Participants choose at most one early and one late option", () => {
     it("Only one trip option with days before or after", async () => {
-      await anaAssignment.update({ status: "applied" });
+      await anaAssignment.update({ status: "pre_approved" });
       await selectOptions(anaAssignment, [options.arriveOnTime, options.noExtraNight]);
 
       const refused = await saveApplication([options.arriveEarly, options.extraEarlyNight]);

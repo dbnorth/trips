@@ -84,8 +84,13 @@ const createDoctorPermissionType = (orgId, hasExpirationDate = false) =>
 const apply = (ana, tripId, body) =>
   request(app).post(`/trips/trips/browse/${tripId}/apply`).set(ana.authHeader).send(body);
 
-const updateApplication = (ana, tripId, body) =>
-  request(app).put(`/trips/trips/browse/${tripId}/application`).set(ana.authHeader).send(body);
+const approve = async (admin, assignmentId) => {
+  const row = await db.tripPeopleRole.findByPk(assignmentId);
+  return request(app)
+    .put(`/trips/trip-people-roles/${assignmentId}`)
+    .set(admin.authHeader)
+    .send({ status: "approved", version: row.version });
+};
 
 describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
   beforeAll(async () => {
@@ -121,13 +126,14 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
   });
 
   describe("US-102.2 — Pregnant applicants must upload a Doctor Permission document", () => {
-    it("Pregnant applicant stays incomplete until the Doctor Permission document is uploaded", async () => {
-      const { org, trip, tripWorkerRole, ana } = await setup();
+    it("Approval waits until a pregnant applicant's Doctor Permission document is uploaded", async () => {
+      const { admin, org, trip, tripWorkerRole, ana } = await setup();
       const type = await createDoctorPermissionType(org.id, false);
 
       const first = await apply(ana, trip.id, applicationBody(tripWorkerRole.id));
       expect(first.status).toBe(200);
-      expect(first.body.applicationStatus).toBe("incomplete");
+      expect(first.body.applicationStatus).toBe("pre_approved");
+      expect((await approve(admin, first.body.assignment.id)).status).toBe(400);
 
       const upload = await request(app)
         .post(`/trips/people/${ana.user.personId}/documents`)
@@ -137,14 +143,13 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
         .field("issueDate", "2026-10-15")
         .attach("document", TINY_PNG, { filename: "clearance.png", contentType: "image/png" });
       expect(upload.status).toBe(200);
+      await db.personDocument.update({ reviewed: true }, { where: { id: upload.body.id } });
 
-      const second = await updateApplication(ana, trip.id, applicationBody(tripWorkerRole.id));
-      expect(second.status).toBe(200);
-      expect(second.body.application.status).toBe("applied");
+      expect((await approve(admin, first.body.assignment.id)).status).toBe(200);
     });
 
     it("A Doctor Permission document counts through its expiration date", async () => {
-      const { org, trip, tripWorkerRole, ana } = await setup();
+      const { admin, org, trip, tripWorkerRole, ana } = await setup();
       const type = await createDoctorPermissionType(org.id, true);
       const doc = await db.personDocument.create({
         personId: ana.user.personId,
@@ -152,22 +157,21 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
         countryIssued: "US",
         expirationDate: "2027-03-05",
         documentFileName: "people/clearance.png",
+        reviewed: true,
       });
 
       const first = await apply(ana, trip.id, applicationBody(tripWorkerRole.id));
       expect(first.status).toBe(200);
-      expect(first.body.applicationStatus).toBe("incomplete");
+      expect((await approve(admin, first.body.assignment.id)).status).toBe(400);
 
       await doc.update({ expirationDate: "2027-03-10" });
-      const second = await updateApplication(ana, trip.id, applicationBody(tripWorkerRole.id));
-      expect(second.status).toBe(200);
-      expect(second.body.application.status).toBe("applied");
+      expect((await approve(admin, first.body.assignment.id)).status).toBe(200);
     });
 
     it("The application's upload expires at the trip end and a later trip needs a new one", async () => {
       const { admin, org, trip, tripWorkerRole, ana } = await setup();
       const type = await createDoctorPermissionType(org.id, false);
-      await apply(ana, trip.id, applicationBody(tripWorkerRole.id));
+      const first = await apply(ana, trip.id, applicationBody(tripWorkerRole.id));
 
       const upload = await request(app)
         .post(`/trips/people/${ana.user.personId}/documents`)
@@ -181,10 +185,9 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
       expect(String(upload.body.expirationDate).slice(0, 10)).toBe("2027-03-10");
       const stored = await db.personDocument.findByPk(upload.body.id);
       expect(String(stored.expirationDate).slice(0, 10)).toBe("2027-03-10");
+      await stored.update({ reviewed: true });
 
-      const saved = await updateApplication(ana, trip.id, applicationBody(tripWorkerRole.id));
-      expect(saved.status).toBe(200);
-      expect(saved.body.application.status).toBe("applied");
+      expect((await approve(admin, first.body.assignment.id)).status).toBe(200);
 
       const later = await request(app)
         .post("/trips/trips")
@@ -205,7 +208,7 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
 
       const laterApplication = await apply(ana, later.body.id, applicationBody(laterRole.body.id));
       expect(laterApplication.status).toBe(200);
-      expect(laterApplication.body.applicationStatus).toBe("incomplete");
+      expect((await approve(admin, laterApplication.body.assignment.id)).status).toBe(400);
     });
 
     it("Not pregnant needs no Doctor Permission document", async () => {
@@ -215,7 +218,7 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
       const response = await apply(ana, trip.id, applicationBody(tripWorkerRole.id, { isPregnant: false }));
 
       expect(response.status).toBe(200);
-      expect(response.body.applicationStatus).toBe("applied");
+      expect(response.body.applicationStatus).toBe("pre_approved");
     });
 
     it("An organization without a Doctor Permission type does not require one", async () => {
@@ -228,7 +231,7 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
       const response = await apply(ana, trip.id, applicationBody(tripWorkerRole.id));
 
       expect(response.status).toBe(200);
-      expect(response.body.applicationStatus).toBe("applied");
+      expect(response.body.applicationStatus).toBe("pre_approved");
     });
 
     it("Staff and My Trips see the missing document", async () => {
@@ -245,7 +248,7 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
       });
 
       const applied = await apply(ana, trip.id, applicationBody(tripWorkerRole.id));
-      expect(applied.body.applicationStatus).toBe("incomplete");
+      expect(applied.body.applicationStatus).toBe("pre_approved");
 
       const status = await request(app).get(`/trips/trips/${trip.id}/status`).set(admin.authHeader);
       expect(status.status).toBe(200);
@@ -261,7 +264,7 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
       expect(mine.status).toBe(200);
       const myTrip = mine.body.find((t) => Number(t.id) === Number(trip.id));
       expect(myTrip.nextActions).toEqual([
-        { code: "complete-application", missingDocuments: ["Doctor Permission"] },
+        { code: "upload-documents", missingDocuments: ["Doctor Permission"] },
       ]);
     });
   });

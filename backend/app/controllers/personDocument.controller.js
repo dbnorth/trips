@@ -279,6 +279,30 @@ const validatePayload = async (body) => {
   };
 };
 
+const DETAIL_FIELDS = ["documentTypeId", "countryIssued", "documentNumber", "issueDate", "expirationDate"];
+
+const documentDetailsChanged = (row, payload) =>
+  DETAIL_FIELDS.some((field) => {
+    const before = row[field] == null ? "" : String(row[field]);
+    const after = payload[field] == null ? "" : String(payload[field]);
+    return field.endsWith("Date") ? before.slice(0, 10) !== after.slice(0, 10) : before !== after;
+  });
+
+const specializationsChanged = (plan) => {
+  if (plan.skip) return false;
+  if (plan.prepared.length !== plan.existing.length) return true;
+  const existingById = new Map(plan.existing.map((row) => [row.id, row]));
+  return plan.prepared.some((item) => {
+    const current = item.id ? existingById.get(item.id) : null;
+    return (
+      !current ||
+      !!item.file ||
+      Number(current.documentTypeSpecializationId) !== item.specializationId ||
+      String(current.specializationDate || "").slice(0, 10) !== item.date
+    );
+  });
+};
+
 const loadForPerson = (id, personId) =>
   PersonDocument.findOne({
     where: { id, personId },
@@ -398,6 +422,10 @@ exports.update = async (req, res) => {
       return res.status(400).send({ message: plan.error });
     }
 
+    if (documentFile || documentDetailsChanged(row, payload) || specializationsChanged(plan)) {
+      payload.reviewed = false;
+    }
+
     await writeEncryptedFiles([documentFile, ...planFiles(plan)]);
     if (documentFile) removeDocumentFile(row.documentFileName);
     await row.update(payload);
@@ -411,7 +439,7 @@ exports.update = async (req, res) => {
   }
 };
 
-const sendDocumentFile = async (res, documentFileName, { inline }) => {
+export const sendDocumentFile = async (res, documentFileName, { inline }) => {
   const filePath = documentPath(documentFileName);
   if (!fs.existsSync(filePath)) {
     return res.status(404).send({ message: "Document file not found." });

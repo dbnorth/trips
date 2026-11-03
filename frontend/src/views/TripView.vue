@@ -10,6 +10,7 @@ import ParticipantDonationsDialog from "../components/ParticipantDonationsDialog
 import EditTripDialog from "../components/EditTripDialog.vue";
 import ViewPersonProfileDialog from "../components/ViewPersonProfileDialog.vue";
 import ViewTripApplicationDialog from "../components/ViewTripApplicationDialog.vue";
+import ReviewDocumentsDialog from "../components/ReviewDocumentsDialog.vue";
 import TripWorkerRolesCard from "../components/TripWorkerRolesCard.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TripTeamEmailDialog from "../components/TripTeamEmailDialog.vue";
@@ -24,6 +25,7 @@ import { donorTripPath, donorParticipantPath } from "../utils/donateUrls.js";
 import PersonServices from "../services/personServices.js";
 import RowAction from "../components/RowAction.vue";
 import { formatDate as formatDateText } from "../utils/dateFormat.js";
+import { tripParticipantStatusLabel } from "../utils/tripParticipantStatus.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -52,6 +54,8 @@ const viewPersonId = ref(null);
 const showViewApplication = ref(false);
 const viewApplicationId = ref(null);
 const viewApplicationMode = ref("view");
+const showReviewDocuments = ref(false);
+const reviewDocumentsParticipant = ref(null);
 const showConfirmCancelParticipant = ref(false);
 const confirmCancelParticipantRow = ref(null);
 const cancelParticipantSaving = ref(false);
@@ -181,7 +185,7 @@ const applicationAction = (row) => {
   if (status === "approved" || status === "cancelled") {
     return { label: "View App", mode: "view", icon: "mdi-file-document-outline" };
   }
-  if (status === "applied") return { label: "Approve App", mode: "approve", icon: "mdi-file-check-outline" };
+  if (status === "pre_approved") return { label: "Approve App", mode: "approve", icon: "mdi-file-check-outline" };
   return { label: "Preview App", mode: "preview", icon: "mdi-file-eye-outline" };
 };
 
@@ -193,8 +197,13 @@ const openApplication = (row) => {
   showViewApplication.value = true;
 };
 
+const openReviewDocuments = (row) => {
+  reviewDocumentsParticipant.value = row;
+  showReviewDocuments.value = true;
+};
+
 const canCancelParticipant = (row) =>
-  ["incomplete", "applied", "approved"].includes(String(row?.status || "").toLowerCase());
+  ["incomplete", "pre_approved", "approved"].includes(String(row?.status || "").toLowerCase());
 
 const canUncancelParticipant = (row) =>
   String(row?.status || "").toLowerCase() === "cancelled";
@@ -490,6 +499,7 @@ onMounted(refresh);
       </template>
       <template #item.roleName="{ item }">{{ item.roleName || "—" }}</template>
       <template #item.workerRoleName="{ item }">{{ item.workerRoleName || "—" }}</template>
+      <template #item.status="{ item }">{{ tripParticipantStatusLabel(item.status) }}</template>
       <template #item.arrivalDate="{ item }">
         <TripDateAdjustment
           :date="item.arrivalDate"
@@ -517,6 +527,12 @@ onMounted(refresh);
             :icon="applicationAction(item).icon"
             :label="applicationAction(item).label"
             @click="openApplication(item)"
+          />
+          <RowAction
+            v-if="item.person?.id"
+            icon="mdi-checkbox-marked-circle-outline"
+            label="Review documents"
+            @click="openReviewDocuments(item)"
           />
           <RowAction
             v-if="canCancelParticipant(item)"
@@ -577,6 +593,11 @@ onMounted(refresh);
       :mode="viewApplicationMode"
       @saved="onApplicationSaved"
     />
+    <ReviewDocumentsDialog
+      v-model="showReviewDocuments"
+      :participant="reviewDocumentsParticipant"
+      @closed="loadParticipants"
+    />
     <ConfirmDialog
       v-model="showConfirmCancelParticipant"
       title="Are you sure?"
@@ -589,7 +610,7 @@ onMounted(refresh);
     <ConfirmDialog
       v-model="showConfirmUncancelParticipant"
       title="Are you sure?"
-      message="Uncancel this application? It will return to incomplete or applied based on completeness."
+      message="Uncancel this application? It will return to incomplete or pre-approved based on completeness."
       confirm-text="Uncancel"
       :loading="uncancelParticipantSaving"
       @confirm="confirmUncancelParticipant"

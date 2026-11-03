@@ -4,23 +4,18 @@ import {
   isOrgAdminForOrg,
   isSystemAdmin,
   isTripLeaderForTrip,
+  ROLE_TRIP_LEADER,
 } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import { TRIP_PARTICIPANT_STATUSES } from "../models/tripPeopleRole.model.js";
 import {
-  arePersonDocumentsUploaded,
-  isRequiredPassportUploaded,
-  isDoctorPermissionUploaded,
-  loadDoctorPermissionTypes,
-  isRequiredRoleDocumentUploaded,
-  loadPersonDocumentsForCompleteness,
-  loadWorkerRoleDocumentRequirements,
   loadPersonForCompleteness,
   MANUAL_TRIP_PARTICIPANT_STATUSES,
-  resolveAppliedOrIncompleteStatus,
+  resolvePreApprovedOrIncompleteStatus,
   shouldAutoSetApplicationStatus,
-  tripDocumentCompareDate,
 } from "../utils/tripParticipantApplicationStatus.js";
+import { APPROVAL_DOCUMENTS_MESSAGE, loadApprovalDocuments } from "../utils/approvalDocuments.js";
+import { sendDocumentFile } from "./personDocument.controller.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import {
@@ -189,17 +184,16 @@ const normalizeManualStatus = (value) => {
   return status;
 };
 
+/** Trip Leader rows are approved without documents; everyone else needs approval documents. */
+const approvalDocumentsBlocked = async ({ tripId, peopleId, roleId, tripWorkerRoleId, isPregnant }) => {
+  const role = roleId != null ? await db.role.findByPk(roleId, { attributes: ["roleName"] }) : null;
+  if (role?.roleName === ROLE_TRIP_LEADER) return false;
+  const { approvalBlockers } = await loadApprovalDocuments({ tripId, peopleId, tripWorkerRoleId, isPregnant });
+  return approvalBlockers.length > 0;
+};
+
 const computeStatusForPayload = async (payload, orgId) => {
   const person = await loadPersonForCompleteness(payload.peopleId);
-  const personDocuments = await loadPersonDocumentsForCompleteness(payload.peopleId);
-  const { requiredDocumentTypeIds, requiredSpecializations } =
-    await loadWorkerRoleDocumentRequirements(payload.tripWorkerRoleId);
-  const trip =
-    payload.tripId != null
-      ? await Trip.findByPk(payload.tripId, {
-          attributes: ["id", "startDate", "endDate", "requirePassport"],
-        })
-      : null;
   const agreement = orgId != null ? await loadOrganizationAgreement(orgId) : null;
   const agreementRequired = !!agreement?.exists && !!agreement?.content?.trim();
   const medicalAgreement = orgId != null ? await loadOrganizationMedicalAgreement(orgId) : null;
@@ -208,8 +202,7 @@ const computeStatusForPayload = async (payload, orgId) => {
     !!medicalAgreement?.content?.trim() &&
     (person?.takesMedication === true || person?.takesMedication === 1);
   const pregnancy = normalizeApplicationPregnancy(payload, { gender: person?.gender ?? null });
-  const documentCompareDate = tripDocumentCompareDate(trip);
-  return resolveAppliedOrIncompleteStatus({
+  return resolvePreApprovedOrIncompleteStatus({
     person,
     tripWorkerRoleId: payload.tripWorkerRoleId,
     willSelfFund: !!payload.willSelfFund,
@@ -237,24 +230,6 @@ const computeStatusForPayload = async (payload, orgId) => {
     medicalAgreementAccepted: !!payload.medicalAgreementAccepted,
     isPregnant: pregnancy.ok ? pregnancy.isPregnant : null,
     pregnancyDueDate: pregnancy.ok ? pregnancy.pregnancyDueDate : null,
-    personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
-    requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
-      documents: personDocuments,
-      documentTypeIds: requiredDocumentTypeIds,
-      compareDate: documentCompareDate,
-      requiredSpecializations,
-    }),
-    requiredPassportUploaded: isRequiredPassportUploaded({
-      documents: personDocuments,
-      requirePassport: !!trip?.requirePassport,
-      compareDate: documentCompareDate,
-    }),
-    doctorPermissionUploaded: isDoctorPermissionUploaded({
-      documents: personDocuments,
-      isPregnant: pregnancy.ok ? pregnancy.isPregnant : null,
-      doctorPermissionRequired: (await loadDoctorPermissionTypes(orgId)).length > 0,
-      compareDate: documentCompareDate,
-    }),
     orgId,
   });
 };
@@ -360,6 +335,10 @@ exports.create = async (req, res) => {
       return res.status(400).send({ message: INVALID_STATUS_MESSAGE });
     }
 
+    if (requestedStatus === "approved" && (await approvalDocumentsBlocked(payload))) {
+      return res.status(400).send({ message: APPROVAL_DOCUMENTS_MESSAGE });
+    }
+
     if (requestedStatus && MANUAL_TRIP_PARTICIPANT_STATUSES.includes(requestedStatus)) {
       payload.status = requestedStatus;
     } else {
@@ -454,6 +433,22 @@ exports.update = async (req, res) => {
     const requestedStatus = hasStatus ? normalizeManualStatus(body.status) : null;
     if (hasStatus && body.status != null && body.status !== "" && !requestedStatus) {
       return res.status(400).send({ message: INVALID_STATUS_MESSAGE });
+    }
+
+    if (
+      requestedStatus === "approved" &&
+      row.status !== "approved" &&
+      (await approvalDocumentsBlocked({
+        tripId: row.tripId,
+        peopleId: body.peopleId ?? row.peopleId,
+        roleId: body.roleId ?? row.roleId,
+        tripWorkerRoleId: Object.prototype.hasOwnProperty.call(body, "tripWorkerRoleId")
+          ? body.tripWorkerRoleId
+          : row.tripWorkerRoleId,
+        isPregnant: Object.prototype.hasOwnProperty.call(body, "isPregnant") ? body.isPregnant : row.isPregnant,
+      }))
+    ) {
+      return res.status(400).send({ message: APPROVAL_DOCUMENTS_MESSAGE });
     }
 
     if (requestedStatus && MANUAL_TRIP_PARTICIPANT_STATUSES.includes(requestedStatus)) {
@@ -625,6 +620,86 @@ exports.uncancel = async (req, res) => {
     if (!result.ok) return res.status(result.status).send({ message: result.message });
     const full = await TripPeopleRole.findByPk(req.params.id, { include: listIncludes });
     res.send(full);
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+/** The application and one of its person's documents, when the user is trip staff; otherwise sends the error. */
+const loadReviewTarget = async (req, res, { withDocument = false } = {}) => {
+  const row = await TripPeopleRole.findByPk(req.params.id);
+  if (!row) {
+    res.status(404).send({ message: "Record not found." });
+    return null;
+  }
+  if (!(await canManageTripPeople(req, row.tripId))) {
+    res.status(403).send({ message: "Forbidden." });
+    return null;
+  }
+  if (!withDocument) return { row };
+  const document = await db.personDocument.findOne({
+    where: { id: req.params.documentId, personId: row.peopleId },
+  });
+  if (!document) {
+    res.status(404).send({ message: "Document not found." });
+    return null;
+  }
+  return { row, document };
+};
+
+exports.documentReview = async (req, res) => {
+  try {
+    const target = await loadReviewTarget(req, res);
+    if (!target) return;
+    const { row } = target;
+    res.send(
+      await loadApprovalDocuments({
+        tripId: row.tripId,
+        peopleId: row.peopleId,
+        tripWorkerRoleId: row.tripWorkerRoleId,
+        isPregnant: row.isPregnant,
+      })
+    );
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.setDocumentReviewed = async (req, res) => {
+  try {
+    const target = await loadReviewTarget(req, res, { withDocument: true });
+    if (!target) return;
+    const { document } = target;
+    const reviewed = req.body?.reviewed === true;
+    if (reviewed && !(document.documentFileName && String(document.documentFileName).trim())) {
+      return res.status(400).send({ message: "Upload a file before marking it reviewed." });
+    }
+    await document.update({ reviewed });
+    res.send({ id: document.id, reviewed: document.reviewed });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.viewDocument = async (req, res) => {
+  try {
+    const target = await loadReviewTarget(req, res, { withDocument: true });
+    if (!target) return;
+    await sendDocumentFile(res, target.document.documentFileName, { inline: true });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.viewSpecialization = async (req, res) => {
+  try {
+    const target = await loadReviewTarget(req, res, { withDocument: true });
+    if (!target) return;
+    const specialization = await db.personDocumentSpecialization.findOne({
+      where: { id: req.params.specializationId, personDocumentId: target.document.id },
+    });
+    if (!specialization) return res.status(404).send({ message: "Specialization not found." });
+    await sendDocumentFile(res, specialization.documentFileName, { inline: true });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

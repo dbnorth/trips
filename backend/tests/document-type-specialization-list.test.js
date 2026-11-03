@@ -331,7 +331,7 @@ describe("Feature 59 — Document Type Specialization List", () => {
   });
 
   describe("US-59.4 — Application checks require the role's specializations", () => {
-    it("Application stays incomplete until the required specialization is added", async () => {
+    it("Approval waits until the required specialization is added", async () => {
       const { authHeader, org } = await createOrgAdminUser({ email: "gate-spec-admin@example.com" });
       const { documentType, list } = await addBoardCertification(["Pediatrics"], org.id);
       const { trip, tripWorkerRole } = await createTripWithRole(authHeader, org.id, {
@@ -346,14 +346,24 @@ describe("Feature 59 — Document Type Specialization List", () => {
         countryIssued: "US",
         expirationDate: "2030-01-15",
         documentFileName: "people/board.png",
+        reviewed: true,
       });
 
-      const incomplete = await request(app)
+      const applied = await request(app)
         .post(`/trips/trips/browse/${trip.id}/apply`)
         .set(applicant.authHeader)
         .send(applicationBody(tripWorkerRole.id, "Spec Applicant"));
-      expect(incomplete.status).toBe(200);
-      expect(incomplete.body.applicationStatus).toBe("incomplete");
+      expect(applied.status).toBe(200);
+      expect(applied.body.applicationStatus).toBe("pre_approved");
+
+      const approve = async () => {
+        const row = await db.tripPeopleRole.findByPk(applied.body.assignment.id);
+        return request(app)
+          .put(`/trips/trip-people-roles/${row.id}`)
+          .set(authHeader)
+          .send({ status: "approved", version: row.version });
+      };
+      expect((await approve()).status).toBe(400);
 
       await db.personDocumentSpecialization.create({
         personDocumentId: document.id,
@@ -362,15 +372,7 @@ describe("Feature 59 — Document Type Specialization List", () => {
         documentFileName: "people/pediatrics.png",
       });
 
-      const applied = await request(app)
-        .put(`/trips/trips/browse/${trip.id}/application`)
-        .set(applicant.authHeader)
-        .send({
-          ...applicationBody(tripWorkerRole.id, "Spec Applicant"),
-          version: incomplete.body.assignment.version,
-        });
-      expect(applied.status).toBe(200);
-      expect(applied.body.applicationStatus).toBe("applied");
+      expect((await approve()).status).toBe(200);
     });
 
     it("Missing specializations are named in the missing items", async () => {

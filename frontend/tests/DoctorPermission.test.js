@@ -34,7 +34,7 @@ import PersonServices from "../src/services/personServices.js";
 import PersonDocumentServices from "../src/services/personDocumentServices.js";
 import DocumentTypeServices from "../src/services/documentTypeServices.js";
 
-const MISSING_MESSAGE = "Upload a Doctor Permission document before submitting your application.";
+const MISSING_MESSAGE = "Upload a Doctor Permission document before your application can be approved.";
 const TRIP = {
   id: 42,
   orgId: 1,
