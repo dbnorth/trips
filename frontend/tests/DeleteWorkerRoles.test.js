@@ -68,19 +68,20 @@ describe("Feature 105 — Delete Unused Worker Roles", () => {
     });
 
     it("Deleting a role after confirming removes it from the list", async () => {
-      const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
       const { wrapper } = await mountWithPlugins(WorkerRolesList);
       await flushPromises();
 
       await rowFor(wrapper, "Dentist").find('button[aria-label="Delete"]').trigger("click");
+      const confirm = wrapper.findComponent({ name: "ConfirmDialog" });
+      expect(confirm.props("message")).toBe('Delete worker role "Dentist"?');
+      confirm.vm.$emit("update:modelValue", false);
       await flushPromises();
-      expect(confirm).toHaveBeenCalledWith('Delete worker role "Dentist"?');
       expect(WorkerRoleServices.delete).not.toHaveBeenCalled();
 
-      confirm.mockReturnValue(true);
       WorkerRoleServices.delete.mockResolvedValue({ data: { message: "Worker role deleted." } });
       WorkerRoleServices.getAll.mockResolvedValue({ data: [role(2, "Nurse", true)] });
       await rowFor(wrapper, "Dentist").find('button[aria-label="Delete"]').trigger("click");
+      wrapper.findComponent({ name: "ConfirmDialog" }).vm.$emit("confirm");
       await flushPromises();
 
       expect(WorkerRoleServices.delete).toHaveBeenCalledWith(1);

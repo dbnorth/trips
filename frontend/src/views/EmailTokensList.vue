@@ -4,6 +4,7 @@ import EmailTokenServices from "../services/emailTokenServices.js";
 import EmailTokenFormDialog from "../components/EmailTokenFormDialog.vue";
 import Utils from "../config/utils.js";
 import RowAction from "../components/RowAction.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 const rows = ref([]);
 const valueSources = ref([]);
@@ -53,15 +54,28 @@ const openEdit = (row) => {
   showForm.value = true;
 };
 
-const remove = async (row) => {
-  if (!window.confirm(`Delete token "${row.tokenCode}"?`)) return;
+const deleting = ref(null);
+const deleteLoading = ref(false);
+const deleteMessage = computed(() =>
+  deleting.value ? `Delete token "${deleting.value.tokenCode}"?` : ""
+);
+
+const remove = (row) => {
+  deleting.value = row;
+};
+
+const confirmDelete = async () => {
+  deleteLoading.value = true;
   message.value = "";
   try {
-    await EmailTokenServices.delete(row.id);
+    await EmailTokenServices.delete(deleting.value.id);
     message.value = "Token deleted.";
     await load();
   } catch (e) {
     message.value = e.response?.data?.message || "Unable to delete token.";
+  } finally {
+    deleteLoading.value = false;
+    deleting.value = null;
   }
 };
 
@@ -120,5 +134,16 @@ onUnmounted(() => {
     </v-data-table>
 
     <EmailTokenFormDialog v-model="showForm" :email-token-id="editingId" @saved="onSaved" />
+
+    <ConfirmDialog
+      :model-value="!!deleting"
+      :message="deleteMessage"
+      confirm-text="Delete"
+      confirm-color="error"
+      cancel-text="Cancel"
+      :loading="deleteLoading"
+      @update:model-value="(v) => !v && (deleting = null)"
+      @confirm="confirmDelete"
+    />
   </v-container>
 </template>

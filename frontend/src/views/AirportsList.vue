@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import AirportServices from "../services/airportServices.js";
 import Utils from "../config/utils.js";
 import RowAction from "../components/RowAction.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 const rows = ref([]);
 const user = ref(null);
@@ -72,14 +73,27 @@ const save = async () => {
   }
 };
 
-const remove = async (row) => {
-  if (!window.confirm(`Delete airport "${row.code}"?`)) return;
+const deleting = ref(null);
+const deleteLoading = ref(false);
+const deleteMessage = computed(() =>
+  deleting.value ? `Delete airport "${deleting.value.code}"?` : ""
+);
+
+const remove = (row) => {
+  deleting.value = row;
+};
+
+const confirmDelete = async () => {
+  deleteLoading.value = true;
   try {
-    await AirportServices.delete(row.id);
+    await AirportServices.delete(deleting.value.id);
     message.value = "Airport deleted.";
     await load();
   } catch (e) {
     message.value = e.response?.data?.message || "Unable to delete airport.";
+  } finally {
+    deleteLoading.value = false;
+    deleting.value = null;
   }
 };
 
@@ -137,5 +151,16 @@ onUnmounted(() => window.removeEventListener("user-updated", load));
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <ConfirmDialog
+      :model-value="!!deleting"
+      :message="deleteMessage"
+      confirm-text="Delete"
+      confirm-color="error"
+      cancel-text="Cancel"
+      :loading="deleteLoading"
+      @update:model-value="(v) => !v && (deleting = null)"
+      @confirm="confirmDelete"
+    />
   </v-container>
 </template>

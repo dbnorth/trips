@@ -5,6 +5,7 @@ import DocumentTypeFormDialog from "../components/DocumentTypeFormDialog.vue";
 import { documentTypeLabel } from "../utils/documentTypes.js";
 import Utils from "../config/utils.js";
 import RowAction from "../components/RowAction.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 const rows = ref([]);
 const user = ref(null);
@@ -64,15 +65,28 @@ const openEdit = (row) => {
   showForm.value = true;
 };
 
-const remove = async (row) => {
-  if (!window.confirm(`Delete document type "${row.description}"?`)) return;
+const deleting = ref(null);
+const deleteLoading = ref(false);
+const deleteMessage = computed(() =>
+  deleting.value ? `Delete document type "${deleting.value.description}"?` : ""
+);
+
+const remove = (row) => {
+  deleting.value = row;
+};
+
+const confirmDelete = async () => {
+  deleteLoading.value = true;
   message.value = "";
   try {
-    await DocumentTypeServices.delete(row.id);
+    await DocumentTypeServices.delete(deleting.value.id);
     message.value = "Document type deleted.";
     await load();
   } catch (e) {
     message.value = e.response?.data?.message || "Unable to delete document type.";
+  } finally {
+    deleteLoading.value = false;
+    deleting.value = null;
   }
 };
 
@@ -155,6 +169,17 @@ onUnmounted(() => {
       :document-type-id="editingId"
       :org-id="effectiveOrgId"
       @saved="onSaved"
+    />
+
+    <ConfirmDialog
+      :model-value="!!deleting"
+      :message="deleteMessage"
+      confirm-text="Delete"
+      confirm-color="error"
+      cancel-text="Cancel"
+      :loading="deleteLoading"
+      @update:model-value="(v) => !v && (deleting = null)"
+      @confirm="confirmDelete"
     />
   </v-container>
 </template>
