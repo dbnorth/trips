@@ -46,28 +46,28 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
   let ana;
   let trip;
   let tripWorkerRole;
-  let rnLicence;
+  let rnLicense;
   let passport;
   let specializations;
 
   /**
    * Hope Mission runs "Guatemala Clinic 2027" with Require Passport; its Nurse role requires an
-   * RN Licence. Ana Lopez has a complete profile; Omar Diaz is the trip's Trip Leader.
+   * RN License. Ana Lopez has a complete profile; Omar Diaz is the trip's Trip Leader.
    */
   const setup = async ({ startDate = "2027-03-01", endDate = "2027-03-10", requiredSpecializations = [] } = {}) => {
     admin = await createOrgAdminUser({ email: "hope-admin@example.org", orgName: "Hope Mission" });
     org = admin.org;
     omar = await registerUser({ email: "omar@example.org", firstName: "Omar", lastName: "Diaz", orgIds: [org.id] });
     await assignOrgRole(org.id, omar.user.personId, "Trip Leader");
-    rnLicence = await createDocumentType({
+    rnLicense = await createDocumentType({
       orgId: org.id,
-      type: "medical_licence",
-      description: "RN Licence",
+      type: "medical_license",
+      description: "RN License",
       allowSpecialization: true,
     });
     specializations = {};
     for (const name of requiredSpecializations) {
-      specializations[name] = await db.documentTypeSpecialization.create({ documentTypeId: rnLicence.id, name });
+      specializations[name] = await db.documentTypeSpecialization.create({ documentTypeId: rnLicense.id, name });
     }
     passport = await createDocumentType({
       orgId: org.id,
@@ -97,7 +97,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
       .send({
         orgId: org.id,
         name: "Nurse",
-        requiredDocumentTypeIds: [rnLicence.id],
+        requiredDocumentTypeIds: [rnLicense.id],
         requiredSpecializationIds: Object.values(specializations).map((s) => s.id),
       });
     expect(nurse.status).toBe(200);
@@ -219,7 +219,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
       const [action] = mine.body.find((t) => Number(t.id) === Number(trip.id)).nextActions;
       expect(action.code).toBe("upload-documents");
       expect(action.missingDocuments).toHaveLength(2);
-      expect(action.missingDocuments[0]).toMatch(/^RN Licence: add this document/);
+      expect(action.missingDocuments[0]).toMatch(/^RN License: add this document/);
       expect(action.missingDocuments[1]).toBe("Passport");
     });
 
@@ -264,7 +264,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
       expect(applied.body.applicationStatus).toBe("pre_approved");
       const assignmentId = applied.body.assignment.id;
       const passportDoc = await addDocument(passport, { documentNumber: "P123", issueDate: "2020-06-01" });
-      const licenceDoc = await addDocument(rnLicence);
+      const licenseDoc = await addDocument(rnLicense);
 
       const refused = await approve(omar, assignmentId);
       expect(refused.status).toBe(400);
@@ -275,7 +275,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
         .get(`/trips/trip-people-roles/${assignmentId}/document-review`)
         .set(omar.authHeader);
       expect(review.status).toBe(200);
-      expect(review.body.approvalBlockers).toEqual(["RN Licence: not reviewed", "Passport: not reviewed"]);
+      expect(review.body.approvalBlockers).toEqual(["RN License: not reviewed", "Passport: not reviewed"]);
       const passportEntry = review.body.requirements.find((r) => r.key === "passport").documents[0];
       expect(passportEntry).toMatchObject({
         documentNumber: "P123",
@@ -286,7 +286,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
       });
 
       expect((await markReviewed(omar, assignmentId, passportDoc.id)).status).toBe(200);
-      expect((await markReviewed(omar, assignmentId, licenceDoc.id)).status).toBe(200);
+      expect((await markReviewed(omar, assignmentId, licenseDoc.id)).status).toBe(200);
 
       const approved = await approve(omar, assignmentId);
       expect(approved.status).toBe(200);
@@ -333,9 +333,9 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
       await setup({ requiredSpecializations: ["Pediatrics", "Emergency"] });
       const applied = await apply();
       const assignmentId = applied.body.assignment.id;
-      const licenceDoc = await addDocument(rnLicence);
+      const licenseDoc = await addDocument(rnLicense);
       const added = await db.personDocumentSpecialization.create({
-        personDocumentId: licenceDoc.id,
+        personDocumentId: licenseDoc.id,
         documentTypeSpecializationId: specializations.Pediatrics.id,
         specializationDate: "2024-04-15",
         documentFileName: "people/pediatrics.png",
@@ -346,9 +346,9 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
         .set(omar.authHeader);
       expect(review.status).toBe(200);
       expect(review.body.workerRoleName).toBe("Nurse");
-      const licence = review.body.requirements.find((r) => r.label === "RN Licence");
-      expect(licence.requiredSpecializations.map((s) => s.name)).toEqual(["Emergency", "Pediatrics"]);
-      expect(licence.documents[0].specializations).toEqual([
+      const license = review.body.requirements.find((r) => r.label === "RN License");
+      expect(license.requiredSpecializations.map((s) => s.name)).toEqual(["Emergency", "Pediatrics"]);
+      expect(license.documents[0].specializations).toEqual([
         {
           id: added.id,
           documentTypeSpecializationId: specializations.Pediatrics.id,
@@ -360,7 +360,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
       expect(review.body.requirements.find((r) => r.key === "passport").requiredSpecializations).toEqual([]);
 
       const viewPath = (specializationId) =>
-        `/trips/trip-people-roles/${assignmentId}/documents/${licenceDoc.id}/specializations/${specializationId}/view`;
+        `/trips/trip-people-roles/${assignmentId}/documents/${licenseDoc.id}/specializations/${specializationId}/view`;
       const forbidden = await request(app).get(viewPath(added.id)).set(ana.authHeader);
       expect(forbidden.status).toBe(403);
       const missing = await request(app).get(viewPath(added.id + 999)).set(omar.authHeader);
