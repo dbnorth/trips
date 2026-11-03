@@ -47,7 +47,7 @@ const getActiveTripMemberRows = async (tripIds, statuses = ["approved"]) => {
 
   return db.tripPeopleRole.findAll({
     where: { tripId: ids, status: statuses, roleId: roleIds },
-    attributes: ["id", "tripId", "peopleId", "participantCost", "flightPurchaseOption", "tripWorkerRoleId"],
+    attributes: ["id", "tripId", "peopleId", "participantCost", "flightPurchaseOption", "tripWorkerRoleId", "status"],
     raw: true,
   });
 };
@@ -165,6 +165,66 @@ export const getTripRoleTotalsByTripIds = async (tripIds) => {
     if (needed > 0) totals.unfilledRoles.push({ name: role.workerRole?.name || "—", needed });
   }
   for (const totals of map.values()) totals.unfilledRoles.sort((a, b) => a.name.localeCompare(b.name));
+
+  return map;
+};
+
+/**
+ * Map tripId -> { participantsApproved, flightsEntered, roomListComplete } over the trip's incomplete,
+ * pre-approved, and approved Trip Leaders / Trip Participants; each is false when there are none.
+ */
+export const getTripPrepByTripIds = async (tripIds) => {
+  const ids = [...new Set((tripIds || []).map((id) => Number(id)).filter((id) => !Number.isNaN(id)))];
+  const map = new Map();
+  if (!ids.length) return map;
+
+  const participants = await getActiveTripMemberRows(ids, ["incomplete", "pre_approved", "approved"]);
+  const participantIds = participants.map((row) => row.id);
+  const segments = participantIds.length
+    ? await db.tripFlightSegment.findAll({
+        attributes: ["segmentType"],
+        include: [
+          {
+            model: db.tripFlight,
+            as: "flight",
+            attributes: ["tripPeopleRoleId"],
+            where: { tripPeopleRoleId: participantIds },
+          },
+        ],
+        raw: true,
+      })
+    : [];
+  const assignments = participantIds.length
+    ? await db.tripRoomAssignment.findAll({
+        where: { tripPeopleRoleId: participantIds },
+        attributes: ["tripPeopleRoleId"],
+        raw: true,
+      })
+    : [];
+
+  const segmentTypesById = new Map();
+  for (const row of segments) {
+    const id = Number(row["flight.tripPeopleRoleId"]);
+    if (!segmentTypesById.has(id)) segmentTypesById.set(id, new Set());
+    segmentTypesById.get(id).add(row.segmentType);
+  }
+  const roomedIds = new Set(assignments.map((row) => Number(row.tripPeopleRoleId)));
+
+  const participantsByTripId = new Map(ids.map((id) => [id, []]));
+  for (const row of participants) participantsByTripId.get(Number(row.tripId))?.push(row);
+
+  for (const [tripId, rows] of participantsByTripId) {
+    const hasParticipants = rows.length > 0;
+    const hasFlights = (row) => {
+      const types = segmentTypesById.get(Number(row.id));
+      return !!types && types.has("arrival") && types.has("return");
+    };
+    map.set(tripId, {
+      participantsApproved: hasParticipants && rows.every((row) => row.status === "approved"),
+      flightsEntered: hasParticipants && rows.every(hasFlights),
+      roomListComplete: hasParticipants && rows.every((row) => roomedIds.has(Number(row.id))),
+    });
+  }
 
   return map;
 };
