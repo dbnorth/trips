@@ -167,8 +167,8 @@ describe("Feature 80 — Import Trip Master CSV", () => {
       const rick = await personNamed("Rick", "Harper");
       const andrea = await personNamed("Andrea", "Fletcher");
       const expected = [
-        [lyle, "Trip Participant", "approved"],
-        [ana, "Trip Participant", "approved"],
+        [lyle, "Trip Participant", "pre_approved"],
+        [ana, "Trip Participant", "pre_approved"],
         [kris, "Trip Participant", "incomplete"],
         [andrea, "Trip Participant", "cancelled"],
         [rick, "Trip Leader", "approved"],
@@ -363,7 +363,7 @@ describe("Feature 80 — Import Trip Master CSV", () => {
         .query({ orgId: org.id })
         .set(lyle.authHeader);
       expect(myTrips.body.map((t) => [t.name, t.applicationStatus])).toEqual([
-        ["Guatemala Clinic 2027", "approved"],
+        ["Guatemala Clinic 2027", "pre_approved"],
       ]);
     });
 
@@ -618,7 +618,7 @@ describe("Feature 80 — Import Trip Master CSV", () => {
         tripId: trip.id,
         peopleId: lylePerson.id,
         roleId: (await findRole("Trip Participant")).id,
-        status: "applied",
+        status: "pre_approved",
         flightNotes: "Flying from Columbus",
       });
 

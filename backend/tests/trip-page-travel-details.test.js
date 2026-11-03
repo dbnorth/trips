@@ -212,7 +212,7 @@ describe("Feature 61 — Trip Page My Travel Details", () => {
     it("Trip page returns my selected trip options", async () => {
       const { org, ada } = await setupParticipant("options@example.com");
       const trip = await createTrip(org.id);
-      const mine = await createAssignment(trip.id, ada.user.personId, { status: "applied" });
+      const mine = await createAssignment(trip.id, ada.user.personId, { status: "pre_approved" });
       const beach = await db.tripTravelOption.create({
         tripId: trip.id,
         description: "Extra beach day",

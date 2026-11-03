@@ -236,6 +236,7 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | issueDate | DATEONLY | |
 | expirationDate | DATEONLY | nullable; required by API when type.`hasExpirationDate`, stored null otherwise (Feature 57) |
 | documentFileName | STRING(500) | nullable; optional upload (Feature 22) |
+| reviewed | BOOLEAN | required, default `false`; set by trip staff through the review endpoint; cleared when the file, type, document number, country issued, issue date, expiration date, or specializations change (Feature 104) |
 
 **Associations:** `belongsTo` person, documentType; `hasMany` personDocumentSpecialization (CASCADE).
 
@@ -291,7 +292,7 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | peopleId | INTEGER | required FK → person |
 | roleId | INTEGER | required FK → role |
 | tripWorkerRoleId | INTEGER | optional FK → tripWorkerRole |
-| status | ENUM(`incomplete`,`applied`,`approved`,`declined`,`cancelled`) | required, default `incomplete`; **capacity** (Feature 26): `incomplete`/`applied`/`approved` occupy a trip worker-role slot; `cancelled`/`declined` do not |
+| status | ENUM(`incomplete`,`pre_approved`,`approved`,`declined`,`cancelled`) | required, default `incomplete`; **capacity** (Feature 26): `incomplete`/`pre_approved`/`approved` occupy a trip worker-role slot; `cancelled`/`declined` do not; `pre_approved` replaced `applied` (Feature 104; `ensureSchema` migrates `applied` / `ready` rows) |
 | participantCost | DECIMAL(10,2) | |
 | whygoText | TEXT | |
 | willSelfFund, willRaiseFunds | BOOLEAN | required, default `false` |
@@ -303,7 +304,7 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | preferredReturnAirportId | INTEGER | nullable FK → airport |
 | preferredCabinClass | STRING(50) | nullable |
 | preferredAirlineId | INTEGER | nullable FK → airline |
-| preferredRefundableTicket | BOOLEAN | nullable; required for `applied` when organization purchases |
+| preferredRefundableTicket | BOOLEAN | nullable; required for `pre_approved` when organization purchases |
 | flightNotes | TEXT | nullable; participant's free-text flight notes, also filled by the Trip Master import (Feature 84) |
 | agreementAccepted | BOOLEAN | required, default `false` |
 | agreementSignatureName | STRING(255) | |
@@ -537,7 +538,7 @@ Seeded global catalog. No org column.
 | tripWorkerRoleId | INTEGER | required FK → tripWorkerRole (removed with the role) |
 | email | STRING(255) | required; stored trimmed and lowercased; unique per trip (`tripWorkerRoleReservations_trip_email_unique` on `tripId`, `email`) |
 
-A reservation is **filled** when an `incomplete` / `applied` / `approved` application for the same trip role belongs to a person whose email matches (case-insensitive). Filled state is derived, not stored.
+A reservation is **filled** when an `incomplete` / `pre_approved` / `approved` application for the same trip role belongs to a person whose email matches (case-insensitive). Filled state is derived, not stored.
 
 **Associations:** `belongsTo` trip, tripWorkerRole.
 

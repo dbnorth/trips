@@ -269,12 +269,15 @@ const openApplyDialog = (trip) => {
 
 const canUpdateApplication = (trip) =>
   trip?.alreadyApplied &&
-  ["incomplete", "applied", "approved", "cancelled"].includes(trip.applicationStatus);
+  ["incomplete", "pre_approved", "approved", "cancelled"].includes(trip.applicationStatus);
 
 const applicationActionLabel = (trip) =>
   trip?.applicationStatus === "cancelled" || trip?.applicationStatus === "approved"
     ? "Manage App"
     : "Update App";
+
+const applicationActionIcon = (trip) =>
+  applicationActionLabel(trip) === "Manage App" ? "mdi-file-cog-outline" : "mdi-file-edit-outline";
 
 const openUpdateApplication = (trip) => {
   openApplyDialog(trip);
@@ -309,7 +312,7 @@ const openEnterFlights = (trip) => {
 
 const canCancelApplication = (trip) =>
   trip?.alreadyApplied &&
-  ["incomplete", "applied", "approved"].includes(trip.applicationStatus);
+  ["incomplete", "pre_approved", "approved"].includes(trip.applicationStatus);
 
 const canUncancelApplication = (trip) =>
   trip?.alreadyApplied && trip.applicationStatus === "cancelled";
@@ -754,34 +757,29 @@ onUnmounted(() => {
                     </v-chip>
                   </td>
                   <td class="text-right">
-                    <div class="d-flex justify-end ga-2 flex-wrap">
-                      <v-btn size="small" variant="tonal" @click="viewBrowseTrip(item)">View</v-btn>
-                      <v-btn
+                    <div class="d-flex justify-end ga-1 flex-nowrap">
+                      <RowAction icon="mdi-eye" label="View" @click="viewBrowseTrip(item)" />
+                      <RowAction
                         v-if="canUpdateApplication(item) && !hasCompleteApplicationAction(item)"
-                        size="small"
+                        :icon="applicationActionIcon(item)"
+                        :label="applicationActionLabel(item)"
                         color="primary"
                         @click="openUpdateApplication(item)"
-                      >
-                        {{ applicationActionLabel(item) }}
-                      </v-btn>
-                      <v-btn
+                      />
+                      <RowAction
                         v-if="canCancelApplication(item) && !hasCompleteApplicationAction(item)"
-                        size="small"
+                        icon="mdi-cancel"
+                        label="Cancel App"
                         color="error"
-                        variant="tonal"
                         @click="requestCancelApplication(item)"
-                      >
-                        Cancel App
-                      </v-btn>
-                      <v-btn
+                      />
+                      <RowAction
                         v-if="canUncancelApplication(item)"
-                        size="small"
+                        icon="mdi-restore"
+                        label="Uncancel"
                         color="primary"
-                        variant="tonal"
                         @click="requestUncancelApplication(item)"
-                      >
-                        Uncancel
-                      </v-btn>
+                      />
                     </div>
                   </td>
                 </tr>
@@ -836,16 +834,15 @@ onUnmounted(() => {
                   <td>{{ formatDate(item.endDate) }}</td>
                   <td data-testid="role-availability">{{ roleAvailabilityText(item.roleAvailability) }}</td>
                   <td class="text-right">
-                    <div class="d-flex justify-end ga-2 flex-wrap">
-                      <v-btn size="small" variant="tonal" @click="viewBrowseTrip(item)">View</v-btn>
-                      <v-btn
+                    <div class="d-flex justify-end ga-1 flex-nowrap">
+                      <RowAction icon="mdi-eye" label="View" @click="viewBrowseTrip(item)" />
+                      <RowAction
                         v-if="myApplyButtonLabel(item.roleAvailability, item.myReservedTripWorkerRoleId)"
-                        size="small"
+                        icon="mdi-file-send-outline"
+                        :label="myApplyButtonLabel(item.roleAvailability, item.myReservedTripWorkerRoleId)"
                         color="primary"
                         @click="openApplyDialog(item)"
-                      >
-                        {{ myApplyButtonLabel(item.roleAvailability, item.myReservedTripWorkerRoleId) }}
-                      </v-btn>
+                      />
                     </div>
                   </td>
                 </tr>
@@ -1066,7 +1063,7 @@ onUnmounted(() => {
     <ConfirmDialog
       v-model="showConfirmUncancelApp"
       title="Are you sure?"
-      message="Uncancel this application? It will return to incomplete or applied based on completeness."
+      message="Uncancel this application? It will return to incomplete or pre-approved based on completeness."
       confirm-text="Uncancel"
       :loading="uncancelAppSaving"
       @confirm="confirmUncancelApplication"

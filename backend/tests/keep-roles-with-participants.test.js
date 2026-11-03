@@ -49,7 +49,7 @@ const setup = async () => {
       status,
     });
   };
-  const ana = await applicationFor("ana@example.com", nurse.id, "applied");
+  const ana = await applicationFor("ana@example.com", nurse.id, "pre_approved");
   const ben = await applicationFor("ben@example.com", dentist.id, "cancelled");
   const cara = await applicationFor("cara@example.com", dentist.id, "declined");
 
@@ -84,7 +84,7 @@ describe("Feature 103 — Keep Trip Roles That Have Participants", () => {
       expect(await db.tripWorkerRole.findByPk(nurse.id)).not.toBeNull();
       await ana.reload();
       expect(Number(ana.tripWorkerRoleId)).toBe(Number(nurse.id));
-      expect(ana.status).toBe("applied");
+      expect(ana.status).toBe("pre_approved");
     });
 
     it("A role with only cancelled or declined applications can be deleted", async () => {

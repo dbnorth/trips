@@ -93,7 +93,7 @@ const hasTripAssignment = async (req, tripId) => {
     where: {
       tripId,
       peopleId: req.user.personId,
-      status: { [Op.in]: ["incomplete", "applied", "approved"] },
+      status: { [Op.in]: ["incomplete", "pre_approved", "approved"] },
     },
     attributes: ["id"],
   });

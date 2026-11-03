@@ -97,7 +97,7 @@ describe("Feature 84 — Application Flight Notes", () => {
       TripPeopleRoleServices.get.mockResolvedValue({
         data: {
           id: 77,
-          status: "applied",
+          status: "pre_approved",
           version: 1,
           person: { firstName: "Ana", lastName: "Lopez" },
           flightPurchaseOption: "self",

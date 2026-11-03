@@ -213,7 +213,7 @@ describe("Feature 62 — Email People", () => {
       const ana = await addPerson("Ana");
       await assign(ana, clinic, { tripWorkerRole: nurse });
       await assign(await addPerson("Ben"), clinic, { tripWorkerRole: doctor });
-      await assign(await addPerson("Cara"), clinic, { status: "applied", tripWorkerRole: nurse });
+      await assign(await addPerson("Cara"), clinic, { status: "pre_approved", tripWorkerRole: nurse });
       await assign(await addPerson("Dan"), build, { tripWorkerRole: builder });
 
       const response = await post("/recipients", {
@@ -363,7 +363,7 @@ describe("Feature 62 — Email People", () => {
       for (const name of ["Ana", "Ben", "Cara", "Dan", "Eve", "Lee"]) people[name] = await addPerson(name);
       await assign(people.Ana, clinic, { tripWorkerRole: nurse });
       await assign(people.Ben, clinic, { tripWorkerRole: doctor });
-      await assign(people.Cara, clinic, { status: "applied", tripWorkerRole: nurse });
+      await assign(people.Cara, clinic, { status: "pre_approved", tripWorkerRole: nurse });
       await assign(people.Lee, clinic, { roleName: "Trip Leader" });
       await assign(people.Dan, build, { tripWorkerRole: builder });
       await assign(people.Eve, build, { roleName: "Trip Leader" });

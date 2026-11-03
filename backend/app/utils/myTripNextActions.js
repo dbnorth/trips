@@ -156,7 +156,7 @@ const flightSegmentCount = async (tripPeopleRoleId) => {
 export const loadMyTripNextActions = async (assignment, trip, cache = {}) => {
   if (!trip?.startDate || String(trip.startDate) < todayDateOnly()) return [];
 
-  if (assignment.status === "incomplete") {
+  if (assignment.status === "incomplete" || assignment.status === "pre_approved") {
     if (!cache.personDocuments) {
       cache.personDocuments = await loadPersonDocumentsForCompleteness(assignment.peopleId);
     }
@@ -165,17 +165,18 @@ export const loadMyTripNextActions = async (assignment, trip, cache = {}) => {
       trip,
       personDocuments: cache.personDocuments,
     });
-    if (!missingDocuments.length) {
-      if (cache.person === undefined) {
-        cache.person = await loadPersonForCompleteness(assignment.peopleId);
-      }
-      const missingItems = await missingNonDocumentItems(assignment, trip, cache.person);
-      if (!missingItems.length) return [{ code: "submit-application" }];
+    if (assignment.status === "pre_approved") {
+      return missingDocuments.length
+        ? [{ code: "upload-documents", missingDocuments }]
+        : [{ code: "wait-approval" }];
     }
+    if (cache.person === undefined) {
+      cache.person = await loadPersonForCompleteness(assignment.peopleId);
+    }
+    const missingItems = await missingNonDocumentItems(assignment, trip, cache.person);
+    if (!missingItems.length) return [{ code: "submit-application" }];
     return [{ code: "complete-application", missingDocuments }];
   }
-
-  if (assignment.status === "applied") return [{ code: "wait-approval" }];
 
   if (assignment.status !== "approved") return [];
 

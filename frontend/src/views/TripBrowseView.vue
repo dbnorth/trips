@@ -54,7 +54,7 @@ const showHeaderUpdateApp = computed(
 const canUpdateApplication = computed(
   () =>
     alreadyApplied.value &&
-    (applicationStatus.value === "incomplete" || applicationStatus.value === "applied")
+    (applicationStatus.value === "incomplete" || applicationStatus.value === "pre_approved")
 );
 
 const noSpot = computed(() =>

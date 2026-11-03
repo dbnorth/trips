@@ -1,6 +1,6 @@
 import db from "../models/index.js";
 
-const SHOWN_STATUSES = ["incomplete", "applied", "approved"];
+const SHOWN_STATUSES = ["incomplete", "pre_approved", "approved"];
 const SEGMENT_TYPE_ORDER = { arrival: 0, return: 1 };
 
 const addDays = (dateOnly, days) => {

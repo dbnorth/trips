@@ -81,7 +81,7 @@ describe("Feature 92 — Trip Options in the Participant Edit Dialog", () => {
       peopleId: ben.user.personId,
       roleId: participantRoleId,
       tripWorkerRoleId: tripWorkerRole.id,
-      status: "applied",
+      status: "pre_approved",
     });
   });
 

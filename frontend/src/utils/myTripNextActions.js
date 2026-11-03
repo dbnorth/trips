@@ -1,7 +1,7 @@
 import { formatMoneyDisplay } from "./moneyUtils.js";
 import { formatDate as formatDateText } from "./dateFormat.js";
 
-export const APPLICATION_ACTION_CODES = ["complete-application", "submit-application"];
+export const APPLICATION_ACTION_CODES = ["complete-application", "submit-application", "upload-documents"];
 
 export const hasApplicationAction = (actions) =>
   (actions || []).some((a) => APPLICATION_ACTION_CODES.includes(a.code));
@@ -11,6 +11,9 @@ const formatDate = (value) => formatDateText(String(value || "").slice(0, 10));
 export const nextActionText = (action) => {
   if (action.code === "complete-application") return "Complete your application.";
   if (action.code === "submit-application") return "Submit your application.";
+  if (action.code === "upload-documents") {
+    return `Upload your documents: ${(action.missingDocuments || []).join("; ")}.`;
+  }
   if (action.code === "wait-approval") return "Waiting on approval.";
   if (action.code === "make-deposit") {
     return `Make your deposit: ${formatMoneyDisplay(action.amountRaised)} raised of ${formatMoneyDisplay(action.deposit)}.`;

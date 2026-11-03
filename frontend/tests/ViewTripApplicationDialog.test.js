@@ -16,12 +16,13 @@ vi.mock("../src/services/tripPeopleRoleServices.js", () => ({
     update: vi.fn(),
     cancel: vi.fn(),
     uncancel: vi.fn(),
+    documentReview: vi.fn(),
   },
 }));
 
 const application = {
   id: 42,
-  status: "applied",
+  status: "pre_approved",
   version: 1,
   person: { firstName: "Ada", lastName: "Applicant" },
   tripWorkerRole: { workerRole: { name: "Nurse" } },
@@ -37,9 +38,10 @@ describe("Feature 26 — Cancel / Uncancel confirmation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     TripPeopleRoleServices.get.mockResolvedValue({ data: application });
+    TripPeopleRoleServices.documentReview.mockResolvedValue({ data: { approvalBlockers: [] } });
     TripPeopleRoleServices.cancel.mockResolvedValue({ data: { ...application, status: "cancelled" } });
     TripPeopleRoleServices.uncancel.mockResolvedValue({
-      data: { ...application, status: "applied" },
+      data: { ...application, status: "pre_approved" },
     });
   });
 

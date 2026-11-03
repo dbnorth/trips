@@ -222,7 +222,7 @@ describe("Feature 46 — Email Trip Team", () => {
     it("All potential participants includes Trip Leaders and excludes declined and cancelled", async () => {
       const template = await addTemplate();
       const incomplete = await addParticipant("incomplete");
-      const applied = await addParticipant("applied");
+      const applied = await addParticipant("pre_approved");
       const approved = await addParticipant("approved");
       await addParticipant("declined");
       await addParticipant("cancelled");
@@ -237,7 +237,7 @@ describe("Feature 46 — Email Trip Team", () => {
 
     it("All accepted participants sends only to approved", async () => {
       const template = await addTemplate();
-      await addParticipant("applied");
+      await addParticipant("pre_approved");
       const approved = await addParticipant("approved");
       await addLeader();
 
@@ -250,7 +250,7 @@ describe("Feature 46 — Email Trip Team", () => {
     it("Selected participants sends only to those chosen", async () => {
       const template = await addTemplate();
       const first = await addParticipant("incomplete");
-      await addParticipant("applied");
+      await addParticipant("pre_approved");
       const leader = await addLeader();
 
       const response = await sendTeamEmail(template, {

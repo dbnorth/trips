@@ -301,7 +301,7 @@ describe("Feature 28 — View Trip Status", () => {
         id,
         peopleId: id,
         displayName,
-        status: "applied",
+        status: "pre_approved",
         workerRoleName: "Nurse",
         flightPurchaseOption,
         missingItems: [],

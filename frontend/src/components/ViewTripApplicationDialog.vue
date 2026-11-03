@@ -26,11 +26,12 @@ const saving = ref(false);
 const loadError = ref("");
 const actionError = ref("");
 const application = ref(null);
+const approvalBlockers = ref([]);
 const showConfirmCancel = ref(false);
 const showConfirmUncancel = ref(false);
 
 const canApprove = computed(
-  () => props.mode === "approve" && application.value?.status === "applied"
+  () => props.mode === "approve" && application.value?.status === "pre_approved"
 );
 const canManageApproved = computed(
   () => props.mode === "view" && application.value?.status === "approved"
@@ -38,7 +39,7 @@ const canManageApproved = computed(
 const canCancelApplication = computed(
   () =>
     props.mode !== "preview" &&
-    ["incomplete", "applied", "approved"].includes(
+    ["incomplete", "pre_approved", "approved"].includes(
       String(application.value?.status || "").toLowerCase()
     )
 );
@@ -88,9 +89,14 @@ const load = async () => {
   loadError.value = "";
   actionError.value = "";
   application.value = null;
+  approvalBlockers.value = [];
   try {
     const res = await TripPeopleRoleServices.get(props.participantId);
     application.value = res.data || null;
+    if (canApprove.value) {
+      const review = await TripPeopleRoleServices.documentReview(props.participantId);
+      approvalBlockers.value = review.data?.approvalBlockers || [];
+    }
   } catch (e) {
     loadError.value = e.response?.data?.message || "Unable to load application.";
   } finally {
@@ -137,7 +143,7 @@ const approve = () => {
 
 const unapprove = () => {
   if (!canManageApproved.value) return;
-  return updateStatus("applied", "Application unapproved.", "Unable to unapprove application.");
+  return updateStatus("pre_approved", "Application unapproved.", "Unable to unapprove application.");
 };
 
 const cancelApplication = () => {
@@ -216,6 +222,19 @@ const confirmUncancelApplication = async () => {
 
         <template v-else-if="application">
           <div class="text-h6 mb-3">{{ participantName }}</div>
+
+          <v-alert
+            v-if="canApprove && approvalBlockers.length"
+            type="info"
+            density="compact"
+            class="mb-4"
+            data-testid="approval-blockers"
+          >
+            Before approving, these documents need to be uploaded and reviewed:
+            <ul class="ml-4">
+              <li v-for="blocker in approvalBlockers" :key="blocker">{{ blocker }}</li>
+            </ul>
+          </v-alert>
 
           <LabelValueTable>
             <LabelValueRow label="Trip role">{{ application.role?.roleName || "—" }}</LabelValueRow>
@@ -407,6 +426,7 @@ const confirmUncancelApplication = async () => {
           v-if="canApprove"
           color="primary"
           :loading="saving"
+          :disabled="approvalBlockers.length > 0"
           @click="approve"
         >
           Approve App
@@ -427,7 +447,7 @@ const confirmUncancelApplication = async () => {
   <ConfirmDialog
     v-model="showConfirmUncancel"
     title="Are you sure?"
-    message="Uncancel this application? It will return to incomplete or applied based on completeness."
+    message="Uncancel this application? It will return to incomplete or pre-approved based on completeness."
     confirm-text="Uncancel"
     :loading="saving"
     @confirm="confirmUncancelApplication"

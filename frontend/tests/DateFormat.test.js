@@ -307,7 +307,7 @@ describe("Feature 101 — MM/DD/YYYY Dates", () => {
       TripPeopleRoleServices.get.mockResolvedValue({
         data: {
           id: 7,
-          status: "applied",
+          status: "pre_approved",
           version: 1,
           person: { firstName: "Ana", lastName: "Lopez" },
           agreementAccepted: true,

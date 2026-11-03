@@ -308,7 +308,7 @@ describe("Feature 28 — View Trip Status", () => {
             peopleId: participant.user.personId,
             roleId: participantRole.id,
             tripWorkerRoleId: tripWorkerRole.id,
-            status: "applied",
+            status: "pre_approved",
             willSelfFund: true,
           });
         expect(assignment.status).toBe(200);

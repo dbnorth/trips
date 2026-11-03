@@ -88,7 +88,7 @@ const mountHome = async (browseTrips) => {
 const tripRow = (wrapper, name) =>
   wrapper.findAll("tr").find((tr) => tr.find("td").exists() && tr.find("td").text() === name);
 
-const buttonTexts = (row) => row.findAll("button").map((b) => b.text().trim());
+const buttonTexts = (row) => row.findAll("button").map((b) => b.text().trim() || b.attributes("aria-label"));
 
 describe("Feature 95 — US-95.1 Visitors see how many positions are open before applying", () => {
   beforeEach(() => {
@@ -135,7 +135,7 @@ describe("Feature 95 — US-95.1 Visitors see how many positions are open before
     );
     expect(buttonTexts(reservedForBen)).toEqual(["View", "Apply for Reserved"]);
 
-    await open.findAll("button").find((b) => b.text().trim() === "Apply").trigger("click");
+    await open.find('button[aria-label="Apply"]').trigger("click");
     await flushPromises();
     const apply = wrapper.findComponent({ name: "ApplyTripDialog" });
     expect(apply.props("modelValue")).toBe(true);

@@ -65,12 +65,6 @@ export const getIncompleteSubmitReasons = ({
   medicalAgreementAccepted = false,
   travelOptionsComplete = true,
   travelOptionsMessage = null,
-  personDocumentsUploaded = true,
-  requiredRoleDocumentUploaded = true,
-  missingRoleDocumentNames = [],
-  requiredPassportUploaded = true,
-  requirePassport = false,
-  doctorPermissionUploaded = true,
 } = {}) => {
   const reasons = [];
 
@@ -127,20 +121,6 @@ export const getIncompleteSubmitReasons = ({
     if (isBlank(agreementSignatureName) && !agreementRequired) {
       reasons.push("Electronic signature");
     }
-  }
-
-  if (!personDocumentsUploaded) {
-    reasons.push("Upload a file for every profile document");
-  }
-  if (!requiredRoleDocumentUploaded) {
-    const names = (missingRoleDocumentNames || []).filter(Boolean);
-    reasons.push(...(names.length ? names : ["Required role document(s)"]));
-  }
-  if (requirePassport && !requiredPassportUploaded) {
-    reasons.push("Passport document (with valid expiration)");
-  }
-  if (!doctorPermissionUploaded) {
-    reasons.push("Doctor Permission document");
   }
 
   return reasons;

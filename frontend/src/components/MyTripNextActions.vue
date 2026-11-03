@@ -22,7 +22,10 @@ const tone = computed(() => nextActionsTone(props.actions));
       class="d-flex align-center flex-wrap ga-2 py-1"
     >
       <span>{{ nextActionText(action) }}</span>
-      <span v-if="action.missingDocuments?.length" class="text-medium-emphasis">
+      <span
+        v-if="action.code !== 'upload-documents' && action.missingDocuments?.length"
+        class="text-medium-emphasis"
+      >
         Missing documents: {{ action.missingDocuments.join("; ") }}.
       </span>
       <template v-if="APPLICATION_ACTION_CODES.includes(action.code)">
