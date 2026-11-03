@@ -229,7 +229,7 @@ export const getTripPrepByTripIds = async (tripIds) => {
   return map;
 };
 
-/** Map tripId -> sum of total trip costs (cost + organization-booked airfare + add-ons) for active members. */
+/** Map tripId -> sum of total trip costs (cost + organization-booked airfare + add-ons) for pre-approved and approved members. */
 export const getActiveParticipantTotalCostsByTripIds = async (trips) => {
   const list = trips || [];
   const ids = list.map((t) => Number(t.id)).filter((id) => !Number.isNaN(id));
@@ -243,7 +243,7 @@ export const getActiveParticipantTotalCostsByTripIds = async (trips) => {
     ])
   );
 
-  const rows = await getActiveTripMemberRows(ids);
+  const rows = await getActiveTripMemberRows(ids, ["pre_approved", "approved"]);
   const rowIds = rows.map((row) => row.id);
   const orgBookedIds = rows.filter((row) => row.flightPurchaseOption === "organization").map((row) => row.id);
   const addonRows = rowIds.length
@@ -281,13 +281,13 @@ export const getActiveParticipantTotalCostsByTripIds = async (trips) => {
   return map;
 };
 
-/** Map tripId -> donation total for active leaders/participants and general trip gifts. */
+/** Map tripId -> donation total for pre-approved / approved leaders and participants and general trip gifts. */
 export const getDonationTotalsByTripIds = async (tripIds) => {
   const ids = [...new Set((tripIds || []).map((id) => Number(id)).filter((id) => !Number.isNaN(id)))];
   const map = new Map();
   if (!ids.length) return map;
 
-  const memberRows = await getActiveTripMemberRows(ids);
+  const memberRows = await getActiveTripMemberRows(ids, ["pre_approved", "approved"]);
   const memberPeopleIdsByTripId = new Map(ids.map((id) => [id, new Set()]));
   for (const row of memberRows) {
     memberPeopleIdsByTripId.get(Number(row.tripId))?.add(Number(row.peopleId));

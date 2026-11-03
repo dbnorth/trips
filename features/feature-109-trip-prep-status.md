@@ -17,6 +17,7 @@ Staff checking whether a trip is ready have to open the Status, Flights, and Roo
 - Q: Who are "participants"? → A: The people on the trip's Flights and Room list boards: Trip Leaders and Trip Participants whose application is incomplete, pre-approved, or approved. Cancelled and declined applications don't count.
 - Q: When are flights "entered" for a participant? → A: Their flight has at least one **Arrival** segment and at least one **Return** segment.
 - Q: A trip with no participants? → A: "All participants approved", "Flights entered", and "Room list" are not complete — there is nothing to prepare yet.
+- Q: Trips with only pre-approved members show **Total cost** $0.00 (Feature 108 kept cost and donations approved-only), which also marks "All funds raised" complete. What should the totals count? → A: Pre-approved and approved members, like **Members**: **Total cost** sums their total trip costs, and **Total donations** counts donations to them plus general trip gifts.
 
 **Depends on:**
 - [Feature 29 — Rooming List](feature-29-rooming-list.md) (Room list and room assignments)
@@ -51,6 +52,7 @@ Staff checking whether a trip is ready have to open the Status, Flights, and Roo
   5. **Room list includes all participants**: the trip has a saved Room list, and every participant is assigned to a room on it.
 - **FR-003**: "Participants" in FR-002 are the trip's Trip Leaders and Trip Participants whose application is incomplete, pre-approved, or approved — the same people as the Flights and Room list boards.
 - **FR-004**: Agent users' Organization Trips card is unchanged (Feature 85).
+- **FR-005**: The trips table's **Total cost** and **Total donations** count pre-approved and approved Trip Leaders and Trip Participants (previously approved only): Total cost sums each one's total trip cost (participant cost + organization-booked airfare + add-on expenses); Total donations adds donations to them and general trip gifts (no person). Incomplete, cancelled, and declined applications don't count.
 
 ---
 
@@ -164,6 +166,12 @@ Background:
 * **When** Olivia loads the trips list
 * **Then** every `prepStatus` item is true
 
+#### Scenario: Total cost and total donations count pre-approved and approved members
+* **Given** Guatemala Clinic 2027 costs $1,000.00 per person and has an approved Nurse, a pre-approved Nurse, and an incomplete Doctor applicant
+* **And** donations of $200.00 to the pre-approved Nurse, $50.00 to the incomplete applicant, and a $100.00 general trip gift
+* **When** Olivia loads the trips list
+* **Then** total cost is $2,000.00, total donations are $300.00, and `fundsRaised` is false
+
 #### Scenario: Flights need both an Arrival and a Return segment
 * **Given** the fully prepared Guatemala Clinic 2027 also has an approved Nurse with only an Arrival segment and a room
 * **When** Olivia loads the trips list
@@ -185,6 +193,7 @@ Background:
 | US-109.1 | Trips list returns each trip's prep status | `backend/tests/trip-prep-status.test.js` | `Trips list returns each trip's prep status` |
 | US-109.1 | A trip with no participants is not prepared | `backend/tests/trip-prep-status.test.js` | `A trip with no participants is not prepared` |
 | US-109.1 | Cancelled applications don't affect prep status | `backend/tests/trip-prep-status.test.js` | `Cancelled applications don't affect prep status` |
+| US-109.1 | Total cost and total donations count pre-approved and approved members | `backend/tests/trip-prep-status.test.js` | `Total cost and total donations count pre-approved and approved members` |
 | US-109.1 | Flights need both an Arrival and a Return segment | `backend/tests/trip-prep-status.test.js` | `Flights need both an Arrival and a Return segment` |
 | US-109.1 | One item not complete makes the prep icon red | `frontend/tests/TripPrepStatus.test.js` | `One item not complete makes the prep icon red` |
 
@@ -206,6 +215,7 @@ Tests per the Test Coverage Map. Update features/reference/api.md and behavior.m
 
 *   [x] Prep icon and tooltip per **FR-001**, **FR-002**
 *   [x] Participants per **FR-003**; Agents unchanged per **FR-004**
+*   [x] Total cost and Total donations per **FR-005**
 *   [x] `prepStatus` per API Requirements
 *   [x] Automated tests for every Gherkin scenario
 *   [x] Backend `npm test` and frontend `npx vitest run` green
