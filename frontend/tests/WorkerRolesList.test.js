@@ -45,7 +45,7 @@ describe("Worker roles list", () => {
           requiredDocumentTypes: [
             { id: 10, description: "Board certification", allowSpecialization: true },
             { id: 11, description: "Passport", allowSpecialization: false },
-            { id: 12, description: "Nursing licence", allowSpecialization: false },
+            { id: 12, description: "Nursing license", allowSpecialization: false },
           ],
           requiredSpecializations: [
             { id: 101, name: "Pediatrics", documentTypeId: 10 },
@@ -71,7 +71,7 @@ describe("Worker roles list", () => {
     expect(headers).toContain("Required documents");
     expect(headers).not.toContain("License required");
     const rows = wrapper.findAll("tbody tr").map((tr) => tr.text());
-    expect(rows[0]).toContain("Board certification (Emergency, Pediatrics), Passport, Nursing licence");
+    expect(rows[0]).toContain("Board certification (Emergency, Pediatrics), Passport, Nursing license");
     expect(rows[0]).not.toContain("ER");
     expect(rows[1]).toContain("—");
 

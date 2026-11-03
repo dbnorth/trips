@@ -21,7 +21,7 @@ Notes:
 | `role` | 2 | Role catalog |
 | `orgPeopleRole` | 2 | Person ↔ org ↔ role |
 | `organization` | 3 | Sponsors / branding / agreement file |
-| `documentType` | 4, 22, 24, 25, 91 | Passport / medical licence / certification / diploma catalog, per organization |
+| `documentType` | 4, 22, 24, 25, 91 | Passport / medical license / certification / diploma catalog, per organization |
 | `personDocument` | 4, 22 | Uploaded person documents |
 | `trip` | 5 | Trip catalog |
 | `tripPeopleRole` | 5, 7 | Leaders, applications, participants |
@@ -199,7 +199,7 @@ Notes:
 | id | INTEGER PK | autoIncrement |
 | orgId | INTEGER | required FK → organization; CASCADE on delete (Feature 91). Added by `ensureSchema`, which sets every existing document type to organization 1 once, then makes it required (left optional when organization 1 doesn't exist) |
 | description | STRING(255) | required; may repeat across organizations |
-| type | ENUM(`medical_licence`,`passport`,`certification`,`diploma`,`doctor_permission`) | required (`certification` — Feature 22; `diploma` — Feature 24; `doctor_permission` — Feature 102, added to the existing column by `ensureSchema`) |
+| type | ENUM(`medical_license`,`passport`,`certification`,`diploma`,`doctor_permission`) | required (`certification` — Feature 22; `diploma` — Feature 24; `doctor_permission` — Feature 102, added to the existing column by `ensureSchema`); `medical_license` was `medical_licence` until Feature 107 — `ensureSchema` migrates stored rows and, on every startup, fixes "Licence" / "Licenced" → "License" / "Licensed" in `description` |
 | documentNumberRequired | BOOLEAN | required, default `false` (Feature 22) |
 | instructions | TEXT | nullable (Feature 22) |
 | allowSpecialization | BOOLEAN | required, default `false` (Feature 34) |

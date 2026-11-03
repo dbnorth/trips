@@ -1,7 +1,7 @@
 [
   {
-    "description": "Medical Doctor Licence (MD,DO)",
-    "type": "medical_licence",
+    "description": "Medical Doctor License (MD,DO)",
+    "type": "medical_license",
     "documentNumberRequired": false,
     "instructions": null,
     "allowSpecialization": true,
@@ -74,8 +74,8 @@
     "specializations": []
   },
   {
-    "description": "Dental Licence (DDS)",
-    "type": "medical_licence",
+    "description": "Dental License (DDS)",
+    "type": "medical_license",
     "documentNumberRequired": false,
     "instructions": null,
     "allowSpecialization": true,
@@ -98,8 +98,8 @@
     ]
   },
   {
-    "description": "Physician's Assistant Licence (PA)",
-    "type": "medical_licence",
+    "description": "Physician's Assistant License (PA)",
+    "type": "medical_license",
     "documentNumberRequired": false,
     "instructions": null,
     "allowSpecialization": true,
@@ -125,8 +125,8 @@
     ]
   },
   {
-    "description": "Nurse Practitioner Licence (NP)",
-    "type": "medical_licence",
+    "description": "Nurse Practitioner License (NP)",
+    "type": "medical_license",
     "documentNumberRequired": false,
     "instructions": null,
     "allowSpecialization": true,
@@ -145,8 +145,8 @@
     ]
   },
   {
-    "description": "Registered Nurse Licence (RN)",
-    "type": "medical_licence",
+    "description": "Registered Nurse License (RN)",
+    "type": "medical_license",
     "documentNumberRequired": false,
     "instructions": null,
     "allowSpecialization": true,
@@ -175,8 +175,8 @@
     ]
   },
   {
-    "description": "Licenced Practical Nurse Licence (LPN)",
-    "type": "medical_licence",
+    "description": "Licensed Practical Nurse License (LPN)",
+    "type": "medical_license",
     "documentNumberRequired": false,
     "instructions": null,
     "allowSpecialization": false,

@@ -1,5 +1,5 @@
 export const DOCUMENT_TYPE_OPTIONS = [
-  { title: "Medical Licence", value: "medical_licence" },
+  { title: "Medical License", value: "medical_license" },
   { title: "Passport", value: "passport" },
   { title: "Certification", value: "certification" },
   { title: "Diploma", value: "diploma" },

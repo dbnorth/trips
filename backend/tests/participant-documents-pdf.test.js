@@ -199,8 +199,8 @@ describe("Feature 58 — Participant Documents PDF", () => {
     it("Uploaded PDF pages follow the document page", async () => {
       const ana = await addPerson("Ana", "Lopez");
       const assignment = await addAssignment(ana.id);
-      await addDocument(ana, await addType("Nursing licence", "medical_licence"), {
-        documentFileName: writeUpload("licence.pdf", await twoPagePdf()),
+      await addDocument(ana, await addType("Nursing license", "medical_license"), {
+        documentFileName: writeUpload("license.pdf", await twoPagePdf()),
       });
 
       const res = await request(app)

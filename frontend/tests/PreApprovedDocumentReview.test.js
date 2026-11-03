@@ -73,8 +73,8 @@ const TRIP = {
   requirePassport: true,
   leaderNames: [],
 };
-const RN_LICENCE = { id: 1, description: "RN Licence", type: "license", hasExpirationDate: false };
-const NURSE = { id: 3, availableCount: 2, workerRole: { name: "Nurse", requiredDocumentTypes: [RN_LICENCE] } };
+const RN_LICENSE = { id: 1, description: "RN License", type: "license", hasExpirationDate: false };
+const NURSE = { id: 3, availableCount: 2, workerRole: { name: "Nurse", requiredDocumentTypes: [RN_LICENSE] } };
 const ANA = {
   id: 5,
   firstName: "Ana",
@@ -221,7 +221,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
         data: { ...anaRow("pre_approved"), version: 1, person: { firstName: "Ana", lastName: "Lopez" } },
       });
       TripPeopleRoleServices.documentReview.mockResolvedValue({
-        data: { approvalBlockers: ["RN Licence: not uploaded", "Passport: not reviewed"] },
+        data: { approvalBlockers: ["RN License: not uploaded", "Passport: not reviewed"] },
       });
 
       const { wrapper } = await mountWithPlugins(ViewTripApplicationDialog, {
@@ -235,7 +235,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
       const blockers = wrapper.find('[data-testid="approval-blockers"]');
       expect(blockers.text()).toContain("Before approving, these documents need to be uploaded and reviewed:");
       expect(blockers.findAll("li").map((li) => li.text())).toEqual([
-        "RN Licence: not uploaded",
+        "RN License: not uploaded",
         "Passport: not reviewed",
       ]);
       expect(findBtn(wrapper, "Approve App").props("disabled")).toBe(true);
@@ -252,7 +252,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
           requirements: [
             {
               key: "document-type-1",
-              label: "RN Licence",
+              label: "RN License",
               requiredSpecializations: [
                 { id: 71, name: "Emergency" },
                 { id: 72, name: "Pediatrics" },
@@ -260,7 +260,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
               documents: [
                 {
                   id: 11,
-                  description: "RN Licence",
+                  description: "RN License",
                   documentNumber: "RN-77",
                   issueDate: "2024-02-01",
                   expirationDate: null,
@@ -293,7 +293,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
             },
           ],
           allDocumentsHaveFiles: true,
-          approvalBlockers: ["RN Licence: not reviewed", "Passport: not reviewed"],
+          approvalBlockers: ["RN License: not reviewed", "Passport: not reviewed"],
         },
       });
       TripPeopleRoleServices.setDocumentReviewed.mockResolvedValue({ data: {} });
@@ -309,7 +309,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
       expect(wrapper.text()).toContain("Review documents — Ana Lopez");
       expect(wrapper.find('[data-testid="review-role"]').text().replace(/\s+/g, " ")).toBe("Role: Nurse");
       const requirements = wrapper.findAll('[data-testid="review-requirement"]');
-      expect(requirements.map((r) => r.find(".text-subtitle-2").text())).toEqual(["RN Licence", "Passport"]);
+      expect(requirements.map((r) => r.find(".text-subtitle-2").text())).toEqual(["RN License", "Passport"]);
       const documents = wrapper.findAll('[data-testid="review-document"]');
       expect(documents).toHaveLength(2);
       expect(documents[1].text()).toContain("expires 05/31/2030");
@@ -363,7 +363,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
       await flushPromises();
       expect(TripPeopleRoleServices.viewSpecialization).toHaveBeenCalledWith(1, 11, 5);
       const specViewer = wrapper.find('[data-testid="review-document-view"]');
-      expect(specViewer.text()).toContain("RN Licence — Pediatrics");
+      expect(specViewer.text()).toContain("RN License — Pediatrics");
       expect(details()).toEqual(["Specialization date: 04/15/2024"]);
       await findBtn(specViewer, "Close").trigger("click");
       await flushPromises();
@@ -382,7 +382,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
       PersonDocumentServices.getAll.mockResolvedValue({
         data: [
           { id: 12, documentTypeId: 2, documentType: { description: "Passport" }, documentFileName: "people/p.png", reviewed: true },
-          { id: 11, documentTypeId: 1, documentType: { description: "RN Licence" }, documentFileName: "people/rn.png", reviewed: false },
+          { id: 11, documentTypeId: 1, documentType: { description: "RN License" }, documentFileName: "people/rn.png", reviewed: false },
         ],
       });
 

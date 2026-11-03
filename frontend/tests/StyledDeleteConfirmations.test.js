@@ -82,7 +82,7 @@ const screens = [
     name: "Document types",
     component: DocumentTypesList,
     service: DocumentTypeServices,
-    item: { id: 2, description: "Dental License", type: "medical_licence" },
+    item: { id: 2, description: "Dental License", type: "medical_license" },
     rowText: "Dental License",
     message: 'Delete document type "Dental License"?',
   },
