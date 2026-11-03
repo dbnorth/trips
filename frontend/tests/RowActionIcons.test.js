@@ -201,8 +201,8 @@ describe("Feature 81 — Row Action Icons with Tooltips", () => {
       await flushPromises();
 
       const row = wrapper.findAll("tr").find((tr) => tr.find("td").exists() && tr.find("td").text() === trip.name);
-      expect(namesOf(row)).toEqual(["View", "Status", "Room list", "Flights", "Edit"]);
-      expect(actionsIn(row).map((btn) => btn.text())).toEqual(["", "", "", "", ""]);
+      expect(namesOf(row)).toEqual(["View", "Status", "Room list", "Flights", "Import", "Edit"]);
+      expect(actionsIn(row).map((btn) => btn.text())).toEqual(["", "", "", "", "", ""]);
       wrapper.unmount();
     });
   });

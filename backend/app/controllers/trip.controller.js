@@ -16,6 +16,9 @@ import {
   getActiveParticipantCountsByTripIds,
   getActiveParticipantTotalCostsByTripIds,
   getDonationTotalsByTripIds,
+  getMemberCountsByTripIds,
+  getPreApprovedMemberCountsByTripIds,
+  getTripRoleTotalsByTripIds,
   getTripPrimaryLeaderPeopleId,
   primaryLeaderError,
   setTripPrimaryLeader,
@@ -121,11 +124,18 @@ exports.findAll = async (req, res) => {
     const activeParticipantsByTripId = await getActiveParticipantCountsByTripIds(data.map((trip) => trip.id));
     const totalCostsByTripId = await getActiveParticipantTotalCostsByTripIds(data);
     const donationTotalsByTripId = await getDonationTotalsByTripIds(data.map((trip) => trip.id));
+    const memberCountsByTripId = await getMemberCountsByTripIds(data.map((trip) => trip.id));
+    const preApprovedCountsByTripId = await getPreApprovedMemberCountsByTripIds(data.map((trip) => trip.id));
+    const roleTotalsByTripId = await getTripRoleTotalsByTripIds(data.map((trip) => trip.id));
     res.send(
       data.map((trip) => ({
         ...trip.toJSON(),
         leaderNames: leadersByTripId.get(trip.id) || [],
         activeParticipantCount: activeParticipantsByTripId.get(trip.id) || 0,
+        memberCount: memberCountsByTripId.get(trip.id) || 0,
+        preApprovedMemberCount: preApprovedCountsByTripId.get(trip.id) || 0,
+        totalRoles: roleTotalsByTripId.get(trip.id)?.totalRoles || 0,
+        unfilledRoles: roleTotalsByTripId.get(trip.id)?.unfilledRoles || [],
         totalParticipantCost: totalCostsByTripId.get(trip.id) || 0,
         donationTotal: donationTotalsByTripId.get(trip.id) || 0,
       }))
