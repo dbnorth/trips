@@ -1,27 +1,16 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
-import { useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import OrganizationServices from "../services/organizationServices.js";
 import AddTripDialog from "../components/AddTripDialog.vue";
 import CopyTripDialog from "../components/CopyTripDialog.vue";
-import EditTripDialog from "../components/EditTripDialog.vue";
-import ImportTripMasterDialog from "../components/ImportTripMasterDialog.vue";
+import TripsTable from "../components/TripsTable.vue";
 import Utils from "../config/utils.js";
-import { formatMoneyDisplay } from "../utils/moneyUtils.js";
-import { donorTripPath } from "../utils/donateUrls.js";
-import RowAction from "../components/RowAction.vue";
-import { formatDateRange } from "../utils/dateFormat.js";
 
-const router = useRouter();
 const trips = ref([]);
 const message = ref("");
 const showAddDialog = ref(false);
 const showCopyDialog = ref(false);
-const showEditDialog = ref(false);
-const editTripId = ref(null);
-const showImportDialog = ref(false);
-const importTrip = ref(null);
 const user = ref(null);
 
 const effectiveOrgId = computed(() => Utils.effectiveOrgId(user.value));
@@ -90,42 +79,6 @@ const onTripUpdated = () => {
   load();
 };
 
-const openEdit = (trip) => {
-  editTripId.value = trip.id;
-  showEditDialog.value = true;
-};
-
-const openView = (trip) => {
-  router.push({ name: "tripView", params: { tripId: trip.id } });
-};
-
-const openStatus = (trip) => {
-  router.push({ name: "tripStatus", params: { tripId: trip.id } });
-};
-
-const openRooming = (trip) => {
-  router.push({ name: "tripRooming", params: { tripId: trip.id } });
-};
-
-const openFlights = (trip) => {
-  router.push({ name: "tripFlights", params: { tripId: trip.id } });
-};
-
-const canImport = (trip) =>
-  Utils.isOrgAdmin(user.value, trip.orgId) || Utils.isTripLeader(user.value, trip.id);
-
-const openImport = (trip) => {
-  importTrip.value = trip;
-  showImportDialog.value = true;
-};
-
-const donorLink = (trip) => donorTripPath(trip);
-
-const formatLeaders = (trip) => (trip.leaderNames || []).join(", ") || "—";
-
-const formatMoney = (value) =>
-  value != null && value !== "" ? formatMoneyDisplay(value) : "—";
-
 const onUserUpdated = async () => {
   user.value = Utils.getStore("user");
   await refresh();
@@ -165,44 +118,9 @@ onUnmounted(() => {
 
     <v-alert v-if="message" type="info" density="compact" class="mb-4">{{ message }}</v-alert>
 
-    <v-data-table
-      :items="trips"
-      :headers="[
-        { title: 'Name', key: 'name' },
-        { title: 'Leaders', key: 'leaders' },
-        { title: 'Active members', key: 'activeParticipantCount' },
-        { title: 'Total cost', key: 'totalParticipantCost' },
-        { title: 'Total donations', key: 'donationTotal' },
-        { title: 'Status', key: 'status' },
-        { title: 'Dates', key: 'dates' },
-        { title: 'Donor link', key: 'link' },
-        { title: 'Actions', key: 'actions', sortable: false },
-      ]"
-      density="compact"
-    >
-      <template #item.leaders="{ item }">{{ formatLeaders(item) }}</template>
-      <template #item.activeParticipantCount="{ item }">{{ item.activeParticipantCount ?? 0 }}</template>
-      <template #item.totalParticipantCost="{ item }">{{ formatMoney(item.totalParticipantCost) }}</template>
-      <template #item.donationTotal="{ item }">{{ formatMoney(item.donationTotal) }}</template>
-      <template #item.dates="{ item }">{{ formatDateRange(item.startDate, item.endDate) }}</template>
-      <template #item.link="{ item }">
-        <a :href="donorLink(item)" target="_blank">Donate</a>
-      </template>
-      <template #item.actions="{ item }">
-        <div class="d-flex flex-nowrap ga-1">
-          <RowAction icon="mdi-eye" label="View" @click="openView(item)" />
-          <RowAction icon="mdi-clipboard-check-outline" label="Status" @click="openStatus(item)" />
-          <RowAction icon="mdi-bed" label="Room list" @click="openRooming(item)" />
-          <RowAction icon="mdi-airplane" label="Flights" @click="openFlights(item)" />
-          <RowAction v-if="canImport(item)" icon="mdi-file-import" label="Import" @click="openImport(item)" />
-          <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
-        </div>
-      </template>
-    </v-data-table>
+    <TripsTable :trips="trips" @updated="onTripUpdated" @imported="load" />
 
     <AddTripDialog v-model="showAddDialog" @saved="onTripSaved" />
     <CopyTripDialog v-model="showCopyDialog" :trips="trips" @saved="onTripCopied" />
-    <EditTripDialog v-model="showEditDialog" :trip-id="editTripId" @saved="onTripUpdated" />
-    <ImportTripMasterDialog v-model="showImportDialog" :trip="importTrip" @imported="load" />
   </v-container>
 </template>
