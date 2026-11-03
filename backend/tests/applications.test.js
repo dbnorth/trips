@@ -242,7 +242,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       });
       const docType = await createDocumentType({
         orgId: org.id,
-        type: "medical_licence",
+        type: "medical_license",
         description: "RN License",
       });
       const trip = await request(app)
@@ -326,7 +326,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       });
       const typeA = await createDocumentType({
         orgId: org.id,
-        type: "medical_licence",
+        type: "medical_license",
         description: "RN License",
       });
       const typeB = await createDocumentType({

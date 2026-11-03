@@ -62,7 +62,7 @@ describe("Feature 91 — Document Types by Organization", () => {
       await db.sequelize.query("ALTER TABLE documentTypes DROP COLUMN orgId");
       await db.sequelize.query(
         `INSERT INTO documentTypes (description, type, createdAt, updatedAt)
-         VALUES ('Passport', 'passport', NOW(), NOW()), ('Nursing License', 'medical_licence', NOW(), NOW())`
+         VALUES ('Passport', 'passport', NOW(), NOW()), ('Nursing License', 'medical_license', NOW(), NOW())`
       );
       const [[passport], [nursing]] = await Promise.all(
         ["Passport", "Nursing License"].map((description) =>
@@ -114,7 +114,7 @@ describe("Feature 91 — Document Types by Organization", () => {
     it("An Org Admin manages only their organization's document types", async () => {
       await setUpOrganizations();
       const passport = await db.documentType.create({ orgId: hope.id, description: "Passport", type: "passport" });
-      await db.documentType.create({ orgId: hope.id, description: "Nursing License", type: "medical_licence" });
+      await db.documentType.create({ orgId: hope.id, description: "Nursing License", type: "medical_license" });
 
       const empty = await request(app).get("/trips/document-types").query({ orgId: healing.id }).set(hana.authHeader);
       expect(empty.status).toBe(200);
@@ -167,7 +167,7 @@ describe("Feature 91 — Document Types by Organization", () => {
     it("A person chooses from the document types of their organizations", async () => {
       await setUpOrganizations();
       await db.documentType.create({ orgId: hope.id, description: "Passport", type: "passport" });
-      await db.documentType.create({ orgId: hope.id, description: "Nursing License", type: "medical_licence" });
+      await db.documentType.create({ orgId: hope.id, description: "Nursing License", type: "medical_license" });
       await db.documentType.create({ orgId: healing.id, description: "CPR Certificate", type: "certification" });
       await db.documentType.create({
         orgId: (await createOrganization("Other Org")).id,
@@ -213,7 +213,7 @@ describe("Feature 91 — Document Types by Organization", () => {
       const license = await db.documentType.create({
         orgId: hope.id,
         description: "Nursing License",
-        type: "medical_licence",
+        type: "medical_license",
       });
       const cpr = await db.documentType.create({ orgId: healing.id, description: "CPR Certificate", type: "certification" });
 

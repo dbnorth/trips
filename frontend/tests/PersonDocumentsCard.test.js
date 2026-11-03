@@ -80,8 +80,8 @@ const types = [
   },
   {
     id: 2,
-    description: "Medical Licence",
-    type: "medical_licence",
+    description: "Medical License",
+    type: "medical_license",
     documentNumberRequired: false,
     instructions: null,
   },
@@ -505,7 +505,7 @@ describe("Feature 91 — Document types by organization", () => {
     DocumentTypeServices.getAll.mockResolvedValue({
       data: [
         { id: 7, orgId: 2, organization: healing, description: "CPR Certificate", type: "certification" },
-        { id: 2, orgId: 1, organization: hope, description: "Nursing License", type: "medical_licence" },
+        { id: 2, orgId: 1, organization: hope, description: "Nursing License", type: "medical_license" },
         { id: 1, orgId: 1, organization: hope, description: "Passport", type: "passport" },
       ],
     });

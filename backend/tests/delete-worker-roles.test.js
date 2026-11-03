@@ -31,11 +31,11 @@ describe("Feature 105 — Delete Unused Worker Roles", () => {
     const orgId = olivia.org.id;
     rnLicense = await createDocumentType({
       orgId,
-      type: "medical_licence",
+      type: "medical_license",
       description: "RN License",
       allowSpecialization: true,
     });
-    dentalLicense = await createDocumentType({ orgId, type: "medical_licence", description: "Dental License" });
+    dentalLicense = await createDocumentType({ orgId, type: "medical_license", description: "Dental License" });
     pediatrics = await db.documentTypeSpecialization.create({ documentTypeId: rnLicense.id, name: "Pediatrics" });
 
     const createRole = (body) =>

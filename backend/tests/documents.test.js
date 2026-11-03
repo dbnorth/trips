@@ -127,8 +127,8 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       const owner = await registerUser({ email: "doc-subject@example.com" });
       const stranger = await registerUser({ email: "doc-stranger@example.com" });
       const docType = await createDocumentType({
-        type: "medical_licence",
-        description: "Medical Licence",
+        type: "medical_license",
+        description: "Medical License",
       });
 
       const upload = await request(app)
@@ -137,7 +137,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
         .field("documentTypeId", String(docType.id))
         .field("expirationDate", "2031-06-01")
         .attach("document", TINY_PNG, {
-          filename: "licence.png",
+          filename: "license.png",
           contentType: "image/png",
         });
 
@@ -198,7 +198,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
       const create = await request(app)
         .post("/trips/document-types")
         .set(authHeader)
-        .send({ orgId: (await createOrganization()).id, type: "medical_licence", description: "Licence no number" });
+        .send({ orgId: (await createOrganization()).id, type: "medical_license", description: "License no number" });
 
       expect(create.status).toBe(200);
       expect(create.body.documentNumberRequired).toBe(false);
@@ -272,7 +272,7 @@ describe("Feature 4 — Document Types & Person Documents", () => {
 
       expect(create.status).toBe(400);
       expect(create.body.message).toMatch(/diploma/i);
-      expect(create.body.message).toMatch(/medical_licence/i);
+      expect(create.body.message).toMatch(/medical_license/i);
     });
 
     it("API rejects missing document number when required", async () => {

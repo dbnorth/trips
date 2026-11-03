@@ -57,8 +57,8 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
       });
       const docType = await createDocumentType({
         orgId: org.id,
-        type: "medical_licence",
-        description: "Medical Licence",
+        type: "medical_license",
+        description: "Medical License",
       });
 
       const create = await request(app)
@@ -97,7 +97,7 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
       });
       const typeA = await createDocumentType({
         orgId: org.id,
-        type: "medical_licence",
+        type: "medical_license",
         description: "RN License",
       });
       const typeB = await createDocumentType({
@@ -165,8 +165,8 @@ describe("Feature 6 — Worker Roles & Travel Options", () => {
       });
       const docType = await createDocumentType({
         orgId: org.id,
-        type: "medical_licence",
-        description: "Legacy Licence",
+        type: "medical_license",
+        description: "Legacy License",
       });
       const role = await db.workerRole.create({
         orgId: org.id,

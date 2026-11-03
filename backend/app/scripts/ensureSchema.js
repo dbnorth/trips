@@ -460,7 +460,7 @@ const ensureDocumentTypesTable = async () => {
       CREATE TABLE documentTypes (
         id INT NOT NULL AUTO_INCREMENT,
         description VARCHAR(255) NOT NULL,
-        type ENUM('medical_licence', 'passport', 'certification', 'diploma', 'doctor_permission') NOT NULL,
+        type ENUM('medical_license', 'passport', 'certification', 'diploma', 'doctor_permission') NOT NULL,
         documentNumberRequired TINYINT(1) NOT NULL DEFAULT 0,
         instructions TEXT NULL,
         createdAt DATETIME NOT NULL,
@@ -477,29 +477,30 @@ const ensureDocumentTypesTable = async () => {
          AND COLUMN_NAME = 'type'`
     );
     const columnType = columns[0]?.COLUMN_TYPE || "";
-    if (!columnType.includes("medical_licence") || columnType.includes("'medical'")) {
+    const desired =
+      ["'medical_license'", "'passport'", "'certification'", "'diploma'", "'doctor_permission'"].every((v) =>
+        columnType.includes(v)
+      ) && !["'medical'", "'licences'", "'medical_licence'"].some((v) => columnType.includes(v));
+    if (!desired) {
       await db.sequelize.query(`
         ALTER TABLE documentTypes
-        MODIFY COLUMN type ENUM('medical', 'licences', 'passport', 'medical_licence', 'certification', 'diploma') NOT NULL
+        MODIFY COLUMN type ENUM(
+          'medical', 'licences', 'medical_licence',
+          'medical_license', 'passport', 'certification', 'diploma', 'doctor_permission'
+        ) NOT NULL
       `);
       await db.sequelize.query(`
         UPDATE documentTypes
-        SET type = 'medical_licence'
-        WHERE type IN ('medical', 'licences')
+        SET type = 'medical_license'
+        WHERE type IN ('medical', 'licences', 'medical_licence')
       `);
       await db.sequelize.query(`
         ALTER TABLE documentTypes
-        MODIFY COLUMN type ENUM('medical_licence', 'passport', 'certification', 'diploma', 'doctor_permission') NOT NULL
+        MODIFY COLUMN type ENUM('medical_license', 'passport', 'certification', 'diploma', 'doctor_permission') NOT NULL
       `);
       logger.info(
-        "documentTypes.type enum updated to medical_licence, passport, certification, diploma, and doctor_permission."
+        "documentTypes.type enum updated to medical_license, passport, certification, diploma, and doctor_permission."
       );
-    } else if (!columnType.includes("doctor_permission")) {
-      await db.sequelize.query(`
-        ALTER TABLE documentTypes
-        MODIFY COLUMN type ENUM('medical_licence', 'passport', 'certification', 'diploma', 'doctor_permission') NOT NULL
-      `);
-      logger.info("documentTypes.type enum added doctor_permission.");
     }
   }
 
@@ -565,9 +566,22 @@ const ensureDocumentTypesTable = async () => {
     logger.info("documentTypes.hasExpirationDate column added.");
   }
 
+  const [misspelled] = await db.sequelize.query(
+    `SELECT id FROM documentTypes WHERE BINARY description LIKE '%icence%' LIMIT 1`
+  );
+  if (misspelled.length) {
+    await db.sequelize.query(`
+      UPDATE documentTypes
+      SET description = REPLACE(REPLACE(REPLACE(REPLACE(description,
+        'Licenced', 'Licensed'), 'licenced', 'licensed'), 'Licence', 'License'), 'licence', 'license')
+      WHERE BINARY description LIKE '%icence%'
+    `);
+    logger.info("documentTypes.description spelling updated from Licence to License.");
+  }
+
   if (!(await organizationOneExists())) return;
   const seeds = [
-    ["Medical Licence", "medical_licence"],
+    ["Medical License", "medical_license"],
     ["Passport", "passport"],
     ["Certification", "certification"],
     ["Diploma", "diploma"],
