@@ -68,6 +68,16 @@ const formatLeaders = (trip) => (trip.leaderNames || []).join(", ") || "—";
 
 const formatMoney = (value) =>
   value != null && value !== "" ? formatMoneyDisplay(value) : "—";
+
+const prepItems = [
+  { key: "rolesFilled", label: "All roles filled" },
+  { key: "participantsApproved", label: "All participants approved" },
+  { key: "fundsRaised", label: "All funds raised" },
+  { key: "flightsEntered", label: "Flights entered for all participants" },
+  { key: "roomListComplete", label: "Room list includes all participants" },
+];
+
+const prepComplete = (trip) => prepItems.every((prep) => !!trip.prepStatus?.[prep.key]);
 </script>
 
 <template>
@@ -111,6 +121,34 @@ const formatMoney = (value) =>
           </template>
           <div data-testid="unfilled-roles-list">
             <div v-for="role in item.unfilledRoles" :key="role.name">{{ role.name }}: {{ role.needed }} needed</div>
+          </div>
+        </v-tooltip>
+      </span>
+    </template>
+    <template #item.status="{ item }">
+      <span class="d-inline-flex align-center ga-1">
+        <span>{{ item.status }}</span>
+        <v-tooltip location="top">
+          <template #activator="{ props: activator }">
+            <v-icon
+              v-bind="activator"
+              icon="mdi-information-outline"
+              size="small"
+              :color="prepComplete(item) ? 'success' : 'error'"
+              tabindex="0"
+              aria-label="Trip prep status"
+              data-testid="trip-prep-info"
+            />
+          </template>
+          <div data-testid="trip-prep-list">
+            <div v-for="prep in prepItems" :key="prep.key" class="d-flex align-center ga-1">
+              <v-icon
+                :icon="item.prepStatus?.[prep.key] ? 'mdi-check-circle' : 'mdi-close-circle'"
+                :color="item.prepStatus?.[prep.key] ? 'success' : 'error'"
+                size="small"
+              />
+              <span>{{ prep.label }}</span>
+            </div>
           </div>
         </v-tooltip>
       </span>

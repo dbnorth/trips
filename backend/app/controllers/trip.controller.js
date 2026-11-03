@@ -19,6 +19,7 @@ import {
   getMemberCountsByTripIds,
   getPreApprovedMemberCountsByTripIds,
   getTripRoleTotalsByTripIds,
+  getTripPrepByTripIds,
   getTripPrimaryLeaderPeopleId,
   primaryLeaderError,
   setTripPrimaryLeader,
@@ -127,18 +128,32 @@ exports.findAll = async (req, res) => {
     const memberCountsByTripId = await getMemberCountsByTripIds(data.map((trip) => trip.id));
     const preApprovedCountsByTripId = await getPreApprovedMemberCountsByTripIds(data.map((trip) => trip.id));
     const roleTotalsByTripId = await getTripRoleTotalsByTripIds(data.map((trip) => trip.id));
+    const prepByTripId = await getTripPrepByTripIds(data.map((trip) => trip.id));
     res.send(
-      data.map((trip) => ({
-        ...trip.toJSON(),
-        leaderNames: leadersByTripId.get(trip.id) || [],
-        activeParticipantCount: activeParticipantsByTripId.get(trip.id) || 0,
-        memberCount: memberCountsByTripId.get(trip.id) || 0,
-        preApprovedMemberCount: preApprovedCountsByTripId.get(trip.id) || 0,
-        totalRoles: roleTotalsByTripId.get(trip.id)?.totalRoles || 0,
-        unfilledRoles: roleTotalsByTripId.get(trip.id)?.unfilledRoles || [],
-        totalParticipantCost: totalCostsByTripId.get(trip.id) || 0,
-        donationTotal: donationTotalsByTripId.get(trip.id) || 0,
-      }))
+      data.map((trip) => {
+        const unfilledRoles = roleTotalsByTripId.get(trip.id)?.unfilledRoles || [];
+        const totalParticipantCost = totalCostsByTripId.get(trip.id) || 0;
+        const donationTotal = donationTotalsByTripId.get(trip.id) || 0;
+        const prep = prepByTripId.get(trip.id) || {};
+        return {
+          ...trip.toJSON(),
+          leaderNames: leadersByTripId.get(trip.id) || [],
+          activeParticipantCount: activeParticipantsByTripId.get(trip.id) || 0,
+          memberCount: memberCountsByTripId.get(trip.id) || 0,
+          preApprovedMemberCount: preApprovedCountsByTripId.get(trip.id) || 0,
+          totalRoles: roleTotalsByTripId.get(trip.id)?.totalRoles || 0,
+          unfilledRoles,
+          totalParticipantCost,
+          donationTotal,
+          prepStatus: {
+            rolesFilled: unfilledRoles.length === 0,
+            participantsApproved: !!prep.participantsApproved,
+            fundsRaised: Number(totalParticipantCost) <= Number(donationTotal),
+            flightsEntered: !!prep.flightsEntered,
+            roomListComplete: !!prep.roomListComplete,
+          },
+        };
+      })
     );
   } catch (err) {
     res.status(500).send({ message: err.message });
