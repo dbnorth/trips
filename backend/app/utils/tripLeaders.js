@@ -38,7 +38,7 @@ const getTripMemberRoleIds = async () => {
   return roles.map((r) => r.id);
 };
 
-const getActiveTripMemberRows = async (tripIds) => {
+const getActiveTripMemberRows = async (tripIds, statuses = ["approved"]) => {
   const ids = [...new Set((tripIds || []).map((id) => Number(id)).filter((id) => !Number.isNaN(id)))];
   if (!ids.length) return [];
 
@@ -46,8 +46,8 @@ const getActiveTripMemberRows = async (tripIds) => {
   if (!roleIds.length) return [];
 
   return db.tripPeopleRole.findAll({
-    where: { tripId: ids, status: "approved", roleId: roleIds },
-    attributes: ["id", "tripId", "peopleId", "participantCost", "flightPurchaseOption"],
+    where: { tripId: ids, status: statuses, roleId: roleIds },
+    attributes: ["id", "tripId", "peopleId", "participantCost", "flightPurchaseOption", "tripWorkerRoleId"],
     raw: true,
   });
 };
@@ -108,19 +108,63 @@ export const getTripLeaderNamesByTripIds = async (tripIds) => {
   return map;
 };
 
-/** Map tripId -> count of active trip leaders and participants on the trip. */
-export const getActiveParticipantCountsByTripIds = async (tripIds) => {
+const countTripMembersByTripIds = async (tripIds, statuses) => {
   const ids = [...new Set((tripIds || []).map((id) => Number(id)).filter((id) => !Number.isNaN(id)))];
   const map = new Map();
   if (!ids.length) return map;
 
-  const rows = await getActiveTripMemberRows(ids);
+  const rows = await getActiveTripMemberRows(ids, statuses);
 
   for (const id of ids) map.set(id, 0);
   for (const row of rows) {
     const tid = Number(row.tripId);
     map.set(tid, (map.get(tid) || 0) + 1);
   }
+
+  return map;
+};
+
+/** Map tripId -> count of active trip leaders and participants on the trip. */
+export const getActiveParticipantCountsByTripIds = (tripIds) => countTripMembersByTripIds(tripIds, ["approved"]);
+
+/** Map tripId -> count of pre-approved and approved trip leaders and participants on the trip. */
+export const getMemberCountsByTripIds = (tripIds) =>
+  countTripMembersByTripIds(tripIds, ["pre_approved", "approved"]);
+
+/** Map tripId -> count of pre-approved trip leaders and participants on the trip. */
+export const getPreApprovedMemberCountsByTripIds = (tripIds) =>
+  countTripMembersByTripIds(tripIds, ["pre_approved"]);
+
+/**
+ * Map tripId -> { totalRoles, unfilledRoles }: the sum of the trip's role quantities, and each role
+ * with fewer pre-approved / approved members than its quantity as { name, needed }, by name.
+ */
+export const getTripRoleTotalsByTripIds = async (tripIds) => {
+  const ids = [...new Set((tripIds || []).map((id) => Number(id)).filter((id) => !Number.isNaN(id)))];
+  const map = new Map();
+  if (!ids.length) return map;
+
+  const roles = await db.tripWorkerRole.findAll({
+    where: { tripId: ids },
+    attributes: ["id", "tripId", "quantity"],
+    include: [{ model: db.workerRole, as: "workerRole", attributes: ["name"] }],
+  });
+  const members = await getActiveTripMemberRows(ids, ["pre_approved", "approved"]);
+  const filled = new Map();
+  for (const row of members) {
+    const roleId = Number(row.tripWorkerRoleId);
+    if (row.tripWorkerRoleId != null) filled.set(roleId, (filled.get(roleId) || 0) + 1);
+  }
+
+  for (const id of ids) map.set(id, { totalRoles: 0, unfilledRoles: [] });
+  for (const role of roles) {
+    const totals = map.get(Number(role.tripId));
+    const quantity = Number(role.quantity || 0);
+    totals.totalRoles += quantity;
+    const needed = quantity - (filled.get(Number(role.id)) || 0);
+    if (needed > 0) totals.unfilledRoles.push({ name: role.workerRole?.name || "—", needed });
+  }
+  for (const totals of map.values()) totals.unfilledRoles.sort((a, b) => a.name.localeCompare(b.name));
 
   return map;
 };

@@ -9,7 +9,7 @@ import PersonServices from "../services/personServices.js";
 import AuthServices from "../services/authServices.js";
 import EditPersonDialog from "../components/EditPersonDialog.vue";
 import ApplyTripDialog from "../components/ApplyTripDialog.vue";
-import EditTripDialog from "../components/EditTripDialog.vue";
+import TripsTable from "../components/TripsTable.vue";
 import EditOrganizationDialog from "../components/EditOrganizationDialog.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
 import ParticipantDonateDialog from "../components/ParticipantDonateDialog.vue";
@@ -39,8 +39,6 @@ const cancelAppSaving = ref(false);
 const showConfirmUncancelApp = ref(false);
 const confirmUncancelTrip = ref(null);
 const uncancelAppSaving = ref(false);
-const showEditOrgTrip = ref(false);
-const editOrgTripId = ref(null);
 const showEditOrganization = ref(false);
 const editOrganizationId = ref(null);
 const summary = ref(null);
@@ -434,30 +432,8 @@ const resolveOrgLabel = async () => {
   }
 };
 
-const openOrgTrip = (trip) => {
-  router.push({ name: "tripView", params: { tripId: trip.id } });
-};
-
-const openOrgTripStatus = (trip) => {
-  router.push({ name: "tripStatus", params: { tripId: trip.id } });
-};
-
-const openOrgTripRooming = (trip) => {
-  router.push({ name: "tripRooming", params: { tripId: trip.id } });
-};
-
 const openOrgTripFlights = (trip) => {
   router.push({ name: "tripFlights", params: { tripId: trip.id } });
-};
-
-const openEditOrgTrip = (trip) => {
-  if (!trip?.id) return;
-  editOrgTripId.value = trip.id;
-  showEditOrgTrip.value = true;
-};
-
-const onOrgTripUpdated = () => {
-  loadOrgTrips();
 };
 
 const openEditOrganization = (orgId = null) => {
@@ -851,65 +827,6 @@ onUnmounted(() => {
           </template>
         </v-card>
 
-        <v-card v-if="showOrgTripsSection" class="mb-6 pa-4">
-          <div class="d-flex align-center justify-space-between flex-wrap ga-2 mb-2">
-            <h2 class="text-h6 font-weight-bold mb-0">Organization Trips</h2>
-            <v-checkbox
-              v-model="showAllOrgTrips"
-              label="Show all trips"
-              density="compact"
-              hide-details
-              class="mt-0"
-            />
-          </div>
-
-          <v-progress-linear v-if="orgTripsLoading" indeterminate class="mb-3" />
-          <v-alert
-            v-else-if="!displayOrgTrips.length"
-            type="info"
-            density="compact"
-            class="mb-0"
-          >
-            {{
-              showAllOrgTrips
-                ? "No trips for this organization."
-                : "No active trips that have not ended. Check “Show all trips” to include other trips."
-            }}
-          </v-alert>
-          <v-table v-else density="compact">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Location</th>
-                <th>Start</th>
-                <th>End</th>
-                <th>Status</th>
-                <th class="text-right" style="min-width: 280px">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in displayOrgTrips" :key="`org-trip-${item.id}`">
-                <td>{{ item.name }}</td>
-                <td>{{ item.location || "—" }}</td>
-                <td>{{ formatDate(item.startDate) }}</td>
-                <td>{{ formatDate(item.endDate) }}</td>
-                <td>{{ item.status || "—" }}</td>
-                <td class="text-right">
-                  <div class="d-flex justify-end ga-1 flex-nowrap">
-                    <template v-if="!isAgentUser">
-                      <RowAction icon="mdi-eye" label="View" @click="openOrgTrip(item)" />
-                      <RowAction icon="mdi-clipboard-check-outline" label="Status" @click="openOrgTripStatus(item)" />
-                      <RowAction icon="mdi-bed" label="Room list" @click="openOrgTripRooming(item)" />
-                    </template>
-                    <RowAction icon="mdi-airplane" label="Flights" @click="openOrgTripFlights(item)" />
-                    <RowAction v-if="!isAgentUser" icon="mdi-pencil" label="Edit" @click="openEditOrgTrip(item)" />
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </v-table>
-        </v-card>
-
         <template v-if="isTripLeaderOnly">
           <v-alert
             v-if="showOrgScopeNotice && orgLabel"
@@ -993,7 +910,7 @@ onUnmounted(() => {
             No trips you lead in the selected organization.
           </v-alert>
 
-          <v-row v-if="summary && !summary.error && !summary.message">
+          <v-row v-if="summary && !summary.error && !summary.message" class="mb-3">
             <v-col v-if="summary.tripCount != null" cols="12" md="3">
               <v-card><v-card-text><div class="text-caption">Trips</div><div class="text-h4">{{ summary.tripCount }}</div></v-card-text></v-card>
             </v-col>
@@ -1014,12 +931,69 @@ onUnmounted(() => {
             </v-col>
           </v-row>
 
-          <div v-if="selectedTripId || summary?.trip?.id" class="mt-4">
+          <div v-if="selectedTripId || summary?.trip?.id" class="mt-4 mb-6">
             <v-btn class="mr-2" size="small" @click="exportCsv('participants')">Export participants CSV</v-btn>
             <v-btn class="mr-2" size="small" @click="exportCsv('donors')">Export donors CSV</v-btn>
             <v-btn size="small" @click="exportCsv('donations')">Export donations CSV</v-btn>
           </div>
         </template>
+
+        <v-card v-if="showOrgTripsSection" class="mb-6 pa-4">
+          <div class="d-flex align-center justify-space-between flex-wrap ga-2 mb-2">
+            <h2 class="text-h6 font-weight-bold mb-0">Organization Trips</h2>
+            <v-checkbox
+              v-model="showAllOrgTrips"
+              label="Show all trips"
+              density="compact"
+              hide-details
+              class="mt-0"
+            />
+          </div>
+
+          <v-progress-linear v-if="orgTripsLoading" indeterminate class="mb-3" />
+          <v-alert
+            v-else-if="!displayOrgTrips.length"
+            type="info"
+            density="compact"
+            class="mb-0"
+          >
+            {{
+              showAllOrgTrips
+                ? "No trips for this organization."
+                : "No active trips that have not ended. Check “Show all trips” to include other trips."
+            }}
+          </v-alert>
+          <TripsTable
+            v-else-if="!isAgentUser"
+            :trips="displayOrgTrips"
+            @updated="loadOrgTrips"
+            @imported="loadOrgTrips"
+          />
+          <v-table v-else density="compact">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Location</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Status</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in displayOrgTrips" :key="`org-trip-${item.id}`">
+                <td>{{ item.name }}</td>
+                <td>{{ item.location || "—" }}</td>
+                <td>{{ formatDate(item.startDate) }}</td>
+                <td>{{ formatDate(item.endDate) }}</td>
+                <td>{{ item.status || "—" }}</td>
+                <td class="text-right">
+                  <RowAction icon="mdi-airplane" label="Flights" @click="openOrgTripFlights(item)" />
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card>
       </v-col>
     </v-row>
 
@@ -1067,11 +1041,6 @@ onUnmounted(() => {
       confirm-text="Uncancel"
       :loading="uncancelAppSaving"
       @confirm="confirmUncancelApplication"
-    />
-    <EditTripDialog
-      v-model="showEditOrgTrip"
-      :trip-id="editOrgTripId"
-      @saved="onOrgTripUpdated"
     />
     <EditOrganizationDialog
       v-model="showEditOrganization"
