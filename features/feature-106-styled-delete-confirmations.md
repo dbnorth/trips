@@ -2,7 +2,7 @@
 
 **Feature ID:** 106
 **Branch pattern:** `feature/106-styled-delete-confirmations`
-**Status:** Draft
+**Status:** Implemented
 **Created:** 2026-11-03
 **Input:** "update the are you sure pop up to be a nice dialog [instead of] the browser pop up and add that to the standard UI spec rules"
 
@@ -158,11 +158,11 @@ Tests per the Test Coverage Map; update DeleteWorkerRoles and RowActionIcons tes
 
 ## Definition of Done
 
-*   [ ] Eight deletes use `ConfirmDialog` per **FR-001**–**FR-003**
-*   [ ] No `window.confirm` / `alert` / `prompt` per **FR-004**
-*   [ ] Automated tests for every Gherkin scenario
-*   [ ] Frontend `npx vitest run` green
-*   [ ] `features/reference/` updated
+*   [x] Eight deletes use `ConfirmDialog` per **FR-001**–**FR-003**
+*   [x] No `window.confirm` / `alert` / `prompt` per **FR-004**
+*   [x] Automated tests for every Gherkin scenario
+*   [x] Frontend `npx vitest run` green
+*   [x] `features/reference/` updated
 *   [ ] PR to `dev`
 
 ---

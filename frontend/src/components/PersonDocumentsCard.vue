@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import DocumentTypeServices from "../services/documentTypeServices.js";
 import PersonDocumentServices from "../services/personDocumentServices.js";
 import CountrySelect from "./CountrySelect.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
 import { countryName, resolveCountryCode, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { pdfFirstPageUrl } from "../utils/pdfThumbnail.js";
 import { formatDate } from "../utils/dateFormat.js";
@@ -471,8 +472,19 @@ const downloadFromView = () => {
   if (viewRow.value) downloadDocument(viewRow.value, viewSpecialization.value);
 };
 
-const removeDocument = async (row) => {
-  if (!window.confirm(`Delete document "${fileName(row)}"?`)) return;
+const deletingDocument = ref(null);
+const deleteLoading = ref(false);
+const deleteMessage = computed(() =>
+  deletingDocument.value ? `Delete document "${fileName(deletingDocument.value)}"?` : ""
+);
+
+const removeDocument = (row) => {
+  deletingDocument.value = row;
+};
+
+const confirmDeleteDocument = async () => {
+  const row = deletingDocument.value;
+  deleteLoading.value = true;
   message.value = "";
   try {
     await PersonDocumentServices.delete(props.personId, row.id);
@@ -480,6 +492,9 @@ const removeDocument = async (row) => {
     await load();
   } catch (e) {
     message.value = e.response?.data?.message || "Unable to delete document.";
+  } finally {
+    deleteLoading.value = false;
+    deletingDocument.value = null;
   }
 };
 
@@ -819,6 +834,17 @@ onMounted(load);
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <ConfirmDialog
+      :model-value="!!deletingDocument"
+      :message="deleteMessage"
+      confirm-text="Delete"
+      confirm-color="error"
+      cancel-text="Cancel"
+      :loading="deleteLoading"
+      @update:model-value="(v) => !v && (deletingDocument = null)"
+      @confirm="confirmDeleteDocument"
+    />
   </div>
 </template>
 
