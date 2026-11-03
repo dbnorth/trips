@@ -168,6 +168,21 @@ describe("Feature 109 — Trip Prep Status on the Trip Card", () => {
       });
     });
 
+    it("Total cost and total donations count pre-approved and approved members", async () => {
+      await addParticipant("ana@example.org", "approved", tripNurse);
+      const ben = await addParticipant("ben@example.org", "pre_approved", tripNurse);
+      const dev = await addParticipant("dev@example.org", "incomplete", tripDoctor);
+      await db.tripDonation.create({ tripId: trip.id, personId: ben.peopleId, amount: 200 });
+      await db.tripDonation.create({ tripId: trip.id, personId: dev.peopleId, amount: 50 });
+      await addDonation(100);
+
+      const response = await request(app).get("/trips/trips").set(olivia.authHeader);
+      const row = response.body.find((t) => t.id === trip.id);
+      expect(row.totalParticipantCost).toBe(2000);
+      expect(row.donationTotal).toBe(300);
+      expect(row.prepStatus.fundsRaised).toBe(false);
+    });
+
     it("Flights need both an Arrival and a Return segment", async () => {
       await preparedTrip();
       const late = await addParticipant("eve@example.org", "approved", tripNurse);
