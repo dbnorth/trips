@@ -172,11 +172,11 @@ Uploaded document and specialization files are stored encrypted and returned dec
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/worker-roles` | auth | Org worker-role catalog (`?orgId=`); includes `requiredDocumentTypes` / `requiredDocumentTypeIds` (Feature 25) and `requiredSpecializations` (`[{ id, name, documentTypeId }]`) / `requiredSpecializationIds` (Feature 59); each required document type includes `allowSpecialization`. No `licenseRequired` on any worker role payload (removed in Feature 59) |
-| `GET` | `/trips/worker-roles/:id` | auth | Get |
+| `GET` | `/trips/worker-roles` | auth | Org worker-role catalog (`?orgId=`); includes `requiredDocumentTypes` / `requiredDocumentTypeIds` (Feature 25) and `requiredSpecializations` (`[{ id, name, documentTypeId }]`) / `requiredSpecializationIds` (Feature 59); each required document type includes `allowSpecialization`. No `licenseRequired` on any worker role payload (removed in Feature 59); each role includes `inUse` (true when any trip has a trip role for it — Feature 105) |
+| `GET` | `/trips/worker-roles/:id` | auth | Get; includes `inUse` (Feature 105) |
 | `POST` | `/trips/worker-roles` | auth | Create (org admin); `requiredDocumentTypeIds?: number[]` (Feature 25); `requiredSpecializationIds?: number[]` — each must belong to a required document type, else `400` "Required specializations must belong to a required document." (Feature 59); each required document type must belong to the role's organization, else `400` "Required documents must be document types of this organization." (Feature 91) |
 | `PUT` | `/trips/worker-roles/:id` | auth | Update; replace required document list when `requiredDocumentTypeIds` sent (types of the role's organization, or already required by the role; else the same `400` — Feature 91); replace required specializations when `requiredSpecializationIds` sent (same `400`); removing a required document also removes its required specializations (Feature 59) |
-| `DELETE` | `/trips/worker-roles/:id` | auth | Delete |
+| `DELETE` | `/trips/worker-roles/:id` | auth | Delete (Org Admin of the role's organization or System Admin) with its required documents and required specializations in one transaction; document types stay; `400` "This role is used on a trip and cannot be deleted." when any trip has a trip role for it, and nothing changes — Feature 105 |
 | `GET` | `/trips/trip-worker-roles` | auth | Needs for `?tripId=`; each role has `signedUpCount`, `reservedCount`, `availableCount` (Feature 26, 56) |
 | `POST` | `/trips/trip-worker-roles` | auth | Add role quantity; optional `emails: string[]` reserved with the role (validated like `POST …/reservations`, open slots = quantity; on `400` neither the role nor reservations are saved) — Feature 56 |
 | `PUT` | `/trips/trip-worker-roles/:id` | auth | Update quantity; `400` "Remove reserved emails first." when quantity < reservations (Feature 56) |

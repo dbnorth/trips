@@ -57,7 +57,7 @@ vi.mock("../src/components/EditTripParticipantDialog.vue", () => stubDialog("Edi
 vi.mock("../src/components/ParticipantDonationsDialog.vue", () => stubDialog("ParticipantDonationsDialog"));
 vi.mock("../src/components/ViewPersonProfileDialog.vue", () => stubDialog("ViewPersonProfileDialog"));
 vi.mock("../src/components/ViewTripApplicationDialog.vue", () => stubDialog("ViewTripApplicationDialog"));
-vi.mock("../src/components/ConfirmDialog.vue", () => stubDialog("ConfirmDialog"));
+vi.mock("../src/components/ConfirmDialog.vue", () => stubDialog("ConfirmDialog", ["modelValue", "message"]));
 vi.mock("../src/components/TripTeamEmailDialog.vue", () =>
   stubDialog("TripTeamEmailDialog", ["modelValue", "tripId", "participants"])
 );
@@ -268,7 +268,6 @@ describe("Feature 81 — Row Action Icons with Tooltips", () => {
       AirportServices.getAll.mockResolvedValue({
         data: [{ id: 9, code: "GUA", airportName: "La Aurora", city: "Guatemala City", country: "GT" }],
       });
-      const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
       const { wrapper } = await mountWithPlugins(AirportsList);
       await flushPromises();
 
@@ -278,9 +277,10 @@ describe("Feature 81 — Row Action Icons with Tooltips", () => {
       expect(action(row, "Delete").classes()).toContain("text-error");
 
       await action(row, "Delete").trigger("click");
-      expect(confirm).toHaveBeenCalledWith('Delete airport "GUA"?');
+      const confirm = wrapper.findComponent({ name: "ConfirmDialog" });
+      expect(confirm.props("modelValue")).toBe(true);
+      expect(confirm.props("message")).toBe('Delete airport "GUA"?');
       expect(AirportServices.delete).not.toHaveBeenCalled();
-      confirm.mockRestore();
       wrapper.unmount();
     });
   });

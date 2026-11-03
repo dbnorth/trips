@@ -4,6 +4,7 @@ import EmailTypeServices from "../services/emailTypeServices.js";
 import EmailTypeFormDialog from "../components/EmailTypeFormDialog.vue";
 import Utils from "../config/utils.js";
 import RowAction from "../components/RowAction.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 const rows = ref([]);
 const user = ref(null);
@@ -46,15 +47,28 @@ const openEdit = (row) => {
   showForm.value = true;
 };
 
-const remove = async (row) => {
-  if (!window.confirm(`Delete email type "${row.description}"?`)) return;
+const deleting = ref(null);
+const deleteLoading = ref(false);
+const deleteMessage = computed(() =>
+  deleting.value ? `Delete email type "${deleting.value.description}"?` : ""
+);
+
+const remove = (row) => {
+  deleting.value = row;
+};
+
+const confirmDelete = async () => {
+  deleteLoading.value = true;
   message.value = "";
   try {
-    await EmailTypeServices.delete(row.id);
+    await EmailTypeServices.delete(deleting.value.id);
     message.value = "Email type deleted.";
     await load();
   } catch (e) {
     message.value = e.response?.data?.message || "Unable to delete email type.";
+  } finally {
+    deleteLoading.value = false;
+    deleting.value = null;
   }
 };
 
@@ -111,5 +125,16 @@ onUnmounted(() => {
     </v-data-table>
 
     <EmailTypeFormDialog v-model="showForm" :email-type-id="editingId" @saved="onSaved" />
+
+    <ConfirmDialog
+      :model-value="!!deleting"
+      :message="deleteMessage"
+      confirm-text="Delete"
+      confirm-color="error"
+      cancel-text="Cancel"
+      :loading="deleteLoading"
+      @update:model-value="(v) => !v && (deleting = null)"
+      @confirm="confirmDelete"
+    />
   </v-container>
 </template>

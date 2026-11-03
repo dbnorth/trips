@@ -5,6 +5,7 @@ import WorkerRoleFormDialog from "../components/WorkerRoleFormDialog.vue";
 import Utils from "../config/utils.js";
 import { activeRequiredSpecializations } from "../utils/tripApplicationForm.js";
 import RowAction from "../components/RowAction.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 
 const roles = ref([]);
 const user = ref(null);
@@ -73,6 +74,31 @@ const openAdd = () => {
 const openEdit = (row) => {
   editingRoleId.value = row.id;
   showForm.value = true;
+};
+
+const deleting = ref(null);
+const deleteLoading = ref(false);
+const deleteMessage = computed(() =>
+  deleting.value ? `Delete worker role "${deleting.value.name}"?` : ""
+);
+
+const remove = (row) => {
+  deleting.value = row;
+};
+
+const confirmDelete = async () => {
+  deleteLoading.value = true;
+  message.value = "";
+  try {
+    await WorkerRoleServices.delete(deleting.value.id);
+    await load();
+    message.value = "Worker role deleted.";
+  } catch (e) {
+    message.value = e.response?.data?.message || "Unable to delete worker role.";
+  } finally {
+    deleteLoading.value = false;
+    deleting.value = null;
+  }
 };
 
 const onSaved = () => {
@@ -146,7 +172,16 @@ onUnmounted(() => {
       <template #item.requiredDocuments="{ item }">{{ requiredDocumentsLabel(item) }}</template>
       <template #item.status="{ item }">{{ item.status === "active" ? "Active" : "Inactive" }}</template>
       <template #item.actions="{ item }">
-        <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
+        <div class="d-flex flex-nowrap ga-1">
+          <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
+          <RowAction
+            v-if="!item.inUse"
+            icon="mdi-delete"
+            label="Delete"
+            color="error"
+            @click="remove(item)"
+          />
+        </div>
       </template>
     </v-data-table>
 
@@ -155,6 +190,17 @@ onUnmounted(() => {
       :role-id="editingRoleId"
       :org-id="effectiveOrgId"
       @saved="onSaved"
+    />
+
+    <ConfirmDialog
+      :model-value="!!deleting"
+      :message="deleteMessage"
+      confirm-text="Delete"
+      confirm-color="error"
+      cancel-text="Cancel"
+      :loading="deleteLoading"
+      @update:model-value="(v) => !v && (deleting = null)"
+      @confirm="confirmDelete"
     />
   </v-container>
 </template>
