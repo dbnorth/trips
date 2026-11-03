@@ -2,6 +2,7 @@
 import { ref, watch } from "vue";
 import TripWorkerRoleServices from "../services/tripWorkerRoleServices.js";
 import { parseEmailList } from "../utils/emailList.js";
+import { tripParticipantStatusLabel } from "../utils/tripParticipantStatus.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -43,7 +44,9 @@ watch(
 const close = () => emit("update:modelValue", false);
 
 const statusLabel = (row) =>
-  row.filled ? `Applied — ${row.applicantName} (${row.applicationStatus})` : "Reserved";
+  row.filled
+    ? `Applied — ${row.applicantName} (${tripParticipantStatusLabel(row.applicationStatus)})`
+    : "Reserved";
 
 const add = async () => {
   const emails = parseEmailList(emailsInput.value);

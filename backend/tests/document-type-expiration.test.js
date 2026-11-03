@@ -195,7 +195,7 @@ describe("Feature 57 — Document Type Has Expiration Date", () => {
         .send(applicationBody(tripWorkerRole.id, "Diploma Applicant"));
 
       expect(response.status).toBe(200);
-      expect(response.body.applicationStatus).toBe("applied");
+      expect(response.body.applicationStatus).toBe("pre_approved");
     });
 
     it("Passport type without an expiration date satisfies Require Passport", async () => {
@@ -230,7 +230,7 @@ describe("Feature 57 — Document Type Has Expiration Date", () => {
         .send(applicationBody(tripWorkerRole.id, "Passport Card Applicant"));
 
       expect(response.status).toBe(200);
-      expect(response.body.applicationStatus).toBe("applied");
+      expect(response.body.applicationStatus).toBe("pre_approved");
     });
   });
 });

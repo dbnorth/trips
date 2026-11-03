@@ -103,7 +103,8 @@ const nextActionsRowFor = (wrapper, name) => {
 
 const toneOf = (row) => row.find('[data-testid="my-trip-next-actions"]').classes();
 
-const button = (el, text) => el.findAll("button").find((b) => b.text().trim() === text);
+const button = (el, text) =>
+  el.findAll("button").find((b) => (b.text().trim() || b.attributes("aria-label")) === text);
 
 describe("Feature 60 — My Trips Next Actions", () => {
   beforeEach(() => {
@@ -122,7 +123,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
 
   it("Home shows next actions under the trip", async () => {
     const wrapper = await mountHome([
-      myTrip(1, "Guatemala Clinic", "applied", [{ code: "wait-approval" }]),
+      myTrip(1, "Guatemala Clinic", "pre_approved", [{ code: "wait-approval" }]),
       myTrip(2, "Honduras Clinic", "declined", []),
     ]);
 
@@ -135,7 +136,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
 
   it("Next-actions rows are highlighted by status", async () => {
     const wrapper = await mountHome([
-      myTrip(1, "Guatemala Clinic", "applied", [{ code: "wait-approval" }]),
+      myTrip(1, "Guatemala Clinic", "pre_approved", [{ code: "wait-approval" }]),
       myTrip(2, "Honduras Clinic", "approved", [{ code: "make-donation", amountOwed: 1300 }]),
       myTrip(3, "Peru Clinic", "approved", [{ code: "all-ready" }]),
     ]);
@@ -316,6 +317,69 @@ describe("Feature 60 — My Trips Next Actions", () => {
     expect(nextActionsRowFor(wrapper, "Guatemala Clinic").text()).toContain(
       "Missing documents: Board Certification: select the Emergency Medicine specialization; CPR Card: add this document."
     );
+
+    wrapper.unmount();
+  });
+
+  /**
+   * Feature 104 — Pre-Approved Status and Document Review
+   * Spec: features/feature-104-pre-approved-document-review.md
+   */
+  it("Home trip rows use icons with tooltips", async () => {
+    TripServices.getBrowseTrips.mockResolvedValue({
+      data: [
+        {
+          id: 9,
+          name: "Peru Clinic",
+          orgId: ORG_ID,
+          status: "active",
+          startDate: dateFromToday(30),
+          endDate: dateFromToday(40),
+          alreadyApplied: false,
+          applicationStatus: null,
+          roleAvailability: { reserved: 0, open: 2 },
+          myReservedTripWorkerRoleId: null,
+        },
+      ],
+    });
+    const wrapper = await mountHome([
+      myTrip(1, "Guatemala Clinic", "pre_approved", [{ code: "wait-approval" }]),
+      myTrip(2, "Honduras Clinic", "approved", [{ code: "all-ready" }]),
+      myTrip(3, "Haiti Clinic", "cancelled", []),
+    ]);
+
+    const icons = (name) =>
+      tripRow(wrapper, name)
+        .findAll("td:last-child .v-btn")
+        .map((b) => ({
+          label: b.attributes("aria-label"),
+          text: b.text().trim(),
+          icon: b.find(".v-icon").classes().find((c) => c.startsWith("mdi-") && c !== "mdi"),
+        }));
+    expect(icons("Guatemala Clinic")).toEqual([
+      { label: "View", text: "", icon: "mdi-eye" },
+      { label: "Update App", text: "", icon: "mdi-file-edit-outline" },
+      { label: "Cancel App", text: "", icon: "mdi-cancel" },
+    ]);
+    expect(icons("Honduras Clinic").map((b) => [b.label, b.icon])).toEqual([
+      ["View", "mdi-eye"],
+      ["Manage App", "mdi-file-cog-outline"],
+      ["Cancel App", "mdi-cancel"],
+    ]);
+    expect(icons("Haiti Clinic").map((b) => [b.label, b.icon])).toEqual([
+      ["View", "mdi-eye"],
+      ["Manage App", "mdi-file-cog-outline"],
+      ["Uncancel", "mdi-restore"],
+    ]);
+    expect(icons("Peru Clinic").map((b) => [b.label, b.icon])).toEqual([
+      ["View", "mdi-eye"],
+      ["Apply", "mdi-file-send-outline"],
+    ]);
+    expect(button(tripRow(wrapper, "Guatemala Clinic"), "Cancel App").classes()).toContain("text-error");
+
+    await button(tripRow(wrapper, "Guatemala Clinic"), "Update App").trigger("click");
+    await flushPromises();
+    expect(wrapper.findComponent({ name: "ApplyTripDialog" }).props("tripId")).toBe(1);
 
     wrapper.unmount();
   });

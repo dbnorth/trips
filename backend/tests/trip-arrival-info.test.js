@@ -152,7 +152,7 @@ describe("Feature 76 — Trip Arrival Info", () => {
     tess = await addMember("tess@example.org", "Tess", "approved", "Trip Leader");
     ana = await addMember("ana@example.org", "Ana", "approved");
     ben = await addMember("ben@example.org", "Ben", "approved");
-    cara = await addMember("cara@example.org", "Cara", "applied");
+    cara = await addMember("cara@example.org", "Cara", "pre_approved");
     olga = await createOrgAdminUser({ email: "olga@example.org", orgName: "Other Org" });
     for (const [tokenCode, valueSource] of [
       ["ORG_EMAIL", "organization.email"],

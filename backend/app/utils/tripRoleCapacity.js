@@ -5,7 +5,7 @@ const TripPeopleRole = db.tripPeopleRole;
 const TripWorkerRoleReservation = db.tripWorkerRoleReservation;
 
 /** Statuses that occupy a trip worker-role capacity slot (Feature 26). */
-export const ROLE_OCCUPYING_STATUSES = ["incomplete", "applied", "approved"];
+export const ROLE_OCCUPYING_STATUSES = ["incomplete", "pre_approved", "approved"];
 
 export const normalizeEmail = (value) => String(value ?? "").trim().toLowerCase();
 

@@ -16,7 +16,7 @@ const TripRoom = db.tripRoom;
 const TripRoomAssignment = db.tripRoomAssignment;
 const Op = db.Sequelize.Op;
 
-const ELIGIBLE_STATUSES = ["incomplete", "applied", "approved"];
+const ELIGIBLE_STATUSES = ["incomplete", "pre_approved", "approved"];
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 const canManageTripRooming = async (req, tripId) => {

@@ -12,7 +12,7 @@ import {
   renderPdf,
 } from "./pdf.js";
 
-const ELIGIBLE_STATUSES = ["incomplete", "applied", "approved"];
+const ELIGIBLE_STATUSES = ["incomplete", "pre_approved", "approved"];
 const BOOKED_BY = { organization: "Org", self: "Participant" };
 
 const segmentRow = (segment) => ({

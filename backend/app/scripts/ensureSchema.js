@@ -374,10 +374,11 @@ const ensureTripPeopleRoleStatus = async () => {
   const columnType = columns[0]?.COLUMN_TYPE || "";
   const desired =
     columnType.includes("'incomplete'") &&
-    columnType.includes("'applied'") &&
+    columnType.includes("'pre_approved'") &&
     columnType.includes("'approved'") &&
     columnType.includes("'declined'") &&
     columnType.includes("'cancelled'") &&
+    !columnType.includes("'applied'") &&
     !columnType.includes("'ready'") &&
     !columnType.includes("'denied'") &&
     !columnType.includes("'canceled'") &&
@@ -389,7 +390,7 @@ const ensureTripPeopleRoleStatus = async () => {
     ALTER TABLE tripPeopleRoles
     MODIFY COLUMN status ENUM(
       'active', 'inactive', 'ready', 'denied', 'canceled',
-      'incomplete', 'applied', 'approved', 'declined', 'cancelled'
+      'incomplete', 'applied', 'pre_approved', 'approved', 'declined', 'cancelled'
     ) NOT NULL DEFAULT 'incomplete'
   `);
   await db.sequelize.query(`
@@ -399,7 +400,7 @@ const ensureTripPeopleRoleStatus = async () => {
     UPDATE tripPeopleRoles SET status = 'incomplete' WHERE status = 'inactive'
   `);
   await db.sequelize.query(`
-    UPDATE tripPeopleRoles SET status = 'applied' WHERE status = 'ready'
+    UPDATE tripPeopleRoles SET status = 'pre_approved' WHERE status IN ('ready', 'applied')
   `);
   await db.sequelize.query(`
     UPDATE tripPeopleRoles SET status = 'declined' WHERE status = 'denied'
@@ -409,10 +410,10 @@ const ensureTripPeopleRoleStatus = async () => {
   `);
   await db.sequelize.query(`
     ALTER TABLE tripPeopleRoles
-    MODIFY COLUMN status ENUM('incomplete', 'applied', 'approved', 'declined', 'cancelled')
+    MODIFY COLUMN status ENUM('incomplete', 'pre_approved', 'approved', 'declined', 'cancelled')
     NOT NULL DEFAULT 'incomplete'
   `);
-  logger.info("tripPeopleRoles.status updated to incomplete/applied/approved/declined/cancelled.");
+  logger.info("tripPeopleRoles.status updated to incomplete/pre_approved/approved/declined/cancelled.");
 };
 
 /** Trip applicants are Trip Participants whose status tracks where they are in the process. */
@@ -651,6 +652,7 @@ const ensurePersonDocumentsTable = async () => {
         issueDate DATE NULL,
         expirationDate DATE NULL,
         documentFileName VARCHAR(500) NULL,
+        reviewed TINYINT(1) NOT NULL DEFAULT 0,
         createdAt DATETIME NOT NULL,
         updatedAt DATETIME NOT NULL,
         PRIMARY KEY (id),
@@ -720,6 +722,20 @@ const ensurePersonDocumentsTable = async () => {
          MODIFY COLUMN expirationDate DATE NULL`
       );
       logger.info("personDocuments.expirationDate made nullable.");
+    }
+
+    const [reviewedCols] = await db.sequelize.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'personDocuments'
+         AND COLUMN_NAME = 'reviewed'`
+    );
+    if (!reviewedCols.length) {
+      await db.sequelize.query(
+        `ALTER TABLE personDocuments
+         ADD COLUMN reviewed TINYINT(1) NOT NULL DEFAULT 0 AFTER documentFileName`
+      );
+      logger.info("personDocuments.reviewed column added.");
     }
   }
 };

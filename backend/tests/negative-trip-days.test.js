@@ -147,7 +147,7 @@ describe("Feature 89 — Negative Trip Days", () => {
     it("Negative days count toward the one-each limit", async () => {
       await options.departFriday.update({ daysAfter: -1 });
       const volcano = await addOption("Volcano hike", 5, { daysAfter: 1 });
-      await anaAssignment.update({ status: "applied" });
+      await anaAssignment.update({ status: "pre_approved" });
 
       const refused = await request(app)
         .put(`/trips/trips/browse/${trip.id}/application`)

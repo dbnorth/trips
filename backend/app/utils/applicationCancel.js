@@ -1,33 +1,18 @@
 import db from "../models/index.js";
 import {
-  arePersonDocumentsUploaded,
-  isRequiredPassportUploaded,
-  isDoctorPermissionUploaded,
-  loadDoctorPermissionTypes,
-  isRequiredRoleDocumentUploaded,
-  loadPersonDocumentsForCompleteness,
   loadPersonForCompleteness,
-  loadWorkerRoleDocumentRequirements,
-  resolveAppliedOrIncompleteStatus,
-  tripDocumentCompareDate,
+  resolvePreApprovedOrIncompleteStatus,
 } from "./tripParticipantApplicationStatus.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "./organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "./pregnancyFields.js";
 import { findReservationForPerson, withCapacityFields } from "./tripRoleCapacity.js";
 
-const Trip = db.trip;
 const TripWorkerRole = db.tripWorkerRole;
 
-export const CANCELABLE_APPLICATION_STATUSES = ["incomplete", "applied", "approved"];
+export const CANCELABLE_APPLICATION_STATUSES = ["incomplete", "pre_approved", "approved"];
 
 const resolveUncancelStatus = async (assignment, orgId) => {
   const person = await loadPersonForCompleteness(assignment.peopleId);
-  const personDocuments = await loadPersonDocumentsForCompleteness(assignment.peopleId);
-  const { requiredDocumentTypeIds, requiredSpecializations } =
-    await loadWorkerRoleDocumentRequirements(assignment.tripWorkerRoleId);
-  const trip = await Trip.findByPk(assignment.tripId, {
-    attributes: ["id", "startDate", "endDate", "requirePassport"],
-  });
   const agreement = orgId != null ? await loadOrganizationAgreement(orgId) : null;
   const agreementRequired = !!agreement?.exists && !!agreement?.content?.trim();
   const medicalAgreement = orgId != null ? await loadOrganizationMedicalAgreement(orgId) : null;
@@ -36,8 +21,7 @@ const resolveUncancelStatus = async (assignment, orgId) => {
     !!medicalAgreement?.content?.trim() &&
     (person?.takesMedication === true || person?.takesMedication === 1);
   const pregnancy = normalizeApplicationPregnancy(assignment, { gender: person?.gender ?? null });
-  const documentCompareDate = tripDocumentCompareDate(trip);
-  return resolveAppliedOrIncompleteStatus({
+  return resolvePreApprovedOrIncompleteStatus({
     person,
     tripWorkerRoleId: assignment.tripWorkerRoleId,
     willSelfFund: !!assignment.willSelfFund,
@@ -56,24 +40,6 @@ const resolveUncancelStatus = async (assignment, orgId) => {
     medicalAgreementAccepted: !!assignment.medicalAgreementAccepted,
     isPregnant: pregnancy.ok ? pregnancy.isPregnant : null,
     pregnancyDueDate: pregnancy.ok ? pregnancy.pregnancyDueDate : null,
-    personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
-    requiredRoleDocumentUploaded: isRequiredRoleDocumentUploaded({
-      documents: personDocuments,
-      documentTypeIds: requiredDocumentTypeIds,
-      compareDate: documentCompareDate,
-      requiredSpecializations,
-    }),
-    requiredPassportUploaded: isRequiredPassportUploaded({
-      documents: personDocuments,
-      requirePassport: !!trip?.requirePassport,
-      compareDate: documentCompareDate,
-    }),
-    doctorPermissionUploaded: isDoctorPermissionUploaded({
-      documents: personDocuments,
-      isPregnant: pregnancy.ok ? pregnancy.isPregnant : null,
-      doctorPermissionRequired: (await loadDoctorPermissionTypes(orgId)).length > 0,
-      compareDate: documentCompareDate,
-    }),
     orgId,
   });
 };

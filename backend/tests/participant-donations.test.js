@@ -104,7 +104,7 @@ describe("Feature 53 — Participant Donations and Donor–Person Link", () => {
     });
 
     it("Participant not approved cannot donate to themselves", async () => {
-      await addAssignment(ana, "applied");
+      await addAssignment(ana, "pre_approved");
 
       const res = await participantDonate(ana, ana, 100);
 
@@ -115,7 +115,7 @@ describe("Feature 53 — Participant Donations and Donor–Person Link", () => {
 
   describe("US-53.2 — Donate toward another participant", () => {
     it("Participant donates to a teammate", async () => {
-      await addAssignment(ana, "applied");
+      await addAssignment(ana, "pre_approved");
       await addAssignment(ben, "approved");
 
       const res = await participantDonate(ana, ben, 75);
@@ -129,7 +129,7 @@ describe("Feature 53 — Participant Donations and Donor–Person Link", () => {
     it("Recipient must be approved on the trip", async () => {
       const carl = await register("carl@example.org", "Carl", "Diaz");
       await addAssignment(ana, "approved");
-      await addAssignment(carl, "applied");
+      await addAssignment(carl, "pre_approved");
 
       const res = await participantDonate(ana, carl, 75);
 

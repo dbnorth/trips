@@ -108,10 +108,10 @@ describe("Feature 90 — Trip Master Header Row", () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual(sampleSummary(12, 15));
       expect(await assignedPeople()).toEqual([
-        "Ana Lopez approved",
+        "Ana Lopez pre_approved",
         "Andrea Fletcher cancelled",
         "Kris Smith incomplete",
-        "Lyle Lowry approved",
+        "Lyle Lowry pre_approved",
         "Rick Harper approved",
         "Tom Reyes approved",
       ]);

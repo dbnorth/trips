@@ -7,7 +7,7 @@ import { participantAmounts } from "./emailTokenValues.js";
 
 const CREATED_STATUS_EVENTS = {
   incomplete: "application-started",
-  applied: "application-submitted",
+  pre_approved: "application-submitted",
   approved: "application-approved",
 };
 
@@ -52,7 +52,7 @@ const withoutFailing = async (label, work) => {
 const applicationEventCode = (previousStatus, nextStatus) => {
   if (previousStatus == null) return CREATED_STATUS_EVENTS[nextStatus] ?? null;
   if (previousStatus === nextStatus) return null;
-  if (previousStatus === "incomplete" && nextStatus === "applied") return "application-submitted";
+  if (previousStatus === "incomplete" && nextStatus === "pre_approved") return "application-submitted";
   if (nextStatus === "approved") return "application-approved";
   return null;
 };

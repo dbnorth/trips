@@ -239,7 +239,7 @@ describe("Feature 74 — Trip Add-on Expenses", () => {
     });
 
     it("The participant's own application edit keeps add-on expenses", async () => {
-      await noraAssignment.update({ status: "applied" });
+      await noraAssignment.update({ status: "pre_approved" });
       await addAddons();
 
       const response = await request(app)

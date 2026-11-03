@@ -11,6 +11,7 @@ const PersonDocument = SequelizeInstance.define("personDocument", {
   issueDate: { type: Sequelize.DATEONLY },
   expirationDate: { type: Sequelize.DATEONLY, allowNull: true },
   documentFileName: { type: Sequelize.STRING(500), allowNull: true },
+  reviewed: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
 });
 
 export default PersonDocument;

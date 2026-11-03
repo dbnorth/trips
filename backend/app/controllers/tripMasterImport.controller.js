@@ -318,7 +318,7 @@ const importRows = async (trip, rows, transaction) => {
       );
     } else if (!assignment) {
       let status = "cancelled";
-      if (row.section === "main") status = normalizeText(row.appReceived) === "x" ? "approved" : "incomplete";
+      if (row.section === "main") status = normalizeText(row.appReceived) === "x" ? "pre_approved" : "incomplete";
       assignment = await db.tripPeopleRole.create(
         {
           tripId: trip.id,

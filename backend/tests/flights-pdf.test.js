@@ -159,7 +159,7 @@ describe("Feature 55 — Flights PDF", () => {
 
     it("Participants are ordered by name and only eligible participants are listed", async () => {
       await addAssignment(await addPerson("Dana", "Ruiz"), { status: "approved" });
-      await addAssignment(await addPerson("Ben", "Cruz"), { status: "applied" });
+      await addAssignment(await addPerson("Ben", "Cruz"), { status: "pre_approved" });
       await addAssignment(await addPerson("Ana", "Lopez"), { status: "incomplete" });
       await addAssignment(await addPerson("Eve", "Soto"), { status: "cancelled" });
 

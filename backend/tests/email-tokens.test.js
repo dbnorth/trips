@@ -126,7 +126,7 @@ describe("Feature 48 — Participant Trip Role Email Token", () => {
       peopleId: person.id,
       roleId: participantRole.id,
       tripWorkerRoleId: tripRole.id,
-      status: "applied",
+      status: "pre_approved",
     });
     return { authHeader, org, trip, person };
   };

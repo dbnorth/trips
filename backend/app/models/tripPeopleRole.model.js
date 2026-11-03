@@ -4,7 +4,7 @@ import { encryptedColumn } from "../utils/personalDataEncryption.js";
 
 export const TRIP_PARTICIPANT_STATUSES = [
   "incomplete",
-  "applied",
+  "pre_approved",
   "approved",
   "declined",
   "cancelled",

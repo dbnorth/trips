@@ -22,4 +22,19 @@ export default {
   delete(id) {
     return apiClient.delete(`/trip-people-roles/${id}`);
   },
+  documentReview(id) {
+    return apiClient.get(`/trip-people-roles/${id}/document-review`);
+  },
+  setDocumentReviewed(id, documentId, reviewed) {
+    return apiClient.put(`/trip-people-roles/${id}/documents/${documentId}/reviewed`, { reviewed });
+  },
+  viewDocument(id, documentId) {
+    return apiClient.get(`/trip-people-roles/${id}/documents/${documentId}/view`, { responseType: "blob" });
+  },
+  viewSpecialization(id, documentId, specializationId) {
+    return apiClient.get(
+      `/trip-people-roles/${id}/documents/${documentId}/specializations/${specializationId}/view`,
+      { responseType: "blob" }
+    );
+  },
 };

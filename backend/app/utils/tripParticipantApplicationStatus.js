@@ -339,10 +339,6 @@ export const isApplicationComplete = ({
   isPregnant = null,
   pregnancyDueDate = null,
   travelOptionsComplete = true,
-  personDocumentsUploaded = true,
-  requiredRoleDocumentUploaded = true,
-  requiredPassportUploaded = true,
-  doctorPermissionUploaded = true,
 }) => {
   if (tripWorkerRoleId == null || tripWorkerRoleId === "") return false;
   if (!willSelfFund && !willRaiseFunds) return false;
@@ -360,10 +356,6 @@ export const isApplicationComplete = ({
     return false;
   }
   if (!travelOptionsComplete) return false;
-  if (!personDocumentsUploaded) return false;
-  if (!requiredRoleDocumentUploaded) return false;
-  if (!requiredPassportUploaded) return false;
-  if (!doctorPermissionUploaded) return false;
   if (agreementRequired) {
     if (!agreementAccepted) return false;
     if (isBlank(agreementSignatureName)) return false;
@@ -382,7 +374,8 @@ export const isApplicationComplete = ({
   return true;
 };
 
-export const resolveAppliedOrIncompleteStatus = ({
+/** Pre-Approved once the profile and application are complete; documents are checked at approval. */
+export const resolvePreApprovedOrIncompleteStatus = ({
   person,
   tripWorkerRoleId,
   willSelfFund,
@@ -408,10 +401,6 @@ export const resolveAppliedOrIncompleteStatus = ({
   isPregnant = null,
   pregnancyDueDate = null,
   travelOptionsComplete = true,
-  personDocumentsUploaded = true,
-  requiredRoleDocumentUploaded = true,
-  requiredPassportUploaded = true,
-  doctorPermissionUploaded = true,
   orgId = null,
 }) => {
   const participantUnder18 = isUnder18(person?.birthDate);
@@ -442,13 +431,9 @@ export const resolveAppliedOrIncompleteStatus = ({
     isPregnant,
     pregnancyDueDate,
     travelOptionsComplete,
-    personDocumentsUploaded,
-    requiredRoleDocumentUploaded,
-    requiredPassportUploaded,
-    doctorPermissionUploaded,
   });
   const profileOk = isProfileComplete(person, { orgId });
-  return applicationOk && profileOk ? "applied" : "incomplete";
+  return applicationOk && profileOk ? "pre_approved" : "incomplete";
 };
 
 export const loadPersonForCompleteness = async (peopleId) => {
@@ -563,4 +548,4 @@ export const tripDocumentCompareDate = (trip) => {
 export const MANUAL_TRIP_PARTICIPANT_STATUSES = ["approved", "declined", "cancelled"];
 
 export const shouldAutoSetApplicationStatus = (status) =>
-  status == null || status === "" || status === "incomplete" || status === "applied";
+  status == null || status === "" || status === "incomplete" || status === "pre_approved";
