@@ -239,7 +239,27 @@ onUnmounted(() => {
     >
       <template #item.functionCode="{ item }">{{ item.functionCode || "—" }}</template>
       <template #item.schedule="{ item }">{{ scheduleLabel(item) }}</template>
-      <template #item.emailType="{ item }">{{ item.emailType?.description || "—" }}</template>
+      <template #item.emailType="{ item }">
+        <span v-if="item.emailType" class="d-inline-flex align-center ga-1">
+          <span>{{ item.emailType.description || "—" }}</span>
+          <v-tooltip location="top" max-width="360">
+            <template #activator="{ props: activator }">
+              <v-icon
+                v-bind="activator"
+                icon="mdi-information-outline"
+                size="small"
+                tabindex="0"
+                aria-label="Event description"
+                data-testid="event-description-info"
+              />
+            </template>
+            <div data-testid="event-description">
+              {{ item.emailType.eventDescription || "No event description." }}
+            </div>
+          </v-tooltip>
+        </span>
+        <span v-else>—</span>
+      </template>
       <template #item.subject="{ item }">{{ item.subject || "—" }}</template>
       <template #item.scope="{ item }">{{ scopeLabel(item) }}</template>
       <template #item.trip="{ item }">{{ tripLabel(item) }}</template>

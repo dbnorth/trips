@@ -1255,6 +1255,17 @@ const ensureEmailTypes = async () => {
     logger.info("emailTypes table created.");
   }
 
+  const [eventDescriptionCols] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'emailTypes'
+       AND COLUMN_NAME = 'eventDescription'`
+  );
+  if (!eventDescriptionCols.length) {
+    await db.sequelize.query("ALTER TABLE emailTypes ADD COLUMN eventDescription TEXT NULL AFTER eventCode");
+    logger.info("emailTypes.eventDescription column added.");
+  }
+
   const [typeCol] = await db.sequelize.query(
     `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
      WHERE TABLE_SCHEMA = DATABASE()

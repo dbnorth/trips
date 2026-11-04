@@ -112,6 +112,7 @@ onUnmounted(() => {
         { title: 'Type code', key: 'typeCode' },
         { title: 'Description', key: 'description' },
         { title: 'Event code', key: 'eventCode' },
+        { title: 'Event description', key: 'eventDescription', sortable: false },
         { title: 'Actions', key: 'actions', sortable: false },
       ]"
       density="compact"

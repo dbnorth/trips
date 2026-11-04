@@ -26,11 +26,17 @@ const canReadEmailTypes = (req) => {
 
 const trimField = (value) => (typeof value === "string" ? value.trim() : "");
 
-const pickPayload = (body) => ({
-  typeCode: trimField(body.typeCode),
-  description: trimField(body.description),
-  eventCode: trimField(body.eventCode),
-});
+const pickPayload = (body) => {
+  const payload = {
+    typeCode: trimField(body.typeCode),
+    description: trimField(body.description),
+    eventCode: trimField(body.eventCode),
+  };
+  if (body.eventDescription !== undefined) {
+    payload.eventDescription = trimField(body.eventDescription) || null;
+  }
+  return payload;
+};
 
 const missingField = (payload) => {
   if (!payload.typeCode) return "Type code is required.";

@@ -301,7 +301,7 @@ No auth. Slugs: spaces → `_`.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/email-templates` | auth | List (org / trip-leader scoped). Includes `emailTypeId`, `functionCode`, `subject`, `fromEmail`, `toAddress`, `emailBody`, `scheduleRule`, and `scheduleDaysBefore` when present |
+| `GET` | `/trips/email-templates` | auth | List (org / trip-leader scoped). Includes `emailTypeId`, `functionCode`, `subject`, `fromEmail`, `toAddress`, `emailBody`, `scheduleRule`, and `scheduleDaysBefore` when present. Each template's `emailType` includes `eventDescription` (Feature 117) |
 | `GET` | `/trips/email-templates/copy-sources` | auth | Copy sources (`?tripId=` optional). Includes `toAddress` (Feature 41), `scheduleRule`, and `scheduleDaysBefore` (Feature 42) |
 | `POST` | `/trips/email-templates/preview` | System Admin, Org Admin, or Trip Leader of the trip | Body `{ orgId, tripId, personId?, fromEmail?, toAddress?, subject, emailBody }` → `{ fromEmail, toAddress, subject, emailBody }` with `{{TOKEN_CODE}}` tokens replaced. In `toAddress`, recipients that come out empty are left out and the rest are joined with `, ` (Feature 41). Trip not in the organization or person without a participant application on the trip → `400`. Sends no email — Feature 40. Body adds `attachment?`; response adds `attachments` (file names) and `attachmentError` — Feature 76 |
 | `GET` | `/trips/email-templates/:id` | auth | Get |
@@ -345,10 +345,10 @@ Feature 77 (Email team and People email): `emailBody` is cleaned and checked lik
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| `GET` | `/trips/email-types` | System Admin, Org Admin, or Trip Leader | List (`id`, `typeCode`, `description`, `eventCode`) |
+| `GET` | `/trips/email-types` | System Admin, Org Admin, or Trip Leader | List (`id`, `typeCode`, `description`, `eventCode`, `eventDescription` — Feature 117) |
 | `GET` | `/trips/email-types/:id` | System Admin | Get one |
-| `POST` | `/trips/email-types` | System Admin | Create `{ typeCode, description, eventCode }` |
-| `PUT` | `/trips/email-types/:id` | System Admin | Update |
+| `POST` | `/trips/email-types` | System Admin | Create `{ typeCode, description, eventCode, eventDescription? }`; `eventDescription` optional, trimmed, blank → `null` (Feature 117) |
+| `PUT` | `/trips/email-types/:id` | System Admin | Update; `eventDescription` as `POST`, left unchanged when not sent (Feature 117) |
 | `DELETE` | `/trips/email-types/:id` | System Admin | Delete when no template uses it |
 
 Duplicate `typeCode`, a blank required field, or deleting a type a template still uses → `400`. A caller who is not a System Admin writing a type → `403`. Template save with a function code other than `Scheduled`, `Send Now`, `Trip Participant` (Feature 46), or `Person` (Feature 62) → `400`.

@@ -16,6 +16,7 @@ const emptyForm = () => ({
   typeCode: "",
   description: "",
   eventCode: "",
+  eventDescription: "",
 });
 
 const form = ref(emptyForm());
@@ -40,6 +41,7 @@ const loadRow = async () => {
       typeCode: row.typeCode || "",
       description: row.description || "",
       eventCode: row.eventCode || "",
+      eventDescription: row.eventDescription || "",
     };
   } catch (e) {
     formError.value = e.response?.data?.message || "Unable to load email type.";
@@ -77,7 +79,8 @@ const save = async () => {
   }
 
   saving.value = true;
-  const payload = { typeCode, description, eventCode };
+  const eventDescription = form.value.eventDescription?.trim() || "";
+  const payload = { typeCode, description, eventCode, eventDescription };
 
   try {
     if (isEdit.value) {
@@ -103,7 +106,15 @@ const save = async () => {
         <v-alert v-if="formError" type="error" density="compact" class="mb-4">{{ formError }}</v-alert>
         <v-text-field v-model="form.typeCode" label="Type code" density="compact" class="mb-2" autocomplete="off" />
         <v-text-field v-model="form.description" label="Description" density="compact" class="mb-2" autocomplete="off" />
-        <v-text-field v-model="form.eventCode" label="Event code" density="compact" autocomplete="off" />
+        <v-text-field v-model="form.eventCode" label="Event code" density="compact" class="mb-2" autocomplete="off" />
+        <v-textarea
+          v-model="form.eventDescription"
+          label="Event description"
+          density="compact"
+          rows="3"
+          auto-grow
+          autocomplete="off"
+        />
       </v-card-text>
       <v-card-actions>
         <v-spacer />

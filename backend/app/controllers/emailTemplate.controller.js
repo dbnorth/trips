@@ -106,7 +106,7 @@ const loadTemplate = (id) =>
     include: [
       { model: Trip, as: "trip", attributes: ["id", "name", "orgId"] },
       { model: Organization, attributes: ["id", "name"] },
-      { model: EmailType, attributes: ["id", "typeCode", "description", "eventCode"] },
+      { model: EmailType, attributes: ["id", "typeCode", "description", "eventCode", "eventDescription"] },
     ],
   });
 
@@ -142,7 +142,7 @@ const pickTemplatePayload = (body) => {
 const listIncludes = [
   { model: Trip, attributes: ["id", "name", "orgId"] },
   { model: Organization, attributes: ["id", "name"] },
-  { model: EmailType, attributes: ["id", "typeCode", "description", "eventCode"] },
+  { model: EmailType, attributes: ["id", "typeCode", "description", "eventCode", "eventDescription"] },
 ];
 
 const hasFeature39Fields = (body) =>
