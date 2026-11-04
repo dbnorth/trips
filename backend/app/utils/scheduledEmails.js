@@ -3,6 +3,7 @@ import db from "../models/index.js";
 import logger from "../config/logger.js";
 import { ROLE_TRIP_PARTICIPANT } from "../authorization/accessControl.js";
 import { sendTemplateEmail } from "./emailDelivery.js";
+import { loadMissingTripDocuments } from "./myTripNextActions.js";
 import {
   buildTokenValues,
   participantAmounts,
@@ -50,6 +51,8 @@ const isApproved = (assignment) => assignment.status === "approved";
 /** Which trip participants receive each email type, keyed by the email type's event code. */
 const RECIPIENT_RULES = {
   "application-incomplete": async (trip, assignment) => assignment.status === "incomplete",
+  "documents-missing": async (trip, assignment) =>
+    assignment.status === "pre_approved" && (await loadMissingTripDocuments(assignment, trip)).length > 0,
   "deposit-due": async (trip, assignment) => {
     const deposit = Number(trip.deposit);
     if (!isApproved(assignment) || !(deposit > 0)) return false;
