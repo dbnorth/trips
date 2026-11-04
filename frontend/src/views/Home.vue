@@ -128,6 +128,11 @@ const isTripLeaderOnly = computed(() => {
 
 const showOrgScopeNotice = computed(() => Utils.showOrgScopeNotice(user.value));
 
+const welcomeGreeting = computed(() => {
+  const firstName = String(user.value?.firstName || "").trim();
+  return firstName ? `Welcome, ${firstName}!` : "Welcome!";
+});
+
 const orgLabel = computed(() => {
   const orgId = effectiveOrgId.value;
   if (!orgId) return null;
@@ -598,6 +603,8 @@ onUnmounted(() => {
   <v-container>
     <v-row>
       <v-col cols="12">
+        <h1 v-if="user" class="text-h5 mb-4" data-testid="welcome-greeting">{{ welcomeGreeting }}</h1>
+
         <v-alert
           v-if="showProfileSection && !profileLoading && user?.personId && !profileComplete"
           type="warning"
