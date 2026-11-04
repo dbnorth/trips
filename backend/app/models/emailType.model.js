@@ -6,6 +6,7 @@ const EmailType = SequelizeInstance.define("emailType", {
   typeCode: { type: Sequelize.STRING, allowNull: false, unique: true },
   description: { type: Sequelize.STRING, allowNull: false },
   eventCode: { type: Sequelize.STRING, allowNull: false },
+  eventDescription: { type: Sequelize.TEXT, allowNull: true },
 });
 
 export default EmailType;

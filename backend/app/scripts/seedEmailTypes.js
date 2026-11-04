@@ -2,51 +2,161 @@ import "dotenv/config";
 import { pathToFileURL } from "url";
 import db from "../models/index.js";
 
+const SENT_FROM_EMAIL_TEAM =
+  "This email is not sent automatically. Trip staff send it to the trip team from Email team on the trip page.";
+
 const emailTypes = [
-  { typeCode: "apply-started", description: "Application started", eventCode: "application-started" },
-  { typeCode: "apply-incomplete", description: "Application incomplete reminder", eventCode: "application-incomplete" },
-  { typeCode: "apply-received", description: "Application received", eventCode: "application-submitted" },
-  { typeCode: "apply-approved", description: "Application approved", eventCode: "application-approved" },
-  { typeCode: "documents-missing", description: "Documents missing reminder", eventCode: "documents-missing" },
-  { typeCode: "deposit-due", description: "Deposit due", eventCode: "deposit-due" },
-  { typeCode: "deposit-received", description: "Deposit received", eventCode: "deposit-received" },
-  { typeCode: "payment-due", description: "Payment due reminder", eventCode: "payment-due" },
-  { typeCode: "payment-complete", description: "Trip fully paid", eventCode: "payment-complete" },
-  { typeCode: "donation-received", description: "Donation received", eventCode: "donation-received" },
-  { typeCode: "pre-departure", description: "Pre-departure information", eventCode: "pre-departure" },
-  { typeCode: "team-update", description: "Trip team update", eventCode: "team-email" },
-  { typeCode: "financial-statement", description: "Trip financial statement", eventCode: "team-email" },
-  { typeCode: "people-update", description: "People update", eventCode: "team-email" },
-  { typeCode: "trip-arrival", description: "Trip arrival info", eventCode: "team-email" },
-  { typeCode: "account-invite", description: "Account invitation", eventCode: "team-email" },
-  { typeCode: "flight-itinerary", description: "Flight itinerary", eventCode: "team-email" },
+  {
+    typeCode: "apply-started",
+    description: "Application started",
+    eventCode: "application-started",
+    eventDescription:
+      "This event happens when a Trip Participant's application is saved for the first time and is still incomplete.",
+  },
+  {
+    typeCode: "apply-incomplete",
+    description: "Application incomplete reminder",
+    eventCode: "application-incomplete",
+    eventDescription: "This scheduled rule checks whether the Trip Participant's application is still Incomplete.",
+  },
+  {
+    typeCode: "apply-received",
+    description: "Application received",
+    eventCode: "application-submitted",
+    eventDescription:
+      "This event happens when a Trip Participant's application becomes Pre-Approved: when an incomplete application is completed, or when the first save is already complete.",
+  },
+  {
+    typeCode: "apply-approved",
+    description: "Application approved",
+    eventCode: "application-approved",
+    eventDescription:
+      "This event happens when a Trip Participant's application is changed to Approved, or is added as Approved.",
+  },
+  {
+    typeCode: "documents-missing",
+    description: "Documents missing reminder",
+    eventCode: "documents-missing",
+    eventDescription:
+      "This scheduled rule checks whether the Trip Participant's application is Pre-Approved and at least one trip document is still missing, has no file, or has an expiration date that doesn't meet its document type's expiration check.",
+  },
+  {
+    typeCode: "deposit-due",
+    description: "Deposit due",
+    eventCode: "deposit-due",
+    eventDescription:
+      "This scheduled rule checks whether the Trip Participant's application is Approved, the trip has a deposit above $0, and the donations recorded for them on the trip total less than the deposit.",
+  },
+  {
+    typeCode: "deposit-received",
+    description: "Deposit received",
+    eventCode: "deposit-received",
+    eventDescription:
+      "This event happens the first time the donations recorded for a Trip Participant on a trip reach or exceed the trip deposit amount.",
+  },
+  {
+    typeCode: "payment-due",
+    description: "Payment due reminder",
+    eventCode: "payment-due",
+    eventDescription:
+      "This scheduled rule checks whether the Trip Participant's application is Approved and they still have a balance above $0 for the trip (total trip cost minus donations).",
+  },
+  {
+    typeCode: "payment-complete",
+    description: "Trip fully paid",
+    eventCode: "payment-complete",
+    eventDescription:
+      "This event happens when a donation brings a Trip Participant's balance for the trip to $0 or less.",
+  },
+  {
+    typeCode: "donation-received",
+    description: "Donation received",
+    eventCode: "donation-received",
+    eventDescription: "This event happens each time a donation is recorded for a Trip Participant on a trip.",
+  },
+  {
+    typeCode: "pre-departure",
+    description: "Pre-departure information",
+    eventCode: "pre-departure",
+    eventDescription: "This scheduled rule checks whether the Trip Participant's application is Approved.",
+  },
+  {
+    typeCode: "team-update",
+    description: "Trip team update",
+    eventCode: "team-email",
+    eventDescription: SENT_FROM_EMAIL_TEAM,
+  },
+  {
+    typeCode: "financial-statement",
+    description: "Trip financial statement",
+    eventCode: "team-email",
+    eventDescription: SENT_FROM_EMAIL_TEAM,
+  },
+  {
+    typeCode: "people-update",
+    description: "People update",
+    eventCode: "team-email",
+    eventDescription: "This email is not sent automatically. Org Admins send it from Email on the People page.",
+  },
+  {
+    typeCode: "trip-arrival",
+    description: "Trip arrival info",
+    eventCode: "team-email",
+    eventDescription: SENT_FROM_EMAIL_TEAM,
+  },
+  {
+    typeCode: "account-invite",
+    description: "Account invitation",
+    eventCode: "team-email",
+    eventDescription: SENT_FROM_EMAIL_TEAM,
+  },
+  {
+    typeCode: "flight-itinerary",
+    description: "Flight itinerary",
+    eventCode: "team-email",
+    eventDescription:
+      "This email is not sent automatically. Trip staff and Agents send it from Email flight itinerary on the trip's Flights page.",
+  },
   {
     typeCode: "trip-arrival-scheduled",
     description: "Trip arrival info (scheduled)",
     eventCode: "trip-arrival",
+    eventDescription: "This scheduled rule checks whether the Trip Participant's application is Approved.",
   },
 ];
 
-/** Add each seed email type that is missing. Returns how many were inserted. */
-export const seedEmailTypes = async () => {
+/**
+ * Add each seed email type that is missing, and fill `eventDescription` on existing seeded types
+ * where it is blank. Returns how many types were inserted and how many descriptions were filled.
+ */
+export const seedEmailTypesWithCounts = async () => {
   let inserted = 0;
-  for (const { typeCode, description, eventCode } of emailTypes) {
-    const [, created] = await db.emailType.findOrCreate({
+  let filled = 0;
+  for (const { typeCode, description, eventCode, eventDescription } of emailTypes) {
+    const [row, created] = await db.emailType.findOrCreate({
       where: { typeCode },
-      defaults: { description, eventCode },
+      defaults: { description, eventCode, eventDescription },
     });
-    if (created) inserted += 1;
+    if (created) {
+      inserted += 1;
+    } else if (!String(row.eventDescription || "").trim()) {
+      await row.update({ eventDescription });
+      filled += 1;
+    }
   }
-  return inserted;
+  return { inserted, filled };
 };
+
+/** Add each seed email type that is missing. Returns how many were inserted. */
+export const seedEmailTypes = async () => (await seedEmailTypesWithCounts()).inserted;
 
 const run = async () => {
   try {
     await db.sequelize.authenticate();
     await db.emailType.sync();
-    const inserted = await seedEmailTypes();
+    const { inserted, filled } = await seedEmailTypesWithCounts();
     console.log(
-      `Email types: ${emailTypes.length} in seed list, ${emailTypes.length - inserted} already present, ${inserted} inserted.`
+      `Email types: ${emailTypes.length} in seed list, ${emailTypes.length - inserted} already present, ${inserted} inserted, ${filled} event descriptions filled.`
     );
     process.exit(0);
   } catch (err) {

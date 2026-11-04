@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import EmailTemplateServices from "../services/emailTemplateServices.js";
 import EmailTemplateFormDialog from "../components/EmailTemplateFormDialog.vue";
+import ExportServices from "../services/exportServices.js";
 import Utils from "../config/utils.js";
 import RowAction from "../components/RowAction.vue";
 
@@ -42,6 +43,21 @@ const orgLabel = computed(() => {
   if (!orgId) return null;
   return Utils.orgDisplayName(user.value, orgId);
 });
+const canDownloadReport = computed(
+  () => !!effectiveOrgId.value && Utils.isOrgAdmin(user.value, effectiveOrgId.value)
+);
+const downloadingReport = ref(false);
+
+const downloadReport = async () => {
+  downloadingReport.value = true;
+  try {
+    await ExportServices.emailReportPdf(orgLabel.value);
+  } catch (e) {
+    message.value = e.message || "Unable to download email report PDF.";
+  } finally {
+    downloadingReport.value = false;
+  }
+};
 const showOrgScopeNotice = computed(() => Utils.showOrgScopeNotice(user.value));
 const needsOrgSelection = computed(() => isSystemAdmin.value && !effectiveOrgId.value && !isTripLeader.value);
 
@@ -180,9 +196,22 @@ onUnmounted(() => {
   <v-container>
     <div class="d-flex align-center justify-space-between mb-4">
       <h1 class="text-h5">Email templates</h1>
-      <v-btn v-if="canAddTemplates" color="primary" :disabled="needsOrgSelection" @click="openAdd">
-        Add template
-      </v-btn>
+      <div class="d-flex ga-2">
+        <v-btn
+          v-if="canDownloadReport"
+          variant="outlined"
+          color="primary"
+          prepend-icon="mdi-file-pdf-box"
+          :loading="downloadingReport"
+          data-testid="email-report-button"
+          @click="downloadReport"
+        >
+          Email Report
+        </v-btn>
+        <v-btn v-if="canAddTemplates" color="primary" :disabled="needsOrgSelection" @click="openAdd">
+          Add template
+        </v-btn>
+      </div>
     </div>
 
     <v-alert v-if="needsOrgSelection" type="warning" density="compact" class="mb-4">
@@ -239,7 +268,27 @@ onUnmounted(() => {
     >
       <template #item.functionCode="{ item }">{{ item.functionCode || "—" }}</template>
       <template #item.schedule="{ item }">{{ scheduleLabel(item) }}</template>
-      <template #item.emailType="{ item }">{{ item.emailType?.description || "—" }}</template>
+      <template #item.emailType="{ item }">
+        <span v-if="item.emailType" class="d-inline-flex align-center ga-1">
+          <span>{{ item.emailType.description || "—" }}</span>
+          <v-tooltip location="top" max-width="360">
+            <template #activator="{ props: activator }">
+              <v-icon
+                v-bind="activator"
+                icon="mdi-information-outline"
+                size="small"
+                tabindex="0"
+                aria-label="Event description"
+                data-testid="event-description-info"
+              />
+            </template>
+            <div data-testid="event-description">
+              {{ item.emailType.eventDescription || "No event description." }}
+            </div>
+          </v-tooltip>
+        </span>
+        <span v-else>—</span>
+      </template>
       <template #item.subject="{ item }">{{ item.subject || "—" }}</template>
       <template #item.scope="{ item }">{{ scopeLabel(item) }}</template>
       <template #item.trip="{ item }">{{ tripLabel(item) }}</template>

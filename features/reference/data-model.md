@@ -660,6 +660,7 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 | typeCode | STRING | required, unique |
 | description | STRING | required |
 | eventCode | STRING | required |
+| eventDescription | TEXT | optional; trimmed, blank stored `null`; plain-language description of when the event happens or what the scheduled rule checks. Added by `ensureSchema`; the email type seed fills it for seeded types where blank (Feature 117) |
 
 **Associations:** `hasMany` emailTemplate (`emailTypeId`, RESTRICT).
 
