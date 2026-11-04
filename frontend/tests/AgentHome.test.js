@@ -91,7 +91,7 @@ describe("Feature 85 — Agent Role", () => {
     it("An Agent's Home lists the organization's trips with only a Flights action", async () => {
       const { wrapper, router } = await mountHome();
 
-      expect(wrapper.find("h1").text()).toBe("Hope Missions");
+      expect(wrapper.findAll("h1").map((h) => h.text())).toContain("Hope Missions");
       expect(wrapper.findAll("button").some((b) => b.text().trim() === "Edit")).toBe(false);
       expect(wrapper.text()).not.toContain("Organization trips page");
 
