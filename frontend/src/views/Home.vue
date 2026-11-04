@@ -367,6 +367,10 @@ watch(showApplyDialog, (open) => {
   if (!open) loadBrowseTrips();
 });
 
+watch(showProfileDialog, (open) => {
+  if (!open) loadBrowseTrips();
+});
+
 const onApplicationSaved = () => {
   browseMessage.value = "Application submitted. Your organization will review it.";
   loadBrowseTrips();
@@ -767,6 +771,7 @@ onUnmounted(() => {
                       @cancel="requestCancelApplication(item)"
                       @donate="openDonate(item)"
                       @flights="openEnterFlights(item)"
+                      @documents="showProfileDialog = true"
                     />
                   </td>
                 </tr>

@@ -166,7 +166,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
         quantity: 2,
       });
       await createAssignment(trip.id, ada.user.personId, {
-        status: "incomplete",
+        status: "pre_approved",
         tripWorkerRoleId: tripWorkerRole.id,
       });
 
@@ -174,7 +174,8 @@ describe("Feature 60 — My Trips Next Actions", () => {
 
       expect(nextActionsFor(trips, trip.id)).toEqual([
         {
-          code: "complete-application",
+          code: "upload-documents",
+          dueDate: expect.any(String),
           missingDocuments: [
             `Board certification: add this document with an expiration date after ${mdY(trip.endDate)} and the Pediatrics specialization selected`,
             "Passport",
@@ -217,7 +218,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
         quantity: 2,
       });
       await createAssignment(trip.id, ada.user.personId, {
-        status: "incomplete",
+        status: "pre_approved",
         tripWorkerRoleId: tripWorkerRole.id,
       });
 
@@ -225,7 +226,8 @@ describe("Feature 60 — My Trips Next Actions", () => {
 
       expect(nextActionsFor(trips, trip.id)).toEqual([
         {
-          code: "complete-application",
+          code: "upload-documents",
+          dueDate: expect.any(String),
           missingDocuments: [`Passport: add this document with an expiration date after ${mdY(trip.endDate)}`],
         },
       ]);
@@ -273,7 +275,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
         quantity: 2,
       });
       await createAssignment(trip.id, ada.user.personId, {
-        status: "incomplete",
+        status: "pre_approved",
         tripWorkerRoleId: tripWorkerRole.id,
       });
       const addBoard = async (fields, specialization) => {
@@ -302,7 +304,8 @@ describe("Feature 60 — My Trips Next Actions", () => {
       );
       expect(nextActionsFor(await loadMyTrips(first.ada, first.org.id), first.trip.id)).toEqual([
         {
-          code: "complete-application",
+          code: "upload-documents",
+          dueDate: expect.any(String),
           missingDocuments: [
             `Board Certification: the expiration date ${mdY(dateFromToday(65))} must be after ${mdY(first.trip.endDate)}`,
           ],
@@ -314,7 +317,8 @@ describe("Feature 60 — My Trips Next Actions", () => {
       await second.addBoard({ expirationDate: null, documentFileName: null }, second.pediatrics);
       expect(nextActionsFor(await loadMyTrips(second.ada, second.org.id), second.trip.id)).toEqual([
         {
-          code: "complete-application",
+          code: "upload-documents",
+          dueDate: expect.any(String),
           missingDocuments: [
             `Board Certification: upload the file, add an expiration date after ${mdY(second.trip.endDate)}, and select the Emergency Medicine specialization`,
             "A file for every profile document",
@@ -331,7 +335,8 @@ describe("Feature 60 — My Trips Next Actions", () => {
 
       expect(nextActionsFor(await loadMyTrips(ada, org.id), trip.id)).toEqual([
         {
-          code: "complete-application",
+          code: "upload-documents",
+          dueDate: expect.any(String),
           missingDocuments: [
             "Board Certification: select the Emergency Medicine specialization",
             "CPR Card: add this document",

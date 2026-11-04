@@ -6,7 +6,7 @@ const props = defineProps({
   actions: { type: Array, default: () => [] },
 });
 
-defineEmits(["update", "cancel", "donate", "flights"]);
+defineEmits(["update", "cancel", "donate", "flights", "documents"]);
 
 const tone = computed(() => nextActionsTone(props.actions));
 </script>
@@ -22,13 +22,10 @@ const tone = computed(() => nextActionsTone(props.actions));
       class="d-flex align-center flex-wrap ga-2 py-1"
     >
       <span>{{ nextActionText(action) }}</span>
-      <span
-        v-if="action.code !== 'upload-documents' && action.missingDocuments?.length"
-        class="text-medium-emphasis"
-      >
-        Missing documents: {{ action.missingDocuments.join("; ") }}.
-      </span>
       <template v-if="APPLICATION_ACTION_CODES.includes(action.code)">
+        <v-btn v-if="action.code === 'upload-documents'" size="small" color="primary" @click="$emit('documents')">
+          Update Documents
+        </v-btn>
         <v-btn size="small" color="primary" @click="$emit('update')">
           {{ action.code === "submit-application" ? "Submit App" : "Update App" }}
         </v-btn>

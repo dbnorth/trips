@@ -7,6 +7,7 @@ import AuthServices from "../services/authServices.js";
 import Utils from "../config/utils.js";
 import DonorTripHeading from "../components/DonorTripHeading.vue";
 import ApplyTripDialog from "../components/ApplyTripDialog.vue";
+import EditPersonDialog from "../components/EditPersonDialog.vue";
 import ParticipantDonationsDialog from "../components/ParticipantDonationsDialog.vue";
 import ParticipantDonateDialog from "../components/ParticipantDonateDialog.vue";
 import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
@@ -42,6 +43,7 @@ const showApplyDialog = ref(false);
 const showDonationsDialog = ref(false);
 const showDonateDialog = ref(false);
 const showFlightsDialog = ref(false);
+const showProfileDialog = ref(false);
 const showConfirmCancelApp = ref(false);
 const cancelAppSaving = ref(false);
 
@@ -163,6 +165,10 @@ const onApplicationSaved = async () => {
 };
 
 watch(showApplyDialog, (open) => {
+  if (!open) load();
+});
+
+watch(showProfileDialog, (open) => {
   if (!open) load();
 });
 
@@ -374,6 +380,7 @@ onUnmounted(() => {
         @cancel="showConfirmCancelApp = true"
         @donate="showDonateDialog = true"
         @flights="showFlightsDialog = true"
+        @documents="showProfileDialog = true"
       />
       <v-row dense>
         <v-col cols="12" sm="6" md="3">
@@ -413,6 +420,11 @@ onUnmounted(() => {
       v-model="showApplyDialog"
       :trip-id="tripId"
       @saved="onApplicationSaved"
+    />
+    <EditPersonDialog
+      v-if="currentUser?.personId"
+      v-model="showProfileDialog"
+      :person-id="currentUser.personId"
     />
     <ParticipantDonationsDialog
       v-if="donationsParticipant"

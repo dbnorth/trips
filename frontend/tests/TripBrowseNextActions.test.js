@@ -51,7 +51,7 @@ describe("Feature 60 — My Trips Next Actions (trip page)", () => {
           donationTotal: 0,
           donationRecipients: [],
           tripPeopleRoleId: 70,
-          nextActions: [{ code: "complete-application", missingDocuments: ["Passport"] }],
+          nextActions: [{ code: "complete-application", applicationIncomplete: true, profileIncomplete: false }],
         },
       },
     });
@@ -82,8 +82,7 @@ describe("Feature 60 — My Trips Next Actions (trip page)", () => {
 
     const actions = wrapper.find('[data-testid="my-trip-next-actions"]');
     expect(actions.classes()).toContain("my-trip-next-actions--needed");
-    expect(actions.text()).toContain("Complete your application.");
-    expect(actions.text()).toContain("Missing documents: Passport.");
+    expect(actions.text()).toContain("Complete missing information on your application so you can submit your application.");
     expect(wrapper.findAll("button").filter((b) => b.text().trim() === "Update App")).toHaveLength(1);
 
     await button(actions, "Update App").trigger("click");
@@ -104,8 +103,7 @@ describe("Feature 60 — My Trips Next Actions (trip page)", () => {
    * Spec: features/feature-94-role-document-requirement-message.md
    */
   it("Saving the profile from the menu bar refreshes the trip page", async () => {
-    const missing = "Board Certification: select the Emergency Medicine specialization";
-    const browseData = (missingDocuments) => ({
+    const browseData = (profileIncomplete) => ({
       data: {
         trip: { id: 7, orgId: 3, name: "Guatemala Clinic", status: "active", startDate: "2027-01-10", endDate: "2027-01-20" },
         rolesNeeded: [],
@@ -119,22 +117,22 @@ describe("Feature 60 — My Trips Next Actions (trip page)", () => {
           donationTotal: 0,
           donationRecipients: [],
           tripPeopleRoleId: 70,
-          nextActions: missingDocuments.length
-            ? [{ code: "complete-application", missingDocuments }]
+          nextActions: profileIncomplete
+            ? [{ code: "complete-application", applicationIncomplete: false, profileIncomplete: true }]
             : [{ code: "submit-application" }],
         },
       },
     });
-    TripServices.getBrowseTrip.mockResolvedValue(browseData([missing]));
+    TripServices.getBrowseTrip.mockResolvedValue(browseData(true));
     const wrapper = await mountView();
-    expect(wrapper.text()).toContain(`Missing documents: ${missing}.`);
+    expect(wrapper.text()).toContain("Complete missing information on your profile so you can submit your application.");
 
-    TripServices.getBrowseTrip.mockResolvedValue(browseData([]));
+    TripServices.getBrowseTrip.mockResolvedValue(browseData(false));
     window.dispatchEvent(new CustomEvent("user-updated"));
     await flushPromises();
 
     expect(TripServices.getBrowseTrip).toHaveBeenCalledTimes(2);
-    expect(wrapper.text()).not.toContain("Missing documents");
+    expect(wrapper.text()).not.toContain("Complete missing information");
     expect(wrapper.text()).toContain("Submit your application.");
     wrapper.unmount();
   });

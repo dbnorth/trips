@@ -9,10 +9,15 @@ export const hasApplicationAction = (actions) =>
 const formatDate = (value) => formatDateText(String(value || "").slice(0, 10));
 
 export const nextActionText = (action) => {
-  if (action.code === "complete-application") return "Complete your application.";
+  if (action.code === "complete-application") {
+    const where = [action.applicationIncomplete && "application", action.profileIncomplete && "profile"]
+      .filter(Boolean)
+      .join(" and ");
+    return `Complete missing information on your ${where} so you can submit your application.`;
+  }
   if (action.code === "submit-application") return "Submit your application.";
   if (action.code === "upload-documents") {
-    return `Upload your documents: ${(action.missingDocuments || []).join("; ")}.`;
+    return `Documents are missing and must be uploaded 90 days before departure (${formatDate(action.dueDate)}). Missing: ${(action.missingDocuments || []).join("; ")}.`;
   }
   if (action.code === "wait-approval") return "Waiting on approval.";
   if (action.code === "make-deposit") {

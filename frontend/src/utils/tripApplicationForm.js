@@ -1,12 +1,4 @@
-import { formatDate } from "./dateFormat.js";
-
 const isBlank = (value) => value == null || String(value).trim() === "";
-
-/** Every person-document row must have an uploaded file. */
-export const arePersonDocumentsUploaded = (documents = []) =>
-  (documents || []).every(
-    (doc) => doc.documentFileName && String(doc.documentFileName).trim() !== ""
-  );
 
 const meetsRoleDocumentRule = (doc, compareDate) => {
   if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
@@ -49,70 +41,6 @@ export const activeRequiredSpecializations = (workerRole) => {
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
 };
 
-const formatDocumentDate = (ymd) => formatDate(String(ymd).slice(0, 10));
-
-const joinWords = (items) => {
-  if (items.length <= 1) return items.join("");
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
-};
-
-const specializationText = (names) =>
-  `the ${joinWords(names)} specialization${names.length > 1 ? "s" : ""}`;
-
-/**
- * What is missing for one unmet required document type, from the person's closest document of
- * the type (fewest problems, ties → most recently added), e.g.
- * "Board Certification: select the Emergency Medicine specialization".
- */
-export const requiredRoleDocumentMessage = (
-  docType,
-  { documents = [], compareDate = null, requiredSpecializations = [] } = {}
-) => {
-  const id = Number(docType?.id ?? docType);
-  const name = docType?.description || "Required document";
-  const needed = (requiredSpecializations || [])
-    .filter((s) => Number(s.documentTypeId) === id)
-    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
-  const ofType = (documents || []).filter((doc) => Number(doc.documentTypeId) === id);
-
-  if (!ofType.length) {
-    const expires = !!compareDate && docType?.hasExpirationDate !== false;
-    let text = `${name}: add this document`;
-    if (expires) text += ` with an expiration date after ${formatDocumentDate(compareDate)}`;
-    if (needed.length) {
-      text += `${expires ? " and" : " with"} ${specializationText(needed.map((s) => s.name))} selected`;
-    }
-    return text;
-  }
-
-  let best = null;
-  for (const doc of ofType) {
-    const parts = [];
-    if (!doc.documentFileName || String(doc.documentFileName).trim() === "") {
-      parts.push("upload the file");
-    }
-    if (compareDate && doc.documentType?.hasExpirationDate !== false) {
-      const expirationDate = String(doc.expirationDate || "").slice(0, 10);
-      if (!expirationDate) {
-        parts.push(`add an expiration date after ${formatDocumentDate(compareDate)}`);
-      } else if (expirationDate <= compareDate) {
-        parts.push(
-          `the expiration date ${formatDocumentDate(expirationDate)} must be after ${formatDocumentDate(compareDate)}`
-        );
-      }
-    }
-    const have = new Set((doc.specializations || []).map((s) => Number(s.documentTypeSpecializationId)));
-    const missing = needed.filter((s) => !have.has(Number(s.id))).map((s) => s.name);
-    if (missing.length) parts.push(`select ${specializationText(missing)}`);
-    const count = parts.length - (missing.length ? 1 : 0) + missing.length;
-    if (!best || count < best.count || (count === best.count && Number(doc.id) > Number(best.id))) {
-      best = { count, id: doc.id, parts };
-    }
-  }
-  return `${name}: ${joinWords(best.parts)}`;
-};
-
 /**
  * When the worker role requires document type(s), the person must have each type
  * with a file. If compareDate is set, expiration must be after it.
@@ -144,49 +72,6 @@ export const isRequiredRoleDocumentUploaded = ({
   });
 };
 
-/**
- * Required document types that are missing or invalid for the trip compare date, each with
- * `missingSpecializations` (names) for the message.
- */
-export const missingRequiredRoleDocuments = ({
-  documents = [],
-  requiredDocumentTypes = [],
-  compareDate = null,
-  requiredSpecializations = [],
-}) => {
-  const required = requiredDocumentTypes || [];
-  if (!required.length) return [];
-  const missing = [];
-  for (const docType of required) {
-    const id = Number(docType.id ?? docType);
-    const result = missingSpecializationNames(documents, id, requiredSpecializations, compareDate);
-    if (result.documentMet && !result.names.length) continue;
-    const base = typeof docType === "object" ? docType : { id };
-    missing.push({ ...base, missingSpecializations: result.names });
-  }
-  return missing;
-};
-
-/**
- * When the trip requires a passport, the person must have a passport-type document
- * with a file. If compareDate is set, expiration must be after it.
- */
-export const isRequiredPassportUploaded = ({
-  documents = [],
-  requirePassport = false,
-  compareDate = null,
-}) => {
-  if (!requirePassport) return true;
-  return (documents || []).some((doc) => {
-    const type = doc.documentType?.type ?? doc.type ?? null;
-    if (type !== "passport") return false;
-    if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
-    if (!compareDate || doc.documentType?.hasExpirationDate === false) return true;
-    const expirationDate = String(doc.expirationDate || "").slice(0, 10);
-    return expirationDate && expirationDate > compareDate;
-  });
-};
-
 /** A Doctor Permission document with a file that is good through compareDate. */
 export const meetsDoctorPermissionRule = (doc, compareDate) => {
   if ((doc.documentType?.type ?? doc.type ?? null) !== "doctor_permission") return false;
@@ -210,10 +95,6 @@ export const isDoctorPermissionUploaded = ({
   if (!doctorPermissionRequired || isPregnant !== true) return true;
   return (documents || []).some((doc) => meetsDoctorPermissionRule(doc, compareDate));
 };
-
-/** Missing-document messages mention expiration unless every listed type has none. */
-export const needsExpirationWording = (documentTypes = []) =>
-  !documentTypes.length || documentTypes.some((t) => t?.hasExpirationDate !== false);
 
 /**
  * Application fields excluding the participant agreement.

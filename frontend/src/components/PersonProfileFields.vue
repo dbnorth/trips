@@ -21,6 +21,8 @@ const props = defineProps({
   disabled: { type: Boolean, default: false },
   /** Hides the doctor-document message when a Doctor Permission document is on file (Feature 102). */
   doctorDocumentOnFile: { type: Boolean, default: false },
+  /** With `healthOnly`: hides the "update your profile" note and button (Feature 112). */
+  hideProfileNote: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue", "update-profile"]);
@@ -287,7 +289,11 @@ const onTakesMedicationChange = (value) => {
   <v-divider v-if="!healthOnly" class="person-section-rule" />
   <div v-if="!healthOnly" class="text-subtitle-2 font-weight-bold mb-2">Health information</div>
   <template v-if="healthOnly">
-    <div class="d-flex align-center flex-wrap ga-2 mb-3 mt-2 text-body-2 text-medium-emphasis">
+    <div
+      v-if="!hideProfileNote"
+      class="d-flex align-center flex-wrap ga-2 mb-3 mt-2 text-body-2 text-medium-emphasis"
+      data-testid="profile-update-note"
+    >
       If your contact information or other personal information has changed, please update your profile.
       Your health and language information below comes from your profile.
       <v-btn size="small" variant="tonal" color="primary" @click="emit('update-profile')">
