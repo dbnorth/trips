@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import EmailTemplateServices from "../services/emailTemplateServices.js";
 import EmailTemplateFormDialog from "../components/EmailTemplateFormDialog.vue";
+import ExportServices from "../services/exportServices.js";
 import Utils from "../config/utils.js";
 import RowAction from "../components/RowAction.vue";
 
@@ -42,6 +43,21 @@ const orgLabel = computed(() => {
   if (!orgId) return null;
   return Utils.orgDisplayName(user.value, orgId);
 });
+const canDownloadReport = computed(
+  () => !!effectiveOrgId.value && Utils.isOrgAdmin(user.value, effectiveOrgId.value)
+);
+const downloadingReport = ref(false);
+
+const downloadReport = async () => {
+  downloadingReport.value = true;
+  try {
+    await ExportServices.emailReportPdf(orgLabel.value);
+  } catch (e) {
+    message.value = e.message || "Unable to download email report PDF.";
+  } finally {
+    downloadingReport.value = false;
+  }
+};
 const showOrgScopeNotice = computed(() => Utils.showOrgScopeNotice(user.value));
 const needsOrgSelection = computed(() => isSystemAdmin.value && !effectiveOrgId.value && !isTripLeader.value);
 
@@ -180,9 +196,22 @@ onUnmounted(() => {
   <v-container>
     <div class="d-flex align-center justify-space-between mb-4">
       <h1 class="text-h5">Email templates</h1>
-      <v-btn v-if="canAddTemplates" color="primary" :disabled="needsOrgSelection" @click="openAdd">
-        Add template
-      </v-btn>
+      <div class="d-flex ga-2">
+        <v-btn
+          v-if="canDownloadReport"
+          variant="outlined"
+          color="primary"
+          prepend-icon="mdi-file-pdf-box"
+          :loading="downloadingReport"
+          data-testid="email-report-button"
+          @click="downloadReport"
+        >
+          Email Report
+        </v-btn>
+        <v-btn v-if="canAddTemplates" color="primary" :disabled="needsOrgSelection" @click="openAdd">
+          Add template
+        </v-btn>
+      </div>
     </div>
 
     <v-alert v-if="needsOrgSelection" type="warning" density="compact" class="mb-4">

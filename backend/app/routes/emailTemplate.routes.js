@@ -7,6 +7,7 @@ const router = Router();
 router.get("/", [authenticate], templates.findAll);
 router.get("/copy-sources", [authenticate], templates.copySources);
 router.post("/preview", [authenticate], templates.preview);
+router.get("/report/pdf", [authenticate], templates.emailReportPdf);
 router.get("/:id", [authenticate], templates.findOne);
 router.post("/", [authenticate], templates.create);
 router.put("/:id", [authenticate], templates.update);

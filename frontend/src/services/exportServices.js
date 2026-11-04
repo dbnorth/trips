@@ -59,4 +59,11 @@ export default {
       "Unable to download documents PDF."
     );
   },
+  emailReportPdf(orgName) {
+    return downloadFile(
+      "email-templates/report/pdf",
+      `Email Report - ${orgName}.pdf`,
+      "Unable to download email report PDF."
+    );
+  },
 };
