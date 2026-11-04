@@ -24,6 +24,8 @@ import {
   emailBodyIsBlank,
   pictureRuleError,
 } from "../utils/emailHtml.js";
+import { buildEmailReportData, renderEmailReportPdf } from "../utils/emailReportPdf.js";
+import { sendPdf } from "../utils/pdf.js";
 
 const EmailTemplate = db.emailTemplate;
 const EmailType = db.emailType;
@@ -298,6 +300,22 @@ exports.findAll = async (req, res) => {
 
     if (!orgId) return res.send([]);
     return res.status(403).send({ message: "Forbidden." });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.emailReportPdf = async (req, res) => {
+  try {
+    const orgId = resolveTemplateOrgId(req);
+    if (orgId == null) return res.status(400).send({ message: "Select an organization." });
+    if (!isSystemAdmin(req) && !isOrgAdminForOrg(req, orgId)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+
+    const data = await buildEmailReportData(orgId);
+    if (!data) return res.status(404).send({ message: "Organization not found." });
+    sendPdf(res, await renderEmailReportPdf(data), `Email Report - ${data.organization.name}.pdf`);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
