@@ -130,16 +130,15 @@ describe("Feature 81 — Row Action Icons with Tooltips", () => {
       await flushPromises();
 
       const row = wrapper.findAll("tr").find((tr) => tr.text().includes("Guatemala Clinic 2027"));
-      expect(namesOf(row)).toEqual(["View", "Status", "Room list", "Flights", "Import", "Edit"]);
+      expect(namesOf(row)).toEqual(["View", "Room list", "Flights", "Import", "Edit"]);
       expect(actionsIn(row).map(iconOf)).toEqual([
         "mdi-eye",
-        "mdi-clipboard-check-outline",
         "mdi-bed",
         "mdi-airplane",
         "mdi-file-import",
         "mdi-pencil",
       ]);
-      expect(actionsIn(row).map((btn) => btn.text())).toEqual(["", "", "", "", "", ""]);
+      expect(actionsIn(row).map((btn) => btn.text())).toEqual(["", "", "", "", ""]);
 
       await action(row, "Room list").trigger("click");
       await vi.waitFor(() => expect(router.currentRoute.value.name).toBe("tripRooming"));
@@ -201,8 +200,8 @@ describe("Feature 81 — Row Action Icons with Tooltips", () => {
       await flushPromises();
 
       const row = wrapper.findAll("tr").find((tr) => tr.find("td").exists() && tr.find("td").text() === trip.name);
-      expect(namesOf(row)).toEqual(["View", "Status", "Room list", "Flights", "Import", "Edit"]);
-      expect(actionsIn(row).map((btn) => btn.text())).toEqual(["", "", "", "", "", ""]);
+      expect(namesOf(row)).toEqual(["View", "Room list", "Flights", "Import", "Edit"]);
+      expect(actionsIn(row).map((btn) => btn.text())).toEqual(["", "", "", "", ""]);
       wrapper.unmount();
     });
   });

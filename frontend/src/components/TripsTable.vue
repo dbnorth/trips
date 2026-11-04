@@ -7,6 +7,7 @@ import RowAction from "./RowAction.vue";
 import Utils from "../config/utils.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { formatDateRange } from "../utils/dateFormat.js";
+import { prepItems, prepComplete } from "../utils/tripPrep.js";
 
 defineProps({
   trips: { type: Array, default: () => [] },
@@ -42,10 +43,6 @@ const openView = (trip) => {
   router.push({ name: "tripView", params: { tripId: trip.id } });
 };
 
-const openStatus = (trip) => {
-  router.push({ name: "tripStatus", params: { tripId: trip.id } });
-};
-
 const openRooming = (trip) => {
   router.push({ name: "tripRooming", params: { tripId: trip.id } });
 };
@@ -68,16 +65,6 @@ const formatLeaders = (trip) => (trip.leaderNames || []).join(", ") || "—";
 
 const formatMoney = (value) =>
   value != null && value !== "" ? formatMoneyDisplay(value) : "—";
-
-const prepItems = [
-  { key: "rolesFilled", label: "All roles filled" },
-  { key: "participantsApproved", label: "All participants approved" },
-  { key: "fundsRaised", label: "All funds raised" },
-  { key: "flightsEntered", label: "Flights entered for all participants" },
-  { key: "roomListComplete", label: "Room list includes all participants" },
-];
-
-const prepComplete = (trip) => prepItems.every((prep) => !!trip.prepStatus?.[prep.key]);
 </script>
 
 <template>
@@ -134,7 +121,7 @@ const prepComplete = (trip) => prepItems.every((prep) => !!trip.prepStatus?.[pre
               v-bind="activator"
               icon="mdi-information-outline"
               size="small"
-              :color="prepComplete(item) ? 'success' : 'error'"
+              :color="prepComplete(item.prepStatus) ? 'success' : 'error'"
               tabindex="0"
               aria-label="Trip prep status"
               data-testid="trip-prep-info"
@@ -159,7 +146,6 @@ const prepComplete = (trip) => prepItems.every((prep) => !!trip.prepStatus?.[pre
     <template #item.actions="{ item }">
       <div class="d-flex flex-nowrap ga-1">
         <RowAction icon="mdi-eye" label="View" @click="openView(item)" />
-        <RowAction icon="mdi-clipboard-check-outline" label="Status" @click="openStatus(item)" />
         <RowAction icon="mdi-bed" label="Room list" @click="openRooming(item)" />
         <RowAction icon="mdi-airplane" label="Flights" @click="openFlights(item)" />
         <RowAction v-if="canImport(item)" icon="mdi-file-import" label="Import" @click="openImport(item)" />

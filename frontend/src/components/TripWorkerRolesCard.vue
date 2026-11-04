@@ -15,6 +15,7 @@ const props = defineProps({
 const emit = defineEmits(["changed"]);
 
 const rows = ref([]);
+const expanded = ref(false);
 const workerRoles = ref([]);
 const loading = ref(false);
 const error = ref("");
@@ -68,6 +69,16 @@ const loadReservedEmails = async (roleRows) => {
 };
 
 const reservedEmailsText = (row) => (reservedEmailsByRoleId.value[row.id] || []).join(", ") || "—";
+
+const openPositionsLabel = (count) =>
+  count ? `${count} ${count === 1 ? "position" : "positions"} open` : "All positions filled";
+
+const requiredDocumentsText = (row) =>
+  (row.workerRole?.requiredDocumentTypes || [])
+    .map((doc) => doc.description)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b))
+    .join(", ") || "—";
 
 const loadRows = () =>
   TripWorkerRoleServices.getAll(props.tripId).then(async (r) => {
@@ -146,7 +157,8 @@ const saveQuantity = async (row) => {
   savingIds.value.add(row.id);
   error.value = "";
   try {
-    await TripWorkerRoleServices.update(row.id, { quantity: qty });
+    const res = await TripWorkerRoleServices.update(row.id, { quantity: qty });
+    if (res?.data?.availableCount != null) row.availableCount = res.data.availableCount;
   } catch (e) {
     error.value = e.response?.data?.message || "Unable to update quantity.";
     await loadRows();
@@ -180,85 +192,112 @@ onMounted(() => {
 
 <template>
   <v-card class="pa-4 mb-6">
-    <div class="d-flex align-center justify-space-between mb-2">
-      <h2 class="text-h6">Team roles needed</h2>
-      <span v-if="rows.length" class="text-caption text-medium-emphasis">
-        {{ totalSignedUp }} signed up / {{ totalNeeded }} needed
-      </span>
-    </div>
-
-    <v-alert v-if="error" type="error" density="compact" class="mb-3">{{ error }}</v-alert>
-
-    <v-progress-linear v-if="loading" indeterminate class="mb-3" />
-
-    <v-table v-if="rows.length" density="compact" class="mb-4">
-      <thead>
-        <tr>
-          <th>Role</th>
-          <th>Document type</th>
-          <th style="width: 130px">Number Needed</th>
-          <th style="width: 140px">Number Signed Up</th>
-          <th style="width: 100px">Reserved</th>
-          <th style="width: 220px">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="row in rows" :key="row.id">
-          <td>
-            <div>{{ row.workerRole?.name || "—" }}</div>
-            <div v-if="row.workerRole?.description" class="text-caption text-medium-emphasis">
-              {{ row.workerRole.description }}
-            </div>
-            <div class="text-caption text-medium-emphasis">Reserved emails: {{ reservedEmailsText(row) }}</div>
-          </td>
-          <td>{{ row.workerRole?.documentType?.description || "—" }}</td>
-          <td>
-            <v-text-field
-              v-model.number="row.quantity"
-              type="number"
-              min="1"
-              density="compact"
-              hide-details
-              :loading="savingIds.has(row.id)"
-              @change="saveQuantity(row)"
-            />
-          </td>
-          <td>{{ row.signedUpCount ?? 0 }}</td>
-          <td>{{ row.reservedCount ?? 0 }}</td>
-          <td class="text-no-wrap">
-            <div class="d-flex flex-nowrap ga-1">
-              <RowAction icon="mdi-email-lock" label="Reserved emails" @click="openReservations(row)" />
-              <RowAction
-                v-if="!(row.signedUpCount > 0)"
-                icon="mdi-minus-circle-outline"
-                label="Remove"
-                color="error"
-                @click="remove(row)"
-              />
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </v-table>
-
-    <p v-else-if="!loading" class="text-body-2 text-medium-emphasis mb-4">
-      No team roles added yet.
-    </p>
-
-    <div class="d-flex align-center ga-3">
-      <v-btn
-        color="primary"
-        size="small"
-        variant="tonal"
-        :disabled="loading || !availableRoleItems.length"
-        @click="openAddRole"
+    <h2 class="text-h6 ma-0">
+      <button
+        type="button"
+        class="team-roles-toggle d-flex align-center ga-2 w-100"
+        :aria-expanded="expanded ? 'true' : 'false'"
+        aria-controls="team-roles-content"
+        data-testid="team-roles-toggle"
+        @click="expanded = !expanded"
       >
-        Add role
-      </v-btn>
-      <span v-if="!loading && !availableRoleItems.length" class="text-caption text-medium-emphasis">
-        No more active roles to add
-      </span>
-    </div>
+        <span data-testid="team-roles-title">Team roles</span>
+        <v-spacer />
+        <span v-if="rows.length" class="text-caption text-medium-emphasis">
+          {{ totalSignedUp }} signed up / {{ totalNeeded }} needed
+        </span>
+        <v-icon :icon="expanded ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="small" />
+      </button>
+    </h2>
+
+    <v-expand-transition>
+      <div v-show="expanded" id="team-roles-content" class="mt-2" data-testid="team-roles-content">
+        <v-alert v-if="error" type="error" density="compact" class="mb-3">{{ error }}</v-alert>
+
+        <v-progress-linear v-if="loading" indeterminate class="mb-3" />
+
+        <v-table v-if="rows.length" density="compact" class="mb-4">
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Document type</th>
+              <th style="width: 130px">Number Needed</th>
+              <th style="width: 140px">Number Signed Up</th>
+              <th style="width: 100px">Reserved</th>
+              <th style="width: 220px">Actions</th>
+              <th>Filled</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rows" :key="row.id">
+              <td>
+                <div>{{ row.workerRole?.name || "—" }}</div>
+                <div v-if="row.workerRole?.description" class="text-caption text-medium-emphasis">
+                  {{ row.workerRole.description }}
+                </div>
+                <div class="text-caption text-medium-emphasis">Reserved emails: {{ reservedEmailsText(row) }}</div>
+              </td>
+              <td>{{ requiredDocumentsText(row) }}</td>
+              <td>
+                <v-text-field
+                  v-model.number="row.quantity"
+                  type="number"
+                  min="1"
+                  density="compact"
+                  hide-details
+                  :loading="savingIds.has(row.id)"
+                  @change="saveQuantity(row)"
+                />
+              </td>
+              <td>{{ row.signedUpCount ?? 0 }}</td>
+              <td>{{ row.reservedCount ?? 0 }}</td>
+              <td class="text-no-wrap">
+                <div class="d-flex flex-nowrap ga-1">
+                  <RowAction icon="mdi-email-lock" label="Reserved emails" @click="openReservations(row)" />
+                  <RowAction
+                    v-if="!(row.signedUpCount > 0)"
+                    icon="mdi-minus-circle-outline"
+                    label="Remove"
+                    color="error"
+                    @click="remove(row)"
+                  />
+                </div>
+              </td>
+              <td>
+                <v-icon
+                  :icon="row.availableCount ? 'mdi-alert-circle' : 'mdi-check-circle'"
+                  :color="row.availableCount ? 'error' : 'success'"
+                  size="small"
+                  role="img"
+                  :aria-hidden="false"
+                  :aria-label="openPositionsLabel(row.availableCount)"
+                  data-testid="role-filled-icon"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </v-table>
+
+        <p v-else-if="!loading" class="text-body-2 text-medium-emphasis mb-4">
+          No team roles added yet.
+        </p>
+
+        <div class="d-flex align-center ga-3">
+          <v-btn
+            color="primary"
+            size="small"
+            variant="tonal"
+            :disabled="loading || !availableRoleItems.length"
+            @click="openAddRole"
+          >
+            Add role
+          </v-btn>
+          <span v-if="!loading && !availableRoleItems.length" class="text-caption text-medium-emphasis">
+            No more active roles to add
+          </span>
+        </div>
+      </div>
+    </v-expand-transition>
 
     <v-dialog v-model="showAddRole" max-width="480">
       <v-card>
@@ -303,3 +342,15 @@ onMounted(() => {
     <RoleReservationsDialog v-model="showReservations" :role="reservationsRole" @changed="loadRows" />
   </v-card>
 </template>
+
+<style scoped>
+.team-roles-toggle {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+}
+</style>
