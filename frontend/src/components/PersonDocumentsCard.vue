@@ -490,6 +490,7 @@ const confirmDeleteDocument = async () => {
     await PersonDocumentServices.delete(props.personId, row.id);
     if (Number(editingDocumentId.value) === Number(row.id)) resetForm();
     await load();
+    emit("saved");
   } catch (e) {
     message.value = e.response?.data?.message || "Unable to delete document.";
   } finally {
@@ -544,6 +545,7 @@ onMounted(load);
         <v-progress-circular v-if="loading" indeterminate size="18" width="2" />
       </div>
     </div>
+    <slot v-if="!props.onlyType" />
 
     <v-alert v-if="message" type="info" density="compact" class="mb-3">{{ message }}</v-alert>
 

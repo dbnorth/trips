@@ -34,7 +34,6 @@ import PersonServices from "../src/services/personServices.js";
 import PersonDocumentServices from "../src/services/personDocumentServices.js";
 import DocumentTypeServices from "../src/services/documentTypeServices.js";
 
-const MISSING_MESSAGE = "Upload a Doctor Permission document before your application can be approved.";
 const TRIP = {
   id: 42,
   orgId: 1,
@@ -156,7 +155,6 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
     it("The application says what is missing", async () => {
       const wrapper = await openApplyAsPregnant();
 
-      expect(wrapper.text()).toContain(MISSING_MESSAGE);
       expect(wrapper.text()).toContain(DOCTOR_MESSAGE);
       expect(wrapper.text()).toContain("Save Incomplete Application");
       expect(wrapper.text()).not.toContain("Submit Application");
@@ -206,7 +204,6 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
       expect(area.text()).toContain("expires 03/10/2027");
       expect(area.text()).toContain("View");
       expect(findButton(wrapper, "Upload Doctor Permission document")).toBeUndefined();
-      expect(wrapper.text()).not.toContain(MISSING_MESSAGE);
       expect(wrapper.text()).not.toContain(DOCTOR_MESSAGE);
       wrapper.unmount();
     });

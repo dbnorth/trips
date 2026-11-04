@@ -4,7 +4,6 @@ import { useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import PersonServices from "../services/personServices.js";
 import PersonDocumentServices from "../services/personDocumentServices.js";
-import DocumentTypeServices from "../services/documentTypeServices.js";
 import Utils from "../config/utils.js";
 import DonorTripHeading from "../components/DonorTripHeading.vue";
 import ParticipantAgreementSection from "../components/ParticipantAgreementSection.vue";
@@ -19,17 +18,10 @@ import {
   tripParticipantStatusLabel,
   tripParticipantStatusColor,
 } from "../utils/tripParticipantStatus.js";
-import { isProfileComplete, isUnder18, normalizeYesNo, otherLanguageFieldsFromPerson } from "../utils/personProfile.js";
-import { formatDate } from "../utils/dateFormat.js";
+import { getMissingProfileFields, isUnder18, normalizeYesNo, otherLanguageFieldsFromPerson } from "../utils/personProfile.js";
 import {
-  activeRequiredSpecializations,
-  arePersonDocumentsUploaded,
   isApplicationFormComplete,
   isDoctorPermissionUploaded,
-  isRequiredPassportUploaded,
-  missingRequiredRoleDocuments,
-  needsExpirationWording,
-  requiredRoleDocumentMessage,
   travelOptionDaysError,
   validateTravelOptionSelections,
 } from "../utils/tripApplicationForm.js";
@@ -55,7 +47,6 @@ const myReservedRoleId = ref(null);
 const application = ref(null);
 const canEdit = ref(false);
 const personDocuments = ref([]);
-const documentTypes = ref([]);
 const person = ref(null);
 const healthForm = ref({
   gender: null,
@@ -139,38 +130,13 @@ const selectedRole = computed(
     availableRoles.value.find((r) => Number(r.id) === Number(form.value.tripWorkerRoleId)) || null
 );
 
-const requiredDocumentTypes = computed(() => {
-  const role = selectedRole.value?.workerRole;
-  if (!role) return [];
-  if (role.requiredDocumentTypes?.length) return role.requiredDocumentTypes;
-  if (role.documentType) return [role.documentType];
-  return [];
-});
-
-const requiredSpecializations = computed(() =>
-  activeRequiredSpecializations(selectedRole.value?.workerRole)
-);
-
 const dateOnly = (value) => {
   if (!value) return null;
   return String(value).slice(0, 10);
 };
 
-const hasRequiredPassportForTrip = computed(() => {
-  const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
-  return isRequiredPassportUploaded({
-    documents: personDocuments.value,
-    requirePassport: !!trip.value?.requirePassport,
-    compareDate,
-  });
-});
-
 const doctorPermissionRequired = computed(
   () => !!trip.value?.requiresDoctorPermissionWhenPregnant
-);
-
-const doctorPermissionListedForRole = computed(() =>
-  requiredDocumentTypes.value.some((d) => d.type === "doctor_permission")
 );
 
 const hasDoctorPermissionForTrip = computed(() =>
@@ -182,57 +148,13 @@ const hasDoctorPermissionForTrip = computed(() =>
   })
 );
 
-const personDocumentsUploaded = computed(() =>
-  arePersonDocumentsUploaded(personDocuments.value)
-);
-
-const documentRequirementWarning = computed(() => {
-  if (!personDocumentsUploaded.value) {
-    return "Upload a file for every document on your profile before your application can be approved.";
-  }
-  if (trip.value?.requirePassport && !hasRequiredPassportForTrip.value) {
-    const passportTypes = documentTypes.value.filter((t) => t.type === "passport");
-    if (!needsExpirationWording(passportTypes)) {
-      return "Upload a passport before your application can be approved.";
-    }
-    const endDate = dateOnly(trip.value?.endDate);
-    const endPart = endDate ? ` (${formatDate(endDate)})` : "";
-    return `Upload a passport with an expiration date past the end of the trip${endPart} before your application can be approved.`;
-  }
-  if (!hasDoctorPermissionForTrip.value && !doctorPermissionListedForRole.value) {
-    if (!trip.value?.doctorPermissionHasExpiration) {
-      return "Upload a Doctor Permission document before your application can be approved.";
-    }
-    const endDate = dateOnly(trip.value?.endDate);
-    const endPart = endDate ? ` (${formatDate(endDate)})` : "";
-    return `Upload a Doctor Permission document with an expiration date on or after the end of the trip${endPart} before your application can be approved.`;
-  }
-  const compareDate = dateOnly(trip.value?.endDate) || dateOnly(trip.value?.startDate);
-  const missing = missingRequiredRoleDocuments({
-    documents: personDocuments.value,
-    requiredDocumentTypes: requiredDocumentTypes.value,
-    compareDate,
-    requiredSpecializations: requiredSpecializations.value,
-  });
-  if (!missing.length) return "";
-
-  const sentences = missing.map(
-    (docType) =>
-      `${requiredRoleDocumentMessage(docType, {
-        documents: personDocuments.value,
-        compareDate,
-        requiredSpecializations: requiredSpecializations.value,
-      })}.`
-  );
-  return `Before your application can be approved, update these documents on your profile. ${sentences.join(" ")}`;
-});
-
-const profileComplete = computed(() =>
-  isProfileComplete(
+const missingProfileFields = computed(() =>
+  getMissingProfileFields(
     { ...(person.value || {}), ...healthForm.value },
     { orgId: trip.value?.orgId }
   )
 );
+const profileComplete = computed(() => missingProfileFields.value.length === 0);
 
 const onProfileSaved = async () => {
   showProfileDialog.value = false;
@@ -376,19 +298,6 @@ const loadPersonDocuments = async () => {
   }
 };
 
-const loadDocumentTypes = async () => {
-  if (!trip.value?.orgId) {
-    documentTypes.value = [];
-    return;
-  }
-  try {
-    const res = await DocumentTypeServices.getAll({ orgId: trip.value.orgId });
-    documentTypes.value = res.data || [];
-  } catch {
-    documentTypes.value = [];
-  }
-};
-
 const applyHealthFromPerson = (data) => {
   healthForm.value = {
     gender: data?.gender || null,
@@ -476,7 +385,6 @@ const load = async () => {
       loadPersonDocuments(),
     ]);
     trip.value = res.data?.trip || null;
-    await loadDocumentTypes();
     rolesNeeded.value = res.data?.rolesNeeded || [];
     application.value = res.data?.application || null;
     canEdit.value = !!res.data?.canEdit;
@@ -758,27 +666,6 @@ onMounted(load);
     <template v-if="!loading && trip">
       <DonorTripHeading :trip="trip" :show-org-website="false" />
 
-      <v-alert
-        v-if="!profileComplete"
-        type="warning"
-        density="compact"
-        class="mt-4 mb-0 mx-auto"
-        max-width="640"
-      >
-        Your profile needs to be completed before this application can be submitted.
-        <div class="mt-3">
-          <v-btn
-            size="small"
-            color="primary"
-            variant="flat"
-            :disabled="!personId"
-            @click="showProfileDialog = true"
-          >
-            Update profile
-          </v-btn>
-        </div>
-      </v-alert>
-
       <v-card class="pa-4 mt-4 mx-auto" variant="outlined" max-width="640" width="100%">
         <v-alert
           v-if="!availableRoles.length"
@@ -801,12 +688,13 @@ onMounted(load);
         />
 
         <v-alert
-          v-if="documentRequirementWarning"
-          type="info"
+          v-if="!profileComplete"
+          type="warning"
           density="compact"
           class="mb-3"
         >
-          {{ documentRequirementWarning }}
+          Your profile needs to be completed before this application can be submitted.
+          <div data-testid="missing-profile-fields">Missing: {{ missingProfileFields.join(", ") }}.</div>
           <div class="mt-3">
             <v-btn
               size="small"
@@ -824,6 +712,7 @@ onMounted(load);
           v-model="healthForm"
           :org-id="trip?.orgId"
           health-only
+          :hide-profile-note="!profileComplete"
           :disabled="!canEdit"
           :doctor-document-on-file="doctorPermissionRequired && hasDoctorPermissionForTrip"
           @update-profile="showProfileDialog = true"

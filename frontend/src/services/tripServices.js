@@ -13,6 +13,9 @@ export default {
   getMyBrowseTrips(orgId) {
     return apiClient.get("/trips/browse/mine", { params: { orgId } });
   },
+  getMyTripDocuments() {
+    return apiClient.get("/trips/browse/mine/documents");
+  },
   getBrowseTrip(id) {
     return apiClient.get(`/trips/browse/${id}`);
   },

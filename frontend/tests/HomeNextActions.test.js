@@ -154,13 +154,12 @@ describe("Feature 60 — My Trips Next Actions", () => {
   it("Complete application buttons open the application dialogs", async () => {
     const wrapper = await mountHome([
       myTrip(1, "Guatemala Clinic", "incomplete", [
-        { code: "complete-application", missingDocuments: ["Board certification (Pediatrics)"] },
+        { code: "complete-application", applicationIncomplete: true, profileIncomplete: false },
       ]),
     ]);
 
     const actions = nextActionsRowFor(wrapper, "Guatemala Clinic");
-    expect(actions.text()).toContain("Complete your application.");
-    expect(actions.text()).toContain("Missing documents: Board certification (Pediatrics).");
+    expect(actions.text()).toContain("Complete missing information on your application so you can submit your application.");
 
     const row = tripRow(wrapper, "Guatemala Clinic");
     expect(button(row, "View")).toBeTruthy();
@@ -303,9 +302,10 @@ describe("Feature 60 — My Trips Next Actions", () => {
    */
   it("Missing documents are separated by semicolons", async () => {
     const wrapper = await mountHome([
-      myTrip(1, "Guatemala Clinic", "incomplete", [
+      myTrip(1, "Guatemala Clinic", "pre_approved", [
         {
-          code: "complete-application",
+          code: "upload-documents",
+          dueDate: "2026-12-15",
           missingDocuments: [
             "Board Certification: select the Emergency Medicine specialization",
             "CPR Card: add this document",
@@ -315,7 +315,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
     ]);
 
     expect(nextActionsRowFor(wrapper, "Guatemala Clinic").text()).toContain(
-      "Missing documents: Board Certification: select the Emergency Medicine specialization; CPR Card: add this document."
+      "Missing: Board Certification: select the Emergency Medicine specialization; CPR Card: add this document."
     );
 
     wrapper.unmount();
@@ -381,6 +381,27 @@ describe("Feature 60 — My Trips Next Actions", () => {
     await flushPromises();
     expect(wrapper.findComponent({ name: "ApplyTripDialog" }).props("tripId")).toBe(1);
 
+    wrapper.unmount();
+  });
+
+  /**
+   * Feature 112 — Application and Profile Status Messages
+   * Spec: features/feature-112-application-profile-status-messages.md
+   */
+  it("Update Documents opens the profile", async () => {
+    const wrapper = await mountHome([
+      myTrip(1, "Guatemala Clinic", "pre_approved", [
+        { code: "upload-documents", missingDocuments: ["Passport"], dueDate: "2026-12-15" },
+      ]),
+    ]);
+    const profile = () => wrapper.findComponent({ name: "EditPersonDialog" });
+    expect(profile().props("modelValue")).toBe(false);
+
+    await button(nextActionsRowFor(wrapper, "Guatemala Clinic"), "Update Documents").trigger("click");
+    await flushPromises();
+
+    expect(profile().props("modelValue")).toBe(true);
+    expect(profile().props("personId")).toBe(PERSON_ID);
     wrapper.unmount();
   });
 });

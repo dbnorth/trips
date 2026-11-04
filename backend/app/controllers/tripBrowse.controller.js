@@ -17,7 +17,7 @@ import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import { findReservationForPerson, tripRoleAvailability, withCapacityFields } from "../utils/tripRoleCapacity.js";
 import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 import { loadDonationRecipients } from "../utils/donorPerson.js";
-import { loadMyTripNextActions } from "../utils/myTripNextActions.js";
+import { loadMyTripDocuments, loadMyTripNextActions } from "../utils/myTripNextActions.js";
 import { loadMyTripTravelDetails } from "../utils/myTripTravelDetails.js";
 import { participantTotals } from "../utils/participantTotals.js";
 import { loadTripWithArrivalPdf } from "../utils/tripArrivalPdf.js";
@@ -358,6 +358,14 @@ exports.listMyTrips = async (req, res) => {
       });
     }
     res.send(trips);
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.listMyTripDocuments = async (req, res) => {
+  try {
+    res.send(await loadMyTripDocuments(req.user?.personId));
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
