@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import Utils from "../config/utils.js";
 import AuthServices from "../services/authServices.js";
 import OrganizationServices from "../services/organizationServices.js";
@@ -234,24 +234,37 @@ const onUserOrgChange = (val) => {
   resetMenu();
 };
 
+const onUserLoggedIn = () => {
+  resetMenu();
+  loadActingOrgs();
+  loadUserOrgItems();
+};
+
+const onUserUpdated = () => {
+  resetMenu();
+  loadUserOrgItems();
+};
+
+const onOrganizationsUpdated = () => {
+  loadActingOrgs();
+  resetMenu();
+};
+
 onMounted(() => {
   resetMenu();
   loadActingOrgs();
   loadUserOrgItems();
-  window.addEventListener("user-logged-in", () => {
-    resetMenu();
-    loadActingOrgs();
-    loadUserOrgItems();
-  });
-  window.addEventListener("user-updated", () => {
-    resetMenu();
-    loadUserOrgItems();
-  });
+  window.addEventListener("user-logged-in", onUserLoggedIn);
+  window.addEventListener("user-updated", onUserUpdated);
   window.addEventListener("user-logged-out", clearUserState);
-  window.addEventListener("organizations-updated", () => {
-    loadActingOrgs();
-    resetMenu();
-  });
+  window.addEventListener("organizations-updated", onOrganizationsUpdated);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("user-logged-in", onUserLoggedIn);
+  window.removeEventListener("user-updated", onUserUpdated);
+  window.removeEventListener("user-logged-out", clearUserState);
+  window.removeEventListener("organizations-updated", onOrganizationsUpdated);
 });
 </script>
 
