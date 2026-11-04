@@ -127,6 +127,18 @@ const daysBefore = (ymd, days) => {
   return new Date(Date.UTC(y, m - 1, d - days)).toISOString().slice(0, 10);
 };
 
+/** The trip's documents due date (`YYYY-MM-DD`, 90 days before the start date), or null without a start date. */
+export const documentsDueDate = (trip) =>
+  trip?.startDate ? daysBefore(trip.startDate, DOCUMENTS_DUE_DAYS_BEFORE) : null;
+
+/** One assignment's missing documents by the `upload-documents` rule. */
+export const loadMissingTripDocuments = async (assignment, trip) =>
+  missingDocumentNames({
+    assignment,
+    trip,
+    personDocuments: await loadPersonDocumentsForCompleteness(assignment.peopleId),
+  });
+
 /** The person's upcoming trips in any organization, with the documents each requires (Feature 112). */
 export const loadMyTripDocuments = async (peopleId) => {
   if (!peopleId) return [];

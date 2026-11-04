@@ -7,6 +7,7 @@ const emailTypes = [
   { typeCode: "apply-incomplete", description: "Application incomplete reminder", eventCode: "application-incomplete" },
   { typeCode: "apply-received", description: "Application received", eventCode: "application-submitted" },
   { typeCode: "apply-approved", description: "Application approved", eventCode: "application-approved" },
+  { typeCode: "documents-missing", description: "Documents missing reminder", eventCode: "documents-missing" },
   { typeCode: "deposit-due", description: "Deposit due", eventCode: "deposit-due" },
   { typeCode: "deposit-received", description: "Deposit received", eventCode: "deposit-received" },
   { typeCode: "payment-due", description: "Payment due reminder", eventCode: "payment-due" },

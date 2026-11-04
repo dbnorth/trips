@@ -4,6 +4,7 @@ import { ROLE_TRIP_LEADER } from "../authorization/accessControl.js";
 import { amountOwed, loadSelectedTripOptions, participantTotals } from "./participantTotals.js";
 import { arrivalPdfName, loadTripWithArrivalPdf } from "./tripArrivalPdf.js";
 import { participantTravelDates } from "./tripDays.js";
+import { documentsDueDate, loadMissingTripDocuments } from "./myTripNextActions.js";
 
 export const VALUE_SOURCES = [
   { valueSource: "organization.name", label: "Organization name" },
@@ -17,6 +18,7 @@ export const VALUE_SOURCES = [
   { valueSource: "trip.participantCost", label: "Trip participant cost" },
   { valueSource: "trip.deposit", label: "Trip deposit" },
   { valueSource: "trip.arrivalPdf", label: "Trip arrival PDF" },
+  { valueSource: "trip.documentsDueDate", label: "Trip documents due date" },
   { valueSource: "participant.firstName", label: "Participant first name" },
   { valueSource: "participant.lastName", label: "Participant last name" },
   { valueSource: "participant.preferredName", label: "Participant preferred name" },
@@ -42,6 +44,7 @@ export const VALUE_SOURCES = [
   { valueSource: "participant.arrivalFlight", label: "Participant arrival flight" },
   { valueSource: "participant.returnFlight", label: "Participant return flight" },
   { valueSource: "participant.flightConfirmationNumber", label: "Participant flight confirmation number" },
+  { valueSource: "participant.missingDocuments", label: "Participant missing documents" },
   { valueSource: "primaryLeader.firstName", label: "Primary trip leader first name" },
   { valueSource: "primaryLeader.lastName", label: "Primary trip leader last name" },
   { valueSource: "primaryLeader.preferredName", label: "Primary trip leader preferred name" },
@@ -334,6 +337,7 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
   let financialValues = EMPTY_FINANCIAL_VALUES;
   let travelDates = { arrivalDate: null, departureDate: null };
   let flight = null;
+  let missingDocuments = [];
   if (trip && person) {
     flight = await loadParticipantFlight(trip.id, person.id);
     tripRole = await loadParticipantTripRole(trip.id, person.id);
@@ -345,7 +349,10 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
     amountRaised = formatMoney(raised);
     if (owed != null) amountOwed = formatMoney(owed);
     financialValues = await buildFinancialValues(trip, person, assignment);
-    if (assignment) travelDates = await participantTravelDates(trip, assignment.id);
+    if (assignment) {
+      travelDates = await participantTravelDates(trip, assignment.id);
+      missingDocuments = await loadMissingTripDocuments(assignment, trip);
+    }
   }
 
   return {
@@ -360,6 +367,7 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
     "trip.participantCost": formatMoney(trip?.participantCost),
     "trip.deposit": formatMoney(trip?.deposit),
     "trip.arrivalPdf": trip?.arrivalPdfFileName ? arrivalPdfName(trip) : "",
+    "trip.documentsDueDate": formatDate(documentsDueDate(trip)),
     "participant.firstName": text(person?.firstName),
     "participant.lastName": text(person?.lastName),
     "participant.preferredName": preferredName(person),
@@ -374,6 +382,7 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
     "participant.arrivalFlight": flightLines(flight, "arrival"),
     "participant.returnFlight": flightLines(flight, "return"),
     "participant.flightConfirmationNumber": text(flight?.confirmationNumber),
+    "participant.missingDocuments": missingDocuments.join("\n"),
     "primaryLeader.firstName": text(leader?.firstName),
     "primaryLeader.lastName": text(leader?.lastName),
     "primaryLeader.preferredName": preferredName(leader),
