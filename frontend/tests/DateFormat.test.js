@@ -11,7 +11,6 @@ import { formatDate, formatDateTime, formatDateRange } from "../src/utils/dateFo
 import { toUrlSlug } from "../src/utils/donateUrls.js";
 import TripsList from "../src/views/TripsList.vue";
 import TripView from "../src/views/TripView.vue";
-import TripStatusView from "../src/views/TripStatusView.vue";
 import DonorTripPage from "../src/views/DonorTripPage.vue";
 import DonationsList from "../src/views/DonationsList.vue";
 import PersonDocumentsCard from "../src/components/PersonDocumentsCard.vue";
@@ -104,7 +103,6 @@ const tripRouter = async (name, path, component, params) => {
       { path, name, component, props: true },
       { path: "/home", name: "home", component: Stub },
       { path: "/trips", name: "trips", component: Stub },
-      { path: "/trips/:tripId/status", name: "tripStatus", component: Stub, props: true },
       { path: "/donate/trip/:tripSlug/:personSlug", name: "donorParticipant", component: Stub, props: true },
     ],
   });
@@ -191,35 +189,34 @@ describe("Feature 101 — MM/DD/YYYY Dates", () => {
     });
 
     it("Date columns still sort by date", async () => {
-      const participant = (id, displayName, arrivalDate) => ({
+      const participant = (id, firstName, lastName, arrivalDate) => ({
         id,
         peopleId: id,
-        displayName,
         status: "approved",
-        missingItems: [],
-        amountOwed: 0,
-        amountRaised: 0,
-        selectedTravelOptionIds: [],
+        person: { id, firstName, lastName },
         arrivalDate,
         departureDate: "2027-01-10",
       });
-      TripServices.getStatus.mockResolvedValue({
-        data: {
-          trip: { id: 42, name: "Guatemala Clinic 2027", organizationName: "Hope Mission", status: "active" },
-          rolesNeeded: [],
-          travelOptions: [],
-          participants: [participant(1, "Ana Lopez", "2027-01-02"), participant(2, "Ben Cruz", "2026-12-30")],
-        },
+      TripServices.get.mockResolvedValue({ data: TRIP });
+      TripServices.getStatus.mockResolvedValue({ data: { participants: [] } });
+      TripPeopleRoleServices.getAll.mockResolvedValue({
+        data: [participant(1, "Ana", "Lopez", "2027-01-02"), participant(2, "Ben", "Cruz", "2026-12-30")],
       });
-      const router = await tripRouter("tripStatus", "/trips/:tripId/status", TripStatusView, { tripId: "42" });
+      DonationServices.getAll.mockResolvedValue({ data: [] });
+      TripTravelOptionServices.getAll.mockResolvedValue({ data: [] });
+      const router = await tripRouter("tripView", "/trips/:tripId", TripView, { tripId: "42" });
 
-      const { wrapper } = await mountWithPlugins(TripStatusView, { props: { tripId: "42" }, router });
+      const { wrapper } = await mountWithPlugins(TripView, {
+        props: { tripId: "42" },
+        router,
+        global: { stubs: { TripWorkerRolesCard: Stub } },
+      });
       await flushPromises();
 
-      const table = wrapper.findAll("table").at(-1);
+      const table = wrapper.findAll("table").find((t) => t.text().includes("Arrives"));
       const headers = table.findAll("th");
       const headerText = headers.map((th) => th.text().trim());
-      const nameIndex = headerText.indexOf("Participant");
+      const nameIndex = headerText.indexOf("Name");
       const arrivesIndex = headerText.indexOf("Arrives");
       await headers[arrivesIndex].trigger("click");
       await flushPromises();

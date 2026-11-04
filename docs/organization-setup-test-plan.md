@@ -247,7 +247,7 @@ Run the tests in order; later tests use the applications and donations created b
 | # | Steps | Expected result | Result |
 |---|-------|-----------------|--------|
 | 5.1 | As Leader Lee, open Trip A. | Nora, Dan, Rita, and Hank (Cancelled) are listed; profile and application open in readable dialogs. | |
-| 5.2 | Open Trip A's **Trip Status** board. | Each applicant's status, what's missing, amount raised and owed (Nora owes $2,250: $2,000 + $250 private room), and options. | |
+| 5.2 | On Trip A's page, scroll the participant table. | Each applicant's status, what's missing, total donations and amount owed (Nora owes $2,250: $2,000 + $250 private room), and options. | |
 | 5.3 | As Leader Lee, approve Nora and Rita on Trip A. | Approved; each gets the **organization's** Application approved email. | |
 | 5.4 | As Leader Lee, decline Dan. | Declined; Doctor shows Available 1 again. | |
 | 5.5 | As Leader Liz, approve Hank, Tim, Pat, and Nora on Trip B. | Approved; each gets **Trip B's own** "You're on the Guatemala Remote Clinic team!" email. | |

@@ -104,7 +104,7 @@ These pieces work together to make sure everyone on a trip team has the credenti
   - every required specialization on that document;
   - a valid passport when the trip requires one;
   - a file for every document on their profile.
-- Anything missing is named, for example "Board certification (Pediatrics, Emergency Medicine)". It shows on the application, on the **Trip Status** board, and in the participant's **My Trips** next steps.
+- Anything missing is named, for example "Board certification (Pediatrics, Emergency Medicine)". It shows on the application, in the trip page's participant table, and in the participant's **My Trips** next steps.
 - Staff can review a participant's documents and files in one **Documents PDF**.
 
 *Specs: 6, 22, 23, 24, 25, 26, 34, 56, 57, 58, 59*
@@ -130,7 +130,7 @@ These pieces work together to make sure everyone on a trip team has the credenti
 ## 9. Managing a trip's team (staff)
 
 - The **trip page** lists everyone who applied, with their profile and application shown in easy-to-read two-column dialogs. Staff approve or decline from there.
-- The **Trip Status** board shows every applicant's status, what is still missing, amount raised and still owed, and their travel option choices.
+- The trip page's participant table also shows each applicant's status, who books their flights, what is still missing, donations and amount still owed, and their travel option choices.
 - **Documents PDF** gathers one participant's documents and uploaded files into a single PDF.
 - The **participant CSV** export lists the team's details.
 - Only trip staff (System Admin, Org Admin, Trip Leader) can see teammates' personal and medical details.
@@ -157,7 +157,7 @@ These pieces work together to make sure everyone on a trip team has the credenti
 - Staff record donations and manage **donors**, and export donations and donors to CSV.
 - **Public pages** for each organization, trip, and participant let anyone donate without an account.
 - Signed-in participants **donate** to themselves or to teammates from the trip page.
-- Amount raised and amount owed feed the Trip Status board, My Trips next steps, and financial statement emails. (No card payments are processed; donations are recorded.)
+- Amount raised and amount owed feed the trip page's participant table, My Trips next steps, and financial statement emails. (No card payments are processed; donations are recorded.)
 
 *Specs: 8, 9, 53, 69*
 
