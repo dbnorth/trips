@@ -61,6 +61,9 @@ export default {
   getTeamEmailTemplates(id) {
     return apiClient.get(`/trips/${id}/team-email/templates`);
   },
+  getTeamEmailRecipients(id, templateId) {
+    return apiClient.get(`/trips/${id}/team-email/templates/${templateId}/recipients`);
+  },
   previewTeamEmail(id, data) {
     return apiClient.post(`/trips/${id}/team-email/preview`, data);
   },

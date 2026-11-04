@@ -74,6 +74,11 @@ router.get(
   participantDocumentsPdf.documentsPdf
 );
 router.get("/:id/team-email/templates", [authenticate], tripTeamEmail.findTemplates);
+router.get(
+  "/:id/team-email/templates/:templateId/recipients",
+  [authenticate],
+  tripTeamEmail.findScheduledRecipients
+);
 router.post("/:id/team-email/preview", [authenticate], tripTeamEmail.preview);
 router.post("/:id/team-email", [authenticate], tripTeamEmail.send);
 router.get(
