@@ -23,7 +23,7 @@ const loadDocuments = async (personId) =>
         {
           model: db.documentType,
           as: "documentType",
-          attributes: ["id", "description", "type", "hasExpirationDate", "documentNumberRequired"],
+          attributes: ["id", "description", "type", "hasExpirationDate", "expirationCheck", "documentNumberRequired"],
         },
         {
           model: db.personDocumentSpecialization,
