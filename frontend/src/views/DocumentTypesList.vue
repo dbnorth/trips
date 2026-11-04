@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import DocumentTypeServices from "../services/documentTypeServices.js";
 import DocumentTypeFormDialog from "../components/DocumentTypeFormDialog.vue";
-import { documentTypeLabel } from "../utils/documentTypes.js";
+import { documentTypeLabel, expirationCheckLabel } from "../utils/documentTypes.js";
 import Utils from "../config/utils.js";
 import RowAction from "../components/RowAction.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
@@ -151,11 +151,13 @@ onUnmounted(() => {
       :headers="[
         { title: 'Description', key: 'description' },
         { title: 'Type', key: 'type' },
+        { title: 'Expiration check', key: 'expirationCheck' },
         { title: 'Actions', key: 'actions', sortable: false },
       ]"
       density="compact"
     >
       <template #item.type="{ item }">{{ documentTypeLabel(item.type) }}</template>
+      <template #item.expirationCheck="{ item }">{{ expirationCheckLabel(item) }}</template>
       <template #item.actions="{ item }">
         <div class="d-flex flex-nowrap ga-1">
           <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />

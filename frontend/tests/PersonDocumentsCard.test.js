@@ -138,6 +138,7 @@ describe("Feature 22 — Document number & instructions", () => {
       documentNumberRequired: true,
       allowSpecialization: false,
       hasExpirationDate: true,
+      expirationCheck: "trip_end",
       instructions: "Bring original.",
       specializations: [],
       orgId: 3,

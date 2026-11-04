@@ -79,6 +79,7 @@ const createDoctorPermissionType = (orgId, hasExpirationDate = false) =>
     type: "doctor_permission",
     description: "Doctor clearance letter",
     hasExpirationDate,
+    expirationCheck: hasExpirationDate ? "trip_end_on_or_after" : "trip_end",
   });
 
 const apply = (ana, tripId, body) =>
@@ -264,7 +265,7 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
       expect(mine.status).toBe(200);
       const myTrip = mine.body.find((t) => Number(t.id) === Number(trip.id));
       expect(myTrip.nextActions).toEqual([
-        { code: "upload-documents", missingDocuments: ["Doctor Permission"] },
+        { code: "upload-documents", missingDocuments: ["Doctor Permission"], dueDate: expect.any(String) },
       ]);
     });
   });

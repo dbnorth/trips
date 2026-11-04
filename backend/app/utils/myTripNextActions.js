@@ -75,6 +75,107 @@ const missingDocumentNames = async ({ assignment, trip, personDocuments }) => {
   return names;
 };
 
+/** Documents one trip requires of the person, each `{ name, uploaded, missingText }`, in display order. */
+export const requiredTripDocuments = async ({ assignment, trip, personDocuments }) => {
+  const compareDate = tripDocumentCompareDate(trip);
+  const { requiredDocumentTypes = [], requiredSpecializations } =
+    await loadWorkerRoleDocumentRequirements(assignment.tripWorkerRoleId);
+  const missingIds = new Set(
+    missingRequiredRoleDocuments({
+      documents: personDocuments,
+      requiredDocumentTypes,
+      compareDate,
+      requiredSpecializations,
+    }).map((docType) => Number(docType.id))
+  );
+  const documents = requiredDocumentTypes.map((docType) => {
+    const uploaded = !missingIds.has(Number(docType.id));
+    return {
+      name: docType.description || docType.name || "Required document",
+      uploaded,
+      missingText: uploaded
+        ? null
+        : requiredRoleDocumentMessage(docType, { documents: personDocuments, compareDate, requiredSpecializations }),
+    };
+  });
+  const roleLists = (type) =>
+    requiredDocumentTypes.some((docType) => String(docType.type || "").toLowerCase() === type);
+  if (trip.requirePassport && !roleLists("passport")) {
+    const uploaded = isRequiredPassportUploaded({ documents: personDocuments, requirePassport: true, compareDate });
+    documents.push({ name: "Passport", uploaded, missingText: uploaded ? null : "Passport" });
+  }
+  if (
+    assignment.isPregnant === true &&
+    !roleLists("doctor_permission") &&
+    (await loadDoctorPermissionTypes(trip.orgId)).length > 0
+  ) {
+    const uploaded = isDoctorPermissionUploaded({
+      documents: personDocuments,
+      isPregnant: true,
+      doctorPermissionRequired: true,
+      compareDate,
+    });
+    documents.push({ name: "Doctor Permission", uploaded, missingText: uploaded ? null : "Doctor Permission" });
+  }
+  return documents;
+};
+
+const DOCUMENTS_DUE_DAYS_BEFORE = 90;
+
+const daysBefore = (ymd, days) => {
+  const [y, m, d] = String(ymd).slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d - days)).toISOString().slice(0, 10);
+};
+
+/** The trip's documents due date (`YYYY-MM-DD`, 90 days before the start date), or null without a start date. */
+export const documentsDueDate = (trip) =>
+  trip?.startDate ? daysBefore(trip.startDate, DOCUMENTS_DUE_DAYS_BEFORE) : null;
+
+/** One assignment's missing documents by the `upload-documents` rule. */
+export const loadMissingTripDocuments = async (assignment, trip) =>
+  missingDocumentNames({
+    assignment,
+    trip,
+    personDocuments: await loadPersonDocumentsForCompleteness(assignment.peopleId),
+  });
+
+/** The person's upcoming trips in any organization, with the documents each requires (Feature 112). */
+export const loadMyTripDocuments = async (peopleId) => {
+  if (!peopleId) return [];
+  const assignments = await db.tripPeopleRole.findAll({
+    where: { peopleId, status: { [db.Sequelize.Op.in]: ["incomplete", "pre_approved", "approved"] } },
+    include: [
+      {
+        model: db.trip,
+        as: "trip",
+        required: true,
+        where: { startDate: { [db.Sequelize.Op.gte]: todayDateOnly() } },
+      },
+    ],
+    order: [
+      [{ model: db.trip, as: "trip" }, "startDate", "ASC"],
+      [{ model: db.trip, as: "trip" }, "name", "ASC"],
+    ],
+  });
+  if (!assignments.length) return [];
+  const personDocuments = await loadPersonDocumentsForCompleteness(peopleId);
+  const trips = [];
+  for (const assignment of assignments) {
+    const trip = assignment.trip;
+    const documents = await requiredTripDocuments({ assignment, trip, personDocuments });
+    if (!documents.length) continue;
+    const startDate = String(trip.startDate).slice(0, 10);
+    trips.push({
+      tripId: trip.id,
+      tripName: trip.name,
+      startDate,
+      dueDate: daysBefore(startDate, DOCUMENTS_DUE_DAYS_BEFORE),
+      documents,
+    });
+  }
+  return trips;
+};
+
 const travelOptionsMessageFor = async (tripId, tripPeopleRoleId) => {
   const options = await db.tripTravelOption.findAll({
     where: { tripId },
@@ -156,7 +257,7 @@ const flightSegmentCount = async (tripPeopleRoleId) => {
 export const loadMyTripNextActions = async (assignment, trip, cache = {}) => {
   if (!trip?.startDate || String(trip.startDate) < todayDateOnly()) return [];
 
-  if (assignment.status === "incomplete" || assignment.status === "pre_approved") {
+  if (assignment.status === "pre_approved") {
     if (!cache.personDocuments) {
       cache.personDocuments = await loadPersonDocumentsForCompleteness(assignment.peopleId);
     }
@@ -165,17 +266,31 @@ export const loadMyTripNextActions = async (assignment, trip, cache = {}) => {
       trip,
       personDocuments: cache.personDocuments,
     });
-    if (assignment.status === "pre_approved") {
-      return missingDocuments.length
-        ? [{ code: "upload-documents", missingDocuments }]
-        : [{ code: "wait-approval" }];
-    }
+    return missingDocuments.length
+      ? [
+          {
+            code: "upload-documents",
+            missingDocuments,
+            dueDate: daysBefore(trip.startDate, DOCUMENTS_DUE_DAYS_BEFORE),
+          },
+        ]
+      : [{ code: "wait-approval" }];
+  }
+
+  if (assignment.status === "incomplete") {
     if (cache.person === undefined) {
       cache.person = await loadPersonForCompleteness(assignment.peopleId);
     }
     const missingItems = await missingNonDocumentItems(assignment, trip, cache.person);
     if (!missingItems.length) return [{ code: "submit-application" }];
-    return [{ code: "complete-application", missingDocuments }];
+    const profileIncomplete = !isProfileComplete(cache.person, { orgId: trip.orgId });
+    return [
+      {
+        code: "complete-application",
+        applicationIncomplete: missingItems.length > (profileIncomplete ? 1 : 0),
+        profileIncomplete,
+      },
+    ];
   }
 
   if (assignment.status !== "approved") return [];

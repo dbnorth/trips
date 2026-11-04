@@ -8,6 +8,9 @@ const SPECIALIZATION_NAME_MAX = 100;
 const DOCUMENT_TYPES = ["medical_license", "passport", "certification", "diploma", "doctor_permission"];
 const DOCUMENT_TYPE_MESSAGE =
   "Type must be medical_license, passport, certification, diploma, or doctor_permission.";
+const EXPIRATION_CHECKS = ["trip_end", "trip_end_on_or_after", "trip_end_90", "trip_end_180"];
+const EXPIRATION_CHECK_MESSAGE =
+  "Expiration check must be trip_end, trip_end_on_or_after, trip_end_90, or trip_end_180.";
 
 const requireOrgAdmin = (req, res, orgId) => {
   if (!isOrgAdminForOrg(req, orgId)) {
@@ -49,6 +52,9 @@ const pickPayload = (body) => {
       body.hasExpirationDate === 1 ||
       body.hasExpirationDate === "1";
   }
+  if (Object.prototype.hasOwnProperty.call(body, "expirationCheck")) {
+    payload.expirationCheck = body.expirationCheck;
+  }
   if (Object.prototype.hasOwnProperty.call(body, "instructions")) {
     const val = body.instructions;
     if (val == null) payload.instructions = null;
@@ -60,6 +66,18 @@ const pickPayload = (body) => {
     }
   }
   return payload;
+};
+
+/** Validate `payload.expirationCheck`; a type without an expiration date always stores `trip_end`. */
+const applyExpirationCheck = (payload, hasExpirationDate) => {
+  if (
+    Object.prototype.hasOwnProperty.call(payload, "expirationCheck") &&
+    !EXPIRATION_CHECKS.includes(payload.expirationCheck)
+  ) {
+    return EXPIRATION_CHECK_MESSAGE;
+  }
+  if (!hasExpirationDate) payload.expirationCheck = "trip_end";
+  return null;
 };
 
 /** Submitted specialization list as [{ id, name }], or { error }; undefined when not sent. */
@@ -203,6 +221,8 @@ exports.create = async (req, res) => {
         message: DOCUMENT_TYPE_MESSAGE,
       });
     }
+    const expirationCheckError = applyExpirationCheck(payload, payload.hasExpirationDate ?? true);
+    if (expirationCheckError) return res.status(400).send({ message: expirationCheckError });
     const specializations = parseSpecializations(req.body);
     if (specializations?.error) return res.status(400).send({ message: specializations.error });
     const list = specializations?.list || [];
@@ -219,6 +239,7 @@ exports.create = async (req, res) => {
           documentNumberRequired: payload.documentNumberRequired ?? false,
           allowSpecialization: payload.allowSpecialization ?? false,
           hasExpirationDate: payload.hasExpirationDate ?? true,
+          expirationCheck: payload.expirationCheck ?? "trip_end",
           instructions: Object.prototype.hasOwnProperty.call(payload, "instructions")
             ? payload.instructions
             : null,
@@ -257,6 +278,11 @@ exports.update = async (req, res) => {
         message: DOCUMENT_TYPE_MESSAGE,
       });
     }
+    const expirationCheckError = applyExpirationCheck(
+      payload,
+      payload.hasExpirationDate ?? row.hasExpirationDate
+    );
+    if (expirationCheckError) return res.status(400).send({ message: expirationCheckError });
     const specializations = parseSpecializations(req.body);
     if (specializations?.error) return res.status(400).send({ message: specializations.error });
     if (specializations || Object.prototype.hasOwnProperty.call(payload, "allowSpecialization")) {

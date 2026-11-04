@@ -11,6 +11,12 @@ import {
 import { buildTemplateMessage, sendTemplateEmail } from "../utils/emailDelivery.js";
 import { cleanEmailBody, emailBodyIsBlank, pictureRuleError } from "../utils/emailHtml.js";
 import { loadParticipantFlight } from "../utils/emailTokenValues.js";
+import {
+  recordScheduledSend,
+  scheduledRecipients,
+  scheduledTemplatesForTrip,
+  todayInTimeZone,
+} from "../utils/scheduledEmails.js";
 
 const Op = db.Sequelize.Op;
 const FUNCTION_CODE = "Trip Participant";
@@ -34,10 +40,14 @@ const tripTemplatesWhere = (trip) => ({
 const canEmailTeam = (req, trip) =>
   isSystemAdmin(req) || isOrgAdminForOrg(req, trip.orgId) || isTripLeaderForTrip(req, trip.id);
 
-/** Email team (Feature 46): any Trip Participant template, trip staff only. */
+/**
+ * Email team (Feature 46): any Trip Participant template, plus the trip's Scheduled templates
+ * sent to the people their rule picks (Feature 114); trip staff only.
+ */
 const TEAM_EMAIL = {
   canSend: canEmailTeam,
   templatesWhere: async (trip) => tripTemplatesWhere(trip),
+  scheduledTemplates: scheduledTemplatesForTrip,
   templateError: "Choose a Trip Participant template for this trip.",
   skipReason: async () => null,
 };
@@ -74,12 +84,36 @@ const personName = (person) =>
 
 const badRequest = (message) => ({ error: { status: 400, message } });
 
+const findScheduledTemplate = async (kind, trip, id) =>
+  kind.scheduledTemplates
+    ? (await kind.scheduledTemplates(trip)).find((t) => t.id === Number(id)) ?? null
+    : null;
+
+/** The people a Scheduled template goes to for `sendTo` `rule` or `selected`. */
+const readScheduledPeople = async (trip, template, body) => {
+  if (body.sendTo !== "rule" && body.sendTo !== "selected") {
+    return badRequest("Send to must be rule or selected for a scheduled template.");
+  }
+  let people = await scheduledRecipients(trip, template);
+  if (body.sendTo === "selected") {
+    const ids = Array.isArray(body.personIds) ? body.personIds.map(Number) : [];
+    const ruleIds = new Set(people.map((p) => p.id));
+    if (!ids.length) return badRequest("Choose at least one participant.");
+    if (ids.some((id) => !ruleIds.has(id))) {
+      return badRequest("Selected participants must be participants this email is for.");
+    }
+    people = people.filter((p) => ids.includes(p.id));
+  }
+  if (!people.length) return badRequest("No participants to send to.");
+  return { people };
+};
+
 /** Validate a preview or send body: the template, edited subject and body, and the recipients' people. */
 const readTeamEmailRequest = async (kind, trip, body) => {
   const template = body.emailTemplateId
-    ? await db.emailTemplate.findOne({
+    ? (await db.emailTemplate.findOne({
         where: { id: Number(body.emailTemplateId), ...(await kind.templatesWhere(trip)) },
-      })
+      })) ?? (await findScheduledTemplate(kind, trip, body.emailTemplateId))
     : null;
   if (!template) return badRequest(kind.templateError);
 
@@ -89,6 +123,12 @@ const readTeamEmailRequest = async (kind, trip, body) => {
   if (emailBodyIsBlank(emailBody)) return badRequest("Email body is required.");
   const pictureError = await pictureRuleError(emailBody, trip.orgId);
   if (pictureError) return badRequest(pictureError);
+
+  if (template.functionCode === "Scheduled") {
+    const scheduled = await readScheduledPeople(trip, template, body);
+    if (scheduled.error) return scheduled;
+    return { template, subject, emailBody, people: scheduled.people, scheduled: true };
+  }
 
   const sendTo = SEND_TO[body.sendTo];
   if (!sendTo) return badRequest("Send to must be potential, accepted, or selected.");
@@ -132,14 +172,17 @@ const findTemplates = (kind) => async (req, res) => {
   try {
     const trip = await loadTripForEmail(kind, req, res);
     if (!trip) return;
-    const data = await db.emailTemplate.findAll({
-      where: await kind.templatesWhere(trip),
-      attributes: ["id", "tripId", "subject", "emailBody", "fromEmail", "emailTypeId"],
-      order: [
-        ["subject", "ASC"],
-        ["id", "ASC"],
-      ],
-    });
+    const attributes = ["id", "tripId", "subject", "emailBody", "fromEmail", "emailTypeId", "functionCode"];
+    const templates = [
+      ...(await db.emailTemplate.findAll({ where: await kind.templatesWhere(trip), attributes })),
+      ...(kind.scheduledTemplates ? await kind.scheduledTemplates(trip) : []),
+    ];
+    const data = templates
+      .map((template) => Object.fromEntries(attributes.map((key) => [key, template[key]])))
+      .sort(
+        (a, b) =>
+          String(a.subject).localeCompare(String(b.subject), undefined, { sensitivity: "base" }) || a.id - b.id
+      );
     res.send(data);
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -185,11 +228,18 @@ const send = (kind) => async (req, res) => {
 
     const counts = { sent: 0, skipped: 0, failed: 0 };
     const results = [];
+    const sendDate = todayInTimeZone(process.env.SCHEDULED_EMAIL_TIMEZONE || "America/Chicago");
     for (const person of request.people) {
       const skipReason = await kind.skipReason(trip, person);
       const result = skipReason
         ? { status: "skipped", reason: skipReason }
         : await sendTemplateEmail(messageOptions(trip, request, person));
+      if (request.scheduled) {
+        await recordScheduledSend(
+          { emailTemplateId: request.template.id, tripId: trip.id, personId: person.id, sendDate },
+          result
+        );
+      }
       counts[result.status] += 1;
       results.push({
         personId: person.id,
@@ -199,6 +249,21 @@ const send = (kind) => async (req, res) => {
       });
     }
     res.send({ ...counts, results });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.findScheduledRecipients = async (req, res) => {
+  try {
+    const trip = await loadTripForEmail(TEAM_EMAIL, req, res);
+    if (!trip) return;
+    const template = await findScheduledTemplate(TEAM_EMAIL, trip, req.params.templateId);
+    if (!template) return res.status(400).send({ message: "Choose a scheduled template for this trip." });
+    const people = await scheduledRecipients(trip, template);
+    res.send(
+      people.map(({ id, firstName, lastName, email }) => ({ id, firstName, lastName, email }))
+    );
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

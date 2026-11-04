@@ -10,6 +10,7 @@ import PhoneCountryCodeInput from "./PhoneCountryCodeInput.vue";
 import AddressFields from "./AddressFields.vue";
 import PersonProfileFields from "./PersonProfileFields.vue";
 import PersonDocumentsCard from "./PersonDocumentsCard.vue";
+import MyTripDocuments from "./MyTripDocuments.vue";
 import Utils from "../config/utils.js";
 import { formatPhoneForDisplay, formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
 import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
@@ -39,6 +40,7 @@ const newOrgRole = ref({ orgId: null, roleId: null });
 const { formError, formNotice, prepareSave, onLoadStart, onLoadSuccess, handleSaveError } =
   useVersionConflictForm();
 const formRef = ref(null);
+const myTripDocumentsRef = ref(null);
 const form = ref(emptyForm());
 const preferredNameEdited = ref(false);
 
@@ -623,7 +625,9 @@ const save = async () => {
               @update:model-value="onPictureSelected"
             />
           </div>
-          <PersonDocumentsCard v-if="form.id" :person-id="form.id" />
+          <PersonDocumentsCard v-if="form.id" :person-id="form.id" @saved="myTripDocumentsRef?.load()">
+            <MyTripDocuments v-if="isSelfProfile" ref="myTripDocumentsRef" />
+          </PersonDocumentsCard>
           </v-form>
 
           <template v-if="canManageOrgRoles">

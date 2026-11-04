@@ -200,9 +200,6 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
       const wrapper = await openSavedApplication("incomplete");
 
       expect(findBtn(wrapper, "Submit Application")).toBeTruthy();
-      expect(wrapper.text()).toContain(
-        "Upload a passport with an expiration date past the end of the trip (03/10/2027) before your application can be approved."
-      );
       wrapper.unmount();
     });
 

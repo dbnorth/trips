@@ -3,6 +3,7 @@ import db from "../models/index.js";
 import logger from "../config/logger.js";
 import { ROLE_TRIP_PARTICIPANT } from "../authorization/accessControl.js";
 import { sendTemplateEmail } from "./emailDelivery.js";
+import { loadMissingTripDocuments } from "./myTripNextActions.js";
 import {
   buildTokenValues,
   participantAmounts,
@@ -50,6 +51,8 @@ const isApproved = (assignment) => assignment.status === "approved";
 /** Which trip participants receive each email type, keyed by the email type's event code. */
 const RECIPIENT_RULES = {
   "application-incomplete": async (trip, assignment) => assignment.status === "incomplete",
+  "documents-missing": async (trip, assignment) =>
+    assignment.status === "pre_approved" && (await loadMissingTripDocuments(assignment, trip)).length > 0,
   "deposit-due": async (trip, assignment) => {
     const deposit = Number(trip.deposit);
     if (!isApproved(assignment) || !(deposit > 0)) return false;
@@ -76,6 +79,56 @@ const templatesForTrip = (templates, trip) => {
       !tripTypeIds.has(t.emailTypeId)
   );
   return [...tripTemplates, ...orgTemplates];
+};
+
+/** The trip's Scheduled templates whose email type has a recipient rule, the trip's own over its organization's. */
+export const scheduledTemplatesForTrip = async (trip) => {
+  const templates = await db.emailTemplate.findAll({
+    where: {
+      functionCode: "Scheduled",
+      [Op.or]: [{ tripId: trip.id }, { tripId: null, orgId: trip.orgId }],
+    },
+    include: [
+      {
+        model: db.emailType,
+        attributes: ["id", "description", "eventCode"],
+        where: { eventCode: Object.keys(RECIPIENT_RULES) },
+      },
+    ],
+  });
+  return templatesForTrip(templates, trip);
+};
+
+/** The people on the trip that a Scheduled template's recipient rule picks now, each once, by assignment. */
+export const scheduledRecipients = async (tripRef, template) => {
+  const isRecipient = RECIPIENT_RULES[template.emailType?.eventCode];
+  const participantRole = await db.role.findOne({ where: { roleName: ROLE_TRIP_PARTICIPANT } });
+  const trip = await db.trip.findByPk(tripRef.id);
+  if (!isRecipient || !participantRole || !trip) return [];
+  const assignments = await db.tripPeopleRole.findAll({
+    where: { tripId: trip.id, roleId: participantRole.id },
+    include: [{ model: db.person, as: "person" }],
+    order: [["id", "ASC"]],
+  });
+  const people = new Map();
+  for (const assignment of assignments) {
+    if (!assignment.person || people.has(assignment.person.id)) continue;
+    if (await isRecipient(trip, assignment)) people.set(assignment.person.id, assignment.person);
+  }
+  return [...people.values()];
+};
+
+/** Record one send of a Scheduled template for a person on a date, updating that day's row when there is one. */
+export const recordScheduledSend = async ({ emailTemplateId, tripId, personId, sendDate }, result) => {
+  const key = { emailTemplateId, tripId, personId, sendDate };
+  const fields = {
+    status: result.status,
+    reason: result.reason ? String(result.reason).slice(0, 1000) : null,
+    emailLogId: result.emailLogId ?? null,
+  };
+  const existing = await db.scheduledEmailSend.findOne({ where: key });
+  if (existing) await existing.update(fields);
+  else await db.scheduledEmailSend.create({ ...key, ...fields });
 };
 
 const describeEmail = async (date, trip, template, assignment) => {

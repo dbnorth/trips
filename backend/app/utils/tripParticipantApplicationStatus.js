@@ -89,11 +89,33 @@ export const arePersonDocumentsUploaded = (documents = []) =>
     (doc) => doc.documentFileName && String(doc.documentFileName).trim() !== ""
   );
 
+const EXPIRATION_CHECK_DAYS = { trip_end_90: 90, trip_end_180: 180 };
+
+const expirationCheckDays = (docType) => EXPIRATION_CHECK_DAYS[docType?.expirationCheck] || 0;
+const isOnOrAfterCheck = (docType) => docType?.expirationCheck === "trip_end_on_or_after";
+
+/** The date a document of this type is checked against for a trip compare date (Feature 115). */
+export const documentCheckDate = (docType, compareDate) => {
+  const days = expirationCheckDays(docType);
+  if (!compareDate || !days) return compareDate || null;
+  const [y, m, d] = String(compareDate).slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+};
+
+/**
+ * Whether an expiration date meets its type's check: after the check date, or on or after it for
+ * the on-or-after check.
+ */
+const expiresInTime = (expirationDate, docType, compareDate) => {
+  const checkDate = documentCheckDate(docType, compareDate);
+  return isOnOrAfterCheck(docType) ? expirationDate >= checkDate : expirationDate > checkDate;
+};
+
 const meetsRoleDocumentRule = (doc, compareDate) => {
   if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
   if (!compareDate || doc.documentType?.hasExpirationDate === false) return true;
   const expirationDate = String(doc.expirationDate || "").slice(0, 10);
-  return !!expirationDate && expirationDate > compareDate;
+  return !!expirationDate && expiresInTime(expirationDate, doc.documentType, compareDate);
 };
 
 /**
@@ -152,6 +174,14 @@ const joinWords = (items) => {
 const specializationText = (names) =>
   `the ${joinWords(names)} specialization${names.length > 1 ? "s" : ""}`;
 
+/** "after 03/22/2027", "on or after 03/22/2027", or "after 06/20/2027 (90 days after the trip ends)". */
+const expirationRuleText = (docType, compareDate) => {
+  const checkDate = formatDocumentDate(documentCheckDate(docType, compareDate));
+  const days = expirationCheckDays(docType);
+  if (days) return `after ${checkDate} (${days} days after the trip ends)`;
+  return isOnOrAfterCheck(docType) ? `on or after ${checkDate}` : `after ${checkDate}`;
+};
+
 /**
  * What is missing for one unmet required document type, from the person's closest document of
  * the type (fewest problems, ties → most recently added), e.g.
@@ -171,7 +201,7 @@ export const requiredRoleDocumentMessage = (
   if (!ofType.length) {
     const expires = !!compareDate && docType?.hasExpirationDate !== false;
     let text = `${name}: add this document`;
-    if (expires) text += ` with an expiration date after ${formatDocumentDate(compareDate)}`;
+    if (expires) text += ` with an expiration date ${expirationRuleText(docType, compareDate)}`;
     if (needed.length) {
       text += `${expires ? " and" : " with"} ${specializationText(needed.map((s) => s.name))} selected`;
     }
@@ -185,12 +215,13 @@ export const requiredRoleDocumentMessage = (
       parts.push("upload the file");
     }
     if (compareDate && doc.documentType?.hasExpirationDate !== false) {
+      const rule = { expirationCheck: doc.documentType?.expirationCheck ?? docType?.expirationCheck };
       const expirationDate = String(doc.expirationDate || "").slice(0, 10);
       if (!expirationDate) {
-        parts.push(`add an expiration date after ${formatDocumentDate(compareDate)}`);
-      } else if (expirationDate <= compareDate) {
+        parts.push(`add an expiration date ${expirationRuleText(rule, compareDate)}`);
+      } else if (!expiresInTime(expirationDate, rule, compareDate)) {
         parts.push(
-          `the expiration date ${formatDocumentDate(expirationDate)} must be after ${formatDocumentDate(compareDate)}`
+          `the expiration date ${formatDocumentDate(expirationDate)} must be ${expirationRuleText(rule, compareDate)}`
         );
       }
     }
@@ -276,7 +307,7 @@ export const isRequiredPassportUploaded = ({
     if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
     if (!compareDate || doc.documentType?.hasExpirationDate === false) return true;
     const expirationDate = String(doc.expirationDate || "").slice(0, 10);
-    return expirationDate && expirationDate > compareDate;
+    return !!expirationDate && expiresInTime(expirationDate, doc.documentType, compareDate);
   });
 };
 
@@ -292,8 +323,9 @@ export const loadDoctorPermissionTypes = async (orgId) => {
 
 /**
  * A pregnant applicant on a trip that requires it needs a doctor_permission-type document with a
- * file. A document with an expiration date counts for trips ending on or before it; one without
- * counts only when its type has no expiration date.
+ * file. When its type has an expiration date, the document's expiration date must meet the type's
+ * expiration check. Otherwise the file is enough, unless the application upload stamped the
+ * document with the trip end date, which then counts for trips ending on or before it.
  */
 export const isDoctorPermissionUploaded = ({
   documents = [],
@@ -307,8 +339,8 @@ export const isDoctorPermissionUploaded = ({
     if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
     if (!compareDate) return true;
     const expirationDate = String(doc.expirationDate || "").slice(0, 10);
-    if (expirationDate) return expirationDate >= compareDate;
-    return doc.documentType?.hasExpirationDate === false;
+    if (doc.documentType?.hasExpirationDate === false) return !expirationDate || expirationDate >= compareDate;
+    return !!expirationDate && expiresInTime(expirationDate, doc.documentType, compareDate);
   });
 };
 
@@ -478,7 +510,7 @@ export const loadPersonDocumentsForCompleteness = async (peopleId) => {
       {
         model: db.documentType,
         as: "documentType",
-        attributes: ["id", "type", "hasExpirationDate"],
+        attributes: ["id", "type", "hasExpirationDate", "expirationCheck"],
       },
       {
         model: db.personDocumentSpecialization,
@@ -507,7 +539,7 @@ export const loadWorkerRoleDocumentRequirements = async (tripWorkerRoleId) => {
           {
             model: db.documentType,
             as: "requiredDocumentTypes",
-            attributes: ["id", "description", "type", "hasExpirationDate", "allowSpecialization"],
+            attributes: ["id", "description", "type", "hasExpirationDate", "expirationCheck", "allowSpecialization"],
             through: { attributes: [] },
           },
           {

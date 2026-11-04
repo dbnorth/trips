@@ -110,6 +110,14 @@ const tripFields = [
   "requirePassport",
 ];
 
+const prepStatusFor = ({ unfilledRoles, totalParticipantCost, donationTotal, prep }) => ({
+  rolesFilled: unfilledRoles.length === 0,
+  participantsApproved: !!prep.participantsApproved,
+  fundsRaised: Number(totalParticipantCost) <= Number(donationTotal),
+  flightsEntered: !!prep.flightsEntered,
+  roomListComplete: !!prep.roomListComplete,
+});
+
 const exports = {};
 
 exports.findAll = async (req, res) => {
@@ -145,13 +153,7 @@ exports.findAll = async (req, res) => {
           unfilledRoles,
           totalParticipantCost,
           donationTotal,
-          prepStatus: {
-            rolesFilled: unfilledRoles.length === 0,
-            participantsApproved: !!prep.participantsApproved,
-            fundsRaised: Number(totalParticipantCost) <= Number(donationTotal),
-            flightsEntered: !!prep.flightsEntered,
-            roomListComplete: !!prep.roomListComplete,
-          },
+          prepStatus: prepStatusFor({ unfilledRoles, totalParticipantCost, donationTotal, prep }),
         };
       })
     );
@@ -398,7 +400,17 @@ exports.findStatus = async (req, res) => {
       });
     }
 
+    const tripIdNumber = Number(tripJson.id);
+    const roleTotals = (await getTripRoleTotalsByTripIds([tripIdNumber])).get(tripIdNumber);
+    const prepStatus = prepStatusFor({
+      unfilledRoles: roleTotals?.unfilledRoles || [],
+      totalParticipantCost: (await getActiveParticipantTotalCostsByTripIds([tripJson])).get(tripIdNumber) || 0,
+      donationTotal: (await getDonationTotalsByTripIds([tripIdNumber])).get(tripIdNumber) || 0,
+      prep: (await getTripPrepByTripIds([tripIdNumber])).get(tripIdNumber) || {},
+    });
+
     res.send({
+      prepStatus,
       trip: {
         id: tripJson.id,
         name: tripJson.name,

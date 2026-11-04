@@ -26,6 +26,8 @@ import PersonServices from "../services/personServices.js";
 import RowAction from "../components/RowAction.vue";
 import { formatDate as formatDateText } from "../utils/dateFormat.js";
 import { tripParticipantStatusLabel } from "../utils/tripParticipantStatus.js";
+import { flightBookedByLabel } from "../utils/flightBookedBy.js";
+import { prepItems, prepComplete } from "../utils/tripPrep.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -36,11 +38,11 @@ const router = useRouter();
 
 const tripId = computed(() => props.tripId ?? route.params.tripId);
 
-const openTripStatus = () =>
-  router.push({ name: "tripStatus", params: { tripId: tripId.value } });
-
 const trip = ref(null);
 const participants = ref([]);
+const statusByParticipantId = ref(new Map());
+const prepStatus = ref(null);
+const tripReady = computed(() => prepComplete(prepStatus.value));
 const donations = ref([]);
 const loading = ref(false);
 const message = ref("");
@@ -66,6 +68,7 @@ const showDonations = ref(false);
 const donationsParticipant = ref(null);
 const teamRolesRefreshKey = ref(0);
 const travelOptions = ref([]);
+const tripOptionsExpanded = ref(false);
 
 const bumpTeamRoles = () => {
   teamRolesRefreshKey.value += 1;
@@ -97,13 +100,47 @@ const participantName = (row) => {
 };
 
 const participantItems = computed(() =>
-  (participants.value || []).map((row) => ({
-    ...row,
-    name: participantName(row),
-    roleName: row.role?.roleName || "",
-    workerRoleName: row.tripWorkerRole?.workerRole?.name || "",
-  }))
+  (participants.value || []).map((row) => {
+    const status = statusByParticipantId.value.get(Number(row.id));
+    const selectedIds = (status?.selectedTravelOptionIds || []).map(Number);
+    const item = {
+      ...row,
+      name: participantName(row),
+      roleLabel: [
+        row.role?.roleName === "Trip Leader" ? "Trip Leader" : null,
+        row.tripWorkerRole?.workerRole?.name,
+      ]
+        .filter(Boolean)
+        .join(", "),
+      bookedBy: flightBookedByLabel(row.flightPurchaseOption, trip.value?.organization?.name),
+      missingItems: status?.missingItems || [],
+      amountOwed: status?.amountOwed ?? null,
+    };
+    for (const option of travelOptions.value) {
+      item[`opt_${option.id}`] = selectedIds.includes(Number(option.id)) ? "Yes" : "—";
+    }
+    return item;
+  })
 );
+
+const participantHeaders = computed(() => [
+  { title: "Name", key: "name", fixed: "start" },
+  { title: "Role", key: "roleLabel" },
+  { title: "Status", key: "status" },
+  { title: "Arrives", key: "arrivalDate" },
+  { title: "Departs", key: "departureDate" },
+  { title: "Booked by", key: "bookedBy" },
+  { title: "Missing items", key: "missingItems", sortable: false },
+  { title: "Total cost", key: "totalTripCost" },
+  { title: "Total donations", key: "donationTotal" },
+  { title: "Amount owed", key: "amountOwed" },
+  ...travelOptions.value.map((option) => ({
+    title: `${option.description || "Option"}${option.setNumber != null ? ` (Set ${option.setNumber})` : ""}`,
+    key: `opt_${option.id}`,
+    sortable: false,
+  })),
+  { title: "Actions", key: "actions", sortable: false, fixed: "end" },
+]);
 
 const participantPictureUrl = (row) => PersonServices.getPictureUrl(row?.person?.picture);
 
@@ -112,10 +149,26 @@ const loadTrip = () =>
     trip.value = r.data || null;
   });
 
+const loadParticipantStatus = async () => {
+  try {
+    const r = await TripServices.getStatus(tripId.value);
+    statusByParticipantId.value = new Map(
+      (r.data?.participants || []).map((row) => [Number(row.id), row])
+    );
+    prepStatus.value = r.data?.prepStatus || null;
+  } catch {
+    statusByParticipantId.value = new Map();
+    prepStatus.value = null;
+  }
+};
+
 const loadParticipants = () =>
-  TripPeopleRoleServices.getAll(tripId.value).then((r) => {
-    participants.value = r.data || [];
-  });
+  Promise.all([
+    TripPeopleRoleServices.getAll(tripId.value).then((r) => {
+      participants.value = r.data || [];
+    }),
+    loadParticipantStatus(),
+  ]);
 
 const loadDonations = () =>
   DonationServices.getAll(tripId.value).then((r) => {
@@ -280,10 +333,6 @@ const formatDonationTotal = (row) => formatMoneyDisplay(row.donationTotal ?? 0) 
 
 const formatParticipantCost = (value) =>
   value != null ? formatMoneyDisplay(value) : "—";
-
-const rowParticipantCost = (row) =>
-  formatParticipantCost(row.participantCost ?? trip.value?.participantCost);
-
 const onDonationsChanged = () => {
   loadParticipants();
   loadDonations();
@@ -340,7 +389,6 @@ onMounted(refresh);
         <h1 class="text-h5">{{ trip?.name || "Trip" }}</h1>
       </div>
       <div class="d-flex align-center ga-2">
-        <v-btn v-if="trip" variant="tonal" @click="openTripStatus">Trip Status</v-btn>
         <v-btn v-if="trip" variant="tonal" @click="showEditTrip = true">Edit trip</v-btn>
         <v-btn v-if="trip" variant="tonal" @click="showTeamEmail = true">Email team</v-btn>
       </div>
@@ -376,6 +424,30 @@ onMounted(refresh);
       </v-card-text>
     </v-card>
 
+    <v-card v-if="trip && prepStatus" class="mb-6 pa-4" data-testid="trip-readiness">
+      <h2
+        class="text-h6 d-flex align-center ga-2 mb-2"
+        :class="tripReady ? 'text-success' : 'text-error'"
+        data-testid="trip-readiness-title"
+      >
+        <v-icon :icon="tripReady ? 'mdi-check-circle' : 'mdi-alert-circle'" />
+        {{ tripReady ? "Trip Ready" : "Trip Not Ready" }}
+      </h2>
+      <div data-testid="trip-readiness-list">
+        <div v-for="prep in prepItems" :key="prep.key" class="d-flex align-center ga-1">
+          <v-icon
+            :icon="prepStatus[prep.key] ? 'mdi-check-circle' : 'mdi-close-circle'"
+            :color="prepStatus[prep.key] ? 'success' : 'error'"
+            size="small"
+            role="img"
+            :aria-hidden="false"
+            :aria-label="prepStatus[prep.key] ? 'Complete' : 'Not complete'"
+          />
+          <span>{{ prep.label }}</span>
+        </div>
+      </div>
+    </v-card>
+
     <v-card v-if="trip" variant="tonal" class="mb-6 pa-4">
       <v-row dense>
         <v-col cols="12" sm="6" md="3">
@@ -406,40 +478,57 @@ onMounted(refresh);
     />
 
     <v-card v-if="trip" class="mb-6 pa-4">
-      <h2 class="text-h6 mb-3">Trip options</h2>
-      <v-alert
-        v-if="!travelOptionGroups.length"
-        type="info"
-        density="compact"
-        class="mb-0"
-      >
-        No trip options configured for this trip.
-      </v-alert>
-      <div v-else>
-        <div
-          v-for="group in travelOptionGroups"
-          :key="group.setNumber"
-          class="mb-4"
+      <h2 class="text-h6 ma-0">
+        <button
+          type="button"
+          class="section-toggle d-flex align-center ga-2 w-100"
+          :aria-expanded="tripOptionsExpanded ? 'true' : 'false'"
+          aria-controls="trip-options-content"
+          data-testid="trip-options-toggle"
+          @click="tripOptionsExpanded = !tripOptionsExpanded"
         >
-          <div class="text-subtitle-2 font-weight-bold mb-2">
-            Trip Option {{ group.setNumber }}
+          <span>Trip options</span>
+          <v-spacer />
+          <v-icon :icon="tripOptionsExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="small" />
+        </button>
+      </h2>
+      <v-expand-transition>
+        <div v-show="tripOptionsExpanded" id="trip-options-content" class="mt-3" data-testid="trip-options-content">
+          <v-alert
+            v-if="!travelOptionGroups.length"
+            type="info"
+            density="compact"
+            class="mb-0"
+          >
+            No trip options configured for this trip.
+          </v-alert>
+          <div v-else>
+            <div
+              v-for="group in travelOptionGroups"
+              :key="group.setNumber"
+              class="mb-4"
+            >
+              <div class="text-subtitle-2 font-weight-bold mb-2">
+                Trip Option {{ group.setNumber }}
+              </div>
+              <v-table density="compact">
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th class="text-right" style="width: 160px">Price adjustment</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="option in group.options" :key="option.id">
+                    <td>{{ option.description }}</td>
+                    <td class="text-right">{{ formatAdjustment(option.priceAdjustment) }}</td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </div>
           </div>
-          <v-table density="compact">
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th class="text-right" style="width: 160px">Price adjustment</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="option in group.options" :key="option.id">
-                <td>{{ option.description }}</td>
-                <td class="text-right">{{ formatAdjustment(option.priceAdjustment) }}</td>
-              </tr>
-            </tbody>
-          </v-table>
         </div>
-      </div>
+      </v-expand-transition>
     </v-card>
 
     <TripArrivalInfo v-if="trip" :trip="trip" @changed="trip.hasArrivalPdf = $event" />
@@ -465,18 +554,7 @@ onMounted(refresh);
     <v-data-table
       :items="participantItems"
       :loading="loading"
-      :headers="[
-        { title: 'Name', key: 'name' },
-        { title: 'Role', key: 'roleName' },
-        { title: 'Worker role', key: 'workerRoleName' },
-        { title: 'Status', key: 'status' },
-        { title: 'Arrives', key: 'arrivalDate' },
-        { title: 'Departs', key: 'departureDate' },
-        { title: 'Participant cost', key: 'participantCost' },
-        { title: 'Total cost', key: 'totalTripCost' },
-        { title: 'Total donations', key: 'donationTotal' },
-        { title: 'Actions', key: 'actions', sortable: false },
-      ]"
+      :headers="participantHeaders"
       density="compact"
     >
       <template #item.name="{ item }">
@@ -497,8 +575,7 @@ onMounted(refresh);
           <span class="profile-link-text">{{ item.name }}</span>
         </button>
       </template>
-      <template #item.roleName="{ item }">{{ item.roleName || "—" }}</template>
-      <template #item.workerRoleName="{ item }">{{ item.workerRoleName || "—" }}</template>
+      <template #item.roleLabel="{ item }">{{ item.roleLabel || "—" }}</template>
       <template #item.status="{ item }">{{ tripParticipantStatusLabel(item.status) }}</template>
       <template #item.arrivalDate="{ item }">
         <TripDateAdjustment
@@ -516,11 +593,41 @@ onMounted(refresh);
           direction="after"
         />
       </template>
-      <template #item.participantCost="{ item }">{{ rowParticipantCost(item) }}</template>
+      <template #item.missingItems="{ item }">
+        <v-tooltip
+          v-if="item.missingItems.length"
+          location="top"
+          color="surface"
+          content-class="border"
+          max-width="360"
+        >
+          <template #activator="{ props: activator }">
+            <v-icon
+              v-bind="activator"
+              icon="mdi-alert-circle"
+              color="error"
+              size="small"
+              role="img"
+              tabindex="0"
+              :aria-hidden="false"
+              :aria-label="`Missing items: ${item.missingItems.join('; ')}`"
+              data-testid="missing-items-icon"
+            />
+          </template>
+          <div class="font-weight-bold mb-1">Missing items</div>
+          <ul class="ps-4 text-error" data-testid="missing-items-list">
+            <li v-for="(missing, index) in item.missingItems" :key="index">{{ missing }}</li>
+          </ul>
+        </v-tooltip>
+        <span v-else>—</span>
+      </template>
       <template #item.totalTripCost="{ item }">
         <TripCostBreakdown :breakdown="item.costBreakdown" />
       </template>
       <template #item.donationTotal="{ item }">{{ formatDonationTotal(item) }}</template>
+      <template #item.amountOwed="{ item }">
+        {{ item.amountOwed == null ? "—" : formatMoneyDisplay(item.amountOwed) || "$0.00" }}
+      </template>
       <template #item.actions="{ item }">
         <div class="d-flex flex-nowrap ga-1">
           <RowAction
@@ -648,5 +755,15 @@ onMounted(refresh);
 
 .profile-link-text {
   color: rgb(var(--v-theme-primary));
+}
+
+.section-toggle {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
 }
 </style>

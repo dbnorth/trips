@@ -16,6 +16,11 @@ const SEND_TO_ITEMS = [
   { label: "Selected participants", value: "selected" },
 ];
 
+const SCHEDULED_SEND_TO_ITEMS = [
+  { label: "All participants this email is for", value: "rule" },
+  { label: "Selected participants", value: "selected" },
+];
+
 const KINDS = {
   team: {
     title: "Email team",
@@ -52,6 +57,8 @@ const subject = ref("");
 const emailBody = ref("");
 const sendTo = ref("potential");
 const selectedPersonIds = ref([]);
+const rulePeople = ref([]);
+const rulePeopleLoading = ref(false);
 const preview = ref(null);
 const previewPersonId = ref(null);
 const showPreview = ref(false);
@@ -89,14 +96,26 @@ const potentialParticipants = computed(() => {
   }));
 });
 
+const selectedTemplate = computed(() => templates.value.find((t) => t.id === emailTemplateId.value) ?? null);
+
+const isScheduled = computed(() => selectedTemplate.value?.functionCode === "Scheduled");
+
+const sendToItems = computed(() => (isScheduled.value ? SCHEDULED_SEND_TO_ITEMS : SEND_TO_ITEMS));
+
+const selectableParticipants = computed(() =>
+  isScheduled.value
+    ? rulePeople.value.map((person) => ({ title: personName(person), value: person.id }))
+    : potentialParticipants.value
+);
+
 const recipients = computed(() => {
   if (sendTo.value === "accepted") {
     return potentialParticipants.value.filter((p) => p.accepted);
   }
   if (sendTo.value === "selected") {
-    return potentialParticipants.value.filter((p) => selectedPersonIds.value.includes(p.value));
+    return selectableParticipants.value.filter((p) => selectedPersonIds.value.includes(p.value));
   }
-  return potentialParticipants.value;
+  return selectableParticipants.value;
 });
 
 const recipientCount = computed(() => recipients.value.length);
@@ -104,7 +123,10 @@ const recipientCount = computed(() => recipients.value.length);
 const recipientLabel = (count) => `${count} participant${count === 1 ? "" : "s"}`;
 
 const templateItems = computed(() =>
-  templates.value.map((template) => ({ title: template.subject, value: template.id }))
+  templates.value.map((template) => ({
+    title: template.functionCode === "Scheduled" ? `${template.subject} (Scheduled)` : template.subject,
+    value: template.id,
+  }))
 );
 
 const canSubmit = computed(
@@ -133,6 +155,19 @@ const loadTemplates = async () => {
     error.value = e.response?.data?.message || "Unable to load templates.";
   } finally {
     templatesLoading.value = false;
+  }
+};
+
+const loadRulePeople = async (templateId) => {
+  rulePeople.value = [];
+  rulePeopleLoading.value = true;
+  try {
+    const res = await TripServices.getTeamEmailRecipients(props.tripId, templateId);
+    if (emailTemplateId.value === templateId) rulePeople.value = res.data || [];
+  } catch (e) {
+    error.value = e.response?.data?.message || "Unable to load recipients.";
+  } finally {
+    rulePeopleLoading.value = false;
   }
 };
 
@@ -186,6 +221,7 @@ const reset = () => {
   emailBody.value = "";
   sendTo.value = "potential";
   selectedPersonIds.value = [];
+  rulePeople.value = [];
   preview.value = null;
   previewPersonId.value = null;
   showPreview.value = false;
@@ -205,10 +241,21 @@ watch(
   { immediate: true }
 );
 
-watch(emailTemplateId, (id) => {
+const isScheduledId = (id) => templates.value.find((t) => t.id === id)?.functionCode === "Scheduled";
+
+watch(emailTemplateId, (id, oldId) => {
   const template = templates.value.find((t) => t.id === id);
   subject.value = template?.subject ?? "";
   emailBody.value = template?.emailBody ?? "";
+  if (isScheduledId(id)) {
+    selectedPersonIds.value = [];
+    sendTo.value = "rule";
+    loadRulePeople(id);
+  } else if (isScheduledId(oldId)) {
+    rulePeople.value = [];
+    selectedPersonIds.value = [];
+    sendTo.value = "potential";
+  }
 });
 
 watch([subject, emailBody, sendTo, selectedPersonIds], () => {
@@ -261,16 +308,25 @@ const close = () => emit("update:modelValue", false);
         />
         <v-radio-group v-model="sendTo" label="Send to" density="compact" hide-details class="mb-2">
           <v-radio
-            v-for="item in SEND_TO_ITEMS"
+            v-for="item in sendToItems"
             :key="item.value"
             :label="item.label"
             :value="item.value"
           />
         </v-radio-group>
+        <v-alert
+          v-if="isScheduled && !rulePeopleLoading && !rulePeople.length"
+          type="info"
+          density="compact"
+          class="mb-2"
+          data-testid="no-rule-recipients"
+        >
+          No participants this email is for right now.
+        </v-alert>
         <v-autocomplete
           v-if="sendTo === 'selected'"
           v-model="selectedPersonIds"
-          :items="potentialParticipants"
+          :items="selectableParticipants"
           label="Participants"
           density="compact"
           multiple

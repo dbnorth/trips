@@ -8,3 +8,17 @@ export const DOCUMENT_TYPE_OPTIONS = [
 
 export const documentTypeLabel = (value) =>
   DOCUMENT_TYPE_OPTIONS.find((o) => o.value === value)?.title || value || "—";
+
+export const EXPIRATION_CHECK_OPTIONS = [
+  { title: "After trip end date", value: "trip_end" },
+  { title: "On or after trip end date", value: "trip_end_on_or_after" },
+  { title: "90 days after trip end date", value: "trip_end_90" },
+  { title: "180 days after trip end date", value: "trip_end_180" },
+];
+
+/** The type's expiration check label, or "—" when it has no expiration date. */
+export const expirationCheckLabel = (row) =>
+  row?.hasExpirationDate === false
+    ? "—"
+    : EXPIRATION_CHECK_OPTIONS.find((o) => o.value === row?.expirationCheck)?.title ||
+      EXPIRATION_CHECK_OPTIONS[0].title;

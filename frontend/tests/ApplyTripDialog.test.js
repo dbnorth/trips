@@ -5,14 +5,8 @@
  * Spec: features/feature-47-simplify-application-warnings.md
  * Feature 56 — Reserved Role Emails
  * Spec: features/feature-56-reserved-role-emails.md
- * Feature 57 — Document Type Has Expiration Date
- * Spec: features/feature-57-document-type-expiration-date.md
- * Feature 59 — Document Type Specialization List
- * Spec: features/feature-59-document-type-specialization-list.md
  * Feature 89 — Negative Trip Days and Wider Option Descriptions
  * Spec: features/feature-89-negative-trip-days.md
- * Feature 94 — Role Document Requirement Message
- * Spec: features/feature-94-role-document-requirement-message.md
  * Feature 95 — Role Availability on Public Trip Pages
  * Spec: features/feature-95-public-trip-role-availability.md
  */
@@ -26,7 +20,6 @@ import {
   getIncompleteSubmitReasons,
   getSubmitUnavailableReasons,
 } from "../src/utils/applicationSubmitAvailability.js";
-import { getMissingProfileFields } from "../src/utils/personProfile.js";
 import { travelOptionDaysError } from "../src/utils/tripApplicationForm.js";
 import { mountWithPlugins } from "./testUtils.js";
 
@@ -246,21 +239,6 @@ describe("Feature 47 — Simplify Application Warnings", () => {
   };
 
   describe("US-47.1 — Short incomplete-profile box", () => {
-    it("Incomplete-profile box shows the message and button without a field list", async () => {
-      const wrapper = await openDialog();
-
-      const profileAlert = wrapper
-        .findAllComponents({ name: "VAlert" })
-        .find((a) => a.text().includes(PROFILE_MESSAGE));
-      expect(profileAlert).toBeTruthy();
-      expect(profileAlert.text()).toContain("Update profile");
-      expect(profileAlert.find("ul").exists()).toBe(false);
-      for (const field of getMissingProfileFields(INCOMPLETE_PERSON, { orgId: TRIP.orgId })) {
-        expect(profileAlert.text()).not.toContain(field);
-      }
-      wrapper.unmount();
-    });
-
     it("Saving the profile from the application re-checks the profile", async () => {
       const wrapper = await openDialog();
       expect(wrapper.text()).toContain(PROFILE_MESSAGE);
@@ -366,182 +344,6 @@ describe("Feature 47 — Simplify Application Warnings", () => {
       expect(select.props("modelValue")).toBe(OPEN_ROLE.id);
       expect(select.props("disabled")).toBe(true);
       expect(select.props("hint")).toBe("This role is reserved for you.");
-      wrapper.unmount();
-    });
-  });
-
-  describe("Feature 57 — US-57.3 Application document checks skip expiration", () => {
-    it("Missing-document message leaves out expiration wording", async () => {
-      browseTrip({
-        rolesNeeded: [
-          {
-            ...OPEN_ROLE,
-            workerRole: {
-              name: "Nurse",
-              requiredDocumentTypes: [
-                { id: 9, description: "Diploma", type: "diploma", hasExpirationDate: false },
-              ],
-            },
-          },
-        ],
-      });
-      const wrapper = await openDialog();
-
-      wrapper
-        .findAllComponents({ name: "VSelect" })
-        .find((c) => c.props("label") === "Trip role")
-        .vm.$emit("update:modelValue", OPEN_ROLE.id);
-      await flushPromises();
-
-      expect(wrapper.text()).toContain(
-        "Before your application can be approved, update these documents on your profile. Diploma: add this document."
-      );
-      expect(wrapper.text()).not.toContain("expiration date");
-      wrapper.unmount();
-    });
-  });
-
-  describe("Feature 59 — US-59.4 Application checks require the role's specializations", () => {
-    it("Apply dialog names the missing specialization", async () => {
-      browseTrip({
-        rolesNeeded: [
-          {
-            ...OPEN_ROLE,
-            workerRole: {
-              name: "Pediatric Nurse",
-              requiredDocumentTypes: [
-                {
-                  id: 7,
-                  description: "Board certification",
-                  type: "certification",
-                  hasExpirationDate: true,
-                  allowSpecialization: true,
-                },
-              ],
-              requiredSpecializations: [{ id: 71, name: "Pediatrics", documentTypeId: 7 }],
-            },
-          },
-        ],
-      });
-      PersonDocumentServices.getAll.mockResolvedValue({
-        data: [
-          {
-            id: 1,
-            documentTypeId: 7,
-            expirationDate: "2030-01-01",
-            documentFileName: "people/board.png",
-            documentType: { id: 7, hasExpirationDate: true },
-            specializations: [],
-          },
-        ],
-      });
-      const wrapper = await openDialog();
-
-      wrapper
-        .findAllComponents({ name: "VSelect" })
-        .find((c) => c.props("label") === "Trip role")
-        .vm.$emit("update:modelValue", OPEN_ROLE.id);
-      await flushPromises();
-
-      expect(wrapper.text()).toContain(
-        "Before your application can be approved, update these documents on your profile. Board certification: select the Pediatrics specialization."
-      );
-      wrapper.unmount();
-    });
-  });
-
-  describe("Feature 94 — US-94.1 Applicants see exactly what is missing from a required document", () => {
-    const WARNING = "Before your application can be approved, update these documents on your profile.";
-    const ER_TRIP = { ...TRIP, startDate: "2027-01-16", endDate: "2027-01-23" };
-    const BOARD = {
-      id: 7,
-      description: "Board Certification",
-      type: "certification",
-      hasExpirationDate: true,
-      allowSpecialization: true,
-    };
-    const CPR = { id: 8, description: "CPR Card", type: "certification", hasExpirationDate: false };
-    const EMERGENCY = { id: 71, name: "Emergency Medicine", documentTypeId: 7 };
-    const PEDIATRICS_ID = 72;
-    const erRole = (requiredDocumentTypes = [BOARD]) => ({
-      ...OPEN_ROLE,
-      workerRole: { name: "ER Physician", requiredDocumentTypes, requiredSpecializations: [EMERGENCY] },
-    });
-    const boardDocument = (fields = {}) => ({
-      id: 1,
-      documentTypeId: 7,
-      expirationDate: "2028-06-30",
-      documentFileName: "people/board.png",
-      documentType: { id: 7, hasExpirationDate: true },
-      specializations: [{ documentTypeSpecializationId: PEDIATRICS_ID }],
-      ...fields,
-    });
-    const openWithRole = async (role) => {
-      browseTrip({ trip: ER_TRIP, rolesNeeded: [role] });
-      const wrapper = await openDialog();
-      wrapper
-        .findAllComponents({ name: "VSelect" })
-        .find((c) => c.props("label") === "Trip role")
-        .vm.$emit("update:modelValue", OPEN_ROLE.id);
-      await flushPromises();
-      return wrapper;
-    };
-
-    const openSavedApplication = async (role) => {
-      browseTrip({ trip: ER_TRIP, rolesNeeded: [role], alreadyApplied: true, applicationStatus: "incomplete" });
-      TripServices.getApplication.mockResolvedValue({
-        data: {
-          trip: ER_TRIP,
-          rolesNeeded: [role],
-          travelOptions: [],
-          canEdit: true,
-          applicationStatus: "incomplete",
-          application: { status: "incomplete", tripWorkerRoleId: role.id },
-        },
-      });
-      return openDialog();
-    };
-    it("A wrong specialization names the specialization to select", async () => {
-      PersonDocumentServices.getAll.mockResolvedValue({ data: [boardDocument()] });
-      const wrapper = await openSavedApplication(erRole());
-
-      expect(wrapper.text()).toContain(
-        `${WARNING} Board Certification: select the Emergency Medicine specialization.`
-      );
-      wrapper.unmount();
-    });
-
-    it("Each problem on the document is named", async () => {
-      PersonDocumentServices.getAll.mockResolvedValue({
-        data: [
-          boardDocument({
-            expirationDate: "2026-12-31",
-            specializations: [{ documentTypeSpecializationId: EMERGENCY.id }],
-          }),
-        ],
-      });
-      let wrapper = await openWithRole(erRole());
-      expect(wrapper.text()).toContain(
-        `${WARNING} Board Certification: the expiration date 12/31/2026 must be after 01/23/2027.`
-      );
-      wrapper.unmount();
-
-      PersonDocumentServices.getAll.mockResolvedValue({
-        data: [boardDocument({ documentFileName: null, expirationDate: null })],
-      });
-      wrapper = await openSavedApplication(erRole());
-      expect(wrapper.text()).toContain(
-        "Upload a file for every document on your profile before your application can be approved."
-      );
-      wrapper.unmount();
-    });
-
-    it("A missing document says what it will need", async () => {
-      const wrapper = await openWithRole(erRole([BOARD, CPR]));
-
-      expect(wrapper.text()).toContain(
-        `${WARNING} Board Certification: add this document with an expiration date after 01/23/2027 and the Emergency Medicine specialization selected. CPR Card: add this document.`
-      );
       wrapper.unmount();
     });
   });

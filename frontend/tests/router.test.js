@@ -100,7 +100,6 @@ describe("Feature 85 — Router guards", () => {
       const router = await createFeature1Router("/home");
       for (const to of [
         { name: "tripView", params: { tripId: "5" } },
-        { name: "tripStatus", params: { tripId: "5" } },
         { name: "tripRooming", params: { tripId: "5" } },
         { name: "trips" },
         { name: "people" },

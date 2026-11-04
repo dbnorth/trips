@@ -200,7 +200,7 @@ describe("Feature 108 — Home Organization Trips Match the Trips List", () => {
       const home = await mount(Home);
       const row = rowFor(tripsCard(home), "Guatemala Clinic 2027");
       expect(actionsIn(row)).toEqual(tripsPageActions);
-      expect(actionsIn(row)).toEqual(["View", "Status", "Room list", "Flights", "Import", "Edit"]);
+      expect(actionsIn(row)).toEqual(["View", "Room list", "Flights", "Import", "Edit"]);
 
       await row.find('button[aria-label="Import"]').trigger("click");
       const importDialog = home.findComponent({ name: "ImportTripMasterDialog" });

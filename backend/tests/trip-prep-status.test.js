@@ -195,4 +195,24 @@ describe("Feature 109 — Trip Prep Status on the Trip Card", () => {
       expect(prep.roomListComplete).toBe(true);
     });
   });
+
+  // Feature 110 — features/feature-110-update-trip-view.md
+  describe("Feature 110 — Update Trip View", () => {
+    it("Trip status data returns the trip's prep status", async () => {
+      await preparedTrip();
+      const late = await addParticipant("eve@example.org", "pre_approved", tripNurse);
+      await addSegments(late);
+
+      const response = await request(app).get(`/trips/trips/${trip.id}/status`).set(olivia.authHeader);
+      expect(response.status).toBe(200);
+      expect(response.body.prepStatus).toEqual(await prepFor(trip.id));
+      expect(response.body.prepStatus).toEqual({
+        rolesFilled: true,
+        participantsApproved: false,
+        fundsRaised: false,
+        flightsEntered: true,
+        roomListComplete: false,
+      });
+    });
+  });
 });

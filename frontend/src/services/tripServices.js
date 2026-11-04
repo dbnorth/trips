@@ -13,6 +13,9 @@ export default {
   getMyBrowseTrips(orgId) {
     return apiClient.get("/trips/browse/mine", { params: { orgId } });
   },
+  getMyTripDocuments() {
+    return apiClient.get("/trips/browse/mine/documents");
+  },
   getBrowseTrip(id) {
     return apiClient.get(`/trips/browse/${id}`);
   },
@@ -57,6 +60,9 @@ export default {
   },
   getTeamEmailTemplates(id) {
     return apiClient.get(`/trips/${id}/team-email/templates`);
+  },
+  getTeamEmailRecipients(id, templateId) {
+    return apiClient.get(`/trips/${id}/team-email/templates/${templateId}/recipients`);
   },
   previewTeamEmail(id, data) {
     return apiClient.post(`/trips/${id}/team-email/preview`, data);

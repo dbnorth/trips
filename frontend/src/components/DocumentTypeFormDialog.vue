@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import DocumentTypeServices from "../services/documentTypeServices.js";
-import { DOCUMENT_TYPE_OPTIONS } from "../utils/documentTypes.js";
+import { DOCUMENT_TYPE_OPTIONS, EXPIRATION_CHECK_OPTIONS } from "../utils/documentTypes.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -20,6 +20,7 @@ const emptyForm = () => ({
   documentNumberRequired: false,
   allowSpecialization: false,
   hasExpirationDate: true,
+  expirationCheck: "trip_end",
   instructions: "",
   specializations: [],
 });
@@ -72,6 +73,7 @@ const loadRow = async () => {
       documentNumberRequired: !!row.documentNumberRequired,
       allowSpecialization: !!row.allowSpecialization,
       hasExpirationDate: row.hasExpirationDate !== false,
+      expirationCheck: row.expirationCheck || "trip_end",
       instructions: row.instructions || "",
       specializations: (row.specializations || []).map((s) => ({ id: s.id, name: s.name })),
     };
@@ -113,6 +115,7 @@ const save = async () => {
     documentNumberRequired: !!form.value.documentNumberRequired,
     allowSpecialization: !!form.value.allowSpecialization,
     hasExpirationDate: !!form.value.hasExpirationDate,
+    expirationCheck: form.value.hasExpirationDate ? form.value.expirationCheck : "trip_end",
     instructions: form.value.instructions?.trim() || null,
     specializations: form.value.specializations.map((s) => ({ id: s.id, name: s.name })),
   };
@@ -202,6 +205,14 @@ const save = async () => {
           label="Has Expiration Date"
           density="compact"
           hide-details
+          class="mb-2"
+        />
+        <v-select
+          v-if="form.hasExpirationDate"
+          v-model="form.expirationCheck"
+          :items="EXPIRATION_CHECK_OPTIONS"
+          label="Expiration check"
+          density="compact"
           class="mb-2"
         />
         <v-textarea

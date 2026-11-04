@@ -41,6 +41,7 @@ const handleTripMasterUpload = (req, res, next) => {
 
 router.get("/browse/orgs", [authenticate], tripBrowse.listBrowseOrgs);
 router.get("/browse/mine", [authenticate], tripBrowse.listMyTrips);
+router.get("/browse/mine/documents", [authenticate], tripBrowse.listMyTripDocuments);
 router.get("/browse", [authenticate], tripBrowse.listActiveTrips);
 router.get("/browse/:id", [authenticate], tripBrowse.getBrowseTrip);
 router.post("/browse/:id/apply", [authenticate], tripBrowse.applyToTrip);
@@ -73,6 +74,11 @@ router.get(
   participantDocumentsPdf.documentsPdf
 );
 router.get("/:id/team-email/templates", [authenticate], tripTeamEmail.findTemplates);
+router.get(
+  "/:id/team-email/templates/:templateId/recipients",
+  [authenticate],
+  tripTeamEmail.findScheduledRecipients
+);
 router.post("/:id/team-email/preview", [authenticate], tripTeamEmail.preview);
 router.post("/:id/team-email", [authenticate], tripTeamEmail.send);
 router.get(

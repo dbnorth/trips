@@ -245,7 +245,7 @@ const save = async () => {
           label="Trip worker role"
           density="compact"
           clearable
-          :hint="tripWorkerRoles.length ? undefined : 'Add roles under Team roles needed first'"
+          :hint="tripWorkerRoles.length ? undefined : 'Add roles under Team roles first'"
           :persistent-hint="!tripWorkerRoles.length"
         />
         <v-select
