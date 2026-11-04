@@ -566,6 +566,30 @@ const ensureDocumentTypesTable = async () => {
     logger.info("documentTypes.hasExpirationDate column added.");
   }
 
+  const [expirationCheckCols] = await db.sequelize.query(
+    `SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'documentTypes'
+       AND COLUMN_NAME = 'expirationCheck'`
+  );
+  const expirationCheckType = String(expirationCheckCols[0]?.COLUMN_TYPE || "");
+  if (!expirationCheckType.includes("trip_end_180")) {
+    await db.sequelize.query(
+      `ALTER TABLE documentTypes
+       ${expirationCheckCols.length ? "MODIFY" : "ADD"} COLUMN expirationCheck
+       ENUM('trip_end','trip_end_on_or_after','trip_end_90','trip_end_180') NOT NULL DEFAULT 'trip_end'
+       AFTER hasExpirationDate`
+    );
+    logger.info("documentTypes.expirationCheck column added or updated.");
+  }
+  if (!expirationCheckType.includes("trip_end_on_or_after")) {
+    await db.sequelize.query(
+      `UPDATE documentTypes SET expirationCheck = 'trip_end_on_or_after'
+       WHERE type = 'doctor_permission' AND hasExpirationDate = 1`
+    );
+    logger.info("Doctor Permission document types set to on or after trip end date.");
+  }
+
   const [misspelled] = await db.sequelize.query(
     `SELECT id FROM documentTypes WHERE BINARY description LIKE '%icence%' LIMIT 1`
   );

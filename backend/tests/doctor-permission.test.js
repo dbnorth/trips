@@ -79,6 +79,7 @@ const createDoctorPermissionType = (orgId, hasExpirationDate = false) =>
     type: "doctor_permission",
     description: "Doctor clearance letter",
     hasExpirationDate,
+    expirationCheck: hasExpirationDate ? "trip_end_on_or_after" : "trip_end",
   });
 
 const apply = (ana, tripId, body) =>

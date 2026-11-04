@@ -180,12 +180,12 @@ const workerRoleInclude = {
     {
       model: db.documentType,
       as: "documentType",
-      attributes: ["id", "description", "type", "hasExpirationDate"],
+      attributes: ["id", "description", "type", "hasExpirationDate", "expirationCheck"],
     },
     {
       model: db.documentType,
       as: "requiredDocumentTypes",
-      attributes: ["id", "description", "type", "hasExpirationDate", "allowSpecialization"],
+      attributes: ["id", "description", "type", "hasExpirationDate", "expirationCheck", "allowSpecialization"],
       through: { attributes: [] },
     },
     {

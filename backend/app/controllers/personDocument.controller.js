@@ -40,6 +40,7 @@ const includeDocumentType = [
       "instructions",
       "allowSpecialization",
       "hasExpirationDate",
+      "expirationCheck",
     ],
   },
   {

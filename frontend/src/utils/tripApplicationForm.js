@@ -1,10 +1,26 @@
 const isBlank = (value) => value == null || String(value).trim() === "";
 
+const EXPIRATION_CHECK_DAYS = { trip_end_90: 90, trip_end_180: 180 };
+const isOnOrAfterCheck = (docType) => docType?.expirationCheck === "trip_end_on_or_after";
+
+/** The trip compare date, or 90 / 180 days after it for a type with a day-offset expiration check. */
+const documentCheckDate = (docType, compareDate) => {
+  const days = EXPIRATION_CHECK_DAYS[docType?.expirationCheck];
+  if (!days) return compareDate;
+  const [y, m, d] = String(compareDate).slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+};
+
+const expiresInTime = (expirationDate, docType, compareDate) => {
+  const checkDate = documentCheckDate(docType, compareDate);
+  return isOnOrAfterCheck(docType) ? expirationDate >= checkDate : expirationDate > checkDate;
+};
+
 const meetsRoleDocumentRule = (doc, compareDate) => {
   if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
   if (!compareDate || doc.documentType?.hasExpirationDate === false) return true;
   const expirationDate = String(doc.expirationDate || "").slice(0, 10);
-  return !!expirationDate && expirationDate > compareDate;
+  return !!expirationDate && expiresInTime(expirationDate, doc.documentType, compareDate);
 };
 
 /**
@@ -78,8 +94,8 @@ export const meetsDoctorPermissionRule = (doc, compareDate) => {
   if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
   if (!compareDate) return true;
   const expirationDate = String(doc.expirationDate || "").slice(0, 10);
-  if (expirationDate) return expirationDate >= compareDate;
-  return doc.documentType?.hasExpirationDate === false;
+  if (doc.documentType?.hasExpirationDate === false) return !expirationDate || expirationDate >= compareDate;
+  return !!expirationDate && expiresInTime(expirationDate, doc.documentType, compareDate);
 };
 
 /**

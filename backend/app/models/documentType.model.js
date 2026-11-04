@@ -25,6 +25,11 @@ const DocumentType = SequelizeInstance.define("documentType", {
     allowNull: false,
     defaultValue: true,
   },
+  expirationCheck: {
+    type: Sequelize.ENUM("trip_end", "trip_end_on_or_after", "trip_end_90", "trip_end_180"),
+    allowNull: false,
+    defaultValue: "trip_end",
+  },
 });
 
 export default DocumentType;

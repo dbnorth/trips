@@ -204,6 +204,7 @@ Notes:
 | instructions | TEXT | nullable (Feature 22) |
 | allowSpecialization | BOOLEAN | required, default `false` (Feature 34) |
 | hasExpirationDate | BOOLEAN | required, default `true` (Feature 57) |
+| expirationCheck | ENUM(`trip_end`,`trip_end_on_or_after`,`trip_end_90`,`trip_end_180`) | required, default `trip_end`; always `trip_end` when `hasExpirationDate` is false. `ensureSchema` adds the column (or the new values to an older column) and, once, sets existing `doctor_permission` types with an expiration date to `trip_end_on_or_after` (Feature 115) |
 
 **Associations:** `belongsTo` organization as `organization` (Feature 91); `hasMany` workerRole (SET NULL); `hasMany` personDocument (RESTRICT); `hasMany` documentTypeSpecialization as `specializations` (CASCADE, Feature 59).
 
