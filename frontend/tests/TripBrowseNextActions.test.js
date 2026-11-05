@@ -7,13 +7,13 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { flushPromises } from "@vue/test-utils";
-import TripBrowseView from "../src/views/TripBrowseView.vue";
+import MyTripView from "../src/views/MyTripView.vue";
 import ConfirmDialog from "../src/components/ConfirmDialog.vue";
 import Utils from "../src/config/utils.js";
 import { mountWithPlugins } from "./testUtils.js";
 
 vi.mock("../src/services/tripServices.js", () => ({
-  default: { getBrowseTrip: vi.fn(), cancelApplication: vi.fn() },
+  default: { getBrowseTrip: vi.fn(), cancelApplication: vi.fn(), getImageUrl: vi.fn(() => null) },
 }));
 
 vi.mock("../src/services/personServices.js", () => ({
@@ -58,7 +58,7 @@ describe("Feature 60 — My Trips Next Actions (trip page)", () => {
   });
 
   const mountView = async () => {
-    const { wrapper } = await mountWithPlugins(TripBrowseView, {
+    const { wrapper } = await mountWithPlugins(MyTripView, {
       props: { tripId: "7" },
       global: {
         stubs: {

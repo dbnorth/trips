@@ -7,7 +7,7 @@ import {
   canManageDonations,
   findDonatablePerson,
   findOrCreateLinkedDonor,
-  isApprovedTripMember,
+  isDonationRecipient,
 } from "../utils/donorPerson.js";
 
 const TripDonation = db.tripDonation;
@@ -175,13 +175,13 @@ exports.createByParticipant = async (req, res) => {
       return res.status(400).send({ message: "Donation amount is required." });
     }
     const recipientId = Number(personId);
-    const recipientApproved = recipientId ? await isApprovedTripMember(tripId, recipientId) : false;
-    if (recipientId === Number(req.user.personId) && !recipientApproved) {
-      return res
-        .status(403)
-        .send({ message: "You can donate to yourself only on trips where you are approved." });
+    const recipientAllowed = recipientId ? await isDonationRecipient(tripId, recipientId) : false;
+    if (recipientId === Number(req.user.personId) && !recipientAllowed) {
+      return res.status(403).send({
+        message: "You can donate to yourself only on trips where you are pre-approved or approved.",
+      });
     }
-    if (!recipientApproved) {
+    if (!recipientAllowed) {
       return res.status(400).send({ message: "Choose a participant on this trip." });
     }
     const donorRecord = await findOrCreateLinkedDonor(req.user.personId);

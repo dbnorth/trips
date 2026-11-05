@@ -250,6 +250,18 @@ const flightSegmentCount = async (tripPeopleRoleId) => {
   return db.tripFlightSegment.count({ where: { tripFlightId: flight.id } });
 };
 
+/** The deposit action while the deposit isn't met, else the donation action while anything is owed. */
+const donationActions = async (assignment, trip) => {
+  const amountRaised = await amountRaisedFor(trip.id, assignment.peopleId);
+  const deposit = toMoney(trip.deposit);
+  if (deposit != null && deposit > 0 && amountRaised < deposit) {
+    return [{ code: "make-deposit", amountRaised, deposit }];
+  }
+  const { totalTripCost } = await participantTotals(trip, assignment);
+  const owed = amountOwed(totalTripCost, amountRaised);
+  return owed != null && owed > 0 ? [{ code: "make-donation", amountOwed: owed }] : [];
+};
+
 /**
  * Next actions for the signed-in person's assignment on one trip (Feature 60).
  * `cache.personDocuments` is loaded once per person and reused across trips.
@@ -266,15 +278,14 @@ export const loadMyTripNextActions = async (assignment, trip, cache = {}) => {
       trip,
       personDocuments: cache.personDocuments,
     });
-    return missingDocuments.length
-      ? [
-          {
-            code: "upload-documents",
-            missingDocuments,
-            dueDate: daysBefore(trip.startDate, DOCUMENTS_DUE_DAYS_BEFORE),
-          },
-        ]
-      : [{ code: "wait-approval" }];
+    const documentsAction = missingDocuments.length
+      ? {
+          code: "upload-documents",
+          missingDocuments,
+          dueDate: daysBefore(trip.startDate, DOCUMENTS_DUE_DAYS_BEFORE),
+        }
+      : { code: "wait-approval" };
+    return [documentsAction, ...(await donationActions(assignment, trip))];
   }
 
   if (assignment.status === "incomplete") {
@@ -295,16 +306,7 @@ export const loadMyTripNextActions = async (assignment, trip, cache = {}) => {
 
   if (assignment.status !== "approved") return [];
 
-  const actions = [];
-  const amountRaised = await amountRaisedFor(trip.id, assignment.peopleId);
-  const deposit = toMoney(trip.deposit);
-  if (deposit != null && deposit > 0 && amountRaised < deposit) {
-    actions.push({ code: "make-deposit", amountRaised, deposit });
-  } else {
-    const { totalTripCost } = await participantTotals(trip, assignment);
-    const owed = amountOwed(totalTripCost, amountRaised);
-    if (owed != null && owed > 0) actions.push({ code: "make-donation", amountOwed: owed });
-  }
+  const actions = await donationActions(assignment, trip);
 
   if (assignment.flightPurchaseOption === "self" && (await flightSegmentCount(assignment.id)) === 0) {
     actions.push({ code: "enter-flights" });

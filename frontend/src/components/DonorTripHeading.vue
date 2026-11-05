@@ -8,6 +8,7 @@ import { formatDateRange } from "../utils/dateFormat.js";
 const props = defineProps({
   trip: { type: Object, default: null },
   showOrgWebsite: { type: Boolean, default: true },
+  showTripCard: { type: Boolean, default: true },
 });
 
 const orgName = computed(() => props.trip?.organization?.name || "");
@@ -44,7 +45,7 @@ const tripDates = computed(() => formatDateRange(props.trip?.startDate, props.tr
       </div>
     </div>
 
-    <v-card v-if="trip" class="pa-4 mb-4">
+    <v-card v-if="trip && showTripCard" class="pa-4 mb-4">
       <v-row align="start">
         <v-col cols="12" md>
           <div class="text-h5 font-weight-bold mb-1">{{ trip.name }}</div>

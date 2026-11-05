@@ -104,12 +104,14 @@ describe("Feature 53 — Participant Donations and Donor–Person Link", () => {
     });
 
     it("Participant not approved cannot donate to themselves", async () => {
-      await addAssignment(ana, "pre_approved");
+      await addAssignment(ana, "incomplete");
 
       const res = await participantDonate(ana, ana, 100);
 
       expect(res.status).toBe(403);
-      expect(res.body.message).toBe("You can donate to yourself only on trips where you are approved.");
+      expect(res.body.message).toBe(
+        "You can donate to yourself only on trips where you are pre-approved or approved."
+      );
     });
   });
 
@@ -129,7 +131,7 @@ describe("Feature 53 — Participant Donations and Donor–Person Link", () => {
     it("Recipient must be approved on the trip", async () => {
       const carl = await register("carl@example.org", "Carl", "Diaz");
       await addAssignment(ana, "approved");
-      await addAssignment(carl, "pre_approved");
+      await addAssignment(carl, "incomplete");
 
       const res = await participantDonate(ana, carl, 75);
 

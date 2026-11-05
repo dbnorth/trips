@@ -7,12 +7,17 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { flushPromises } from "@vue/test-utils";
-import TripBrowseView from "../src/views/TripBrowseView.vue";
+import MyTripView from "../src/views/MyTripView.vue";
 import Utils from "../src/config/utils.js";
 import { mountWithPlugins } from "./testUtils.js";
 
 vi.mock("../src/services/tripServices.js", () => ({
-  default: { getBrowseTrip: vi.fn(), cancelApplication: vi.fn(), openArrivalPdf: vi.fn() },
+  default: {
+    getBrowseTrip: vi.fn(),
+    cancelApplication: vi.fn(),
+    openArrivalPdf: vi.fn(),
+    getImageUrl: vi.fn(() => null),
+  },
 }));
 
 vi.mock("../src/services/personServices.js", () => ({
@@ -65,10 +70,22 @@ describe("Feature 74 — Trip Add-on Expenses", () => {
             flightPurchaseOption: "organization",
             flightSegments: [],
             selectedTravelOptions: [{ id: 1, description: "Private room", setNumber: 1, priceAdjustment: 250 }],
+            costBreakdown: {
+              tripCost: 2000,
+              tripOptions: [{ description: "Private room", amount: 250 }],
+              adjustment: 0,
+              addonExpenses: [
+                { description: "Travel insurance", amount: 75 },
+                { description: "Antigua weekend excursion", amount: 400 },
+              ],
+              airfare: 850,
+              totalTripCost: 3575,
+            },
+            amountOwed: 3575,
           },
         },
       });
-      const { wrapper } = await mountWithPlugins(TripBrowseView, {
+      const { wrapper } = await mountWithPlugins(MyTripView, {
         props: { tripId: "7" },
         global: {
           stubs: {
@@ -83,13 +100,11 @@ describe("Feature 74 — Trip Add-on Expenses", () => {
       });
       await flushPromises();
 
-      const items = wrapper
-        .findAll('[data-testid="my-trip-addon-expenses"] li')
-        .map((li) => li.text());
-      expect(items).toEqual(["Travel insurance ($75.00)", "Antigua weekend excursion ($400.00)"]);
-      const text = wrapper.text();
-      expect(text.indexOf("Add-on expenses")).toBeGreaterThan(text.indexOf("Trip options"));
-      expect(wrapper.find('[data-testid="my-trip-cost"]').text()).toBe("$3,575.00");
+      const financial = wrapper.find('[data-testid="my-trip-financial"]').text();
+      expect(financial).toContain("Add-on: Travel insurance$75.00");
+      expect(financial).toContain("Add-on: Antigua weekend excursion$400.00");
+      expect(financial.indexOf("Add-on: Travel insurance")).toBeGreaterThan(financial.indexOf("Trip option: Private room"));
+      expect(wrapper.find('[data-testid="my-trip-total"]').text()).toBe("$3,575.00");
 
       wrapper.unmount();
     });
@@ -137,7 +152,7 @@ describe("Feature 76 — Trip Arrival Info", () => {
           },
         },
       });
-      const { wrapper } = await mountWithPlugins(TripBrowseView, {
+      const { wrapper } = await mountWithPlugins(MyTripView, {
         props: { tripId: "7" },
         global: {
           stubs: {
@@ -210,7 +225,7 @@ describe("Feature 78 — Days Before and After the Trip", () => {
           },
         },
       });
-      const { wrapper } = await mountWithPlugins(TripBrowseView, {
+      const { wrapper } = await mountWithPlugins(MyTripView, {
         props: { tripId: "7" },
         global: {
           stubs: {

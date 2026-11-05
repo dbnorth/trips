@@ -5,12 +5,12 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { flushPromises } from "@vue/test-utils";
-import TripBrowseView from "../src/views/TripBrowseView.vue";
+import MyTripView from "../src/views/MyTripView.vue";
 import Utils from "../src/config/utils.js";
 import { mountWithPlugins } from "./testUtils.js";
 
 vi.mock("../src/services/tripServices.js", () => ({
-  default: { getBrowseTrip: vi.fn(), cancelApplication: vi.fn() },
+  default: { getBrowseTrip: vi.fn(), cancelApplication: vi.fn(), getImageUrl: vi.fn(() => null) },
 }));
 
 vi.mock("../src/services/personServices.js", () => ({
@@ -68,7 +68,7 @@ const mockTrip = (myTripInfo) =>
   });
 
 const mountView = async () => {
-  const { wrapper } = await mountWithPlugins(TripBrowseView, {
+  const { wrapper } = await mountWithPlugins(MyTripView, {
     props: { tripId: "7" },
     global: {
       stubs: {
@@ -140,7 +140,7 @@ describe("Feature 61 — Trip Page My Travel Details", () => {
     });
 
     it("No fundraising link before approval", async () => {
-      mockTrip({ status: "pre_approved" });
+      mockTrip({ status: "incomplete" });
       const wrapper = await mountView();
 
       expect(wrapper.findAll("a").find((a) => a.text().trim() === "My fundraising page")).toBeUndefined();
@@ -187,15 +187,23 @@ describe("Feature 61 — Trip Page My Travel Details", () => {
   describe("US-61.3 — See my selected trip options on the trip page", () => {
     it("Trip page shows my selected trip options", async () => {
       mockTrip({
-        selectedTravelOptions: [
-          { id: 1, description: "Extra beach day", setNumber: 1, priceAdjustment: 150 },
-          { id: 2, description: "City tour", setNumber: 2, priceAdjustment: 0 },
-        ],
+        costBreakdown: {
+          tripCost: 1800,
+          tripOptions: [
+            { description: "Extra beach day", amount: 150 },
+            { description: "City tour", amount: 0 },
+          ],
+          adjustment: 0,
+          addonExpenses: [],
+          airfare: 0,
+          totalTripCost: 1950,
+        },
       });
       const wrapper = await mountView();
 
-      const items = wrapper.findAll('[data-testid="my-trip-options"] li').map((li) => li.text());
-      expect(items).toEqual(["Extra beach day (+$150.00)", "City tour"]);
+      const financial = wrapper.find('[data-testid="my-trip-financial"]').text();
+      expect(financial).toContain("Trip option: Extra beach day$150.00");
+      expect(financial).toContain("Trip option: City tour$0.00");
 
       wrapper.unmount();
     });

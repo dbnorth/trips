@@ -4,25 +4,11 @@ import { useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import PersonServices from "../services/personServices.js";
 import AuthServices from "../services/authServices.js";
-import Utils from "../config/utils.js";
 import DonorTripHeading from "../components/DonorTripHeading.vue";
 import ApplyTripDialog from "../components/ApplyTripDialog.vue";
-import EditPersonDialog from "../components/EditPersonDialog.vue";
-import ParticipantDonationsDialog from "../components/ParticipantDonationsDialog.vue";
-import ParticipantDonateDialog from "../components/ParticipantDonateDialog.vue";
-import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
-import ConfirmDialog from "../components/ConfirmDialog.vue";
-import MyTripNextActions from "../components/MyTripNextActions.vue";
-import MyTripTravelDetails from "../components/MyTripTravelDetails.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
-import { hasApplicationAction } from "../utils/myTripNextActions.js";
 import { noSpotMessage } from "../utils/roleAvailability.js";
-import { donorParticipantPath } from "../utils/donateUrls.js";
 import { storeAuthenticatedUser } from "../utils/authSession.js";
-import {
-  tripParticipantStatusLabel,
-  tripParticipantStatusColor,
-} from "../utils/tripParticipantStatus.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], required: true },
@@ -31,86 +17,39 @@ const props = defineProps({
 const router = useRouter();
 const trip = ref(null);
 const rolesNeeded = ref([]);
-const alreadyApplied = ref(false);
 const myReservedTripWorkerRoleId = ref(null);
-const applicationStatus = ref(null);
-const myTripInfo = ref(null);
 const tripLeaders = ref([]);
 const loading = ref(false);
 const message = ref("");
 const messageType = ref("info");
 const showApplyDialog = ref(false);
-const showDonationsDialog = ref(false);
-const showDonateDialog = ref(false);
-const showFlightsDialog = ref(false);
-const showProfileDialog = ref(false);
-const showConfirmCancelApp = ref(false);
-const cancelAppSaving = ref(false);
-
-const nextActions = computed(() => myTripInfo.value?.nextActions || []);
-
-const showHeaderUpdateApp = computed(
-  () => canUpdateApplication.value && !hasApplicationAction(nextActions.value)
-);
-
-const canUpdateApplication = computed(
-  () =>
-    alreadyApplied.value &&
-    (applicationStatus.value === "incomplete" || applicationStatus.value === "pre_approved")
-);
 
 const noSpot = computed(() =>
   noSpotMessage({
     rolesNeeded: rolesNeeded.value,
     myReservedTripWorkerRoleId: myReservedTripWorkerRoleId.value,
-    alreadyApplied: alreadyApplied.value,
+    alreadyApplied: false,
   })
 );
 const showNoSpotDialog = ref(false);
 let noSpotShown = false;
 
-const showApplyInvite = computed(() => !!trip.value && !alreadyApplied.value && !noSpot.value);
+const showApplyInvite = computed(() => !!trip.value && !noSpot.value);
 
 const tripOrgId = computed(() => trip.value?.orgId ?? trip.value?.organization?.id ?? null);
-
-const currentUser = computed(() => Utils.getStore("user"));
-
-const donationsParticipant = computed(() => {
-  const user = currentUser.value;
-  if (!user?.personId) return null;
-  return {
-    peopleId: user.personId,
-    person: {
-      id: user.personId,
-      firstName: user.firstName || "",
-      lastName: user.lastName || "",
-    },
-  };
-});
-
-const canViewDonations = computed(() => !!myTripInfo.value && !!donationsParticipant.value);
-
-const donationRecipients = computed(() => myTripInfo.value?.donationRecipients || []);
-
-const canDonate = computed(() => donationRecipients.value.length > 0);
-
-const onDonated = () => {
-  messageType.value = "success";
-  message.value = "Thank you for your donation!";
-  load();
-};
 
 const load = async () => {
   loading.value = true;
   message.value = "";
   try {
     const res = await TripServices.getBrowseTrip(props.tripId);
+    if (res.data?.alreadyApplied) {
+      router.replace({ name: "myTrip", params: { tripId: props.tripId } });
+      return;
+    }
     trip.value = res.data?.trip || null;
     rolesNeeded.value = res.data?.rolesNeeded || [];
-    alreadyApplied.value = !!res.data?.alreadyApplied;
     myReservedTripWorkerRoleId.value = res.data?.myReservedTripWorkerRoleId ?? null;
-    applicationStatus.value = res.data?.applicationStatus || null;
-    myTripInfo.value = res.data?.myTripInfo || null;
     tripLeaders.value = res.data?.tripLeaders || [];
     if (noSpot.value && !noSpotShown) {
       showNoSpotDialog.value = true;
@@ -121,7 +60,6 @@ const load = async () => {
     message.value = e.response?.data?.message || "Unable to load trip.";
     trip.value = null;
     rolesNeeded.value = [];
-    myTripInfo.value = null;
     tripLeaders.value = [];
   } finally {
     loading.value = false;
@@ -129,18 +67,7 @@ const load = async () => {
 };
 
 const openApply = () => {
-  if (alreadyApplied.value && !canUpdateApplication.value) return;
   showApplyDialog.value = true;
-};
-
-const openUpdateApplication = () => {
-  if (!canUpdateApplication.value) return;
-  showApplyDialog.value = true;
-};
-
-const openDonations = () => {
-  if (!canViewDonations.value) return;
-  showDonationsDialog.value = true;
 };
 
 // Applying can add an organization role, so pull a fresh session and make that org active.
@@ -157,58 +84,13 @@ const refreshSession = async () => {
   }
 };
 
-const onApplicationSaved = async () => {
-  messageType.value = "success";
-  message.value = "Application submitted. Your organization will review it.";
-  await refreshSession();
-  load();
+const onApplicationSaved = () => {
+  refreshSession();
 };
 
 watch(showApplyDialog, (open) => {
   if (!open) load();
 });
-
-watch(showProfileDialog, (open) => {
-  if (!open) load();
-});
-
-const confirmCancelApplication = async () => {
-  cancelAppSaving.value = true;
-  try {
-    await TripServices.cancelApplication(props.tripId);
-    showConfirmCancelApp.value = false;
-    await load();
-    messageType.value = "success";
-    message.value = "Application cancelled.";
-  } catch (e) {
-    showConfirmCancelApp.value = false;
-    messageType.value = "error";
-    message.value = e.response?.data?.message || "Unable to cancel application.";
-  } finally {
-    cancelAppSaving.value = false;
-  }
-};
-
-const fundraisingPath = computed(() =>
-  myTripInfo.value?.status === "approved" && trip.value?.status === "active" && currentUser.value
-    ? donorParticipantPath(trip.value, currentUser.value)
-    : null
-);
-
-const copyFundraisingLink = async () => {
-  try {
-    await navigator.clipboard.writeText(`${window.location.origin}${fundraisingPath.value}`);
-    messageType.value = "success";
-    message.value = "Link copied.";
-  } catch {
-    messageType.value = "error";
-    message.value = "Unable to copy link.";
-  }
-};
-
-const participantName = computed(() =>
-  [currentUser.value?.firstName, currentUser.value?.lastName].filter(Boolean).join(" ")
-);
 
 const leaderPictureUrl = (leader) => PersonServices.getPictureUrl(leader?.picture);
 
@@ -276,9 +158,7 @@ onUnmounted(() => {
       </v-row>
 
       <h3 class="text-subtitle-1 font-weight-bold mb-3">Trip Leaders</h3>
-      <v-alert v-if="!tripLeaders.length" type="info" density="compact" class="mb-4">
-        No trip leaders have been assigned yet.
-      </v-alert>
+      <div v-if="!tripLeaders.length" class="mb-4" data-testid="no-trip-leaders">No Trip Leader assigned</div>
       <div v-else class="d-flex flex-column ga-4 mb-4">
         <div
           v-for="leader in tripLeaders"
@@ -339,126 +219,10 @@ onUnmounted(() => {
       </p>
     </v-card>
 
-    <v-card v-if="myTripInfo" class="pa-4 mb-4" variant="outlined">
-      <div class="d-flex align-center justify-space-between flex-wrap ga-2 mb-3">
-        <div class="d-flex align-baseline flex-wrap ga-2">
-          <h2 class="text-h6 mb-0">My Trip Info</h2>
-          <template v-if="fundraisingPath">
-            <a :href="fundraisingPath" target="_blank" rel="noopener" class="text-body-1 ml-4">
-              My fundraising page
-            </a>
-            <v-btn size="small" variant="text" @click="copyFundraisingLink">Copy link</v-btn>
-          </template>
-        </div>
-        <div class="d-flex flex-wrap ga-2">
-          <v-btn v-if="canDonate" color="primary" variant="flat" @click="showDonateDialog = true">
-            Donate
-          </v-btn>
-          <v-btn
-            v-if="canViewDonations"
-            color="primary"
-            variant="tonal"
-            @click="openDonations"
-          >
-            View donations
-          </v-btn>
-          <v-btn
-            v-if="showHeaderUpdateApp"
-            color="primary"
-            variant="tonal"
-            @click="openUpdateApplication"
-          >
-            Update App
-          </v-btn>
-        </div>
-      </div>
-      <MyTripNextActions
-        v-if="nextActions.length"
-        class="mb-3"
-        :actions="nextActions"
-        @update="openUpdateApplication"
-        @cancel="showConfirmCancelApp = true"
-        @donate="showDonateDialog = true"
-        @flights="showFlightsDialog = true"
-        @documents="showProfileDialog = true"
-      />
-      <v-row dense>
-        <v-col cols="12" sm="6" md="3">
-          <div class="text-caption text-medium-emphasis">Status</div>
-          <v-chip
-            size="small"
-            variant="tonal"
-            class="mt-1"
-            :color="tripParticipantStatusColor(myTripInfo.status)"
-          >
-            {{ tripParticipantStatusLabel(myTripInfo.status) }}
-          </v-chip>
-        </v-col>
-        <v-col cols="12" sm="6" md="3">
-          <div class="text-caption text-medium-emphasis">Role</div>
-          <div>{{ myTripInfo.workerRoleName || "—" }}</div>
-        </v-col>
-        <v-col cols="12" sm="6" md="3">
-          <div class="text-caption text-medium-emphasis">Your trip cost</div>
-          <div data-testid="my-trip-cost">
-            {{
-              myTripInfo.totalTripCost != null
-                ? formatMoneyDisplay(myTripInfo.totalTripCost)
-                : "—"
-            }}
-          </div>
-        </v-col>
-        <v-col cols="12" sm="6" md="3">
-          <div class="text-caption text-medium-emphasis">Donations so far</div>
-          <div>{{ formatMoneyDisplay(myTripInfo.donationTotal || 0) }}</div>
-        </v-col>
-      </v-row>
-      <MyTripTravelDetails :info="myTripInfo" :trip="trip" @edit-flights="showFlightsDialog = true" />
-    </v-card>
-
     <ApplyTripDialog
       v-model="showApplyDialog"
       :trip-id="tripId"
       @saved="onApplicationSaved"
-    />
-    <EditPersonDialog
-      v-if="currentUser?.personId"
-      v-model="showProfileDialog"
-      :person-id="currentUser.personId"
-    />
-    <ParticipantDonationsDialog
-      v-if="donationsParticipant"
-      v-model="showDonationsDialog"
-      :trip-id="tripId"
-      :participant="donationsParticipant"
-      read-only
-    />
-    <ParticipantDonateDialog
-      v-if="canDonate"
-      v-model="showDonateDialog"
-      :trip-id="tripId"
-      :person-id="currentUser?.personId"
-      :recipients="donationRecipients"
-      @saved="onDonated"
-    />
-    <FlightSegmentsDialog
-      v-if="myTripInfo?.tripPeopleRoleId"
-      v-model="showFlightsDialog"
-      :trip-id="tripId"
-      :trip-people-role-id="myTripInfo.tripPeopleRoleId"
-      :participant-name="participantName"
-      :trip-start-date="trip?.startDate || ''"
-      :trip-end-date="trip?.endDate || ''"
-      @saved="load"
-    />
-    <ConfirmDialog
-      v-model="showConfirmCancelApp"
-      title="Are you sure?"
-      message="Cancel this application? Your role slot will be freed."
-      confirm-text="Cancel App"
-      confirm-color="error"
-      :loading="cancelAppSaving"
-      @confirm="confirmCancelApplication"
     />
     <v-dialog v-model="showNoSpotDialog" max-width="420">
       <v-card class="pa-2" data-testid="no-spot-dialog">
