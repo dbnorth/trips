@@ -1,11 +1,13 @@
 import db from "../models/index.js";
 import {
   arePersonDocumentsUploaded,
+  currentDocument,
   isDoctorPermissionUploaded,
   isRequiredPassportUploaded,
   isRequiredRoleDocumentUploaded,
   loadDoctorPermissionTypes,
   loadWorkerRoleDocumentRequirements,
+  sortByCurrentDocument,
   tripDocumentCompareDate,
 } from "./tripParticipantApplicationStatus.js";
 
@@ -103,8 +105,15 @@ export const loadApprovalDocuments = async ({ tripId, peopleId, tripWorkerRoleId
 
   const approvalBlockers = [];
   const listed = requirements.map((requirement) => {
-    const ofType = documents.filter(requirement.matches).map((doc) => ({
+    const matching = documents.filter(requirement.matches);
+    const current = currentDocument(matching);
+    const ordered = current
+      ? [current, ...sortByCurrentDocument(matching.filter((doc) => doc.id !== current.id))]
+      : sortByCurrentDocument(matching);
+    const ofType = ordered.map((doc) => ({
       id: doc.id,
+      documentTypeId: doc.documentTypeId,
+      countryIssued: doc.countryIssued ?? null,
       description: doc.documentType?.description ?? null,
       documentNumber: doc.documentNumber ?? null,
       issueDate: doc.issueDate ?? null,
@@ -113,6 +122,8 @@ export const loadApprovalDocuments = async ({ tripId, peopleId, tripWorkerRoleId
       hasExpirationDate: !!doc.documentType?.hasExpirationDate,
       hasFile: hasFile(doc),
       reviewed: !!doc.reviewed,
+      reloadRequestedAt: doc.reloadRequestedAt ?? null,
+      current: doc === current,
       qualifies: requirement.qualifies(doc),
       specializations: (doc.specializations || []).map((s) => ({
         id: s.id,
@@ -122,9 +133,10 @@ export const loadApprovalDocuments = async ({ tripId, peopleId, tripWorkerRoleId
         hasFile: hasFile(s),
       })),
     }));
-    if (!ofType.some((doc) => doc.qualifies)) {
+    const currentRow = ofType.find((doc) => doc.current);
+    if (!currentRow?.qualifies) {
       approvalBlockers.push(`${requirement.label}: not uploaded`);
-    } else if (!ofType.some((doc) => doc.qualifies && doc.reviewed)) {
+    } else if (!currentRow.reviewed) {
       approvalBlockers.push(`${requirement.label}: not reviewed`);
     }
     return {

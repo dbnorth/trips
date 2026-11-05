@@ -4,7 +4,7 @@ import DocumentTypeServices from "../services/documentTypeServices.js";
 import PersonDocumentServices from "../services/personDocumentServices.js";
 import CountrySelect from "./CountrySelect.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import { countryName, resolveCountryCode, US_COUNTRY_CODE } from "../utils/locationData.js";
+import { resolveCountryCode, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { pdfFirstPageUrl } from "../utils/pdfThumbnail.js";
 import { formatDate } from "../utils/dateFormat.js";
 
@@ -203,7 +203,15 @@ const loadThumbnail = async (row) => {
   }
 };
 
-const countryLabel = (code) => countryName(code) || code || "—";
+const today = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+
+const isExpired = (row) => {
+  const expirationDate = String(row.expirationDate || "").slice(0, 10);
+  return !!expirationDate && expirationDate < today();
+};
 
 const onFileSelected = (files) => {
   form.value.file = Array.isArray(files) ? files[0] : files || null;
@@ -553,8 +561,6 @@ onMounted(load);
       <thead>
         <tr>
           <th>Type</th>
-          <th>Document number</th>
-          <th>Country issued</th>
           <th>Issue date</th>
           <th>Expiration date</th>
           <th>Document</th>
@@ -565,11 +571,21 @@ onMounted(load);
       <tbody>
         <template v-for="row in documents" :key="row.id">
         <tr>
-          <td>{{ row.documentType?.description || row.documentTypeId }}</td>
-          <td>{{ row.documentNumber || "—" }}</td>
-          <td>{{ countryLabel(row.countryIssued) }}</td>
+          <td class="font-weight-bold">{{ row.documentType?.description || row.documentTypeId }}</td>
           <td>{{ formatDate(row.issueDate) || "—" }}</td>
-          <td>{{ formatDate(row.expirationDate) || "—" }}</td>
+          <td>
+            {{ formatDate(row.expirationDate) || "—" }}
+            <v-chip
+              v-if="isExpired(row)"
+              size="x-small"
+              color="error"
+              variant="flat"
+              class="ml-1"
+              data-testid="document-expired"
+            >
+              Expired
+            </v-chip>
+          </td>
           <td>
             <v-btn
               v-if="row.documentFileName"
@@ -591,15 +607,35 @@ onMounted(load);
             />
           </td>
           <td class="text-right">
-            <v-btn size="small" variant="text" @click="startEdit(row)">Edit</v-btn>
+            <v-btn
+              v-if="!row.reviewed"
+              size="small"
+              variant="text"
+              data-testid="document-edit"
+              @click="startEdit(row)"
+            >
+              Edit
+            </v-btn>
             <v-btn size="small" variant="text" @click="downloadDocument(row)">Download</v-btn>
-            <v-btn size="small" variant="text" color="error" @click="removeDocument(row)">
+            <v-btn
+              v-if="!row.reviewed"
+              size="small"
+              variant="text"
+              color="error"
+              data-testid="document-delete"
+              @click="removeDocument(row)"
+            >
               Delete
             </v-btn>
           </td>
         </tr>
+        <tr v-if="row.reloadRequestedAt">
+          <td colspan="6" class="text-caption text-warning" data-testid="document-reload-requested">
+            Reload requested {{ formatDate(row.reloadRequestedAt) }}
+          </td>
+        </tr>
         <tr v-if="row.specializations?.length">
-          <td colspan="8">
+          <td colspan="6">
             <div
               v-for="spec in row.specializations"
               :key="spec.id"

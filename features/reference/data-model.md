@@ -237,7 +237,8 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | issueDate | DATEONLY | |
 | expirationDate | DATEONLY | nullable; required by API when type.`hasExpirationDate`, stored null otherwise (Feature 57) |
 | documentFileName | STRING(500) | nullable; optional upload (Feature 22) |
-| reviewed | BOOLEAN | required, default `false`; set by trip staff through the review endpoint; cleared when the file, type, document number, country issued, issue date, expiration date, or specializations change (Feature 104) |
+| reviewed | BOOLEAN | required, default `false`; set by trip staff through the review endpoint; cleared when the file, type, document number, country issued, issue date, expiration date, or specializations change (Feature 104); while true the document can't be changed or deleted, and a reload request clears it (Feature 120) |
+| reloadRequestedAt | DATETIME | nullable; set by a staff reload request; cleared when a new file is uploaded to the document or staff mark it Reviewed; added by `ensureSchema` (Feature 120) |
 
 **Associations:** `belongsTo` person, documentType; `hasMany` personDocumentSpecialization (CASCADE).
 
@@ -664,6 +665,8 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 
 **Associations:** `hasMany` emailTemplate (`emailTypeId`, RESTRICT).
 
+Feature 120 seeds `document-reload` ("Document reload requested", event code `document-reload-requested`).
+
 ---
 
 ## `emailToken` — Feature 40
@@ -677,7 +680,7 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 
 **Associations:** none. Templates write tokens as `{{TOKEN_CODE}}` text.
 
-`seedEmailTokens` adds missing token codes only; Feature 74 adds `ADDON_EXPENSE` → `participant.addonExpenses` and `ADDON_EXPENSE_TOTAL` → `participant.addonExpensesTotal`; Feature 78 adds `PARTICIPANT_ARRIVAL_DATE` → `participant.arrivalDate` and `PARTICIPANT_DEPARTURE_DATE` → `participant.departureDate`.
+`seedEmailTokens` adds missing token codes only; Feature 74 adds `ADDON_EXPENSE` → `participant.addonExpenses` and `ADDON_EXPENSE_TOTAL` → `participant.addonExpensesTotal`; Feature 78 adds `PARTICIPANT_ARRIVAL_DATE` → `participant.arrivalDate` and `PARTICIPANT_DEPARTURE_DATE` → `participant.departureDate`; Feature 120 adds `RELOAD_DOCUMENT` → `participant.reloadDocument`, `RELOAD_DOCUMENT_TYPE` → `participant.reloadDocumentType`, and `RELOAD_NOTE` → `participant.reloadNote` (filled only for the document reload request email).
 
 ---
 

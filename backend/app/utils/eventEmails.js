@@ -27,13 +27,13 @@ const findEventTemplates = async (eventCode, trip) => {
   return templates.filter((t) => t.tripId != null || !tripTypeIds.has(t.emailTypeId));
 };
 
-/** Send every Send Now template for `eventCode` to one participant on one trip. */
-export const sendEventEmails = async ({ eventCode, tripId, personId }) => {
+/** Send every Send Now template for `eventCode` to one participant on one trip; one result per template. */
+export const sendEventEmails = async ({ eventCode, tripId, personId, reload = null }) => {
   const trip = await db.trip.findByPk(tripId);
   if (!trip) return [];
   const results = [];
   for (const template of await findEventTemplates(eventCode, trip)) {
-    results.push(await sendTemplateEmail({ template, tripId: trip.id, personId }));
+    results.push(await sendTemplateEmail({ template, tripId: trip.id, personId, reload }));
   }
   return results;
 };

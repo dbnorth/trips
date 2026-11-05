@@ -791,3 +791,58 @@ describe("Feature 89 — Negative Trip Days", () => {
     wrapper.unmount();
   });
 });
+
+describe("Feature 120 — Updated Document Processing", () => {
+  it("The trip page shows when every trip document is reviewed", async () => {
+    vi.clearAllMocks();
+    TripServices.get.mockResolvedValue({
+      data: { id: 42, name: "Guatemala Clinic", orgId: 10, status: "active", leaderNames: [] },
+    });
+    TripPeopleRoleServices.getAll.mockResolvedValue({
+      data: [
+        { id: 7, peopleId: 5, status: "pre_approved", person: { id: 5, firstName: "Ava", lastName: "Reed" } },
+        { id: 8, peopleId: 6, status: "pre_approved", person: { id: 6, firstName: "Pat", lastName: "Lee" } },
+        { id: 9, peopleId: 7, status: "pre_approved", person: { id: 7, firstName: "Kim", lastName: "Cho" } },
+      ],
+    });
+    TripServices.getStatus.mockResolvedValue({
+      data: {
+        participants: [
+          { id: 7, missingItems: [], documentsReviewed: true, documentsToReview: false },
+          { id: 8, missingItems: [], documentsReviewed: false, documentsToReview: false },
+          { id: 9, missingItems: [], documentsReviewed: false, documentsToReview: true },
+        ],
+      },
+    });
+    DonationServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({ data: [] });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: { stubs: { TripWorkerRolesCard: Stub } },
+    });
+    await flushPromises();
+
+    const reviewAction = (name) =>
+      wrapper
+        .findAll("tbody tr")
+        .find((tr) => tr.text().includes(name))
+        .find('[data-testid="review-documents-action"]');
+    expect(reviewAction("Ava").classes()).toContain("text-success");
+    expect(reviewAction("Pat").classes()).not.toContain("text-success");
+    expect(reviewAction("Pat").classes()).not.toContain("text-warning");
+    expect(reviewAction("Kim").classes()).toContain("text-warning");
+
+    wrapper.unmount();
+  });
+});

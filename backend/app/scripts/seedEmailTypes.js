@@ -41,6 +41,13 @@ const emailTypes = [
       "This scheduled rule checks whether the Trip Participant's application is Pre-Approved and at least one trip document is still missing, has no file, or has an expiration date that doesn't meet its document type's expiration check.",
   },
   {
+    typeCode: "document-reload",
+    description: "Document reload requested",
+    eventCode: "document-reload-requested",
+    eventDescription:
+      "This event happens when trip staff click Request reload on a document in Review documents. The email goes to the person whose document it is.",
+  },
+  {
     typeCode: "deposit-due",
     description: "Deposit due",
     eventCode: "deposit-due",

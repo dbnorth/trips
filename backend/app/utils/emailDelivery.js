@@ -196,8 +196,9 @@ export const buildTemplateMessage = async ({
   toEmail,
   subject,
   emailBody,
+  reload = null,
 }) => {
-  const values = await buildTokenValues({ orgId: template.orgId, tripId, personId });
+  const values = await buildTokenValues({ orgId: template.orgId, tripId, personId, reload });
   const to =
     toEmail !== undefined
       ? String(toEmail ?? "").trim()

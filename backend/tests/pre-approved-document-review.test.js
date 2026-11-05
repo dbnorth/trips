@@ -368,7 +368,7 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
       expect(missing.body.message).toBe("Specialization not found.");
     });
 
-    it("Changing a reviewed document clears Reviewed", async () => {
+    it("A reviewed document can be changed only after Reviewed is unticked (Feature 120)", async () => {
       await setup();
       const passportDoc = await addDocument(passport, {
         documentNumber: "P123",
@@ -387,13 +387,16 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
         return attach ? req.attach("document", TINY_PNG, { filename: "new.png", contentType: "image/png" }) : req;
       };
 
-      expect((await update(false)).status).toBe(200);
+      const locked = await update(true);
+      expect(locked.status).toBe(400);
+      expect(locked.body.message).toBe("Reviewed documents can't be changed.");
       expect((await db.personDocument.findByPk(passportDoc.id)).reviewed).toBe(true);
 
+      const applied = await apply();
+      expect((await markReviewed(omar, applied.body.assignment.id, passportDoc.id, false)).status).toBe(200);
       const replaced = await update(true);
       expect(replaced.status).toBe(200);
       expect(replaced.body.reviewed).toBe(false);
-      expect((await db.personDocument.findByPk(passportDoc.id)).reviewed).toBe(false);
     });
   });
 });

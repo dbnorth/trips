@@ -15,6 +15,8 @@ const OrgPeopleRole = db.orgPeopleRole;
 const Op = db.Sequelize.Op;
 const exports = {};
 
+const REVIEWED_LOCKED_MESSAGE = "Reviewed documents can't be changed.";
+
 export const canManagePerson = async (req, personId) => {
   if (req.user?.isAdmin) return true;
   if (req.user?.personId && Number(req.user.personId) === Number(personId)) return true;
@@ -401,44 +403,64 @@ exports.update = async (req, res) => {
       cleanupUploadedFile(req);
       return res.status(404).send({ message: "Document not found." });
     }
-
-    const result = await validatePayload(req.body);
-    if (result.error) {
+    if (row.reviewed) {
       cleanupUploadedFile(req);
-      return res.status(400).send({ message: result.error });
+      return res.status(400).send({ message: REVIEWED_LOCKED_MESSAGE });
     }
 
-    const payload = { ...result.payload };
-    const documentFile = primaryDocumentFile(req);
-    if (documentFile) payload.documentFileName = storedFileName(documentFile);
-
-    const plan = await resolveSpecializationPlan(
-      req.body,
-      result.documentType,
-      specializationFiles(req),
-      row.id
-    );
-    if (plan.error) {
-      cleanupUploadedFile(req);
-      return res.status(400).send({ message: plan.error });
-    }
-
-    if (documentFile || documentDetailsChanged(row, payload) || specializationsChanged(plan)) {
-      payload.reviewed = false;
-    }
-
-    await writeEncryptedFiles([documentFile, ...planFiles(plan)]);
-    if (documentFile) removeDocumentFile(row.documentFileName);
-    await row.update(payload);
-    if (!plan.skip) {
-      await persistSpecializations(row.id, plan.prepared, plan.existing);
-    }
-    res.send(serializeDocument(await loadForPerson(row.id, person.id)));
+    const updated = await updatePersonDocument(req, res, row);
+    if (updated) res.send(serializeDocument(updated));
   } catch (err) {
     cleanupUploadedFile(req);
     res.status(500).send({ message: err.message });
   }
 };
+
+/**
+ * Apply a multipart document update to an unreviewed row (profile rules). Sends the 400 and returns
+ * null when invalid; otherwise returns the reloaded document. A new file clears the reload request.
+ */
+export const updatePersonDocument = async (req, res, row) => {
+  const result = await validatePayload(req.body);
+  if (result.error) {
+    cleanupUploadedFile(req);
+    res.status(400).send({ message: result.error });
+    return null;
+  }
+
+  const payload = { ...result.payload };
+  const documentFile = primaryDocumentFile(req);
+  if (documentFile) {
+    payload.documentFileName = storedFileName(documentFile);
+    payload.reloadRequestedAt = null;
+  }
+
+  const plan = await resolveSpecializationPlan(
+    req.body,
+    result.documentType,
+    specializationFiles(req),
+    row.id
+  );
+  if (plan.error) {
+    cleanupUploadedFile(req);
+    res.status(400).send({ message: plan.error });
+    return null;
+  }
+
+  if (documentFile || documentDetailsChanged(row, payload) || specializationsChanged(plan)) {
+    payload.reviewed = false;
+  }
+
+  await writeEncryptedFiles([documentFile, ...planFiles(plan)]);
+  if (documentFile) removeDocumentFile(row.documentFileName);
+  await row.update(payload);
+  if (!plan.skip) {
+    await persistSpecializations(row.id, plan.prepared, plan.existing);
+  }
+  return loadForPerson(row.id, row.personId);
+};
+
+export { cleanupUploadedFile, serializeDocument };
 
 export const sendDocumentFile = async (res, documentFileName, { inline }) => {
   const filePath = documentPath(documentFileName);
@@ -536,6 +558,7 @@ exports.delete = async (req, res) => {
       where: { id: req.params.documentId, personId: person.id },
     });
     if (!row) return res.status(404).send({ message: "Document not found." });
+    if (row.reviewed) return res.status(400).send({ message: REVIEWED_LOCKED_MESSAGE });
 
     const specs = await PersonDocumentSpecialization.findAll({
       where: { personDocumentId: row.id },

@@ -115,6 +115,8 @@ const participantItems = computed(() =>
       bookedBy: flightBookedByLabel(row.flightPurchaseOption, trip.value?.organization?.name),
       missingItems: status?.missingItems || [],
       amountOwed: status?.amountOwed ?? null,
+      documentsReviewed: !!status?.documentsReviewed,
+      documentsToReview: !!status?.documentsToReview,
     };
     for (const option of travelOptions.value) {
       item[`opt_${option.id}`] = selectedIds.includes(Number(option.id)) ? "Yes" : "—";
@@ -639,6 +641,8 @@ onMounted(refresh);
             v-if="item.person?.id"
             icon="mdi-checkbox-marked-circle-outline"
             label="Review documents"
+            :color="item.documentsToReview ? 'warning' : item.documentsReviewed ? 'success' : undefined"
+            data-testid="review-documents-action"
             @click="openReviewDocuments(item)"
           />
           <RowAction
