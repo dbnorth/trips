@@ -10,7 +10,7 @@ import {
 } from "../authorization/accessControl.js";
 import { tripRoleAvailability, withCapacityFields } from "../utils/tripRoleCapacity.js";
 import { sendDonationEventEmails } from "../utils/eventEmails.js";
-import { findOrCreateLinkedDonor, isApprovedTripMember } from "../utils/donorPerson.js";
+import { DONATION_STATUSES, findOrCreateLinkedDonor, isDonationRecipient } from "../utils/donorPerson.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
@@ -53,13 +53,22 @@ const donorFacingRoles = async () => {
 
 const loadTripParticipants = async (tripId, roleIds) =>
   TripPeopleRole.findAll({
-    where: { tripId, roleId: { [db.Sequelize.Op.in]: roleIds }, status: "approved" },
+    where: {
+      tripId,
+      roleId: { [db.Sequelize.Op.in]: roleIds },
+      status: { [db.Sequelize.Op.in]: DONATION_STATUSES },
+    },
     include: [{ model: db.person, as: "person", attributes: ["id", "firstName", "lastName", "bioText", "picture"] }],
   });
 
 const findTripMember = async (tripId, peopleId, roleIds) =>
   TripPeopleRole.findOne({
-    where: { tripId, peopleId, roleId: { [db.Sequelize.Op.in]: roleIds }, status: "approved" },
+    where: {
+      tripId,
+      peopleId,
+      roleId: { [db.Sequelize.Op.in]: roleIds },
+      status: { [db.Sequelize.Op.in]: DONATION_STATUSES },
+    },
     include: [{ model: db.person, as: "person" }],
   });
 
@@ -224,11 +233,11 @@ exports.createPublicDonation = async (req, res) => {
     if (
       signedInPersonId &&
       Number(personId) === Number(signedInPersonId) &&
-      !(await isApprovedTripMember(tripId, signedInPersonId))
+      !(await isDonationRecipient(tripId, signedInPersonId))
     ) {
-      return res
-        .status(403)
-        .send({ message: "You can donate to yourself only on trips where you are approved." });
+      return res.status(403).send({
+        message: "You can donate to yourself only on trips where you are pre-approved or approved.",
+      });
     }
     const donorRecord = signedInPersonId
       ? await findOrCreateLinkedDonor(signedInPersonId, donorDetails)

@@ -263,6 +263,10 @@ const viewBrowseTrip = (trip) => {
   router.push({ name: "tripBrowse", params: { tripId: trip.id } });
 };
 
+const viewMyTrip = (trip) => {
+  router.push({ name: "myTrip", params: { tripId: trip.id } });
+};
+
 const openApplyDialog = (trip) => {
   if (!trip?.id) return;
   if (trip.alreadyApplied && !canUpdateApplication(trip)) return;
@@ -730,7 +734,15 @@ onUnmounted(() => {
               <tbody>
                 <template v-for="item in displayMyTrips" :key="`my-${item.id}`">
                 <tr>
-                  <td>{{ item.name }}</td>
+                  <td>
+                    <router-link
+                      :to="{ name: 'myTrip', params: { tripId: item.id } }"
+                      class="font-weight-bold"
+                      data-testid="my-trip-name-link"
+                    >
+                      {{ item.name }}
+                    </router-link>
+                  </td>
                   <td>{{ item.location || "—" }}</td>
                   <td>{{ formatDate(item.startDate) }}</td>
                   <td>{{ formatDate(item.endDate) }}</td>
@@ -745,7 +757,7 @@ onUnmounted(() => {
                   </td>
                   <td class="text-right">
                     <div class="d-flex justify-end ga-1 flex-nowrap">
-                      <RowAction icon="mdi-eye" label="View" @click="viewBrowseTrip(item)" />
+                      <RowAction icon="mdi-eye" label="View" @click="viewMyTrip(item)" />
                       <RowAction
                         v-if="canUpdateApplication(item) && !hasCompleteApplicationAction(item)"
                         :icon="applicationActionIcon(item)"
@@ -816,7 +828,15 @@ onUnmounted(() => {
               </thead>
               <tbody>
                 <tr v-for="item in availableTrips" :key="`avail-${item.id}`">
-                  <td>{{ item.name }}</td>
+                  <td>
+                    <router-link
+                      :to="{ name: 'tripBrowse', params: { tripId: item.id } }"
+                      class="font-weight-bold"
+                      data-testid="available-trip-name-link"
+                    >
+                      {{ item.name }}
+                    </router-link>
+                  </td>
                   <td>{{ item.location || "—" }}</td>
                   <td>{{ formatDate(item.startDate) }}</td>
                   <td>{{ formatDate(item.endDate) }}</td>

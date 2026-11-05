@@ -20,6 +20,7 @@ import DocumentTypesList from "./views/DocumentTypesList.vue";
 import AirportsList from "./views/AirportsList.vue";
 import AirlinesList from "./views/AirlinesList.vue";
 import TripBrowseView from "./views/TripBrowseView.vue";
+import MyTripView from "./views/MyTripView.vue";
 import EditTripApplicationView from "./views/EditTripApplicationView.vue";
 import DonorTripPage from "./views/DonorTripPage.vue";
 import DonorParticipantPage from "./views/DonorParticipantPage.vue";
@@ -54,6 +55,7 @@ const router = createRouter({
     },
     { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
     { path: "/browse-trips/:tripId", name: "tripBrowse", component: TripBrowseView, props: true },
+    { path: "/my-trips/:tripId", name: "myTrip", component: MyTripView, props: true },
     {
       path: "/browse-trips/:tripId/application",
       name: "editTripApplication",
@@ -149,7 +151,7 @@ export function applyAuthGuards(router) {
       return;
     }
     if (
-      (to.name === "tripBrowse" || to.name === "editTripApplication") &&
+      ["tripBrowse", "myTrip", "editTripApplication"].includes(to.name) &&
       !Utils.canBrowseAndApplyToTrips(user)
     ) {
       next({ name: "home" });

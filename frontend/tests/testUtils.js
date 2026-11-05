@@ -15,6 +15,7 @@ const feature1Routes = [
   { path: "/reset-password", name: "resetPassword", component: Stub },
   { path: "/home", name: "home", component: Stub },
   { path: "/browse-trips/:tripId", name: "tripBrowse", component: Stub, props: true },
+  { path: "/my-trips/:tripId", name: "myTrip", component: Stub, props: true },
   {
     path: "/browse-trips/:tripId/application",
     name: "editTripApplication",
