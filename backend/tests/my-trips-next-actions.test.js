@@ -67,6 +67,8 @@ const loadMyTrips = async (ada, orgId) => {
 const nextActionsFor = (trips, tripId) =>
   trips.find((t) => Number(t.id) === Number(tripId))?.nextActions;
 
+const owedAction = { code: "make-donation", amountOwed: 1800 };
+
 const arrivalSegment = {
   segmentType: "arrival",
   segmentNumber: 1,
@@ -113,7 +115,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
 
       const trips = await loadMyTrips(ada, org.id);
 
-      expect(nextActionsFor(trips, upcoming.id)).toEqual([{ code: "wait-approval" }]);
+      expect(nextActionsFor(trips, upcoming.id)).toEqual([{ code: "wait-approval" }, owedAction]);
       expect(nextActionsFor(trips, past.id)).toEqual([]);
       expect(trips.find((t) => t.id === upcoming.id).tripPeopleRoleId).toBe(upcomingAssignment.id);
     });
@@ -126,7 +128,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
       const res = await request(app).get(`/trips/trips/browse/${trip.id}`).set(ada.authHeader);
 
       expect(res.status).toBe(200);
-      expect(res.body.myTripInfo.nextActions).toEqual([{ code: "wait-approval" }]);
+      expect(res.body.myTripInfo.nextActions).toEqual([{ code: "wait-approval" }, owedAction]);
       expect(res.body.myTripInfo.tripPeopleRoleId).toBe(assignment.id);
     });
 
@@ -181,6 +183,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
             "Passport",
           ],
         },
+        owedAction,
       ]);
     });
 
@@ -230,6 +233,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
           dueDate: expect.any(String),
           missingDocuments: [`Passport: add this document with an expiration date after ${mdY(trip.endDate)}`],
         },
+        owedAction,
       ]);
     });
   });
@@ -310,6 +314,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
             `Board Certification: the expiration date ${mdY(dateFromToday(65))} must be after ${mdY(first.trip.endDate)}`,
           ],
         },
+        owedAction,
       ]);
 
       await resetTestDatabase();
@@ -324,6 +329,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
             "A file for every profile document",
           ],
         },
+        owedAction,
       ]);
     });
 
@@ -342,6 +348,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
             "CPR Card: add this document",
           ],
         },
+        owedAction,
       ]);
     });
   });

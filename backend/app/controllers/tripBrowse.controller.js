@@ -19,7 +19,7 @@ import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 import { loadDonationRecipients } from "../utils/donorPerson.js";
 import { loadMyTripDocuments, loadMyTripNextActions } from "../utils/myTripNextActions.js";
 import { loadMyTripTravelDetails } from "../utils/myTripTravelDetails.js";
-import { participantTotals } from "../utils/participantTotals.js";
+import { participantTotals, participantCostBreakdown, amountOwed } from "../utils/participantTotals.js";
 import { loadTripWithArrivalPdf } from "../utils/tripArrivalPdf.js";
 import { participantTravelDates } from "../utils/tripDays.js";
 import {
@@ -54,8 +54,9 @@ const parseBool = (value) => value === true || value === 1 || value === "1" || v
 const parseFlightNotes = (value) => String(value ?? "").trim() || null;
 
 const myTravelDates = async (trip, assignmentId) => {
-  const { arrivalDate, departureDate } = await participantTravelDates(trip, assignmentId);
-  return { arrivalDate, departureDate };
+  const { arrivalDate, departureDate, arrivalAdjustments, departureAdjustments } =
+    await participantTravelDates(trip, assignmentId);
+  return { arrivalDate, departureDate, arrivalAdjustments, departureAdjustments };
 };
 
 const loadTravelOptionsForApplication = async (tripId, tripPeopleRoleId = null) => {
@@ -465,8 +466,10 @@ exports.getBrowseTrip = async (req, res) => {
         })),
         ...(["incomplete", "pre_approved", "approved"].includes(assignment.status)
           ? await myTravelDates(trip, assignment.id)
-          : { arrivalDate: null, departureDate: null }),
+          : { arrivalDate: null, departureDate: null, arrivalAdjustments: [], departureAdjustments: [] }),
         donationTotal: Number(donationTotal) || 0,
+        costBreakdown: await participantCostBreakdown(trip, assignment),
+        amountOwed: amountOwed(totals.totalTripCost, Number(donationTotal) || 0),
         donationRecipients: ["incomplete", "pre_approved", "approved"].includes(assignment.status)
           ? await loadDonationRecipients(trip.id)
           : [],

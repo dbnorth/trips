@@ -78,10 +78,13 @@ const approvedMemberRoleInclude = {
   attributes: [],
 };
 
-/** Approved Trip Participants and Trip Leaders on the trip, one entry per person. */
+/** Application statuses that can give and receive trip donations. */
+export const DONATION_STATUSES = ["pre_approved", "approved"];
+
+/** Pre-Approved and Approved Trip Participants and Trip Leaders on the trip, one entry per person. */
 export const loadDonationRecipients = async (tripId) => {
   const links = await db.tripPeopleRole.findAll({
-    where: { tripId, status: "approved" },
+    where: { tripId, status: { [Op.in]: DONATION_STATUSES } },
     include: [
       approvedMemberRoleInclude,
       { model: db.person, as: "person", attributes: ["id", "firstName", "lastName"] },
@@ -100,10 +103,10 @@ export const loadDonationRecipients = async (tripId) => {
   return [...byPerson.values()];
 };
 
-/** Approved Trip Participant or Trip Leader on the trip. */
-export const isApprovedTripMember = async (tripId, personId) => {
+/** Pre-Approved or Approved Trip Participant or Trip Leader on the trip. */
+export const isDonationRecipient = async (tripId, personId) => {
   const link = await db.tripPeopleRole.findOne({
-    where: { tripId, peopleId: personId, status: "approved" },
+    where: { tripId, peopleId: personId, status: { [Op.in]: DONATION_STATUSES } },
     include: [approvedMemberRoleInclude],
     attributes: ["id"],
   });

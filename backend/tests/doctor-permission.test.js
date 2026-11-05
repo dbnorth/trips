@@ -266,6 +266,7 @@ describe("Feature 102 — Doctor Permission Document When Pregnant", () => {
       const myTrip = mine.body.find((t) => Number(t.id) === Number(trip.id));
       expect(myTrip.nextActions).toEqual([
         { code: "upload-documents", missingDocuments: ["Doctor Permission"], dueDate: expect.any(String) },
+        { code: "make-donation", amountOwed: 1800 },
       ]);
     });
   });
