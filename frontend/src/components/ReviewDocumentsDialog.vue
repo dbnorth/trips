@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import TripPeopleRoleServices from "../services/tripPeopleRoleServices.js";
+import ReviewDocumentEditSection from "./ReviewDocumentEditSection.vue";
 import { formatDate } from "../utils/dateFormat.js";
 
 const props = defineProps({
@@ -21,6 +22,13 @@ const viewType = ref("");
 const viewName = ref("");
 const viewDoc = ref(null);
 const viewSpecialization = ref(null);
+/** The open section under the document-data line: "edit", "reload", or null. */
+const viewSection = ref(null);
+const viewNotice = ref(null);
+const reloadNote = ref("");
+const reloadSending = ref(false);
+const reloadError = ref("");
+const RELOAD_NOTE_MAX = 1000;
 
 const viewKind = computed(() => {
   const type = (viewType.value || "").toLowerCase();
@@ -74,6 +82,7 @@ const setReviewed = async (doc, reviewed) => {
   try {
     await TripPeopleRoleServices.setDocumentReviewed(props.participant.id, doc.id, reviewed);
     doc.reviewed = reviewed;
+    if (reviewed) doc.reloadRequestedAt = null;
   } catch (e) {
     message.value = e.response?.data?.message || "Unable to save Reviewed.";
   } finally {
@@ -88,14 +97,20 @@ const revokeViewUrl = () => {
 
 const viewDocument = async (doc, specialization = null) => {
   message.value = "";
-  revokeViewUrl();
   viewName.value = specialization
     ? `${doc.description || "Document"} — ${specialization.name}`
     : doc.description || "Document";
   viewDoc.value = doc;
   viewSpecialization.value = specialization;
-  viewType.value = "";
+  viewSection.value = null;
+  viewNotice.value = null;
   viewDialog.value = true;
+  await loadViewFile(doc, specialization);
+};
+
+const loadViewFile = async (doc, specialization = null) => {
+  revokeViewUrl();
+  viewType.value = "";
   viewLoading.value = true;
   try {
     const response = specialization
@@ -115,7 +130,71 @@ const closeView = () => {
   viewDialog.value = false;
   viewDoc.value = null;
   viewSpecialization.value = null;
+  viewSection.value = null;
+  viewNotice.value = null;
   revokeViewUrl();
+};
+
+const findReviewDocument = (id) => {
+  for (const requirement of requirements.value) {
+    const doc = requirement.documents.find((row) => Number(row.id) === Number(id));
+    if (doc) return doc;
+  }
+  return null;
+};
+
+const openSection = (section) => {
+  viewNotice.value = null;
+  reloadNote.value = "";
+  reloadError.value = "";
+  viewSection.value = section;
+};
+
+const onEditSaved = async ({ fileReplaced }) => {
+  const id = viewDoc.value.id;
+  viewSection.value = null;
+  await load();
+  const updated = findReviewDocument(id);
+  if (updated) {
+    viewDoc.value = updated;
+    viewName.value = updated.description || "Document";
+  }
+  viewNotice.value = { type: "success", text: "Document saved." };
+  if (fileReplaced) await loadViewFile(viewDoc.value);
+};
+
+const reloadNotice = ({ emailSent, templateFound }) => {
+  const person = props.participant?.person;
+  if (emailSent) {
+    const name = [person?.firstName, person?.lastName].filter(Boolean).join(" ");
+    return { type: "success", text: `Reload requested. Email sent to ${name}.` };
+  }
+  const hint = templateFound ? "" : " Add a Send Now template for the Document reload requested email type.";
+  return { type: "warning", text: `Reload requested. No email was sent.${hint}` };
+};
+
+const sendReloadRequest = async () => {
+  if (reloadNote.value.length > RELOAD_NOTE_MAX) {
+    reloadError.value = "Note must be 1000 characters or less.";
+    return;
+  }
+  reloadSending.value = true;
+  reloadError.value = "";
+  try {
+    const { data } = await TripPeopleRoleServices.requestDocumentReload(
+      props.participant.id,
+      viewDoc.value.id,
+      reloadNote.value.trim()
+    );
+    viewDoc.value.reviewed = false;
+    viewDoc.value.reloadRequestedAt = data.reloadRequestedAt;
+    viewSection.value = null;
+    viewNotice.value = reloadNotice(data);
+  } catch (e) {
+    reloadError.value = e.response?.data?.message || "Unable to request a reload.";
+  } finally {
+    reloadSending.value = false;
+  }
 };
 
 const close = () => {
@@ -161,11 +240,29 @@ const close = () => {
             >
               <div class="d-flex align-center flex-wrap ga-3">
                 <div class="d-flex flex-column flex-grow-1">
-                  <span class="font-weight-medium">{{ doc.description }}</span>
+                  <span class="font-weight-medium">
+                    {{ doc.description }}
+                    <v-chip
+                      v-if="doc.current"
+                      size="x-small"
+                      color="primary"
+                      class="ml-2"
+                      data-testid="review-current-document"
+                    >
+                      Used for this trip
+                    </v-chip>
+                  </span>
                   <span class="text-body-2 text-medium-emphasis">
                     <span v-if="doc.documentNumber">{{ doc.documentNumber }}</span>
                     <span v-if="doc.documentNumber && doc.expirationDate"> · </span>
                     <span v-if="doc.expirationDate">expires {{ formatDate(doc.expirationDate) }}</span>
+                  </span>
+                  <span
+                    v-if="doc.reloadRequestedAt"
+                    class="text-body-2 text-warning"
+                    data-testid="document-reload-requested"
+                  >
+                    Reload requested {{ formatDate(doc.reloadRequestedAt) }}
                   </span>
                 </div>
                 <v-btn
@@ -250,19 +347,95 @@ const close = () => {
         >
           <span><strong>Specialization date:</strong> {{ formatDate(viewSpecialization.date) || "—" }}</span>
         </div>
-        <div
-          v-else-if="viewDoc"
-          class="d-flex flex-wrap ga-4 text-body-2 mb-3"
-          data-testid="review-document-details"
-        >
-          <span v-if="viewDoc.documentNumberRequired">
-            <strong>Document number:</strong> {{ viewDoc.documentNumber || "—" }}
-          </span>
-          <span><strong>Issue date:</strong> {{ formatDate(viewDoc.issueDate) || "—" }}</span>
-          <span v-if="viewDoc.hasExpirationDate">
-            <strong>Expiration date:</strong> {{ formatDate(viewDoc.expirationDate) || "—" }}
-          </span>
-        </div>
+        <template v-else-if="viewDoc">
+          <div class="d-flex flex-wrap align-center ga-4 mb-3">
+            <div class="d-flex flex-wrap ga-4 text-body-2" data-testid="review-document-details">
+              <span v-if="viewDoc.documentNumberRequired">
+                <strong>Document number:</strong> {{ viewDoc.documentNumber || "—" }}
+              </span>
+              <span><strong>Issue date:</strong> {{ formatDate(viewDoc.issueDate) || "—" }}</span>
+              <span v-if="viewDoc.hasExpirationDate">
+                <strong>Expiration date:</strong> {{ formatDate(viewDoc.expirationDate) || "—" }}
+              </span>
+            </div>
+            <div class="ml-auto d-flex align-center ga-2">
+              <v-btn
+                size="small"
+                variant="tonal"
+                prepend-icon="mdi-pencil"
+                :disabled="viewDoc.reviewed"
+                data-testid="review-document-edit"
+                @click="openSection('edit')"
+              >
+                Edit
+              </v-btn>
+              <v-btn
+                size="small"
+                variant="tonal"
+                color="warning"
+                prepend-icon="mdi-file-upload-outline"
+                data-testid="review-document-reload"
+                @click="openSection('reload')"
+              >
+                Request reload
+              </v-btn>
+            </div>
+          </div>
+          <p
+            v-if="viewDoc.reviewed"
+            class="text-caption text-medium-emphasis mt-n2 mb-3"
+            data-testid="review-document-edit-hint"
+          >
+            Untick Reviewed to edit.
+          </p>
+          <ReviewDocumentEditSection
+            v-if="viewSection === 'edit'"
+            :key="viewDoc.id"
+            :assignment-id="participant.id"
+            :document="viewDoc"
+            :document-types="review?.documentTypes || []"
+            @close="viewSection = null"
+            @saved="onEditSaved"
+          />
+          <div
+            v-else-if="viewSection === 'reload'"
+            class="border rounded pa-3 mb-3"
+            data-testid="review-document-reload-section"
+          >
+            <v-textarea
+              v-model="reloadNote"
+              label="Note to participant"
+              rows="3"
+              auto-grow
+              density="compact"
+              :counter="RELOAD_NOTE_MAX"
+              hint="Optional. Included in the email."
+              persistent-hint
+              data-testid="review-reload-note"
+            />
+            <v-alert v-if="reloadError" type="error" density="compact" class="mt-2">{{ reloadError }}</v-alert>
+            <div class="d-flex justify-end ga-2 mt-2">
+              <v-btn variant="text" :disabled="reloadSending" @click="viewSection = null">Close</v-btn>
+              <v-btn
+                color="primary"
+                :loading="reloadSending"
+                data-testid="review-reload-send"
+                @click="sendReloadRequest"
+              >
+                Send request
+              </v-btn>
+            </div>
+          </div>
+          <v-alert
+            v-if="viewNotice"
+            :type="viewNotice.type"
+            density="compact"
+            class="mb-3"
+            data-testid="review-document-notice"
+          >
+            {{ viewNotice.text }}
+          </v-alert>
+        </template>
         <div v-if="viewLoading" class="d-flex justify-center py-8">
           <v-progress-circular indeterminate />
         </div>

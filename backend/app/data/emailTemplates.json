@@ -44,6 +44,14 @@
       "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nYour application for {{TRIP_NAME}} ({{TRIP_START_DATE}} to {{TRIP_END_DATE}}) is pre-approved. All documents for your trip must be uploaded by {{DOCUMENTS_DUE_DATE}}, 90 days before departure. These documents are still missing:\n\n{{MISSING_DOCUMENTS}}\n\nPlease log in and upload them on your profile.\n\nNeed help? Reach {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}} at {{LEADER_EMAIL}} or {{LEADER_PHONE}}.\n\nThank you,\n{{ORG_NAME}}"
     },
     {
+      "typeCode": "document-reload",
+      "functionCode": "Send Now",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "Please reupload your {{RELOAD_DOCUMENT_TYPE}}",
+      "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nTrip staff for {{TRIP_NAME}} asked you to reupload this document:\n\n{{RELOAD_DOCUMENT}}\n\n{{RELOAD_NOTE}}\n\nPlease log in and upload a new file for it on your profile.\n\nNeed help? Reach {{LEADER_FIRST_NAME}} {{LEADER_LAST_NAME}} at {{LEADER_EMAIL}}.\n\nThank you,\n{{ORG_NAME}}"
+    },
+    {
       "typeCode": "deposit-due",
       "functionCode": "Scheduled",
       "scheduleRule": "weekly",

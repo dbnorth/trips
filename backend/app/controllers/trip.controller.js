@@ -45,6 +45,7 @@ import {
   getApplicationMissingItemLabels,
   travelOptionsIncompleteMessage,
 } from "../utils/applicationMissingItems.js";
+import { loadApprovalDocuments } from "../utils/approvalDocuments.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import { amountOwed, participantCost, participantCostBreakdown } from "../utils/participantTotals.js";
@@ -378,6 +379,19 @@ exports.findStatus = async (req, res) => {
           }),
       });
 
+      const { requirements: documentRequirements } = await loadApprovalDocuments({
+        tripId,
+        peopleId,
+        tripWorkerRoleId: json.tripWorkerRoleId,
+        isPregnant: pregnancy.ok ? pregnancy.isPregnant : null,
+      });
+      const currentDocuments = documentRequirements.map((requirement) =>
+        requirement.documents.find((doc) => doc.current)
+      );
+      const documentsReviewed =
+        currentDocuments.length > 0 && currentDocuments.every((doc) => !!doc?.qualifies && doc.reviewed);
+      const documentsToReview = currentDocuments.some((doc) => doc && !doc.reviewed);
+
       const costBreakdown = await participantCostBreakdown(tripJson, json);
       const amountRaised = totalsByPersonId.get(Number(peopleId)) || 0;
 
@@ -394,6 +408,8 @@ exports.findStatus = async (req, res) => {
         amountRaised,
         amountOwed: amountOwed(costBreakdown.totalTripCost, amountRaised),
         missingItems,
+        documentsReviewed,
+        documentsToReview,
         selectedTravelOptionIds,
         ...(await participantTravelDates(tripJson, json.id)),
         ...(await participantFlightDates(json.id)),

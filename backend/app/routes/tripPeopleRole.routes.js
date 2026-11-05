@@ -1,6 +1,7 @@
 import { Router } from "express";
 import tpr from "../controllers/tripPeopleRole.controller.js";
 import authenticate from "../authorization/accessControl.js";
+import { handleDocumentUpload } from "../config/multer.js";
 
 const router = Router();
 
@@ -14,6 +15,8 @@ router.get(
   tpr.viewSpecialization
 );
 router.put("/:id/documents/:documentId/reviewed", [authenticate], tpr.setDocumentReviewed);
+router.put("/:id/documents/:documentId", [authenticate], handleDocumentUpload, tpr.updateDocument);
+router.post("/:id/documents/:documentId/reload-request", [authenticate], tpr.requestDocumentReload);
 router.post("/", [authenticate], tpr.create);
 router.post("/:id/cancel", [authenticate], tpr.cancel);
 router.post("/:id/uncancel", [authenticate], tpr.uncancel);

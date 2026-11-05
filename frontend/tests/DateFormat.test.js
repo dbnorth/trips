@@ -267,7 +267,7 @@ describe("Feature 101 — MM/DD/YYYY Dates", () => {
       const { wrapper } = await mountWithPlugins(PersonDocumentsCard, { props: { personId: 5 } });
       await flushPromises();
 
-      const row = wrapper.findAll("tbody tr").find((tr) => tr.text().includes("P999"));
+      const row = wrapper.findAll("tbody tr").find((tr) => tr.text().includes("Passport"));
       const cells = row.findAll("td").map((td) => td.text().trim());
       expect(cells).toContain("05/04/2020");
       expect(cells).toContain("05/03/2030");
