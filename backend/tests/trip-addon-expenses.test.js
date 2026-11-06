@@ -19,6 +19,7 @@ import {
   registerUser,
   createOrgAdminUser,
   findRole,
+  completePersonProfile,
 } from "./helpers.js";
 
 const TUESDAY = "2026-11-03";
@@ -240,6 +241,7 @@ describe("Feature 74 — Trip Add-on Expenses", () => {
 
     it("The participant's own application edit keeps add-on expenses", async () => {
       await noraAssignment.update({ status: "pre_approved" });
+      await completePersonProfile(nora.user.personId);
       await addAddons();
 
       const response = await request(app)

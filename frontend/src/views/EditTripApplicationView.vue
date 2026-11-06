@@ -29,6 +29,7 @@ import {
   canShowPrimarySubmitButton,
   getIncompleteSubmitReasons,
   getSubmitUnavailableReasons,
+  isPreApprovedUpdateLocked,
 } from "../utils/applicationSubmitAvailability.js";
 
 const props = defineProps({
@@ -210,8 +211,16 @@ const readyToSubmit = computed(
     travelOptionsComplete.value
 );
 
+const updateLocked = computed(() =>
+  isPreApprovedUpdateLocked({
+    applicationStatus: application.value?.status,
+    trip: trip.value,
+    readyToSubmit: readyToSubmit.value,
+  })
+);
+
 const primaryActionLabel = computed(() => {
-  if (!readyToSubmit.value) return "Save Incomplete Application";
+  if (!readyToSubmit.value && !updateLocked.value) return "Save Incomplete Application";
   return application.value?.status === "pre_approved" ? "Update Application" : "Submit Application";
 });
 
@@ -835,6 +844,8 @@ onMounted(load);
             v-if="showPrimarySubmitButton"
             color="primary"
             :loading="saving"
+            :disabled="updateLocked"
+            data-testid="application-primary-action"
             @click="save"
           >
             {{ primaryActionLabel }}
