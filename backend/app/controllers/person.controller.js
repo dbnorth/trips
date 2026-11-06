@@ -28,6 +28,12 @@ import {
   readMedicalConditionIds,
   saveMedicalConditionIds,
 } from "../utils/personMedicalConditions.js";
+import { getMissingProfileFields, loadPersonForCompleteness } from "../utils/tripParticipantApplicationStatus.js";
+import {
+  ACTIVE_TRIP_PROFILE_PREFIX,
+  activeTripOrgIds,
+  missingInformationMessage,
+} from "../utils/activeTrips.js";
 
 const Person = db.person;
 const User = db.user;
@@ -277,6 +283,33 @@ const syncPersonMedicalConditions = async ({
   return { ok: true };
 };
 
+/** The profile as this update would leave it (fields, languages, medical conditions). */
+const profileAfterUpdate = async (personId, body, { speaksOtherLanguage, languages, medicalOrgId }) => {
+  const profile = await loadPersonForCompleteness(personId);
+  for (const field of personFields) {
+    if (Object.prototype.hasOwnProperty.call(body, field)) profile[field] = body[field];
+  }
+  profile.hasAllergies = normalizeTriState(profile.hasAllergies);
+  profile.takesMedication = normalizeTriState(profile.takesMedication);
+  profile.speaksOtherLanguage = speaksOtherLanguage;
+  if (languages) profile.languages = languages;
+
+  const hasMedicalConditionIds = Object.prototype.hasOwnProperty.call(body, "medicalConditionIds");
+  if ((hasMedicalConditionIds || profile.takesMedication === false) && medicalOrgId != null && medicalOrgId !== "") {
+    const orgId = Number(medicalOrgId);
+    profile.medicalConditions = profile.medicalConditions.filter((c) => Number(c.orgId) !== orgId);
+    if (profile.takesMedication === true && Array.isArray(body.medicalConditionIds)) {
+      profile.medicalConditions.push(...body.medicalConditionIds.map((id) => ({ id: Number(id), orgId })));
+    }
+  }
+  return profile;
+};
+
+/** Labels missing for any organization of the person's active trips (Feature 121). */
+const missingForActiveTrips = (profile, orgIds) => [
+  ...new Set(orgIds.flatMap((orgId) => getMissingProfileFields(profile, { orgId }))),
+];
+
 exports.findOne = async (req, res) => {
   try {
     const person = await Person.findByPk(req.params.id);
@@ -448,10 +481,28 @@ exports.update = async (req, res) => {
     const speaksForLanguages = languageInput.hasSpeaks
       ? languageInput.speaksOtherLanguage
       : normalizeTriState(person.speaksOtherLanguage);
+    let validatedLanguages = null;
     if ((languageInput.hasSpeaks || languageInput.hasLanguages) && speaksForLanguages === true) {
       const languageCheck = await validateLanguageRows(languageInput.languages);
       if (!languageCheck.ok) {
         return res.status(languageCheck.status).send({ message: languageCheck.message });
+      }
+      validatedLanguages = languageCheck.rows;
+    }
+
+    const orgIds = await activeTripOrgIds(person.id);
+    if (orgIds.length) {
+      const profile = await profileAfterUpdate(person.id, body, {
+        speaksOtherLanguage: speaksForLanguages,
+        languages: validatedLanguages,
+        medicalOrgId: body.orgId ?? body.medicalConditionOrgId ?? req.query.orgId ?? null,
+      });
+      const missingItems = missingForActiveTrips(profile, orgIds);
+      if (missingItems.length) {
+        return res.status(400).send({
+          message: missingInformationMessage(ACTIVE_TRIP_PROFILE_PREFIX, missingItems),
+          missingItems,
+        });
       }
     }
 

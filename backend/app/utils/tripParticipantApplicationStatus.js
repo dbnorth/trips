@@ -25,40 +25,40 @@ export const isUnder18 = (birthDate, asOf = new Date()) => {
 };
 
 const PROFILE_FIELD_CHECKS = [
-  { key: "firstName" },
-  { key: "middleName" },
-  { key: "lastName" },
-  { key: "email" },
-  { key: "addLine1" },
-  { key: "city" },
-  { key: "country" },
-  { key: "state_prov" },
-  { key: "postalCode" },
-  { key: "phoneContryCode" },
-  { key: "phoneNumber" },
-  { key: "birthDate" },
-  { key: "gender" },
-  { key: "emergencyContactName" },
-  { key: "emergencyContactPhoneCountryCode" },
-  { key: "emergencyContactPhoneNumber" },
-  { key: "emergencyContactRelationship" },
+  { key: "firstName", label: "First name" },
+  { key: "middleName", label: "Middle name" },
+  { key: "lastName", label: "Last name" },
+  { key: "email", label: "Email" },
+  { key: "addLine1", label: "Address line 1" },
+  { key: "city", label: "City" },
+  { key: "country", label: "Country" },
+  { key: "state_prov", label: "State/province" },
+  { key: "postalCode", label: "Postal code" },
+  { key: "phoneContryCode", label: "Phone country code" },
+  { key: "phoneNumber", label: "Phone number" },
+  { key: "birthDate", label: "Birthdate" },
+  { key: "gender", label: "Gender" },
+  { key: "emergencyContactName", label: "Emergency contact name" },
+  { key: "emergencyContactPhoneCountryCode", label: "Emergency contact country code" },
+  { key: "emergencyContactPhoneNumber", label: "Emergency contact phone number" },
+  { key: "emergencyContactRelationship", label: "Emergency contact relationship" },
   {
     key: "allergiesDescription",
+    label: "Allergies description",
     required: (person) => person?.hasAllergies === true,
   },
-  { key: "currentChurchHome" },
-  { key: "currentChurchHomeCity" },
-  { key: "currentChurchHomeStateProv" },
+  { key: "currentChurchHome", label: "Current church home" },
+  { key: "currentChurchHomeCity", label: "Current church home city" },
+  { key: "currentChurchHomeStateProv", label: "Current church home state/province" },
 ];
 
-export const isProfileComplete = (person, options = {}) => {
-  if (!person) return false;
-  const fieldsOk = PROFILE_FIELD_CHECKS.every((field) => {
+/** Labels of the profile items still missing for an organization (Feature 112 labels). */
+export const getMissingProfileFields = (person, options = {}) => {
+  if (!person) return PROFILE_FIELD_CHECKS.map((field) => field.label);
+  const missing = PROFILE_FIELD_CHECKS.filter((field) => {
     const required = field.required ? field.required(person) : true;
-    if (!required) return true;
-    return !isBlank(person[field.key]);
-  });
-  if (!fieldsOk) return false;
+    return required && isBlank(person[field.key]);
+  }).map((field) => field.label);
   if (person.takesMedication === true) {
     const conditions = person.medicalConditions || [];
     const orgId = options.orgId;
@@ -68,7 +68,7 @@ export const isProfileComplete = (person, options = {}) => {
         : conditions.length
           ? conditions
           : person.medicalConditionIds || [];
-    if (!selected.length) return false;
+    if (!selected.length) missing.push("Medical conditions");
   }
   if (person.speaksOtherLanguage === true || person.speaksOtherLanguage === 1) {
     const languages = person.languages || [];
@@ -78,10 +78,13 @@ export const isProfileComplete = (person, options = {}) => {
         (row.fluency === "basic" || row.fluency === "conversational") &&
         (row.knowsMedicalTerminology === true || row.knowsMedicalTerminology === false)
     );
-    if (!complete.length) return false;
+    if (!complete.length) missing.push("Other languages");
   }
-  return true;
+  return missing;
 };
+
+export const isProfileComplete = (person, options = {}) =>
+  getMissingProfileFields(person, options).length === 0;
 
 /** Every person-document row must have an uploaded file. */
 export const arePersonDocumentsUploaded = (documents = []) =>

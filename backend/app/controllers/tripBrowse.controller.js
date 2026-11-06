@@ -6,11 +6,21 @@ import {
   isSystemAdmin,
 } from "../authorization/accessControl.js";
 import {
+  isProfileComplete,
   loadDoctorPermissionTypes,
   loadPersonForCompleteness,
   resolvePreApprovedOrIncompleteStatus,
   isUnder18,
 } from "../utils/tripParticipantApplicationStatus.js";
+import {
+  getApplicationMissingItemLabels,
+  travelOptionsIncompleteMessage,
+} from "../utils/applicationMissingItems.js";
+import {
+  ACTIVE_TRIP_APPLICATION_PREFIX,
+  isTripActive,
+  missingInformationMessage,
+} from "../utils/activeTrips.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
@@ -861,6 +871,44 @@ exports.updateApplication = async (req, res) => {
       travelOptionsComplete: !selectionCheck.missingSelection,
       orgId: trip.orgId,
     });
+
+    if (assignment.status === "pre_approved" && isTripActive(trip)) {
+      const missingItems = getApplicationMissingItemLabels({
+        profileComplete: isProfileComplete(person, { orgId: trip.orgId }),
+        tripWorkerRoleId,
+        willSelfFund,
+        willRaiseFunds,
+        hasPreferredRoommate,
+        preferredRoommateNames,
+        flightPurchaseOption: flightPurchase.flightPurchaseOption,
+        preferredDepartureAirportId: flightPurchase.preferredDepartureAirportId,
+        preferredReturnAirportId: flightPurchase.preferredReturnAirportId,
+        preferredCabinClass: flightPurchase.preferredCabinClass,
+        preferredAirlineId: flightPurchase.preferredAirlineId,
+        preferredRefundableTicket: flightPurchase.preferredRefundableTicket,
+        gender: person?.gender ?? null,
+        isPregnant: pregnancy.isPregnant,
+        pregnancyDueDate: pregnancy.pregnancyDueDate,
+        agreementRequired,
+        agreementAccepted: agreement.agreementAccepted,
+        agreementSignatureName: agreement.agreementSignatureName,
+        under18: participantUnder18,
+        agreementAdultFirstName: agreement.agreementAdultFirstName,
+        agreementAdultLastName: agreement.agreementAdultLastName,
+        agreementAdultEmail: agreement.agreementAdultEmail,
+        agreementAdultRelationship: agreement.agreementAdultRelationship,
+        medicalAgreementRequired,
+        medicalAgreementAccepted: medical.medicalAgreementAccepted,
+        travelOptionsComplete: !selectionCheck.missingSelection,
+        travelOptionsMessage: travelOptionsIncompleteMessage(travelOptions, selectedTravelOptionIds),
+      });
+      if (missingItems.length) {
+        return res.status(400).send({
+          message: missingInformationMessage(ACTIVE_TRIP_APPLICATION_PREFIX, missingItems),
+          missingItems,
+        });
+      }
+    }
 
     if (req.body?.version != null && Number(req.body.version) !== Number(assignment.version)) {
       return res.status(409).send({

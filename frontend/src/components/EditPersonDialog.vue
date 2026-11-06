@@ -15,7 +15,12 @@ import Utils from "../config/utils.js";
 import { formatPhoneForDisplay, formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
 import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
-import { normalizeYesNo, otherLanguageFieldsFromPerson, otherLanguagePayload } from "../utils/personProfile.js";
+import {
+  getMissingProfileFields,
+  normalizeYesNo,
+  otherLanguageFieldsFromPerson,
+  otherLanguagePayload,
+} from "../utils/personProfile.js";
 import { PREFERRED_NAME_HINT, defaultPreferredName } from "../utils/preferredName.js";
 
 const props = defineProps({
@@ -39,6 +44,7 @@ const orgRoles = ref([]);
 const newOrgRole = ref({ orgId: null, roleId: null });
 const { formError, formNotice, prepareSave, onLoadStart, onLoadSuccess, handleSaveError } =
   useVersionConflictForm();
+const missingInformationError = ref(null);
 const formRef = ref(null);
 const myTripDocumentsRef = ref(null);
 const form = ref(emptyForm());
@@ -161,6 +167,17 @@ const isSelfProfile = computed(() => {
 
 const dialogTitle = computed(() => (isSelfProfile.value ? "Edit profile" : "Edit person"));
 
+// The form's medical conditions are already those of resolvedMedicalOrgId.
+const missingProfileFields = computed(() =>
+  getMissingProfileFields({
+    ...form.value,
+    hasAllergies: normalizeYesNo(form.value.hasAllergies),
+    takesMedication: normalizeYesNo(form.value.takesMedication),
+    medicalConditions: (form.value.medicalConditionIds || []).map((id) => ({ id })),
+    ...otherLanguagePayload(form.value),
+  })
+);
+
 const canEditAdminFlag = computed(
   () => isSystemAdmin.value && !!form.value.email?.trim()
 );
@@ -271,6 +288,7 @@ const loadOrgRoles = async () => {
 const loadPerson = async ({ afterConflict = false } = {}) => {
   if (!props.personId) return;
   loading.value = true;
+  missingInformationError.value = null;
   onLoadStart({ afterConflict });
   try {
     const params = {};
@@ -412,6 +430,7 @@ const saveChangePassword = async () => {
 
 const save = async () => {
   formError.value = "";
+  missingInformationError.value = null;
   const { valid } = (await formRef.value?.validate()) ?? { valid: true };
   if (!valid) return;
 
@@ -509,6 +528,13 @@ const save = async () => {
     emit("saved");
     close();
   } catch (e) {
+    const refusal = e.response?.data;
+    if (refusal?.missingItems?.length) {
+      missingInformationError.value = {
+        intro: String(refusal.message || "").split(" Missing:")[0],
+        items: refusal.missingItems,
+      };
+    }
     await handleSaveError(e, loadPerson, "Error saving person.");
   } finally {
     saving.value = false;
@@ -520,6 +546,24 @@ const save = async () => {
   <v-dialog :model-value="modelValue" max-width="700" scrollable @update:model-value="(v) => !v && close()">
     <v-card>
       <v-card-title>{{ dialogTitle }}</v-card-title>
+
+      <div v-if="missingInformationError" class="px-6">
+        <v-alert type="error" density="compact" data-testid="missing-information-top">
+          <div>{{ missingInformationError.intro }}</div>
+          <div>Missing:</div>
+          <ul class="pl-6">
+            <li v-for="item in missingInformationError.items" :key="item">{{ item }}</li>
+          </ul>
+        </v-alert>
+      </div>
+      <div v-else-if="!loading && missingProfileFields.length" class="px-6">
+        <v-alert type="warning" variant="tonal" density="compact" data-testid="missing-profile-fields-top">
+          <div>Missing:</div>
+          <ul class="pl-6">
+            <li v-for="item in missingProfileFields" :key="item">{{ item }}</li>
+          </ul>
+        </v-alert>
+      </div>
 
       <v-card-text style="max-height: 70vh">
         <v-progress-linear v-if="loading" indeterminate class="mb-4" />

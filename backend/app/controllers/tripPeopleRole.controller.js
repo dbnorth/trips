@@ -15,6 +15,7 @@ import {
   shouldAutoSetApplicationStatus,
 } from "../utils/tripParticipantApplicationStatus.js";
 import { APPROVAL_DOCUMENTS_MESSAGE, loadApprovalDocuments } from "../utils/approvalDocuments.js";
+import { ACTIVE_TRIP_ROLE_MESSAGE, isActiveApplicationStatus, isTripActive } from "../utils/activeTrips.js";
 import {
   cleanupUploadedFile,
   sendDocumentFile,
@@ -198,6 +199,14 @@ const approvalDocumentsBlocked = async ({ tripId, peopleId, roleId, tripWorkerRo
   if (role?.roleName === ROLE_TRIP_LEADER) return false;
   const { approvalBlockers } = await loadApprovalDocuments({ tripId, peopleId, tripWorkerRoleId, isPregnant });
   return approvalBlockers.length > 0;
+};
+
+/** A Pre-Approved / Approved Trip Participant on an active trip keeps a trip role (Feature 121). */
+const activeTripRoleRequired = async ({ tripId, roleId, status, tripWorkerRoleId }) => {
+  if (tripWorkerRoleId != null || !isActiveApplicationStatus(status)) return false;
+  const role = roleId != null ? await db.role.findByPk(roleId, { attributes: ["roleName"] }) : null;
+  if (role?.roleName === ROLE_TRIP_LEADER) return false;
+  return isTripActive(await db.trip.findByPk(tripId, { attributes: ["startDate", "endDate"] }));
 };
 
 const computeStatusForPayload = async (payload, orgId) => {
@@ -441,6 +450,19 @@ exports.update = async (req, res) => {
     const requestedStatus = hasStatus ? normalizeManualStatus(body.status) : null;
     if (hasStatus && body.status != null && body.status !== "" && !requestedStatus) {
       return res.status(400).send({ message: INVALID_STATUS_MESSAGE });
+    }
+
+    if (
+      await activeTripRoleRequired({
+        tripId: row.tripId,
+        roleId: body.roleId ?? row.roleId,
+        status: requestedStatus ?? row.status,
+        tripWorkerRoleId: Object.prototype.hasOwnProperty.call(body, "tripWorkerRoleId")
+          ? body.tripWorkerRoleId
+          : row.tripWorkerRoleId,
+      })
+    ) {
+      return res.status(400).send({ message: ACTIVE_TRIP_ROLE_MESSAGE });
     }
 
     if (
