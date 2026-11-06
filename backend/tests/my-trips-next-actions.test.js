@@ -326,7 +326,6 @@ describe("Feature 60 — My Trips Next Actions", () => {
           dueDate: expect.any(String),
           missingDocuments: [
             `Board Certification: upload the file, add an expiration date after ${mdY(second.trip.endDate)}, and select the Emergency Medicine specialization`,
-            "A file for every profile document",
           ],
         },
         owedAction,

@@ -1,6 +1,5 @@
 import db from "../models/index.js";
 import {
-  arePersonDocumentsUploaded,
   currentDocument,
   isDoctorPermissionUploaded,
   isRequiredPassportUploaded,
@@ -146,13 +145,9 @@ export const loadApprovalDocuments = async ({ tripId, peopleId, tripWorkerRoleId
       documents: ofType,
     };
   });
-  const allDocumentsHaveFiles = arePersonDocumentsUploaded(documents);
-  if (!allDocumentsHaveFiles) approvalBlockers.push("A file for every profile document");
-
   return {
     workerRoleName: tripWorkerRole?.workerRole?.name ?? null,
     requirements: listed,
-    allDocumentsHaveFiles,
     approvalBlockers,
   };
 };

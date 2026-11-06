@@ -61,7 +61,6 @@ export const getApplicationMissingItemLabels = ({
   medicalAgreementAccepted = false,
   travelOptionsComplete = true,
   travelOptionsMessage = null,
-  personDocumentsUploaded = true,
   requiredRoleDocumentUploaded = true,
   missingRoleDocumentNames = [],
   requiredPassportUploaded = true,
@@ -136,9 +135,6 @@ export const getApplicationMissingItemLabels = ({
     }
   }
 
-  if (!personDocumentsUploaded) {
-    reasons.push("Upload a file for every profile document");
-  }
   if (!requiredRoleDocumentUploaded) {
     const names = (missingRoleDocumentNames || []).filter(Boolean);
     reasons.push(

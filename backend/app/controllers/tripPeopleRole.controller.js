@@ -15,6 +15,7 @@ import {
   shouldAutoSetApplicationStatus,
 } from "../utils/tripParticipantApplicationStatus.js";
 import { APPROVAL_DOCUMENTS_MESSAGE, loadApprovalDocuments } from "../utils/approvalDocuments.js";
+import { APPROVAL_INCOMPLETE_MESSAGE, loadApprovalChecklist } from "../utils/approvalChecklist.js";
 import { ACTIVE_TRIP_ROLE_MESSAGE, isActiveApplicationStatus, isTripActive } from "../utils/activeTrips.js";
 import {
   cleanupUploadedFile,
@@ -193,12 +194,11 @@ const normalizeManualStatus = (value) => {
   return status;
 };
 
-/** Trip Leader rows are approved without documents; everyone else needs approval documents. */
-const approvalDocumentsBlocked = async ({ tripId, peopleId, roleId, tripWorkerRoleId, isPregnant }) => {
-  const role = roleId != null ? await db.role.findByPk(roleId, { attributes: ["roleName"] }) : null;
-  if (role?.roleName === ROLE_TRIP_LEADER) return false;
-  const { approvalBlockers } = await loadApprovalDocuments({ tripId, peopleId, tripWorkerRoleId, isPregnant });
-  return approvalBlockers.length > 0;
+/** Why approving is refused (Feature 122 checklist), or null; Trip Leader rows are never refused. */
+const approvalRefusalMessage = async (assignment) => {
+  const { profileMissing, applicationMissing, documentMissing } = await loadApprovalChecklist(assignment);
+  if (profileMissing.length || applicationMissing.length) return APPROVAL_INCOMPLETE_MESSAGE;
+  return documentMissing.length ? APPROVAL_DOCUMENTS_MESSAGE : null;
 };
 
 /** A Pre-Approved / Approved Trip Participant on an active trip keeps a trip role (Feature 121). */
@@ -352,8 +352,9 @@ exports.create = async (req, res) => {
       return res.status(400).send({ message: INVALID_STATUS_MESSAGE });
     }
 
-    if (requestedStatus === "approved" && (await approvalDocumentsBlocked(payload))) {
-      return res.status(400).send({ message: APPROVAL_DOCUMENTS_MESSAGE });
+    if (requestedStatus === "approved") {
+      const refusal = await approvalRefusalMessage(payload);
+      if (refusal) return res.status(400).send({ message: refusal });
     }
 
     if (requestedStatus && MANUAL_TRIP_PARTICIPANT_STATUSES.includes(requestedStatus)) {
@@ -417,6 +418,8 @@ exports.update = async (req, res) => {
     }
 
     const body = { ...req.body };
+    const overrideApprovalChecks = body.overrideApprovalChecks === true;
+    delete body.overrideApprovalChecks;
     const hasAddonExpenses = Object.prototype.hasOwnProperty.call(body, "addonExpenses");
     const parsedAddons = hasAddonExpenses ? parseAddonExpenses(body.addonExpenses) : null;
     if (parsedAddons?.message) return res.status(400).send({ message: parsedAddons.message });
@@ -465,20 +468,9 @@ exports.update = async (req, res) => {
       return res.status(400).send({ message: ACTIVE_TRIP_ROLE_MESSAGE });
     }
 
-    if (
-      requestedStatus === "approved" &&
-      row.status !== "approved" &&
-      (await approvalDocumentsBlocked({
-        tripId: row.tripId,
-        peopleId: body.peopleId ?? row.peopleId,
-        roleId: body.roleId ?? row.roleId,
-        tripWorkerRoleId: Object.prototype.hasOwnProperty.call(body, "tripWorkerRoleId")
-          ? body.tripWorkerRoleId
-          : row.tripWorkerRoleId,
-        isPregnant: Object.prototype.hasOwnProperty.call(body, "isPregnant") ? body.isPregnant : row.isPregnant,
-      }))
-    ) {
-      return res.status(400).send({ message: APPROVAL_DOCUMENTS_MESSAGE });
+    if (requestedStatus === "approved" && row.status !== "approved" && !overrideApprovalChecks) {
+      const refusal = await approvalRefusalMessage({ ...row.toJSON(), ...body, id: row.id, tripId: row.tripId });
+      if (refusal) return res.status(400).send({ message: refusal });
     }
 
     if (requestedStatus && MANUAL_TRIP_PARTICIPANT_STATUSES.includes(requestedStatus)) {
@@ -701,7 +693,8 @@ exports.documentReview = async (req, res) => {
         [{ model: db.documentTypeSpecialization, as: "specializations" }, "name", "ASC"],
       ],
     });
-    res.send({ ...review, documentTypes });
+    const { profileMissing, applicationMissing } = await loadApprovalChecklist(row.toJSON());
+    res.send({ ...review, profileMissing, applicationMissing, documentTypes });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

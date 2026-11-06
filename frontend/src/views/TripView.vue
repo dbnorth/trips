@@ -117,6 +117,7 @@ const participantItems = computed(() =>
       amountOwed: status?.amountOwed ?? null,
       documentsReviewed: !!status?.documentsReviewed,
       documentsToReview: !!status?.documentsToReview,
+      readyToApprove: !!status?.readyToApprove,
     };
     for (const option of travelOptions.value) {
       item[`opt_${option.id}`] = selectedIds.includes(Number(option.id)) ? "Yes" : "—";
@@ -242,6 +243,11 @@ const applicationAction = (row) => {
   }
   if (status === "pre_approved") return { label: "Approve App", mode: "approve", icon: "mdi-file-check-outline" };
   return { label: "Preview App", mode: "preview", icon: "mdi-file-eye-outline" };
+};
+
+const applicationActionColor = (row) => {
+  if (String(row?.status || "").toLowerCase() === "approved") return "success";
+  return row?.readyToApprove ? "warning" : undefined;
 };
 
 const openApplication = (row) => {
@@ -635,6 +641,8 @@ onMounted(refresh);
           <RowAction
             :icon="applicationAction(item).icon"
             :label="applicationAction(item).label"
+            :color="applicationActionColor(item)"
+            data-testid="application-action"
             @click="openApplication(item)"
           />
           <RowAction

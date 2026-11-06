@@ -27,8 +27,14 @@ const loadError = ref("");
 const actionError = ref("");
 const application = ref(null);
 const approvalBlockers = ref([]);
+const profileMissing = ref([]);
+const applicationMissing = ref([]);
+const approvalItemsMissing = computed(
+  () => profileMissing.value.length + applicationMissing.value.length + approvalBlockers.value.length > 0
+);
 const showConfirmCancel = ref(false);
 const showConfirmUncancel = ref(false);
+const showConfirmOverride = ref(false);
 
 const canApprove = computed(
   () => props.mode === "approve" && application.value?.status === "pre_approved"
@@ -90,12 +96,16 @@ const load = async () => {
   actionError.value = "";
   application.value = null;
   approvalBlockers.value = [];
+  profileMissing.value = [];
+  applicationMissing.value = [];
   try {
     const res = await TripPeopleRoleServices.get(props.participantId);
     application.value = res.data || null;
     if (canApprove.value) {
       const review = await TripPeopleRoleServices.documentReview(props.participantId);
       approvalBlockers.value = review.data?.approvalBlockers || [];
+      profileMissing.value = review.data?.profileMissing || [];
+      applicationMissing.value = review.data?.applicationMissing || [];
     }
   } catch (e) {
     loadError.value = e.response?.data?.message || "Unable to load application.";
@@ -118,7 +128,7 @@ watch(
 
 const close = () => emit("update:modelValue", false);
 
-const updateStatus = async (status, successMessage, failMessage) => {
+const updateStatus = async (status, successMessage, failMessage, extra = {}) => {
   if (!application.value?.id) return;
   saving.value = true;
   actionError.value = "";
@@ -126,6 +136,7 @@ const updateStatus = async (status, successMessage, failMessage) => {
     await TripPeopleRoleServices.update(application.value.id, {
       status,
       version: application.value.version,
+      ...extra,
     });
     emit("saved", { status, message: successMessage });
     close();
@@ -139,6 +150,14 @@ const updateStatus = async (status, successMessage, failMessage) => {
 const approve = () => {
   if (!canApprove.value) return;
   return updateStatus("approved", "Application approved.", "Unable to approve application.");
+};
+
+const confirmOverrideApprove = async () => {
+  if (!canApprove.value) return;
+  await updateStatus("approved", "Application approved.", "Unable to approve application.", {
+    overrideApprovalChecks: true,
+  });
+  showConfirmOverride.value = false;
 };
 
 const unapprove = () => {
@@ -222,6 +241,32 @@ const confirmUncancelApplication = async () => {
 
         <template v-else-if="application">
           <div class="text-h6 mb-3">{{ participantName }}</div>
+
+          <v-alert
+            v-if="canApprove && profileMissing.length"
+            type="info"
+            density="compact"
+            class="mb-4"
+            data-testid="approval-profile-missing"
+          >
+            Before approving, the profile needs:
+            <ul class="ml-4">
+              <li v-for="item in profileMissing" :key="item">{{ item }}</li>
+            </ul>
+          </v-alert>
+
+          <v-alert
+            v-if="canApprove && applicationMissing.length"
+            type="info"
+            density="compact"
+            class="mb-4"
+            data-testid="approval-application-missing"
+          >
+            Before approving, the application needs:
+            <ul class="ml-4">
+              <li v-for="item in applicationMissing" :key="item">{{ item }}</li>
+            </ul>
+          </v-alert>
 
           <v-alert
             v-if="canApprove && approvalBlockers.length"
@@ -423,10 +468,20 @@ const confirmUncancelApplication = async () => {
           Uncancel
         </v-btn>
         <v-btn
+          v-if="canApprove && approvalItemsMissing"
+          color="warning"
+          variant="tonal"
+          :disabled="saving"
+          data-testid="override-approve"
+          @click="showConfirmOverride = true"
+        >
+          Override Approve
+        </v-btn>
+        <v-btn
           v-if="canApprove"
           color="primary"
           :loading="saving"
-          :disabled="approvalBlockers.length > 0"
+          :disabled="approvalItemsMissing"
           @click="approve"
         >
           Approve App
@@ -451,5 +506,14 @@ const confirmUncancelApplication = async () => {
     confirm-text="Uncancel"
     :loading="saving"
     @confirm="confirmUncancelApplication"
+  />
+  <ConfirmDialog
+    v-model="showConfirmOverride"
+    title="Are you sure?"
+    message="Approve without the missing items?"
+    confirm-text="Override Approve"
+    confirm-color="warning"
+    :loading="saving"
+    @confirm="confirmOverrideApprove"
   />
 </template>

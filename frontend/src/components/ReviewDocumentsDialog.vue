@@ -318,10 +318,6 @@ const close = () => {
               </div>
             </div>
           </div>
-
-          <p v-if="!review.allDocumentsHaveFiles" class="text-body-2">
-            Some profile documents have no file.
-          </p>
         </template>
 
         <v-alert v-if="message" type="error" density="compact" class="mt-3">{{ message }}</v-alert>
