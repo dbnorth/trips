@@ -66,7 +66,6 @@ const passportDoc = (fields = {}) => ({
 const reviewData = (documents) => ({
   workerRoleName: "Nurse",
   requirements: [{ key: "passport", label: "Passport", requiredSpecializations: [], documents }],
-  allDocumentsHaveFiles: true,
   approvalBlockers: [],
   documentTypes: [PASSPORT_TYPE],
 });

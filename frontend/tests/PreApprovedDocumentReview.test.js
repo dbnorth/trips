@@ -289,7 +289,6 @@ describe("Feature 104 — Pre-Approved Status and Document Review", () => {
               ],
             },
           ],
-          allDocumentsHaveFiles: true,
           approvalBlockers: ["RN License: not reviewed", "Passport: not reviewed"],
         },
       });

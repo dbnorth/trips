@@ -17,6 +17,8 @@ import {
   createOrgAdminUser,
   findRole,
   completePersonProfile,
+  createTripWorkerRole,
+  COMPLETE_APPLICATION,
 } from "./helpers.js";
 
 describe("Feature 45 — Send Now Event Emails", () => {
@@ -57,6 +59,20 @@ describe("Feature 45 — Send Now Event Emails", () => {
 
   const addAssignment = (trip, person, status, roleId = participantRole.id) =>
     db.tripPeopleRole.create({ tripId: trip.id, peopleId: person.id, roleId, status });
+
+  /** A complete, approvable application with a trip role. */
+  const addAssignmentWithTripRole = async (trip, person, status) => {
+    await completePersonProfile(person.id);
+    const tripWorkerRole = await createTripWorkerRole(trip.id, org.id);
+    return db.tripPeopleRole.create({
+      ...COMPLETE_APPLICATION,
+      tripId: trip.id,
+      peopleId: person.id,
+      roleId: participantRole.id,
+      tripWorkerRoleId: tripWorkerRole.id,
+      status,
+    });
+  };
 
   // Sign-ins also write "Login" rows to the email log.
   const sentEmails = () =>
@@ -212,7 +228,7 @@ describe("Feature 45 — Send Now Event Emails", () => {
       await addTemplate("application-approved", "Application approved");
       const trip = await createTrip();
       const person = await createPerson();
-      const assignment = await addAssignment(trip, person, "pre_approved");
+      const assignment = await addAssignmentWithTripRole(trip, person, "pre_approved");
 
       const response = await request(app)
         .put(`/trips/trip-people-roles/${assignment.id}`)
@@ -228,7 +244,7 @@ describe("Feature 45 — Send Now Event Emails", () => {
     it("Saving an approved application again sends nothing", async () => {
       await addTemplate("application-approved", "Application approved");
       const trip = await createTrip();
-      const assignment = await addAssignment(trip, await createPerson(), "approved");
+      const assignment = await addAssignmentWithTripRole(trip, await createPerson(), "approved");
 
       const response = await request(app)
         .put(`/trips/trip-people-roles/${assignment.id}`)
@@ -336,7 +352,7 @@ describe("Feature 45 — Send Now Event Emails", () => {
     it("A failed event email does not block the save", async () => {
       await addTemplate("application-approved", "Application approved");
       const trip = await createTrip();
-      const assignment = await addAssignment(trip, await createPerson(), "pre_approved");
+      const assignment = await addAssignmentWithTripRole(trip, await createPerson(), "pre_approved");
       process.env.EMAIL_MODE = "smtp";
       emailTransport.create = () => ({
         sendMail: async () => {

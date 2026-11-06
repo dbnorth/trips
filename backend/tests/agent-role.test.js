@@ -16,6 +16,8 @@ import {
   createOrganization,
   findRole,
   completePersonProfile,
+  createTripWorkerRole,
+  COMPLETE_APPLICATION,
 } from "./helpers.js";
 
 const createTrip = async (authHeader, orgId, name) => {
@@ -45,17 +47,21 @@ const setup = async () => {
   });
   await completePersonProfile(ana.user.personId);
   const participantRole = await findRole("Trip Participant");
+  const tripWorkerRole = await createTripWorkerRole(guatemala.id, hope.org.id);
   const anaAssignment = await request(app)
     .post("/trips/trip-people-roles")
     .set(hope.authHeader)
     .send({
+      ...COMPLETE_APPLICATION,
       tripId: guatemala.id,
       peopleId: ana.user.personId,
       roleId: participantRole.id,
+      tripWorkerRoleId: tripWorkerRole.id,
       status: "approved",
-      willSelfFund: true,
     });
   expect(anaAssignment.status).toBe(200);
+  // Not self-booked, so the Agent can enter a flight cost.
+  await db.tripPeopleRole.update({ flightPurchaseOption: null }, { where: { id: anaAssignment.body.id } });
 
   const airport = await request(app)
     .post("/trips/airports")

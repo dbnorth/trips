@@ -82,7 +82,7 @@ describe("Feature 37 — Person Bio Below Birthdate", () => {
     await wrapper.setProps({ modelValue: true });
     await flushPromises();
 
-    const text = wrapper.text();
+    const text = wrapper.find("form").text();
     const birth = text.indexOf("Birthdate");
     const bio = text.indexOf("Bio");
     const emergency = text.indexOf("Emergency contact name");

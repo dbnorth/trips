@@ -126,6 +126,21 @@ export const getIncompleteSubmitReasons = ({
   return reasons;
 };
 
+const todayDateOnly = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+
+/** Feature 121 — a trip stays active through its end date (its start date when it has none). */
+export const isTripActive = (trip) => {
+  const lastDay = String(trip?.endDate || trip?.startDate || "").slice(0, 10);
+  return !!lastDay && lastDay >= todayDateOnly();
+};
+
+/** Feature 121 — a Pre-Approved application on an active trip can't be saved with missing items. */
+export const isPreApprovedUpdateLocked = ({ applicationStatus, trip, readyToSubmit }) =>
+  applicationStatus === "pre_approved" && isTripActive(trip) && !readyToSubmit;
+
 export const canShowPrimarySubmitButton = ({
   loading = false,
   tripReady = false,

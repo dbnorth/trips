@@ -18,6 +18,8 @@ import {
   findRole,
   completePersonProfile,
   createDocumentType,
+  createTripWorkerRole,
+  COMPLETE_APPLICATION,
 } from "./helpers.js";
 
 const APPROVAL_DOCUMENTS_MESSAGE = "Upload and review all required documents before approving.";
@@ -186,6 +188,8 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         email: "docs-gate-admin@example.com",
       });
       const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id);
+      // Only documents the trip requires need a file (Feature 122).
+      await db.trip.update({ requirePassport: true }, { where: { id: trip.id } });
       const applicant = await registerUser({
         email: "docs-gate-app@example.com",
         orgIds: [org.id],
@@ -227,7 +231,7 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       expect(refused.body.message).toBe(APPROVAL_DOCUMENTS_MESSAGE);
 
       await db.personDocument.update(
-        { documentFileName: "people/docs-gate-passport.png" },
+        { documentFileName: "people/docs-gate-passport.png", reviewed: true },
         { where: { personId: applicant.user.personId } }
       );
 
@@ -932,15 +936,19 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         lastName: "Member",
         orgIds: [org.id],
       });
+      await completePersonProfile(member.user.personId);
       const participantRole = await findRole("Trip Participant");
+      const tripWorkerRole = await createTripWorkerRole(trip.body.id, org.id);
 
       const create = await request(app)
         .post("/trips/trip-people-roles")
         .set(leader.authHeader)
         .send({
+          ...COMPLETE_APPLICATION,
           tripId: trip.body.id,
           peopleId: member.user.personId,
           roleId: participantRole.id,
+          tripWorkerRoleId: tripWorkerRole.id,
           status: "approved",
         });
 
