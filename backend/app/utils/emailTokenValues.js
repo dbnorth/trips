@@ -45,6 +45,9 @@ export const VALUE_SOURCES = [
   { valueSource: "participant.returnFlight", label: "Participant return flight" },
   { valueSource: "participant.flightConfirmationNumber", label: "Participant flight confirmation number" },
   { valueSource: "participant.missingDocuments", label: "Participant missing documents" },
+  { valueSource: "participant.reloadDocument", label: "Document to reload" },
+  { valueSource: "participant.reloadDocumentType", label: "Document type to reload" },
+  { valueSource: "participant.reloadNote", label: "Reload request note" },
   { valueSource: "primaryLeader.firstName", label: "Primary trip leader first name" },
   { valueSource: "primaryLeader.lastName", label: "Primary trip leader last name" },
   { valueSource: "primaryLeader.preferredName", label: "Primary trip leader preferred name" },
@@ -323,9 +326,10 @@ const flightLines = (flight, segmentType) =>
 
 /**
  * Build the value for every value source from an organization and an optional trip and participant.
+ * `reload` (`{ document, documentType, note }`) is only given for a document reload request email.
  * Missing data yields empty text.
  */
-export const buildSourceValues = async ({ orgId, tripId = null, personId = null }) => {
+export const buildSourceValues = async ({ orgId, tripId = null, personId = null, reload = null }) => {
   const org = orgId != null ? await db.organization.findByPk(orgId) : null;
   const trip = tripId != null ? await loadTripWithArrivalPdf(tripId) : null;
   const person = personId != null ? await db.person.findByPk(personId) : null;
@@ -383,6 +387,9 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null 
     "participant.returnFlight": flightLines(flight, "return"),
     "participant.flightConfirmationNumber": text(flight?.confirmationNumber),
     "participant.missingDocuments": missingDocuments.join("\n"),
+    "participant.reloadDocument": text(reload?.document),
+    "participant.reloadDocumentType": text(reload?.documentType),
+    "participant.reloadNote": text(reload?.note),
     "primaryLeader.firstName": text(leader?.firstName),
     "primaryLeader.lastName": text(leader?.lastName),
     "primaryLeader.preferredName": preferredName(leader),

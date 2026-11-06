@@ -118,27 +118,47 @@ const meetsRoleDocumentRule = (doc, compareDate) => {
   return !!expirationDate && expiresInTime(expirationDate, doc.documentType, compareDate);
 };
 
+const hasDocumentFile = (doc) => !!doc.documentFileName && String(doc.documentFileName).trim() !== "";
+const dateKey = (value) => (value ? String(value).slice(0, 10) : "");
+const laterFirst = (a, b) => (a === b ? 0 : !a ? 1 : !b ? -1 : a < b ? 1 : -1);
+
+/**
+ * Documents of one requirement in the order the trip uses them (Feature 120): latest expiration
+ * date, then latest issue date (missing dates last), then newest upload.
+ */
+export const sortByCurrentDocument = (documents) =>
+  [...(documents || [])].sort(
+    (a, b) =>
+      laterFirst(dateKey(a.expirationDate), dateKey(b.expirationDate)) ||
+      laterFirst(dateKey(a.issueDate), dateKey(b.issueDate)) ||
+      Number(b.id) - Number(a.id)
+  );
+
+/** The one document with a file that decides a trip requirement, or null (Feature 120). */
+export const currentDocument = (documents) => sortByCurrentDocument((documents || []).filter(hasDocumentFile))[0] || null;
+
+const ofDocumentType = (documents, documentTypeId) =>
+  (documents || []).filter((doc) => Number(doc.documentTypeId) === documentTypeId);
+
+const ofKind = (documents, kind) =>
+  (documents || []).filter((doc) => (doc.documentType?.type ?? doc.type ?? null) === kind);
+
 /**
  * Required specialization names the person still needs for one document type: all of them when
- * no document of the type meets the rule, otherwise the fewest missing on any qualifying document.
+ * the type's current document doesn't meet the rule, otherwise those missing on it.
  */
 const missingSpecializationNames = (documents, documentTypeId, requiredSpecializations, compareDate) => {
   const needed = (requiredSpecializations || []).filter(
     (s) => Number(s.documentTypeId) === documentTypeId
   );
-  const qualifying = (documents || []).filter(
-    (doc) => Number(doc.documentTypeId) === documentTypeId && meetsRoleDocumentRule(doc, compareDate)
-  );
-  if (!qualifying.length) return { documentMet: false, names: needed.map((s) => s.name) };
-  let best = null;
-  for (const doc of qualifying) {
-    const have = new Set(
-      (doc.specializations || []).map((s) => Number(s.documentTypeSpecializationId))
-    );
-    const missing = needed.filter((s) => !have.has(Number(s.id))).map((s) => s.name);
-    if (!best || missing.length < best.length) best = missing;
+  const current = currentDocument(ofDocumentType(documents, documentTypeId));
+  if (!current || !meetsRoleDocumentRule(current, compareDate)) {
+    return { documentMet: false, names: needed.map((s) => s.name) };
   }
-  return { documentMet: true, names: best };
+  const have = new Set(
+    (current.specializations || []).map((s) => Number(s.documentTypeSpecializationId))
+  );
+  return { documentMet: true, names: needed.filter((s) => !have.has(Number(s.id))).map((s) => s.name) };
 };
 
 /** Required specializations that apply: their type is required and allows specializations. */
@@ -183,8 +203,8 @@ const expirationRuleText = (docType, compareDate) => {
 };
 
 /**
- * What is missing for one unmet required document type, from the person's closest document of
- * the type (fewest problems, ties → most recently added), e.g.
+ * What is missing for one unmet required document type, from the type's current document, or
+ * without one the closest document of the type (fewest problems, ties → most recently added), e.g.
  * "Board Certification: select the Emergency Medicine specialization".
  */
 export const requiredRoleDocumentMessage = (
@@ -196,7 +216,8 @@ export const requiredRoleDocumentMessage = (
   const needed = (requiredSpecializations || [])
     .filter((s) => Number(s.documentTypeId) === id)
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
-  const ofType = (documents || []).filter((doc) => Number(doc.documentTypeId) === id);
+  const ofType = ofDocumentType(documents, id);
+  const current = currentDocument(ofType);
 
   if (!ofType.length) {
     const expires = !!compareDate && docType?.hasExpirationDate !== false;
@@ -209,7 +230,7 @@ export const requiredRoleDocumentMessage = (
   }
 
   let best = null;
-  for (const doc of ofType) {
+  for (const doc of current ? [current] : ofType) {
     const parts = [];
     if (!doc.documentFileName || String(doc.documentFileName).trim() === "") {
       parts.push("upload the file");
@@ -291,9 +312,18 @@ export const missingRequiredRoleDocuments = ({
   return missing;
 };
 
+/** Whether a passport-type document with a file meets the trip's expiration rule. */
+export const meetsPassportRule = (doc, compareDate) => {
+  if ((doc.documentType?.type ?? doc.type ?? null) !== "passport") return false;
+  if (!hasDocumentFile(doc)) return false;
+  if (!compareDate || doc.documentType?.hasExpirationDate === false) return true;
+  const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+  return !!expirationDate && expiresInTime(expirationDate, doc.documentType, compareDate);
+};
+
 /**
- * When the trip requires a passport, the person must have a passport-type document
- * with a file. If compareDate is set, expiration must be after it.
+ * When the trip requires a passport, the person's current passport-type document must have a file.
+ * If compareDate is set, expiration must be after it.
  */
 export const isRequiredPassportUploaded = ({
   documents = [],
@@ -301,14 +331,8 @@ export const isRequiredPassportUploaded = ({
   compareDate = null,
 }) => {
   if (!requirePassport) return true;
-  return (documents || []).some((doc) => {
-    const type = doc.documentType?.type ?? doc.type ?? null;
-    if (type !== "passport") return false;
-    if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
-    if (!compareDate || doc.documentType?.hasExpirationDate === false) return true;
-    const expirationDate = String(doc.expirationDate || "").slice(0, 10);
-    return !!expirationDate && expiresInTime(expirationDate, doc.documentType, compareDate);
-  });
+  const current = currentDocument(ofKind(documents, "passport"));
+  return !!current && meetsPassportRule(current, compareDate);
 };
 
 /** The organization's Doctor Permission document types; any one makes pregnant applicants need the document. */
@@ -322,11 +346,21 @@ export const loadDoctorPermissionTypes = async (orgId) => {
 };
 
 /**
- * A pregnant applicant on a trip that requires it needs a doctor_permission-type document with a
- * file. When its type has an expiration date, the document's expiration date must meet the type's
- * expiration check. Otherwise the file is enough, unless the application upload stamped the
- * document with the trip end date, which then counts for trips ending on or before it.
+ * Whether a doctor_permission-type document with a file is good for the trip. When its type has an
+ * expiration date, the document's expiration date must meet the type's expiration check. Otherwise
+ * the file is enough, unless the application upload stamped the document with the trip end date,
+ * which then counts for trips ending on or before it.
  */
+export const meetsDoctorPermissionRule = (doc, compareDate) => {
+  if ((doc.documentType?.type ?? doc.type ?? null) !== "doctor_permission") return false;
+  if (!hasDocumentFile(doc)) return false;
+  if (!compareDate) return true;
+  const expirationDate = String(doc.expirationDate || "").slice(0, 10);
+  if (doc.documentType?.hasExpirationDate === false) return !expirationDate || expirationDate >= compareDate;
+  return !!expirationDate && expiresInTime(expirationDate, doc.documentType, compareDate);
+};
+
+/** A pregnant applicant on a trip that requires it needs a current Doctor Permission document that is good for the trip. */
 export const isDoctorPermissionUploaded = ({
   documents = [],
   isPregnant = null,
@@ -334,14 +368,8 @@ export const isDoctorPermissionUploaded = ({
   compareDate = null,
 }) => {
   if (!doctorPermissionRequired || isPregnant !== true) return true;
-  return (documents || []).some((doc) => {
-    if ((doc.documentType?.type ?? doc.type ?? null) !== "doctor_permission") return false;
-    if (!doc.documentFileName || String(doc.documentFileName).trim() === "") return false;
-    if (!compareDate) return true;
-    const expirationDate = String(doc.expirationDate || "").slice(0, 10);
-    if (doc.documentType?.hasExpirationDate === false) return !expirationDate || expirationDate >= compareDate;
-    return !!expirationDate && expiresInTime(expirationDate, doc.documentType, compareDate);
-  });
+  const current = currentDocument(ofKind(documents, "doctor_permission"));
+  return !!current && meetsDoctorPermissionRule(current, compareDate);
 };
 
 export const isApplicationComplete = ({
@@ -505,7 +533,7 @@ export const loadPersonDocumentsForCompleteness = async (peopleId) => {
   if (!peopleId) return [];
   return db.personDocument.findAll({
     where: { personId: peopleId },
-    attributes: ["id", "documentTypeId", "documentFileName", "expirationDate"],
+    attributes: ["id", "documentTypeId", "documentFileName", "issueDate", "expirationDate"],
     include: [
       {
         model: db.documentType,

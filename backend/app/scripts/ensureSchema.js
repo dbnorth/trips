@@ -691,6 +691,7 @@ const ensurePersonDocumentsTable = async () => {
         expirationDate DATE NULL,
         documentFileName VARCHAR(500) NULL,
         reviewed TINYINT(1) NOT NULL DEFAULT 0,
+        reloadRequestedAt DATETIME NULL,
         createdAt DATETIME NOT NULL,
         updatedAt DATETIME NOT NULL,
         PRIMARY KEY (id),
@@ -774,6 +775,20 @@ const ensurePersonDocumentsTable = async () => {
          ADD COLUMN reviewed TINYINT(1) NOT NULL DEFAULT 0 AFTER documentFileName`
       );
       logger.info("personDocuments.reviewed column added.");
+    }
+
+    const [reloadCols] = await db.sequelize.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'personDocuments'
+         AND COLUMN_NAME = 'reloadRequestedAt'`
+    );
+    if (!reloadCols.length) {
+      await db.sequelize.query(
+        `ALTER TABLE personDocuments
+         ADD COLUMN reloadRequestedAt DATETIME NULL AFTER reviewed`
+      );
+      logger.info("personDocuments.reloadRequestedAt column added.");
     }
   }
 };

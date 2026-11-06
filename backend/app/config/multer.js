@@ -1,7 +1,7 @@
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import { isHeicUpload } from "../utils/heicToJpeg.js";
+import { convertHeicUpload, HEIC_DOCUMENT_UNREADABLE, isHeicUpload } from "../utils/heicToJpeg.js";
 
 const imageFilter = (_req, file, cb) => {
   const allowed = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"];
@@ -115,12 +115,36 @@ export const uploadEmailPicture = multer({
 });
 
 /** Give each uploaded person document file the name it will have under `documents/people`. */
-export const nameDocumentFiles = (req) => {
+export const nameDocumentFiles = (req, personId = req.params.id) => {
   for (const group of Object.values(req.files || {})) {
     for (const file of group) {
       const ext = path.extname(file.originalname || "");
       const base = safeFilePart(path.basename(file.originalname || "document", ext));
-      file.filename = `person-${req.params.id}-${Date.now()}-${base}${ext}`;
+      file.filename = `person-${personId}-${Date.now()}-${base}${ext}`;
     }
   }
+};
+
+/** Multipart person document upload (`document` and `specializationFiles`), HEIC files converted. */
+export const handleDocumentUpload = (req, res, next) => {
+  uploadPersonDocument.fields([
+    { name: "document", maxCount: 1 },
+    { name: "specializationFiles", maxCount: 30 },
+  ])(req, res, async (err) => {
+    if (!err) {
+      nameDocumentFiles(req);
+      for (const group of Object.values(req.files || {})) {
+        for (const file of group) {
+          if (!(await convertHeicUpload(file))) {
+            return res.status(400).send({ message: HEIC_DOCUMENT_UNREADABLE });
+          }
+        }
+      }
+      return next();
+    }
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).send({ message: "Document must be 10MB or smaller." });
+    }
+    return res.status(400).send({ message: err.message || "Invalid document file." });
+  });
 };

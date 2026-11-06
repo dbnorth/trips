@@ -15,7 +15,15 @@ import {
   shouldAutoSetApplicationStatus,
 } from "../utils/tripParticipantApplicationStatus.js";
 import { APPROVAL_DOCUMENTS_MESSAGE, loadApprovalDocuments } from "../utils/approvalDocuments.js";
-import { sendDocumentFile } from "./personDocument.controller.js";
+import {
+  cleanupUploadedFile,
+  sendDocumentFile,
+  serializeDocument,
+  updatePersonDocument,
+} from "./personDocument.controller.js";
+import { nameDocumentFiles } from "../config/multer.js";
+import logger from "../config/logger.js";
+import { formatDate } from "../utils/emailTokenValues.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import {
@@ -23,7 +31,7 @@ import {
   uncancelApplicationAssignment,
 } from "../utils/applicationCancel.js";
 import { flightPurchaseInclude } from "../utils/flightPurchaseFields.js";
-import { sendApplicationEventEmails } from "../utils/eventEmails.js";
+import { sendApplicationEventEmails, sendEventEmails } from "../utils/eventEmails.js";
 import { participantCostBreakdown } from "../utils/participantTotals.js";
 import {
   ADDON_EXPENSE_DAYS_MESSAGES,
@@ -652,14 +660,26 @@ exports.documentReview = async (req, res) => {
     const target = await loadReviewTarget(req, res);
     if (!target) return;
     const { row } = target;
-    res.send(
-      await loadApprovalDocuments({
-        tripId: row.tripId,
-        peopleId: row.peopleId,
-        tripWorkerRoleId: row.tripWorkerRoleId,
-        isPregnant: row.isPregnant,
-      })
-    );
+    const review = await loadApprovalDocuments({
+      tripId: row.tripId,
+      peopleId: row.peopleId,
+      tripWorkerRoleId: row.tripWorkerRoleId,
+      isPregnant: row.isPregnant,
+    });
+    const links = await db.orgPeopleRole.findAll({ where: { peopleId: row.peopleId }, attributes: ["orgId"] });
+    const documentTypes = await db.documentType.findAll({
+      where: { orgId: [...new Set(links.map((link) => Number(link.orgId)))] },
+      include: [
+        { model: db.organization, as: "organization", attributes: ["id", "name"] },
+        { model: db.documentTypeSpecialization, as: "specializations", attributes: ["id", "name"] },
+      ],
+      order: [
+        [{ model: db.organization, as: "organization" }, "name", "ASC"],
+        ["description", "ASC"],
+        [{ model: db.documentTypeSpecialization, as: "specializations" }, "name", "ASC"],
+      ],
+    });
+    res.send({ ...review, documentTypes });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
@@ -674,8 +694,80 @@ exports.setDocumentReviewed = async (req, res) => {
     if (reviewed && !(document.documentFileName && String(document.documentFileName).trim())) {
       return res.status(400).send({ message: "Upload a file before marking it reviewed." });
     }
-    await document.update({ reviewed });
-    res.send({ id: document.id, reviewed: document.reviewed });
+    await document.update(reviewed ? { reviewed, reloadRequestedAt: null } : { reviewed });
+    res.send({ id: document.id, reviewed: document.reviewed, reloadRequestedAt: document.reloadRequestedAt });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.updateDocument = async (req, res) => {
+  try {
+    const target = await loadReviewTarget(req, res, { withDocument: true });
+    if (!target) {
+      cleanupUploadedFile(req);
+      return;
+    }
+    if (target.document.reviewed) {
+      cleanupUploadedFile(req);
+      return res.status(400).send({ message: "Untick Reviewed to edit this document." });
+    }
+    nameDocumentFiles(req, target.row.peopleId);
+    const updated = await updatePersonDocument(req, res, target.document);
+    if (updated) res.send(serializeDocument(updated));
+  } catch (err) {
+    cleanupUploadedFile(req);
+    res.status(500).send({ message: err.message });
+  }
+};
+
+const RELOAD_NOTE_MAX = 1000;
+
+/** "Passport, issued 03/14/2019, expires 03/13/2029" — never the document number. */
+const reloadDocumentText = (document) =>
+  [
+    document.documentType?.description || "Document",
+    document.issueDate && `issued ${formatDate(document.issueDate)}`,
+    document.expirationDate && `expires ${formatDate(document.expirationDate)}`,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+exports.requestDocumentReload = async (req, res) => {
+  try {
+    const target = await loadReviewTarget(req, res, { withDocument: true });
+    if (!target) return;
+    const note = String(req.body?.note ?? "").trim();
+    if (note.length > RELOAD_NOTE_MAX) {
+      return res.status(400).send({ message: "Note must be 1000 characters or less." });
+    }
+    const { row, document } = target;
+    await document.update({ reviewed: false, reloadRequestedAt: new Date() });
+    const documentType = await db.documentType.findByPk(document.documentTypeId, {
+      attributes: ["description"],
+    });
+    let results = [];
+    try {
+      results = await sendEventEmails({
+        eventCode: "document-reload-requested",
+        tripId: row.tripId,
+        personId: row.peopleId,
+        reload: {
+          document: reloadDocumentText({ ...document.toJSON(), documentType }),
+          documentType: documentType?.description || "Document",
+          note,
+        },
+      });
+    } catch (err) {
+      logger.error(`Reload request email for document ${document.id} failed: ${err.message}`);
+    }
+    res.send({
+      id: document.id,
+      reviewed: false,
+      reloadRequestedAt: document.reloadRequestedAt,
+      emailSent: results.some((result) => result.status === "sent"),
+      templateFound: results.length > 0,
+    });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

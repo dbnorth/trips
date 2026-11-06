@@ -23,27 +23,42 @@ const meetsRoleDocumentRule = (doc, compareDate) => {
   return !!expirationDate && expiresInTime(expirationDate, doc.documentType, compareDate);
 };
 
+const hasDocumentFile = (doc) => !!doc.documentFileName && String(doc.documentFileName).trim() !== "";
+const dateKey = (value) => (value ? String(value).slice(0, 10) : "");
+const laterFirst = (a, b) => (a === b ? 0 : !a ? 1 : !b ? -1 : a < b ? 1 : -1);
+
+/**
+ * The one document with a file that decides a trip requirement (Feature 120): latest expiration
+ * date, then latest issue date (missing dates last), then newest upload.
+ */
+export const currentDocument = (documents) =>
+  (documents || [])
+    .filter(hasDocumentFile)
+    .sort(
+      (a, b) =>
+        laterFirst(dateKey(a.expirationDate), dateKey(b.expirationDate)) ||
+        laterFirst(dateKey(a.issueDate), dateKey(b.issueDate)) ||
+        Number(b.id) - Number(a.id)
+    )[0] || null;
+
 /**
  * Required specialization names the person still needs for one document type: all of them when
- * no document of the type meets the rule, otherwise the fewest missing on any qualifying document.
+ * the type's current document doesn't meet the rule, otherwise those missing on it.
  */
 const missingSpecializationNames = (documents, documentTypeId, requiredSpecializations, compareDate) => {
   const needed = (requiredSpecializations || []).filter(
     (s) => Number(s.documentTypeId) === documentTypeId
   );
-  const qualifying = (documents || []).filter(
-    (doc) => Number(doc.documentTypeId) === documentTypeId && meetsRoleDocumentRule(doc, compareDate)
+  const current = currentDocument(
+    (documents || []).filter((doc) => Number(doc.documentTypeId) === documentTypeId)
   );
-  if (!qualifying.length) return { documentMet: false, names: needed.map((s) => s.name) };
-  let best = null;
-  for (const doc of qualifying) {
-    const have = new Set(
-      (doc.specializations || []).map((s) => Number(s.documentTypeSpecializationId))
-    );
-    const missing = needed.filter((s) => !have.has(Number(s.id))).map((s) => s.name);
-    if (!best || missing.length < best.length) best = missing;
+  if (!current || !meetsRoleDocumentRule(current, compareDate)) {
+    return { documentMet: false, names: needed.map((s) => s.name) };
   }
-  return { documentMet: true, names: best };
+  const have = new Set(
+    (current.specializations || []).map((s) => Number(s.documentTypeSpecializationId))
+  );
+  return { documentMet: true, names: needed.filter((s) => !have.has(Number(s.id))).map((s) => s.name) };
 };
 
 /** Required specializations that apply: their type is required and allows specializations. */
@@ -99,8 +114,8 @@ export const meetsDoctorPermissionRule = (doc, compareDate) => {
 };
 
 /**
- * When the trip requires it and the applicant is pregnant, she must have a Doctor Permission
- * document that is good through compareDate (meetsDoctorPermissionRule).
+ * When the trip requires it and the applicant is pregnant, her current Doctor Permission
+ * document must be good through compareDate (meetsDoctorPermissionRule).
  */
 export const isDoctorPermissionUploaded = ({
   documents = [],
@@ -109,7 +124,10 @@ export const isDoctorPermissionUploaded = ({
   compareDate = null,
 }) => {
   if (!doctorPermissionRequired || isPregnant !== true) return true;
-  return (documents || []).some((doc) => meetsDoctorPermissionRule(doc, compareDate));
+  const current = currentDocument(
+    (documents || []).filter((doc) => (doc.documentType?.type ?? doc.type ?? null) === "doctor_permission")
+  );
+  return !!current && meetsDoctorPermissionRule(current, compareDate);
 };
 
 /**
