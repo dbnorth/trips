@@ -17,6 +17,8 @@ import {
   createOrgAdminUser,
   findRole,
   completePersonProfile,
+  createTripWorkerRole,
+  COMPLETE_APPLICATION,
 } from "./helpers.js";
 
 describe("Feature 45 — Send Now Event Emails", () => {
@@ -58,14 +60,12 @@ describe("Feature 45 — Send Now Event Emails", () => {
   const addAssignment = (trip, person, status, roleId = participantRole.id) =>
     db.tripPeopleRole.create({ tripId: trip.id, peopleId: person.id, roleId, status });
 
+  /** A complete, approvable application with a trip role. */
   const addAssignmentWithTripRole = async (trip, person, status) => {
-    const workerRole = await db.workerRole.create({ orgId: org.id, name: "General Team" });
-    const tripWorkerRole = await db.tripWorkerRole.create({
-      tripId: trip.id,
-      workerRoleId: workerRole.id,
-      quantity: 5,
-    });
+    await completePersonProfile(person.id);
+    const tripWorkerRole = await createTripWorkerRole(trip.id, org.id);
     return db.tripPeopleRole.create({
+      ...COMPLETE_APPLICATION,
       tripId: trip.id,
       peopleId: person.id,
       roleId: participantRole.id,

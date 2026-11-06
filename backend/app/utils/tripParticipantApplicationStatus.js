@@ -86,12 +86,6 @@ export const getMissingProfileFields = (person, options = {}) => {
 export const isProfileComplete = (person, options = {}) =>
   getMissingProfileFields(person, options).length === 0;
 
-/** Every person-document row must have an uploaded file. */
-export const arePersonDocumentsUploaded = (documents = []) =>
-  (documents || []).every(
-    (doc) => doc.documentFileName && String(doc.documentFileName).trim() !== ""
-  );
-
 const EXPIRATION_CHECK_DAYS = { trip_end_90: 90, trip_end_180: 180 };
 
 const expirationCheckDays = (docType) => EXPIRATION_CHECK_DAYS[docType?.expirationCheck] || 0;

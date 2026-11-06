@@ -13,6 +13,8 @@ import {
   createOrgAdminUser,
   findRole,
   completePersonProfile,
+  createTripWorkerRole,
+  COMPLETE_APPLICATION,
 } from "./helpers.js";
 
 const setupTripWithParticipants = async ({
@@ -52,16 +54,18 @@ const setupTripWithParticipants = async ({
     orgIds: [org.id],
   });
   await completePersonProfile(grace.user.personId);
+  const tripWorkerRole = await createTripWorkerRole(trip.body.id, org.id);
 
   const adaAssignment = await request(app)
     .post("/trips/trip-people-roles")
     .set(authHeader)
     .send({
+      ...COMPLETE_APPLICATION,
       tripId: trip.body.id,
       peopleId: ada.user.personId,
       roleId: participantRole.id,
+      tripWorkerRoleId: tripWorkerRole.id,
       status: "approved",
-      willSelfFund: true,
       hasPreferredRoommate: withRoommate,
       preferredRoommateNames: withRoommate ? "Grace Hopper" : null,
     });
@@ -71,11 +75,12 @@ const setupTripWithParticipants = async ({
     .post("/trips/trip-people-roles")
     .set(authHeader)
     .send({
+      ...COMPLETE_APPLICATION,
       tripId: trip.body.id,
       peopleId: grace.user.personId,
       roleId: participantRole.id,
+      tripWorkerRoleId: tripWorkerRole.id,
       status: "approved",
-      willSelfFund: true,
       hasPreferredRoommate: false,
     });
   expect(graceAssignment.status).toBe(200);

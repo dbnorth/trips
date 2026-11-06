@@ -1,6 +1,5 @@
 import db from "../models/index.js";
 import {
-  arePersonDocumentsUploaded,
   isDoctorPermissionUploaded,
   isProfileComplete,
   isRequiredPassportUploaded,
@@ -68,9 +67,6 @@ const missingDocumentNames = async ({ assignment, trip, personDocuments }) => {
     })
   ) {
     names.push("Doctor Permission");
-  }
-  if (!arePersonDocumentsUploaded(personDocuments)) {
-    names.push("A file for every profile document");
   }
   return names;
 };
@@ -192,8 +188,8 @@ const travelOptionsMessageFor = async (tripId, tripPeopleRoleId) => {
 };
 
 /** Trip Status board checklist items (Feature 28) other than documents. */
-const missingNonDocumentItems = async (assignmentRow, trip, person) => {
-  const assignment = assignmentRow.toJSON();
+export const missingNonDocumentItems = async (assignmentRow, trip, person) => {
+  const assignment = typeof assignmentRow.toJSON === "function" ? assignmentRow.toJSON() : assignmentRow;
   const orgId = trip.orgId;
   const agreement = orgId != null ? await loadOrganizationAgreement(orgId) : null;
   const medicalAgreement = orgId != null ? await loadOrganizationMedicalAgreement(orgId) : null;
@@ -202,7 +198,7 @@ const missingNonDocumentItems = async (assignmentRow, trip, person) => {
     !!medicalAgreement?.content?.trim() &&
     (person?.takesMedication === true || person?.takesMedication === 1);
   const pregnancy = normalizeApplicationPregnancy(assignment, { gender: person?.gender ?? null });
-  const travelMsg = await travelOptionsMessageFor(trip.id, assignment.id);
+  const travelMsg = await travelOptionsMessageFor(trip.id, assignment.id ?? null);
   return getApplicationMissingItemLabels({
     profileComplete: isProfileComplete(person, { orgId }),
     tripWorkerRoleId: assignment.tripWorkerRoleId,

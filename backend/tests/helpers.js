@@ -191,6 +191,22 @@ export const completePersonProfile = async (personId, overrides = {}) => {
   );
 };
 
+/** Application answers that leave nothing missing (agreement signed in case an org agreement file exists). */
+export const COMPLETE_APPLICATION = {
+  willSelfFund: true,
+  flightPurchaseOption: "self",
+  isPregnant: false,
+  agreementAccepted: true,
+  agreementSignatureName: "Pat Lee",
+  medicalAgreementAccepted: true,
+};
+
+/** A trip role with no required documents, for fixtures that need an approvable application. */
+export const createTripWorkerRole = async (tripId, orgId) => {
+  const workerRole = await db.workerRole.create({ orgId, name: "General Team" });
+  return db.tripWorkerRole.create({ tripId, workerRoleId: workerRole.id, quantity: 5 });
+};
+
 /** 1×1 PNG used for picture upload tests. */
 export const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",

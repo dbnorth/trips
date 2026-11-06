@@ -846,3 +846,68 @@ describe("Feature 120 — Updated Document Processing", () => {
     wrapper.unmount();
   });
 });
+
+/**
+ * Feature 122 — Approve Action Colors
+ * Spec: features/feature-122-approve-action-colors.md
+ */
+describe("Feature 122 — Approve Action Colors", () => {
+  it("Approve App is orange when ready and View App is green when Approved", async () => {
+    vi.clearAllMocks();
+    TripServices.get.mockResolvedValue({
+      data: { id: 42, name: "Guatemala Clinic", orgId: 10, status: "active", leaderNames: [] },
+    });
+    TripPeopleRoleServices.getAll.mockResolvedValue({
+      data: [
+        { id: 7, peopleId: 5, status: "approved", person: { id: 5, firstName: "Ava", lastName: "Cruz" } },
+        { id: 8, peopleId: 6, status: "pre_approved", person: { id: 6, firstName: "Pat", lastName: "Lee" } },
+        { id: 9, peopleId: 7, status: "pre_approved", person: { id: 7, firstName: "Kim", lastName: "Diaz" } },
+        { id: 10, peopleId: 8, status: "incomplete", person: { id: 8, firstName: "Max", lastName: "Hill" } },
+      ],
+    });
+    TripServices.getStatus.mockResolvedValue({
+      data: {
+        participants: [
+          { id: 7, missingItems: [], readyToApprove: false },
+          { id: 8, missingItems: [], readyToApprove: true },
+          { id: 9, missingItems: [], readyToApprove: false },
+          { id: 10, missingItems: [], readyToApprove: false },
+        ],
+      },
+    });
+    DonationServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({ data: [] });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: { stubs: { TripWorkerRolesCard: Stub } },
+    });
+    await flushPromises();
+
+    const applicationAction = (name) =>
+      wrapper
+        .findAll("tbody tr")
+        .find((tr) => tr.text().includes(name))
+        .find('[data-testid="application-action"]');
+    expect(applicationAction("Ava").attributes("aria-label")).toBe("View App");
+    expect(applicationAction("Ava").classes()).toContain("text-success");
+    expect(applicationAction("Pat").attributes("aria-label")).toBe("Approve App");
+    expect(applicationAction("Pat").classes()).toContain("text-warning");
+    for (const name of ["Kim", "Max"]) {
+      expect(applicationAction(name).classes()).not.toContain("text-success");
+      expect(applicationAction(name).classes()).not.toContain("text-warning");
+    }
+
+    wrapper.unmount();
+  });
+});

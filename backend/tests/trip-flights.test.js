@@ -14,6 +14,8 @@ import {
   createSystemAdminUser,
   findRole,
   completePersonProfile,
+  createTripWorkerRole,
+  COMPLETE_APPLICATION,
 } from "./helpers.js";
 
 const seedAirportsAirlines = async (adminAuth) => {
@@ -78,18 +80,22 @@ const setupTripWithAda = async ({
     orgIds: [org.id],
   });
   await completePersonProfile(ada.user.personId);
+  const tripWorkerRole = await createTripWorkerRole(trip.body.id, org.id);
 
   const adaAssignment = await request(app)
     .post("/trips/trip-people-roles")
     .set(authHeader)
     .send({
+      ...COMPLETE_APPLICATION,
       tripId: trip.body.id,
       peopleId: ada.user.personId,
       roleId: participantRole.id,
+      tripWorkerRoleId: tripWorkerRole.id,
       status: "approved",
-      willSelfFund: true,
     });
   expect(adaAssignment.status).toBe(200);
+  // Not self-booked, so staff can enter a flight cost.
+  await db.tripPeopleRole.update({ flightPurchaseOption: null }, { where: { id: adaAssignment.body.id } });
 
   let cancelledAssignment = null;
   if (withCancelled) {

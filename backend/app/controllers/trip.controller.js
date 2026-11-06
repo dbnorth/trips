@@ -27,7 +27,6 @@ import {
 } from "../utils/tripLeaders.js";
 import { withCapacityFields } from "../utils/tripRoleCapacity.js";
 import {
-  arePersonDocumentsUploaded,
   isDoctorPermissionUploaded,
   isRequiredPassportUploaded,
   isRequiredRoleDocumentUploaded,
@@ -46,6 +45,7 @@ import {
   travelOptionsIncompleteMessage,
 } from "../utils/applicationMissingItems.js";
 import { loadApprovalDocuments } from "../utils/approvalDocuments.js";
+import { isApprovalBlocked, loadApprovalChecklist } from "../utils/approvalChecklist.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import { amountOwed, participantCost, participantCostBreakdown } from "../utils/participantTotals.js";
@@ -360,7 +360,6 @@ exports.findStatus = async (req, res) => {
         medicalAgreementAccepted: !!json.medicalAgreementAccepted,
         travelOptionsComplete: !travelMsg,
         travelOptionsMessage: travelMsg,
-        personDocumentsUploaded: arePersonDocumentsUploaded(personDocuments),
         requiredRoleDocumentUploaded,
         missingRoleDocumentNames: missingRoleDocs.map(requiredRoleDocumentLabel).filter(Boolean),
         requiredPassportUploaded: isRequiredPassportUploaded({
@@ -391,6 +390,8 @@ exports.findStatus = async (req, res) => {
       const documentsReviewed =
         currentDocuments.length > 0 && currentDocuments.every((doc) => !!doc?.qualifies && doc.reviewed);
       const documentsToReview = currentDocuments.some((doc) => doc && !doc.reviewed);
+      const readyToApprove =
+        json.status === "pre_approved" && !isApprovalBlocked(await loadApprovalChecklist(json));
 
       const costBreakdown = await participantCostBreakdown(tripJson, json);
       const amountRaised = totalsByPersonId.get(Number(peopleId)) || 0;
@@ -410,6 +411,7 @@ exports.findStatus = async (req, res) => {
         missingItems,
         documentsReviewed,
         documentsToReview,
+        readyToApprove,
         selectedTravelOptionIds,
         ...(await participantTravelDates(tripJson, json.id)),
         ...(await participantFlightDates(json.id)),

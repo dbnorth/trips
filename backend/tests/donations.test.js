@@ -14,6 +14,8 @@ import {
   assignOrgRole,
   findRole,
   completePersonProfile,
+  createTripWorkerRole,
+  COMPLETE_APPLICATION,
 } from "./helpers.js";
 
 const setupTripWithLeaderAndParticipant = async ({
@@ -53,14 +55,17 @@ const setupTripWithLeaderAndParticipant = async ({
   });
   await completePersonProfile(participant.user.personId);
   const participantRole = await findRole("Trip Participant");
+  const tripWorkerRole = await createTripWorkerRole(trip.body.id, org.id);
 
   const assignment = await request(app)
     .post("/trips/trip-people-roles")
     .set(leader.authHeader)
     .send({
+      ...COMPLETE_APPLICATION,
       tripId: trip.body.id,
       peopleId: participant.user.personId,
       roleId: participantRole.id,
+      tripWorkerRoleId: tripWorkerRole.id,
       status: "approved",
     });
   expect(assignment.status).toBe(200);
@@ -186,13 +191,16 @@ describe("Feature 8 — Donors & Donations", () => {
       });
       await completePersonProfile(other.user.personId);
       const participantRole = await findRole("Trip Participant");
+      const tripWorkerRole = await createTripWorkerRole(trip.id, trip.orgId);
       const otherAssignment = await request(app)
         .post("/trips/trip-people-roles")
         .set(leader.authHeader)
         .send({
+          ...COMPLETE_APPLICATION,
           tripId: trip.id,
           peopleId: other.user.personId,
           roleId: participantRole.id,
+          tripWorkerRoleId: tripWorkerRole.id,
           status: "approved",
         });
       expect(otherAssignment.status).toBe(200);
