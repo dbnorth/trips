@@ -34,7 +34,7 @@ As an Org Admin, Home shows your organization's name with **Edit** (opens [Edit 
 |--------|-------|
 | **Name** | The trip. |
 | **Leaders** | The trip's leaders. |
-| **Members** | Pre-Approved and Approved leaders and participants. The info icon splits the count: "Pre-approved: *N*", "Approved: *N*". |
+| **Participants** | Trip Participants whose application is Incomplete, Pre-Approved, or Approved. Leaders, Declined, and Cancelled aren't counted. The info icon splits the count: "Incomplete: *N*", "Pre-approved: *N*", "Approved: *N*". |
 | **Total Roles** | Total of every role's Number Needed. A red info icon lists unfilled roles, for example "Nurse: 2 needed". |
 | **Total cost** | Total trip cost of the Pre-Approved and Approved members. |
 | **Total donations** | Donations to those members plus gifts to the trip. |

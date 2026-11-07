@@ -16,8 +16,7 @@ import {
   getActiveParticipantCountsByTripIds,
   getActiveParticipantTotalCostsByTripIds,
   getDonationTotalsByTripIds,
-  getMemberCountsByTripIds,
-  getPreApprovedMemberCountsByTripIds,
+  getParticipantStatusCountsByTripIds,
   getTripRoleTotalsByTripIds,
   getTripPrepByTripIds,
   getTripPrimaryLeaderPeopleId,
@@ -134,8 +133,7 @@ exports.findAll = async (req, res) => {
     const activeParticipantsByTripId = await getActiveParticipantCountsByTripIds(data.map((trip) => trip.id));
     const totalCostsByTripId = await getActiveParticipantTotalCostsByTripIds(data);
     const donationTotalsByTripId = await getDonationTotalsByTripIds(data.map((trip) => trip.id));
-    const memberCountsByTripId = await getMemberCountsByTripIds(data.map((trip) => trip.id));
-    const preApprovedCountsByTripId = await getPreApprovedMemberCountsByTripIds(data.map((trip) => trip.id));
+    const participantCountsByTripId = await getParticipantStatusCountsByTripIds(data.map((trip) => trip.id));
     const roleTotalsByTripId = await getTripRoleTotalsByTripIds(data.map((trip) => trip.id));
     const prepByTripId = await getTripPrepByTripIds(data.map((trip) => trip.id));
     res.send(
@@ -144,12 +142,15 @@ exports.findAll = async (req, res) => {
         const totalParticipantCost = totalCostsByTripId.get(trip.id) || 0;
         const donationTotal = donationTotalsByTripId.get(trip.id) || 0;
         const prep = prepByTripId.get(trip.id) || {};
+        const participants = participantCountsByTripId.get(trip.id) || { incomplete: 0, pre_approved: 0, approved: 0 };
         return {
           ...trip.toJSON(),
           leaderNames: leadersByTripId.get(trip.id) || [],
           activeParticipantCount: activeParticipantsByTripId.get(trip.id) || 0,
-          memberCount: memberCountsByTripId.get(trip.id) || 0,
-          preApprovedMemberCount: preApprovedCountsByTripId.get(trip.id) || 0,
+          participantCount: participants.incomplete + participants.pre_approved + participants.approved,
+          incompleteParticipantCount: participants.incomplete,
+          preApprovedParticipantCount: participants.pre_approved,
+          approvedParticipantCount: participants.approved,
           totalRoles: roleTotalsByTripId.get(trip.id)?.totalRoles || 0,
           unfilledRoles,
           totalParticipantCost,

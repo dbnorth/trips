@@ -71,11 +71,9 @@ describe("Feature 108 — Trips list Members and Total Roles", () => {
     return response.body.find((t) => t.id === trip.id);
   };
 
-  it("Trips list counts pre-approved and approved members, total roles, and unfilled roles", async () => {
+  it("Trips list counts total roles and unfilled roles", async () => {
     const row = await loadTrip();
 
-    expect(row.memberCount).toBe(4);
-    expect(row.preApprovedMemberCount).toBe(2);
     expect(row.activeParticipantCount).toBe(2);
     expect(row.totalRoles).toBe(6);
     expect(row.unfilledRoles).toEqual([
@@ -93,5 +91,30 @@ describe("Feature 108 — Trips list Members and Total Roles", () => {
 
     expect(row.totalRoles).toBe(6);
     expect(row.unfilledRoles).toEqual([]);
+  });
+
+  /**
+   * Feature 127 — Participant Counts
+   * Spec: features/feature-127-participant-counts.md
+   */
+  describe("Feature 127 — Participant Counts", () => {
+    describe("US-127.1 — Participants column on the trips table", () => {
+      it("Trips list counts active trip participants only", async () => {
+        await addMember("eve@example.org", "Trip Participant", "approved", tripNurse);
+        await addMember("fay@example.org", "Trip Participant", "approved", tripDoctor);
+        await addMember("gus@example.org", "Trip Participant", "declined", tripNurse);
+        await addMember("hal@example.org", "Trip Participant", "cancelled", tripNurse);
+
+        const row = await loadTrip();
+
+        expect(row.participantCount).toBe(6);
+        expect(row.incompleteParticipantCount).toBe(1);
+        expect(row.preApprovedParticipantCount).toBe(2);
+        expect(row.approvedParticipantCount).toBe(3);
+        expect(row).not.toHaveProperty("memberCount");
+        expect(row).not.toHaveProperty("preApprovedMemberCount");
+        expect(row.activeParticipantCount).toBe(4);
+      });
+    });
   });
 });

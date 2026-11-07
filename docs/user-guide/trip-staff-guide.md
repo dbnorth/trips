@@ -154,7 +154,8 @@ The trip name, organization, city and country, then:
 
 | Tile | Shows |
 |------|-------|
-| **Participants** | Number of rows in the participants table. |
+| **Leaders** | Trip Leaders whose status is Incomplete, Pre-Approved, or Approved. |
+| **Participants** | Trip Participants whose application is Incomplete, Pre-Approved, or Approved. Leaders, Declined, and Cancelled aren't counted, though they stay in the participants table. The info icon splits the count: "Incomplete: *N*", "Pre-approved: *N*", "Approved: *N*". It matches **Participants** on the Trips list. |
 | **Cost per participant** | The trip's default cost. |
 | **Total donations** | All donations to the trip. |
 | **Donations without participant** | Donations given to the trip rather than to a person. |
