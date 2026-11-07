@@ -911,3 +911,83 @@ describe("Feature 122 — Approve Action Colors", () => {
     wrapper.unmount();
   });
 });
+
+/**
+ * Feature 127 — Participant Counts
+ * Spec: features/feature-127-participant-counts.md
+ */
+describe("Feature 127 — Participant Counts", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    TripServices.get.mockResolvedValue({
+      data: { id: 42, name: "Guatemala Clinic", orgId: 10, status: "active", leaderNames: [], participantCost: 1500 },
+    });
+    const row = (id, roleName, status) => ({
+      id,
+      peopleId: id,
+      status,
+      role: { roleName },
+      person: { id, firstName: `P${id}`, lastName: "Test" },
+    });
+    TripPeopleRoleServices.getAll.mockResolvedValue({
+      data: [
+        row(1, "Trip Participant", "incomplete"),
+        row(2, "Trip Participant", "pre_approved"),
+        row(3, "Trip Participant", "pre_approved"),
+        row(4, "Trip Participant", "approved"),
+        row(5, "Trip Participant", "approved"),
+        row(6, "Trip Participant", "approved"),
+        row(7, "Trip Participant", "declined"),
+        row(8, "Trip Participant", "cancelled"),
+        row(9, "Trip Leader", "approved"),
+      ],
+    });
+    DonationServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({ data: [] });
+  });
+
+  describe("US-127.2 — Leaders and Participants on View Trip", () => {
+    it("View Trip summary shows Leaders and Participants", async () => {
+      const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [
+          { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+          { path: "/trips", name: "trips", component: Stub },
+        ],
+      });
+      await router.push({ name: "tripView", params: { tripId: "42" } });
+      await router.isReady();
+
+      const { wrapper } = await mountWithPlugins(TripView, {
+        props: { tripId: "42" },
+        router,
+        global: {
+          stubs: {
+            TripWorkerRolesCard: Stub,
+            VTooltip: { template: '<div><slot name="activator" :props="{}" /><slot /></div>' },
+          },
+        },
+      });
+      await flushPromises();
+
+      const summary = wrapper.find('[data-testid="trip-summary"]');
+      const labels = summary.findAll(".text-caption").map((el) => el.text().trim());
+      expect(labels).toEqual([
+        "Leaders",
+        "Participants",
+        "Cost per participant",
+        "Total donations",
+        "Donations without participant",
+      ]);
+      expect(summary.find('[data-testid="trip-summary-leaders"]').text()).toBe("1");
+      const participants = summary.find('[data-testid="trip-summary-participants"]');
+      expect(participants.find('[data-testid="participant-count"]').text()).toBe("6");
+      const lines = participants
+        .findAll('[data-testid="participant-count-breakdown"] > div')
+        .map((d) => d.text().trim());
+      expect(lines).toEqual(["Incomplete: 1", "Pre-approved: 2", "Approved: 3"]);
+
+      wrapper.unmount();
+    });
+  });
+});

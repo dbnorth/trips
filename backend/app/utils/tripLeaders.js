@@ -127,13 +127,25 @@ const countTripMembersByTripIds = async (tripIds, statuses) => {
 /** Map tripId -> count of active trip leaders and participants on the trip. */
 export const getActiveParticipantCountsByTripIds = (tripIds) => countTripMembersByTripIds(tripIds, ["approved"]);
 
-/** Map tripId -> count of pre-approved and approved trip leaders and participants on the trip. */
-export const getMemberCountsByTripIds = (tripIds) =>
-  countTripMembersByTripIds(tripIds, ["pre_approved", "approved"]);
+/** Map tripId -> { incomplete, pre_approved, approved } counts of Trip Participants (not leaders) on the trip. */
+export const getParticipantStatusCountsByTripIds = async (tripIds) => {
+  const ids = [...new Set((tripIds || []).map((id) => Number(id)).filter((id) => !Number.isNaN(id)))];
+  const map = new Map();
+  if (!ids.length) return map;
 
-/** Map tripId -> count of pre-approved trip leaders and participants on the trip. */
-export const getPreApprovedMemberCountsByTripIds = (tripIds) =>
-  countTripMembersByTripIds(tripIds, ["pre_approved"]);
+  const role = await db.role.findOne({ where: { roleName: ROLE_TRIP_PARTICIPANT } });
+  for (const id of ids) map.set(id, { incomplete: 0, pre_approved: 0, approved: 0 });
+  if (!role) return map;
+
+  const rows = await db.tripPeopleRole.findAll({
+    where: { tripId: ids, roleId: role.id, status: ["incomplete", "pre_approved", "approved"] },
+    attributes: ["tripId", "status"],
+    raw: true,
+  });
+  for (const row of rows) map.get(Number(row.tripId))[row.status] += 1;
+
+  return map;
+};
 
 /**
  * Map tripId -> { totalRoles, unfilledRoles }: the sum of the trip's role quantities, and each role

@@ -50,8 +50,6 @@
 
 **Function code** — how an email template is sent: Send Now (when its event happens), Scheduled (each morning by its schedule), Trip Participant (from Email team), or Person (from the People page).
 
-**Members** — on the Trips list, the Pre-Approved and Approved leaders and participants on a trip.
-
 **Missing items** — what's still missing from a person's profile, application, or trip documents, shown on the trip page.
 
 **Next steps / next actions** — the to-do list for each trip on a participant's Home and My Trip page.
@@ -63,6 +61,8 @@
 **Override Approve** — approving an application even though checklist items are missing, after confirming.
 
 **Participant cost** — the trip's cost for one person, adjusted by their trip options or set by staff.
+
+**Participants (count)** — on the Trips list and the trip page summary, the number of Trip Participants whose application is Incomplete, Pre-Approved, or Approved. Leaders, Declined, and Cancelled applications aren't counted.
 
 **Pending User** — someone in an organization who hasn't been given another role yet. They see the participant pages.
 

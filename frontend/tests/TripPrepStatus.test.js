@@ -44,7 +44,7 @@ const tripWith = (prepStatus) => ({
   startDate: "2099-06-10",
   endDate: "2099-06-17",
   leaderNames: [],
-  memberCount: 3,
+  approvedParticipantCount: 3,
   totalRoles: 3,
   unfilledRoles: [],
   totalParticipantCost: 3000,
