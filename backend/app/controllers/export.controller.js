@@ -9,6 +9,19 @@ import { toCsv, sendCsv } from "../utils/csvExport.js";
 import { emergencyContactRelationshipLabel } from "../utils/emergencyContactRelationship.js";
 import { displayPreferredName } from "../utils/preferredName.js";
 import { formatDate, formatDateTime } from "../utils/emailTokenValues.js";
+import { countedDonations } from "../utils/donationCounting.js";
+import { donationDateRangeLabel, donationDateRangeWhere } from "../utils/donationDateRange.js";
+
+const PAYMENT_STATUS_LABELS = { processing: "Processing", succeeded: "Succeeded", failed: "Failed" };
+
+/** "Visa •••• 4242" for a card, "<Bank> •••• 6789" for a bank account, or "" when Stripe hasn't reported it. */
+const paymentMethodText = (donation) => {
+  const brand = donation.stripePaymentMethodBrand;
+  if (!brand || !donation.stripePaymentMethodLast4) return "";
+  const name =
+    donation.stripePaymentMethodType === "card" ? brand.charAt(0).toUpperCase() + brand.slice(1) : brand;
+  return `${name} •••• ${donation.stripePaymentMethodLast4}`;
+};
 
 const TripPeopleRole = db.tripPeopleRole;
 const TripDonation = db.tripDonation;
@@ -169,7 +182,7 @@ exports.participantsCsv = async (req, res) => {
 
     const totals = await TripDonation.findAll({
       attributes: ["personId", [db.sequelize.fn("SUM", db.sequelize.col("amount")), "donationTotal"]],
-      where: { tripId, personId: { [db.Sequelize.Op.ne]: null } },
+      where: countedDonations({ tripId, personId: { [db.Sequelize.Op.ne]: null } }),
       group: ["personId"],
       raw: true,
     });
@@ -310,8 +323,9 @@ exports.donationsCsv = async (req, res) => {
     const access = await assertTripAccess(req, tripId);
     if (!access.ok) return res.status(access.status).send({ message: access.message });
 
+    const { startDate, endDate } = req.query;
     const donations = await TripDonation.findAll({
-      where: { tripId },
+      where: { tripId, ...donationDateRangeWhere(startDate, endDate) },
       include: [
         { model: Person, as: "participant", attributes: ["firstName", "lastName"] },
         { model: Donor, as: "donor" },
@@ -319,22 +333,39 @@ exports.donationsCsv = async (req, res) => {
       order: [["dateTime", "DESC"]],
     });
     const csvRows = donations.map((d) => ({
-      amount: d.amount,
       dateTime: formatDateTime(d.dateTime),
+      amount: d.amount,
+      processingFeeAmount: d.processingFeeAmount ?? "",
+      donationType: d.donationType,
+      checkNumber: d.checkNumber || "",
+      paymentStatus: PAYMENT_STATUS_LABELS[d.paymentStatus] || "",
+      paymentMethod: paymentMethodText(d),
       participant: d.participant ? `${d.participant.firstName} ${d.participant.lastName}` : "",
       donor: d.donor
         ? `${d.donor.firstName || ""} ${d.donor.lastName || ""}`.trim()
         : "",
       donorEmail: d.donor?.email || "",
+      paymentInfo: d.paymentInfo || "",
+      stripePaymentIntentId: d.stripePaymentIntentId || "",
+      stripeChargeId: d.stripeChargeId || "",
     }));
     const csv = toCsv(csvRows, [
-      { key: "amount", label: "Amount" },
       { key: "dateTime", label: "Date" },
+      { key: "amount", label: "Amount" },
+      { key: "processingFeeAmount", label: "Fee Covered" },
+      { key: "donationType", label: "Type" },
+      { key: "checkNumber", label: "Check Number" },
+      { key: "paymentStatus", label: "Payment Status" },
+      { key: "paymentMethod", label: "Payment Method" },
       { key: "participant", label: "Participant" },
       { key: "donor", label: "Donor" },
       { key: "donorEmail", label: "Donor Email" },
+      { key: "paymentInfo", label: "Payment Info" },
+      { key: "stripePaymentIntentId", label: "Stripe Payment ID" },
+      { key: "stripeChargeId", label: "Stripe Charge ID" },
     ]);
-    sendCsv(res, `trip-${tripId}-donations.csv`, csv);
+    const range = donationDateRangeLabel(startDate, endDate);
+    sendCsv(res, `trip-${tripId}-donations${range ? `-${range}` : ""}.csv`, csv);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

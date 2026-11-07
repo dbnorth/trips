@@ -117,12 +117,6 @@ const tripPlace = computed(() =>
 
 const tripImageUrl = computed(() => TripServices.getImageUrl(trip.value?.image));
 
-const onDonated = () => {
-  messageType.value = "success";
-  message.value = "Thank you for your donation!";
-  load();
-};
-
 const load = async () => {
   loading.value = true;
   try {
@@ -433,7 +427,8 @@ onUnmounted(() => {
       v-model="showDonateDialog"
       :trip-id="tripId"
       :person-id="currentUser.personId"
-      @saved="onDonated"
+      :online-donations="!!myTripInfo?.onlineDonations"
+      :return-path="router.currentRoute.value.fullPath"
     />
     <FlightSegmentsDialog
       v-if="myTripInfo?.tripPeopleRoleId"

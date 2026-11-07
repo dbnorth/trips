@@ -6,7 +6,7 @@
 
 **Agent** — a travel agent role that can manage an organization's flights and nothing else.
 
-**Amount owed / Balance** — total trip cost minus donations, never below $0.
+**Amount owed / Balance** — total trip cost minus counted donations, never below $0.
 
 **Application** — a person's answers for one trip: trip role, options, funding, flights, roommate, health, and agreements.
 
@@ -24,6 +24,8 @@
 
 **Confirmation number** — the airline booking reference for a participant's flights.
 
+**Counted donation** — a donation that goes into totals and balances: a Check, an Other, or a Stripe payment that Succeeded. Processing and Failed Stripe payments don't count.
+
 **Current document** ("Used for this trip") — when a person has several documents for one requirement, the one the trip checks: the one with a file that expires last.
 
 **Deposit** — the first amount a trip asks participants to raise.
@@ -31,6 +33,8 @@
 **Doctor Permission** — a document from a doctor allowing a pregnant participant to travel.
 
 **Document type** — a kind of document, such as Passport or Nursing License, with its rules (number required, expiration date, expiration check, specializations). Its **Type** is one of Medical License, Passport, Certification, Diploma, or Doctor Permission.
+
+**Donation type** — how a donation was given: Stripe-Credit (credit card through Stripe), Stripe-ACH (bank account through Stripe), Check (with its check number), or Other.
 
 **Donor status** — a note on a donor's record: active, inactive, or dontcontact (do not contact).
 
@@ -45,6 +49,8 @@
 **Expiration check** — how long a document type must stay valid for a trip: after the trip ends, on or after it ends, or 90 or 180 days after it ends.
 
 **Expired** — the red tag on a document from its expiration date on (including that day), shown in the profile's document list, in **Review documents**, and on the application's Doctor Permission line.
+
+**Fee covered** — the Stripe processing fee a donor chose to add on top of a credit card gift, when the organization asks donors to cover processing fees. It's recorded apart from the donation's amount and never counts toward totals.
 
 **Flight segment** — one leg of a flight: airline, flight number, airports, and departure and arrival times. Arrival segments take a person to the trip; return segments bring them home.
 
@@ -64,6 +70,10 @@
 
 **Participants (count)** — on the Trips list and the trip page summary, the number of Trip Participants whose application is Incomplete, Pre-Approved, or Approved. Leaders, Declined, and Cancelled applications aren't counted.
 
+**Payment status** — where a Stripe donation stands: Processing (a bank payment still clearing), Succeeded (paid and counted), or Failed (never counted). Check and Other donations have none.
+
+**Pay with Stripe** — the button that sends a donor (or staff taking a payment) to Stripe's secure payment page.
+
 **Pending User** — someone in an organization who hasn't been given another role yet. They see the participant pages.
 
 **Pre-Approved** — the status of a submitted, complete application. The person holds a place on the team while staff review documents.
@@ -80,9 +90,15 @@
 
 **Specialization** — a sub-type of a document, such as Pediatrics on a board certification, with its own date and file.
 
+**Stripe** — the payment service online donations go through, by credit card or bank account (ACH). Each organization connects its own Stripe account with its secret keys.
+
+**Stripe secret key / Stripe test secret key** — the keys an Org Admin copies from the Stripe Dashboard into Edit organization. The live key takes real payments; the test key is used while Test mode is on. Saved keys are never shown again.
+
 **Subdomain** — an organization's own web address. People who create an account there join it automatically.
 
-**Test mode** — an organization setting that sends all its emails to the organization's own address.
+**Test mode** — an organization setting that sends all its emails to the organization's own address and uses the Stripe test key for online donations.
+
+**Trip donation email** — the thank-you email sent to the participant and the donor when a donation starts counting.
 
 **Token** — a placeholder in an email template, written as `{{CODE}}`, that's filled in for each recipient, such as the participant's name or balance due.
 

@@ -20,6 +20,7 @@ import {
   createTripWorkerRole,
   COMPLETE_APPLICATION,
 } from "./helpers.js";
+import { fakeStripe, payWithStripe, saveStripeKeys } from "./stripeFake.js";
 
 describe("Feature 45 — Send Now Event Emails", () => {
   let admin;
@@ -79,6 +80,20 @@ describe("Feature 45 — Send Now Event Emails", () => {
     db.emailLog.findAll({ where: { subject: { [Op.ne]: "Login" } }, order: [["id", "ASC"]] });
 
   const sentSubjects = async () => (await sentEmails()).map((log) => log.subject);
+
+  /** A $50 public donation paid with Stripe (Stripe calls replaced). */
+  const publicStripeDonation = async (body) => {
+    await saveStripeKeys(org);
+    const stripe = fakeStripe();
+    try {
+      return await payWithStripe(stripe, {
+        path: "/trips/public/donations/stripe-checkout",
+        body: { amount: 50, donor: { firstName: "Dana", email: "dana@example.org" }, ...body },
+      });
+    } finally {
+      stripe.restore();
+    }
+  };
 
   const staffDonation = (trip, person, amount) =>
     request(app)
@@ -282,11 +297,9 @@ describe("Feature 45 — Send Now Event Emails", () => {
       const person = await createPerson();
       await addAssignment(trip, person, "approved");
 
-      const response = await request(app)
-        .post("/trips/public/donations")
-        .send({ tripId: trip.id, personId: person.id, amount: 50, donor: { firstName: "Dana" } });
+      const { start } = await publicStripeDonation({ tripId: trip.id, personId: person.id });
 
-      expect(response.status).toBe(200);
+      expect(start.status).toBe(200);
       const logs = await sentEmails();
       expect(logs.map((log) => log.subject)).toEqual(["Donation received"]);
       expect(logs[0].toEmail).toBe(person.email);
@@ -339,11 +352,10 @@ describe("Feature 45 — Send Now Event Emails", () => {
       await addTemplate("donation-received", "Donation received");
       const trip = await createTrip();
 
-      const response = await request(app)
-        .post("/trips/public/donations")
-        .send({ tripId: trip.id, amount: 50, donor: { firstName: "Dana" } });
+      const { start, donation } = await publicStripeDonation({ tripId: trip.id });
 
-      expect(response.status).toBe(200);
+      expect(start.status).toBe(200);
+      expect(donation).not.toBeNull();
       expect(await sentSubjects()).toEqual([]);
     });
   });

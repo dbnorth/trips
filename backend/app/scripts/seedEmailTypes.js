@@ -5,6 +5,14 @@ import db from "../models/index.js";
 const SENT_FROM_EMAIL_TEAM =
   "This email is not sent automatically. Trip staff send it to the trip team from Email team on the trip page.";
 
+export const TRIP_DONATION_EMAIL_TYPE = {
+  typeCode: "trip-donation",
+  description: "Trip donation",
+  eventCode: "trip-donation",
+  eventDescription:
+    "This event happens when a donation starts counting toward a trip: a Check or Other donation is added, or a Stripe payment succeeds. The email goes to the participant and to the donor, each address once.",
+};
+
 const emailTypes = [
   {
     typeCode: "apply-started",
@@ -130,6 +138,7 @@ const emailTypes = [
     eventCode: "trip-arrival",
     eventDescription: "This scheduled rule checks whether the Trip Participant's application is Approved.",
   },
+  TRIP_DONATION_EMAIL_TYPE,
 ];
 
 /**

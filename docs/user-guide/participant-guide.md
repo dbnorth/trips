@@ -121,11 +121,11 @@ Home's **My Trips** shows each upcoming trip with your next step, color-coded: y
 - Your **total trip cost** is the trip cost (adjusted by your trip options), plus your flight if the organization buys it, plus any add-on expenses staff add.
 - Your **balance** is the total trip cost minus donations, never below $0.
 - The **deposit** is the first amount the organization asks you to raise.
-- On **My Trip**, **Make Donation** records a donation toward your own balance. **View donations** lists what's been given.
+- On **My Trip**, **Make Donation** lets you pay toward your own balance. **View donations** lists what's been given.
 - On Home, **Donate** in your next steps lets you give to yourself or a teammate.
 - Friends and family can give through your fundraising page without an account.
 
-Mission Trips records donations; it doesn't process card payments.
+Online donations are paid through Stripe, by credit card or bank account (ACH). **Pay with Stripe** takes you to Stripe's secure payment page; after paying you come back to a thank-you page. A card payment counts toward your balance right away. A bank payment shows as **Processing** for up to 4 business days and counts only once it **Succeeded**; a **Failed** payment never counts. If your organization hasn't connected Stripe, donation screens show "Online donations aren't set up for this organization yet." and you can't pay online.
 
 ## Your flights
 
@@ -397,7 +397,7 @@ Shown for Incomplete, Pre-Approved, and Approved applications.
 | **Add-on: *description*** | Each extra cost staff added, such as a visa fee. |
 | **Flight** | Your flight cost, when the organization books it. |
 | **Total trip cost** | The sum of the lines above. |
-| **Donations** | Everything donated toward your cost. **View donations** lists them; **Make Donation** (Pre-Approved or Approved) records your own. |
+| **Donations** | Donations toward your cost that have gone through (bank payments still Processing and Failed payments aren't included). **View donations** lists them; **Make Donation** (Pre-Approved or Approved) pays your own with Stripe. |
 | **Balance** | Total trip cost minus donations, never below $0. |
 
 ### Room
@@ -535,14 +535,14 @@ The **View** dialog shows PDFs and pictures in the browser, with **Download** an
 
 ## Make Donation
 
-Opened from **Make Donation** in **Trip financial info** on My Trip. Records a donation from you toward your own balance.
+Opened from **Make Donation** in **Trip financial info** on My Trip. Pays a donation from you toward your own balance.
 
-| Field | Notes |
-|-------|-------|
-| **Amount** | Required. |
-| **Payment info** | Optional. How you paid, for example a check number. |
+| Field | Choices | Notes |
+|-------|---------|-------|
+| **Amount** | — | Required, at least $0.50. |
+| **Payment method** | **Credit card** (selected at first), **Bank account (ACH)** | How you'll pay on Stripe's page. With **Credit card**, Stripe's page may also offer to add the processing fee; you can remove it there. |
 
-**Donate** saves it and shows "Thank you for your donation!". You can donate to yourself only on trips where you're Pre-Approved or Approved.
+**Pay with Stripe** takes you to Stripe to pay; when you're done you return to the [donation return page](#donation-return-page). **Cancel** closes the dialog. You can donate to yourself only on trips where you're Pre-Approved or Approved. If your organization hasn't connected Stripe, the dialog shows "Online donations aren't set up for this organization yet." instead of **Payment method** and **Pay with Stripe**.
 
 ## Donate
 
@@ -551,8 +551,10 @@ Opened from **Donate** in a Home next step.
 | Field | Choices | Notes |
 |-------|---------|-------|
 | **Donate to** | **Yourself**, then the other Pre-Approved and Approved people on the trip | Required. Starts as Yourself. |
-| **Amount** | — | Required. |
-| **Payment info** | — | Optional. |
+| **Amount** | — | Required, at least $0.50. |
+| **Payment method** | **Credit card** (selected at first), **Bank account (ACH)** | How you'll pay on Stripe's page. With **Credit card**, Stripe's page may also offer to add the processing fee; you can remove it there. |
+
+**Pay with Stripe** takes you to Stripe to pay, then back to the [donation return page](#donation-return-page). Without Stripe connected, the dialog shows "Online donations aren't set up for this organization yet." instead of **Payment method** and **Pay with Stripe**.
 
 ## Donations for *your name*
 
@@ -611,11 +613,29 @@ The trip card, its availability, **Donate**, **Apply**, and **Roles needed**: ea
 | **Support a participant (optional)** | Pick a Pre-Approved or Approved person, or leave blank to give to the trip. |
 | **Your first name** | Required. |
 | **Your last name** | Optional. |
-| **Email** | Optional. |
-| **Amount** | Required. |
+| **Email** | Required; Stripe sends the receipt here. |
+| **Amount** | Required, at least $0.50. |
+| **Payment method** | **Credit card** (selected at first) or **Bank account (ACH)**. With **Credit card**, Stripe's page may also offer to add the processing fee so more of your gift reaches the trip; it starts selected and you can remove it. |
 
-**Donate** shows "Thank you for your donation!". Below the form, **Visit a trip participants page** links to each person's page.
+**Pay with Stripe** takes you to Stripe to pay, then to the [donation return page](#donation-return-page). Cancelling on Stripe brings you back here and nothing is recorded. If the organization hasn't connected Stripe, the form shows "Online donations aren't set up for this organization yet." instead of **Payment method** and **Pay with Stripe**. Below the form, **Visit a trip participants page** links to each person's page.
 
 ### Participant fundraising page
 
-The person's photo, name, "Why go" story, bio, and "Raised so far". The **Support *first name*** form has **Your first name**, **Your last name**, **Email**, and **Amount**. **Donate** shows "Thank you for supporting this participant!".
+The person's photo, name, "Why go" story, bio, and "Raised so far" (only payments that have gone through). The **Support *first name*** form has **Your first name**, **Your last name**, **Email**, **Amount**, **Payment method**, and **Pay with Stripe**, which work as on the trip donate page.
+
+### Donation return page
+
+Where Stripe sends you after you pay. It shows one of these:
+
+| You see | Means |
+|---------|-------|
+| "Thank you for your donation!", the amount, trip, and person, and **Receipt** | Your payment went through. **Receipt** opens Stripe's receipt in a new tab. |
+| "Thank you for your donation!" and "Your bank payment is processing. It usually takes up to 4 business days to clear." | Your bank payment was accepted and is clearing. It counts once it succeeds. |
+| "Thank you for also covering the *fee* processing fee." (with either message above) | You added Stripe's processing fee. The amount line shows your gift; the fee is recorded separately. |
+| "Your payment didn't go through." and Stripe's reason | The payment failed; nothing counts. You can try again. |
+| "Waiting for Stripe to confirm your payment…" | The page checks with Stripe every 5 seconds, up to 6 times. |
+| "Your payment hasn't been confirmed yet. If you paid, it will be recorded shortly." | Stripe hasn't confirmed yet. The app keeps checking in the background. |
+| "This donation link has expired." | The payment page wasn't used within a day. |
+| "Donation not found." | The link is wrong. |
+
+**Back** returns to the page you started from.

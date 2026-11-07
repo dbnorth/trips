@@ -10,6 +10,7 @@ router.get("/trips/by-name/:tripSlug", dashboard.getTripForDonorBySlug);
 router.get("/trips/:tripId/participants/:personId", dashboard.getParticipantForDonor);
 router.get("/trips/:tripId", dashboard.getTripForDonor);
 router.get("/orgs/by-name/:orgSlug", dashboard.getOrgTripsBySlug);
-router.post("/donations", [optionalAuthenticate], dashboard.createPublicDonation);
+router.post("/donations/stripe-checkout", [optionalAuthenticate], dashboard.createPublicCheckout);
+router.post("/donations/stripe-checkout/:token/check", dashboard.checkCheckout);
 
 export default router;

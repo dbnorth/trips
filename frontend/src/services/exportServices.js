@@ -35,8 +35,16 @@ export default {
   donorsCsv(tripId) {
     return downloadFile(`export/trips/${tripId}/donors.csv`, `donors-${tripId}.csv`);
   },
-  donationsCsv(tripId) {
-    return downloadFile(`export/trips/${tripId}/donations.csv`, `donations-${tripId}.csv`);
+  donationsCsv(tripId, { startDate = "", endDate = "" } = {}) {
+    const params = new URLSearchParams();
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
+    const query = params.toString();
+    const range = startDate || endDate ? `-${startDate || "start"}-to-${endDate || "end"}` : "";
+    return downloadFile(
+      `export/trips/${tripId}/donations.csv${query ? `?${query}` : ""}`,
+      `trip-${tripId}-donations${range}.csv`
+    );
   },
   roomListPdf(tripId, tripName) {
     return downloadFile(

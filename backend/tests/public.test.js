@@ -15,6 +15,7 @@ import {
   findRole,
   registerUser,
 } from "./helpers.js";
+import { fakeStripe, payWithStripe, saveStripeKeys } from "./stripeFake.js";
 
 /** Date-only string offset from today. Public org pages hide trips that already ended. */
 const isoDateFromToday = (offsetDays) => {
@@ -137,40 +138,34 @@ describe("Feature 9 — Public Fundraising Pages", () => {
 
   describe("US-9.2 — Donate on trip or participant pages", () => {
     it("Visitor submits a public donation", async () => {
-      const { trip } = await createPublicTripFixture({
+      const { org, trip } = await createPublicTripFixture({
         orgName: "Donate Org",
         tripName: "Donate Trip",
       });
-
-      const response = await request(app)
-        .post("/trips/public/donations")
-        .send({
-          tripId: trip.id,
-          amount: 75,
-          paymentInfo: "Card ending 4242",
-          donor: {
-            firstName: "Guest",
-            lastName: "Giver",
-            email: "guest.giver@example.com",
-            city: "Dallas",
+      await saveStripeKeys(org);
+      const stripe = fakeStripe();
+      try {
+        const { start, check, donation } = await payWithStripe(stripe, {
+          path: "/trips/public/donations/stripe-checkout",
+          body: {
+            tripId: trip.id,
+            amount: 75,
+            donor: { firstName: "Guest", lastName: "Giver", email: "guest.giver@example.com" },
           },
         });
 
-      expect(response.status).toBe(200);
-      expect(response.body.message).toMatch(/thank you/i);
-      expect(response.body.donor).toMatchObject({
-        firstName: "Guest",
-        lastName: "Giver",
-        email: "guest.giver@example.com",
-      });
-      expect(Number(response.body.donation.amount)).toBe(75);
-      expect(response.body.donation.tripId).toBe(trip.id);
-
-      const donor = await db.donor.findByPk(response.body.donor.id);
-      const donation = await db.tripDonation.findByPk(response.body.donation.id);
-      expect(donor).not.toBeNull();
-      expect(donation).not.toBeNull();
-      expect(donation.donorId).toBe(donor.id);
+        expect(start.status).toBe(200);
+        expect(check.body.status).toBe("completed");
+        expect(Number(donation.amount)).toBe(75);
+        expect(donation.tripId).toBe(trip.id);
+        expect(donation.donor).toMatchObject({
+          firstName: "Guest",
+          lastName: "Giver",
+          email: "guest.giver@example.com",
+        });
+      } finally {
+        stripe.restore();
+      }
     });
   });
 

@@ -15,8 +15,9 @@ A typical order:
 5. **People**: add staff and give them roles.
 6. **Templates**: the emails the organization sends.
 7. **Trips**: create trips, with their leaders, roles, and options.
+8. **Organizations → Edit → Online donations (Stripe)**: save your Stripe secret key so donors can pay online by card or bank account.
 
-Turn on **Test mode** while you try out email templates.
+Turn on **Test mode** while you try out email templates. Test mode also switches online donations to your Stripe test key, so you can try payments with Stripe's test cards.
 
 ---
 
@@ -37,7 +38,7 @@ As an Org Admin, Home shows your organization's name with **Edit** (opens [Edit 
 | **Participants** | Trip Participants whose application is Incomplete, Pre-Approved, or Approved. Leaders, Declined, and Cancelled aren't counted. The info icon splits the count: "Incomplete: *N*", "Pre-approved: *N*", "Approved: *N*". |
 | **Total Roles** | Total of every role's Number Needed. A red info icon lists unfilled roles, for example "Nurse: 2 needed". |
 | **Total cost** | Total trip cost of the Pre-Approved and Approved members. |
-| **Total donations** | Donations to those members plus gifts to the trip. |
+| **Total donations** | Counted donations to those members plus gifts to the trip (Processing and Failed Stripe payments aren't included). |
 | **Status** | The trip status (`active`, `completed`, or `inactive`) and the prep icon: green when all five checks pass, red otherwise. Hover it to see each check: All roles filled, All participants approved, All funds raised, Flights entered for all participants, Room list includes all participants. |
 | **Dates** | Start – end. |
 | **Actions** | **View** (trip page), **Room list**, **Flights**, **Import**, **Edit**. |
@@ -146,7 +147,10 @@ To invite imported people to create a login, send a template that uses the creat
 | **Name** | — | Required. Also used in the public trips page address. |
 | **Subdomain** | — | The organization's own web address. People who create an account there join the organization automatically. Only a System Admin can set it. |
 | **Email** | — | The organization's email. Used as the sender for many emails, and where Test mode sends everything. |
-| **Test mode** | Tick box | Sends every email for this organization to the organization email instead of the real recipients. Subjects start with "[Test]" and bodies say who it was meant for. Needs an organization email. |
+| **Test mode** | Tick box | Sends every email for this organization to the organization email instead of the real recipients. Subjects start with "[Test]" and bodies say who it was meant for. Needs an organization email. Online donations use the Stripe test key while it's on. |
+| **Stripe secret key** | — | In **Online donations (Stripe)**. Your live Stripe secret key, from the Stripe Dashboard (starts `sk_live_` or `rk_live_`; otherwise "Enter a live Stripe secret key (sk_live_ or rk_live_)."). Needed for online donations when Test mode is off. Once saved it's never shown again: the field stays empty with "A key is saved. Leave blank to keep it."; type a new key to replace it. |
+| **Stripe test secret key** | — | Your Stripe test secret key (starts `sk_test_` or `rk_test_`; otherwise "Enter a test Stripe secret key (sk_test_ or rk_test_)."). Used instead of the live key while Test mode is on ("Test mode uses the test key."). Saved and shown the same way. |
+| **Ask donors to cover processing fees** | Tick box (off at first) | "Stripe asks card donors to add its processing fee. Turn on only after Stripe approves your account for fee coverage." When ticked, Stripe's credit card payment page offers donors the processing fee on top of their gift, already selected; they can remove it. Stripe works out the fee. Bank account payments are never asked. Stripe offers this only to eligible US nonprofits that have asked Stripe for it; without Stripe's approval, credit card payments fail with "Stripe couldn't start the payment. Please try again." A covered fee shows as **Fee covered** on the donation and never counts toward totals. |
 | **Color family** | blue, teal, green, purple, red, orange | The color of the menu bar and main buttons for this organization's users. |
 | **Country**, **Address line 1**, **Address line 2**, **City**, **State** / **State / province**, **Postal code** | — | The mailing address. |
 | **Phone country code**, **Phone number** | — | The organization's phone. |
@@ -383,14 +387,15 @@ Each template has an email type. Its **Event description** (the info icon in the
 | **Deposit received** | Send Now: a person's donations first reach the trip deposit. |
 | **Payment due reminder** | Scheduled: Approved people who still owe money. |
 | **Trip fully paid** | Send Now: a donation brings a person's balance to $0. |
-| **Donation received** | Send Now: each time a donation is recorded for a person. |
+| **Donation received** | Send Now: each time a donation starts counting for a person (a Check or Other is saved, or a Stripe payment succeeds). |
+| **Trip donation** | Send Now: each time a donation starts counting. Sent separately to the participant (when the donation is for one) and to the donor (when they have an email), whatever the template's **To**. Not sent for edits or Failed payments. |
 | **Pre-departure information** | Scheduled: Approved people. |
 | **Trip arrival info (scheduled)** | Scheduled: Approved people. Often attaches the trip arrival PDF. |
 | **Trip team update**, **Trip financial statement**, **Trip arrival info**, **Account invitation** | Not automatic. Sent by trip staff from **Email team**. |
 | **Flight itinerary** | Not automatic. Sent from **Email flight itinerary** on the Flights page. |
 | **People update** | Not automatic. Sent by Org Admins from **Email** on the People page. |
 
-Send Now emails go only to Trip Participants. A person gets each scheduled email at most once a day.
+Send Now emails go only to Trip Participants, except **Trip donation**, which also goes to the donor. A person gets each scheduled email at most once a day.
 
 ### Email tokens
 
@@ -411,10 +416,11 @@ Tokens are placeholders written as `{{CODE}}` that are filled in for each recipi
 | `{{PARTICIPANT_TRIP_AIRFARE}}` | Their flight cost. |
 | `{{ADDON_EXPENSE}}`, `{{ADDON_EXPENSE_TOTAL}}` | Each add-on expense with its cost, and their total. |
 | `{{PARTICIPANT_TOTAL_TRIP_COST}}` | Their total trip cost. |
-| `{{PARTICIPANT_AMOUNT_RAISED}}` | All donations recorded for them on the trip. |
-| `{{PARTICIPANT_AMOUNT_OWED}}`, `{{PARTICIPANT_BALANCE_DUE}}` | Total trip cost minus donations, never below $0. |
-| `{{PARTICIPANT_DONATIONS}}`, `{{PARTICIPANT_DONATIONS_TOTAL}}` | Each donation they gave themselves (date and amount), and the total. |
-| `{{PARTICIPANT_TRIP_DONATIONS}}`, `{{PARTICIPANT_TRIP_DONATIONS_TOTAL}}` | Each donation others gave them, and the total. |
+| `{{PARTICIPANT_AMOUNT_RAISED}}` | All counted donations for them on the trip (Check, Other, and Stripe payments that Succeeded). |
+| `{{PARTICIPANT_AMOUNT_OWED}}`, `{{PARTICIPANT_BALANCE_DUE}}` | Total trip cost minus counted donations, never below $0. |
+| `{{PARTICIPANT_DONATIONS}}`, `{{PARTICIPANT_DONATIONS_TOTAL}}` | Each counted donation they gave themselves (date and amount), and the total. |
+| `{{PARTICIPANT_TRIP_DONATIONS}}`, `{{PARTICIPANT_TRIP_DONATIONS_TOTAL}}` | Each counted donation others gave them, and the total. |
+| `{{DONATION_DATE}}`, `{{DONATION_TYPE}}`, `{{DONATION_AMOUNT}}`, `{{DONATION_FEE_COVERED}}` | In the **Trip donation** email only: the donation's date, type (Stripe-ACH, Stripe-Credit, Check, or Other), amount (the gift), and the processing fee the donor covered (blank when they didn't). Blank elsewhere. |
 | `{{PARTICIPANT_ARRIVAL_DATE}}`, `{{PARTICIPANT_DEPARTURE_DATE}}` | Their planned arrival and departure dates. |
 | `{{CREATE_ACCOUNT_LINK}}` | A link to create an account with their email and name filled in, or a sign-in link if they already have one. |
 | `{{ARRIVAL_FLIGHT}}`, `{{RETURN_FLIGHT}}` | Each flight leg: airline, flight number, airports, dates and times, class, and seat. |

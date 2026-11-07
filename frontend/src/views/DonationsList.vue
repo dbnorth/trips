@@ -10,12 +10,16 @@ import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { formatDonorName } from "../utils/donorUtils.js";
 import RowAction from "../components/RowAction.vue";
 import { formatDateTime } from "../utils/dateFormat.js";
+import { donationCounts, donationTypeText, paymentStatusText } from "../utils/stripeDonations.js";
 
 const user = ref(null);
 const trips = ref([]);
 const donations = ref([]);
+const tripDonations = ref([]);
 const participantCount = ref(0);
 const selectedTripId = ref(null);
+const startDate = ref("");
+const endDate = ref("");
 const message = ref("");
 const showDonationForm = ref(false);
 const editingDonation = ref(null);
@@ -39,11 +43,28 @@ const staffTrips = computed(() => trips.value.filter(isTripStaff));
 const sumDonations = (rows) =>
   rows.reduce((total, row) => total + Number(row.amount || 0), 0);
 
-const totalDonations = computed(() => sumDonations(donations.value));
+const countedTripDonations = computed(() => tripDonations.value.filter(donationCounts));
+
+const totalDonations = computed(() => sumDonations(countedTripDonations.value));
 
 const unassignedDonations = computed(() =>
-  sumDonations(donations.value.filter((row) => row.personId == null))
+  sumDonations(countedTripDonations.value.filter((row) => row.personId == null))
 );
+
+const rangeError = computed(() =>
+  startDate.value && endDate.value && startDate.value > endDate.value
+    ? "Start date must be on or before End date."
+    : ""
+);
+
+const exportCsv = () => {
+  message.value = "";
+  ExportServices.donationsCsv(selectedTripId.value, { startDate: startDate.value, endDate: endDate.value }).catch(
+    (e) => {
+      message.value = e.message;
+    }
+  );
+};
 
 const formatCost = (value) =>
   value != null && value !== "" ? formatMoneyDisplay(value) : "—";
@@ -89,14 +110,29 @@ const loadTrips = () => {
 const loadDonations = () => {
   if (!selectedTripId.value) {
     donations.value = [];
+    tripDonations.value = [];
     participantCount.value = 0;
     return Promise.resolve();
   }
+  const hasRange = !!(startDate.value || endDate.value);
   const requests = [
     DonationServices.getAll(selectedTripId.value).then((r) => {
-      donations.value = r.data || [];
+      tripDonations.value = r.data || [];
+      if (!hasRange) donations.value = tripDonations.value;
     }),
   ];
+  if (rangeError.value) {
+    donations.value = [];
+  } else if (hasRange) {
+    requests.push(
+      DonationServices.getAll(selectedTripId.value, {
+        ...(startDate.value ? { startDate: startDate.value } : {}),
+        ...(endDate.value ? { endDate: endDate.value } : {}),
+      }).then((r) => {
+        donations.value = r.data || [];
+      })
+    );
+  }
   if (isStaffForSelectedTrip.value) {
     requests.push(
       TripPeopleRoleServices.getAll(selectedTripId.value).then((r) => {
@@ -107,7 +143,7 @@ const loadDonations = () => {
   return Promise.all(requests);
 };
 
-watch(selectedTripId, () => {
+watch([selectedTripId, startDate, endDate], () => {
   loadDonations();
 });
 
@@ -157,14 +193,37 @@ onUnmounted(() => {
 
     <v-alert v-if="message" type="info" density="compact" class="mb-4">{{ message }}</v-alert>
 
-    <v-select
-      v-model="selectedTripId"
-      :items="tripItems"
-      label="Trip"
-      density="compact"
-      class="mb-4"
-      style="max-width: 400px"
-    />
+    <div class="d-flex flex-wrap ga-4 mb-4">
+      <v-select
+        v-model="selectedTripId"
+        :items="tripItems"
+        label="Trip"
+        density="compact"
+        hide-details
+        style="max-width: 400px; min-width: 240px"
+      />
+      <v-text-field
+        v-model="startDate"
+        label="Start date"
+        type="date"
+        density="compact"
+        hide-details
+        clearable
+        style="max-width: 200px"
+        data-testid="donations-start-date"
+      />
+      <v-text-field
+        v-model="endDate"
+        label="End date"
+        type="date"
+        density="compact"
+        hide-details
+        clearable
+        style="max-width: 200px"
+        data-testid="donations-end-date"
+      />
+    </div>
+    <v-alert v-if="rangeError" type="error" density="compact" class="mb-4">{{ rangeError }}</v-alert>
 
     <v-card v-if="selectedTripId" variant="tonal" class="mb-4 pa-4">
       <v-row dense>
@@ -188,7 +247,7 @@ onUnmounted(() => {
     </v-card>
 
     <div class="mb-2">
-      <v-btn size="small" class="mr-2" :disabled="!selectedTripId" @click="ExportServices.donationsCsv(selectedTripId)">
+      <v-btn size="small" class="mr-2" :disabled="!selectedTripId || !!rangeError" @click="exportCsv">
         Export CSV
       </v-btn>
     </div>
@@ -199,6 +258,9 @@ onUnmounted(() => {
         { title: 'Date', key: 'dateTime' },
         { title: 'Donor', key: 'donor' },
         { title: 'Amount', key: 'amount' },
+        { title: 'Fee covered', key: 'processingFeeAmount' },
+        { title: 'Type', key: 'donationType' },
+        { title: 'Status', key: 'paymentStatus' },
         { title: 'Participant', key: 'participant' },
         { title: 'Actions', key: 'actions', sortable: false },
       ]"
@@ -207,6 +269,9 @@ onUnmounted(() => {
       <template #item.dateTime="{ item }">{{ formatDate(item.dateTime) }}</template>
       <template #item.donor="{ item }">{{ donorName(item) }}</template>
       <template #item.amount="{ item }">{{ formatAmount(item.amount) }}</template>
+      <template #item.processingFeeAmount="{ item }">{{ formatAmount(item.processingFeeAmount) }}</template>
+      <template #item.donationType="{ item }">{{ donationTypeText(item) }}</template>
+      <template #item.paymentStatus="{ item }">{{ paymentStatusText(item) }}</template>
       <template #item.participant="{ item }">{{ participantName(item) }}</template>
       <template #item.actions="{ item }">
         <RowAction v-if="isStaffForSelectedTrip" icon="mdi-pencil" label="Edit" @click="openEditDonation(item)" />

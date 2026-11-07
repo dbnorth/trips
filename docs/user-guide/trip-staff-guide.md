@@ -88,11 +88,14 @@ Choose **Flights** on the trip's row.
 
 The **Donations** page records donations for trips you manage:
 
-- **Add donation** — enter the donor's email and choose **Look up** to find an existing donor or a person in the organization; otherwise enter the donor's details. Then the trip, the participant it's for (optional), the amount, the date, and payment info.
+- **Add donation** — enter the donor's email and choose **Look up** to find an existing donor or a person in the organization; otherwise enter the donor's details. Then the trip, the participant it's for (optional), the amount, the **Type**, and payment info.
+  - **Check** or **Other** — a gift you received outside the app. Enter the date (and the check number for a Check) and choose **Save**.
+  - **Stripe-Credit** or **Stripe-ACH** — take a card or bank payment now. **Pay with Stripe** opens Stripe's payment page, where you enter the donor's card or bank details; afterwards **Back** returns to **Donations**. This needs the organization's Stripe key (see the Org Admin guide).
 - Donations to a participant reduce that participant's amount owed. Donations without a participant count toward the trip.
-- **Export CSV** downloads the trip's donations.
+- Only donations that have gone through count toward totals and amounts owed: Check, Other, and Stripe payments that **Succeeded**. A Stripe bank payment stays **Processing** for up to 4 business days; a **Failed** one never counts. Donors who give online show up here on their own once Stripe confirms the payment.
+- **Start date** and **End date** limit the list; **Export CSV** downloads what the list shows.
 
-Saving a donation can send donation emails, such as donation received, deposit reached, or fully paid.
+When a donation starts counting, the app can send donation emails, such as donation received, deposit reached, or fully paid, and the **Trip donation** thank-you email to the donor and the participant.
 
 ## Team email
 
@@ -157,8 +160,8 @@ The trip name, organization, city and country, then:
 | **Leaders** | Trip Leaders whose status is Incomplete, Pre-Approved, or Approved. |
 | **Participants** | Trip Participants whose application is Incomplete, Pre-Approved, or Approved. Leaders, Declined, and Cancelled aren't counted, though they stay in the participants table. The info icon splits the count: "Incomplete: *N*", "Pre-approved: *N*", "Approved: *N*". It matches **Participants** on the Trips list. |
 | **Cost per participant** | The trip's default cost. |
-| **Total donations** | All donations to the trip. |
-| **Donations without participant** | Donations given to the trip rather than to a person. |
+| **Total donations** | All counted donations to the trip (Check, Other, and Stripe payments that Succeeded). |
+| **Donations without participant** | Counted donations given to the trip rather than to a person. |
 
 ### Team roles
 
@@ -208,8 +211,8 @@ The **Name** column stays on the left and **Actions** on the right while the oth
 | **Booked by** | Who buys the flight: the organization's name, "Participant", or "Not chosen". |
 | **Missing items** | A red icon listing what's missing from the profile ("Profile is not complete"), the application, and the trip documents (for example "Required role document(s): Nursing License", "Passport document (with valid expiration)", "Doctor Permission document"). |
 | **Total cost** | Total trip cost. The info icon shows the breakdown: Trip cost, each trip option, Cost adjustment, each add-on, Flight, Total. |
-| **Total donations** | Donations to this person. |
-| **Amount owed** | Total cost minus donations. |
+| **Total donations** | Counted donations to this person (Processing and Failed Stripe payments aren't included). |
+| **Amount owed** | Total cost minus counted donations. |
 | ***Option* (Set *N*)** | One column per trip option: "Yes" when the person chose it. |
 | **Actions** | The row actions below. |
 
@@ -321,7 +324,7 @@ Titled "Edit participant", with the person's name.
 
 ## Donations for a participant
 
-Titled "Donations for *name*". Lists each donation's **Date**, **Donor**, and **Amount**, with **Edit** on each row. **Add donation** opens the donation dialog with the person already chosen.
+Titled "Donations for *name*". Lists each donation's **Date**, **Donor**, and **Amount**, with **Edit** on each row. **Add donation** opens the donation dialog with the person already chosen; a Stripe payment started here returns to the **Donations** page.
 
 ## Email team
 
@@ -412,15 +415,19 @@ The **Flight segments** dialog is described in the [Participant guide](./partici
 **Donations** in the menu bar.
 
 - **Trip** — pick the trip.
-- Tiles: **Participants** (staff only), **Cost per participant**, **Total donations**, **Donations without participant**.
-- **Export CSV** downloads the trip's donations (amount, date, participant, donor, donor email).
+- **Start date** and **End date** — optional; the list shows donations dated on or between them. Leave either blank for no limit. A start date after the end date shows "Start date must be on or before End date.", empties the list, and turns off **Export CSV**.
+- Tiles (always the whole trip, counting only donations that have gone through): **Participants** (staff only), **Cost per participant**, **Total donations**, **Donations without participant**.
+- **Export CSV** downloads the donations the list shows, newest first, with columns Date, Amount, Fee Covered, Type, Check Number, Payment Status, Payment Method, Participant, Donor, Donor Email, Payment Info, Stripe Payment ID, and Stripe Charge ID. The file is named for the trip and the dates chosen.
 - **Add donation** (trip staff only).
 
 | Column | Shows |
 |--------|-------|
 | **Date** | When it was given. |
 | **Donor** | Who gave it. |
-| **Amount** | How much. |
+| **Amount** | How much (the gift; any covered processing fee isn't included). |
+| **Fee covered** | The Stripe processing fee the donor chose to add, or "—". It never counts toward totals. |
+| **Type** | **Stripe-Credit**, **Stripe-ACH**, **Check** (with its number, for example "Check #1042"), or **Other**. |
+| **Status** | For Stripe payments: **Processing** (a bank payment still clearing; not counted yet), **Succeeded** (counted), or **Failed** (never counted). "—" for Check and Other. |
 | **Participant** | The person it's for, or blank for the trip. |
 | **Actions** | **Edit** (staff only). |
 
@@ -435,7 +442,7 @@ The **Flight segments** dialog is described in the [Participant guide](./partici
 | **Donor last name**, **Donor email** | Optional. |
 | **Country**, **Address line 1**, **Address line 2**, **City**, **State** / **State / province**, **Postal code** | The donor's mailing address. |
 | **Phone number** | Optional. |
-| **Donor status** | **active**, **inactive**, or **dontcontact** (do not contact). Starts as active. It's a note for your records; the system doesn't send donors anything. |
+| **Donor status** | **active**, **inactive**, or **dontcontact** (do not contact). Starts as active. It's a note for your records; it doesn't stop the **Trip donation** thank-you email. |
 
 **Donation:**
 
@@ -443,11 +450,15 @@ The **Flight segments** dialog is described in the [Participant guide](./partici
 |-------|-------|
 | **Trip** | Required (Donations page only). |
 | **Participant** | Optional. Leave blank for a gift to the trip. |
-| **Amount** | Required. |
-| **Date** | Required. Starts as now. |
-| **Payment info** | How it was paid, for example a check number. |
+| **Amount** | Required. At least $0.50 for a Stripe type. |
+| **Type** | **Add donation**: **Stripe-ACH** (bank account through Stripe), **Stripe-Credit** (credit card through Stripe), **Check**, or **Other** (starts as Other). **Edit** of a Check or Other donation: Check or Other. |
+| **Check number** | Check only; required, up to 50 characters ("Check number is required."). |
+| **Date** | Check and Other only; required. Starts as now. Stripe sets the date for Stripe types. |
+| **Payment info** | Optional notes on how it was paid. |
 
-**Save** shows "Donation saved."
+For Check and Other, **Save** shows "Donation saved." For Stripe-ACH and Stripe-Credit, **Pay with Stripe** replaces **Save** and opens Stripe's payment page; the donation appears in the list once Stripe confirms it. For Stripe-Credit, when the organization asks donors to cover processing fees, Stripe's page also offers the fee. If the organization hasn't saved its Stripe key, the dialog shows "Online donations aren't set up for this organization yet." and **Pay with Stripe** is turned off.
+
+**Edit** of a Stripe donation shows its details read-only: **Type**, **Amount**, **Fee covered** (the processing fee the donor added, or "—"), **Date**, **Payment status** (Processing, Succeeded, or Failed), **Payment method** (for example "Visa •••• 4242" or the bank name and last 4 digits; "—" until Stripe reports it), **Failure reason** (Failed only), and **Stripe payment ID** with **Receipt**, which opens Stripe's receipt. You can still change the donor, participant, and payment info. Refunds are done in Stripe.
 
 ## Downloads
 
@@ -457,4 +468,4 @@ The **Flight segments** dialog is described in the [Participant guide](./partici
 | **Documents PDF** | Trip page row | All of one person's documents and files. |
 | **Room list PDF** | Room list page | The saved room assignments with passport details, flight arrival times, and emails. |
 | **Flights PDF** | Flights page | Every participant's itinerary. |
-| **Export CSV** | Donations page | The trip's donations. |
+| **Export CSV** | Donations page | The donations the list shows (trip and dates): date, amount, type, check number, payment status, payment method, participant, donor, donor email, payment info, and the Stripe payment and charge IDs. |

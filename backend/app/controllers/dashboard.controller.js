@@ -9,20 +9,26 @@ import {
   ROLE_TRIP_PARTICIPANT,
 } from "../authorization/accessControl.js";
 import { tripRoleAvailability, withCapacityFields } from "../utils/tripRoleCapacity.js";
-import { sendDonationEventEmails } from "../utils/eventEmails.js";
-import { DONATION_STATUSES, findOrCreateLinkedDonor, isDonationRecipient } from "../utils/donorPerson.js";
+import { DONATION_STATUSES, isDonationRecipient } from "../utils/donorPerson.js";
+import { countedDonations } from "../utils/donationCounting.js";
+import { toUrlSlug } from "../utils/urlSlug.js";
+import {
+  ONLINE_DONATIONS_NOT_SET_UP,
+  StripeStartError,
+  checkCheckoutByToken,
+  checkoutInputError,
+  loadStripeOrganization,
+  onlineDonationsSetUp,
+  safeReturnPath,
+  startCheckout,
+  tripOnlineDonations,
+} from "../utils/stripeDonations.js";
 
 const Trip = db.trip;
 const TripPeopleRole = db.tripPeopleRole;
 const TripDonation = db.tripDonation;
 const OrgPeopleRole = db.orgPeopleRole;
 const Role = db.role;
-
-const toUrlSlug = (value) =>
-  String(value ?? "")
-    .trim()
-    .replace(/\s+/g, "_")
-    .replace(/[/?#]+/g, "");
 
 const personDisplaySlug = (person) =>
   toUrlSlug(`${person?.firstName || ""} ${person?.lastName || ""}`.trim());
@@ -75,13 +81,20 @@ const findTripMember = async (tripId, peopleId, roleIds) =>
 const sendTripPayload = async (res, trip) => {
   const roleIds = await donorFacingRoles();
   const participants = await loadTripParticipants(trip.id, roleIds);
-  res.send({ trip, participants });
+  res.send({ trip, participants, onlineDonations: await tripOnlineDonations(trip) });
 };
 
 const sendParticipantPayload = async (res, trip, link) => {
   const personId = link.peopleId || link.person?.id;
-  const donationTotal = (await TripDonation.sum("amount", { where: { tripId: trip.id, personId } })) || 0;
-  res.send({ trip, participant: link.person, whygoText: link.whygoText, donationTotal });
+  const donationTotal =
+    (await TripDonation.sum("amount", { where: countedDonations({ tripId: trip.id, personId }) })) || 0;
+  res.send({
+    trip,
+    participant: link.person,
+    whygoText: link.whygoText,
+    donationTotal,
+    onlineDonations: await tripOnlineDonations(trip),
+  });
 };
 
 const exports = {};
@@ -101,7 +114,7 @@ exports.orgDashboard = async (req, res) => {
     const donationTotal =
       tripIds.length === 0
         ? 0
-        : await TripDonation.sum("amount", { where: { tripId: tripIds } });
+        : await TripDonation.sum("amount", { where: countedDonations({ tripId: tripIds }) });
     res.send({
       orgId: Number(orgId),
       tripCount: trips.length,
@@ -130,7 +143,7 @@ exports.tripDashboard = async (req, res) => {
     }
 
     const participants = await TripPeopleRole.count({ where: { tripId } });
-    const donationTotal = (await TripDonation.sum("amount", { where: { tripId } })) || 0;
+    const donationTotal = (await TripDonation.sum("amount", { where: countedDonations({ tripId }) })) || 0;
     const donationCount = await TripDonation.count({ where: { tripId } });
 
     res.send({
@@ -152,7 +165,7 @@ exports.participantDashboard = async (req, res) => {
     }
     const personId = req.user.personId;
     const donationTotal =
-      (await TripDonation.sum("amount", { where: { tripId, personId } })) || 0;
+      (await TripDonation.sum("amount", { where: countedDonations({ tripId, personId }) })) || 0;
     const donationCount = await TripDonation.count({ where: { tripId, personId } });
     const trip = await Trip.findByPk(tripId);
     res.send({ trip, donationTotal, donationCount, personId });
@@ -218,40 +231,62 @@ exports.getParticipantForDonorBySlug = async (req, res) => {
   }
 };
 
-exports.createPublicDonation = async (req, res) => {
+exports.createPublicCheckout = async (req, res) => {
   try {
-    const { tripId, personId, donor, amount, paymentInfo } = req.body;
-    const trip = await Trip.findByPk(tripId);
+    const { tripId, personId, donor, amount, paymentMethod, returnPath } = req.body;
+    const trip = await Trip.findByPk(tripId, { attributes: ["id", "name", "orgId", "status"] });
     if (!trip || trip.status !== "active") {
       return res.status(404).send({ message: "Trip not found." });
     }
-    if (!donor?.firstName || !amount) {
-      return res.status(400).send({ message: "Donor first name and amount are required." });
+    const inputError = checkoutInputError({ amount, paymentMethod });
+    if (inputError) return res.status(400).send({ message: inputError });
+    const firstName = String(donor?.firstName ?? "").trim();
+    const email = String(donor?.email ?? "").trim();
+    if (!firstName || !email) {
+      return res.status(400).send({ message: "Your first name and email are required." });
     }
-    const { id: _id, personId: _personId, ...donorDetails } = donor;
     const signedInPersonId = req.user?.personId ?? null;
-    if (
-      signedInPersonId &&
-      Number(personId) === Number(signedInPersonId) &&
-      !(await isDonationRecipient(tripId, signedInPersonId))
-    ) {
-      return res.status(403).send({
-        message: "You can donate to yourself only on trips where you are pre-approved or approved.",
-      });
+    let participant = null;
+    if (personId != null && personId !== "") {
+      if (
+        signedInPersonId &&
+        Number(personId) === Number(signedInPersonId) &&
+        !(await isDonationRecipient(trip.id, signedInPersonId))
+      ) {
+        return res.status(403).send({
+          message: "You can donate to yourself only on trips where you are pre-approved or approved.",
+        });
+      }
+      const link = await findTripMember(trip.id, personId, await donorFacingRoles());
+      if (!link) return res.status(400).send({ message: "Choose a participant on this trip." });
+      participant = link.person;
     }
-    const donorRecord = signedInPersonId
-      ? await findOrCreateLinkedDonor(signedInPersonId, donorDetails)
-      : await db.donor.create({ ...donorDetails, status: donorDetails.status || "active" });
-    const donation = await TripDonation.create({
-      tripId,
-      personId: personId || null,
-      donorId: donorRecord.id,
-      amount,
-      dateTime: new Date(),
-      paymentInfo: paymentInfo || null,
-    });
-    await sendDonationEventEmails(donation);
-    res.send({ message: "Thank you for your donation!", donation, donor: donorRecord });
+    const org = await loadStripeOrganization(trip.orgId);
+    if (!onlineDonationsSetUp(org)) return res.status(400).send({ message: ONLINE_DONATIONS_NOT_SET_UP });
+    const lastName = String(donor?.lastName ?? "").trim() || null;
+    res.send(
+      await startCheckout({
+        trip,
+        org,
+        participant,
+        amount,
+        paymentMethod,
+        returnPath: safeReturnPath(returnPath, trip),
+        fields: { giverPersonId: signedInPersonId, donorFirstName: firstName, donorLastName: lastName, donorEmail: email },
+        donorDisplay: { firstName, lastName, email },
+      })
+    );
+  } catch (err) {
+    if (err instanceof StripeStartError) return res.status(502).send({ message: err.message });
+    res.status(500).send({ message: err.message });
+  }
+};
+
+exports.checkCheckout = async (req, res) => {
+  try {
+    const answer = await checkCheckoutByToken(req.params.token);
+    if (!answer) return res.status(404).send({ message: "Donation not found." });
+    res.send(answer);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

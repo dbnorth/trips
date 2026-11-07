@@ -18,7 +18,7 @@ vi.mock("../src/services/publicServices.js", () => ({
     getTripBySlug: vi.fn(),
     getOrgBySlug: vi.fn(),
     getParticipantBySlug: vi.fn(),
-    donate: vi.fn(),
+    startCheckout: vi.fn(),
   },
 }));
 

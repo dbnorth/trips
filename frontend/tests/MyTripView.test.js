@@ -45,13 +45,19 @@ vi.mock("../src/services/exportServices.js", () => ({
 }));
 
 vi.mock("../src/services/donationServices.js", () => ({
-  default: { createByParticipant: vi.fn() },
+  default: { startParticipantCheckout: vi.fn() },
+}));
+
+vi.mock("../src/utils/stripeDonations.js", async (importOriginal) => ({
+  ...(await importOriginal()),
+  goToStripe: vi.fn(),
 }));
 
 import TripServices from "../src/services/tripServices.js";
 import DonationServices from "../src/services/donationServices.js";
 import MoneyInput from "../src/components/MoneyInput.vue";
 import PersonServices from "../src/services/personServices.js";
+import { goToStripe } from "../src/utils/stripeDonations.js";
 
 const ORG_ID = 3;
 const TRIP = {
@@ -346,8 +352,8 @@ describe("Feature 119 — My Trip Page", () => {
     });
 
     it("Donation buttons on the Donations line", async () => {
-      DonationServices.createByParticipant.mockResolvedValue({ data: { id: 1 } });
-      signedUp();
+      DonationServices.startParticipantCheckout.mockResolvedValue({ data: { checkoutUrl: "https://checkout.stripe.com/c/pay/cs_1" } });
+      signedUp({ onlineDonations: true });
       const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
 
       const line = section(wrapper, "my-trip-donations-line");
@@ -365,19 +371,17 @@ describe("Feature 119 — My Trip Page", () => {
       const dialog = section(wrapper, "make-donation-dialog");
       expect(dialog.text()).toContain("Donate toward your trip balance.");
       dialog.findComponent(MoneyInput).vm.$emit("update:modelValue", "250");
-      await dialog.find("textarea").setValue("Check #1001");
-      TripServices.getBrowseTrip.mockClear();
-      await button(dialog, "Donate").trigger("click");
+      await button(dialog, "Pay with Stripe").trigger("click");
       await flushPromises();
 
-      expect(DonationServices.createByParticipant).toHaveBeenCalledWith({
+      expect(DonationServices.startParticipantCheckout).toHaveBeenCalledWith({
         tripId: 7,
         personId: 5,
         amount: 250,
-        paymentInfo: "Check #1001",
+        paymentMethod: "card",
+        returnPath: "/my-trips/7",
       });
-      expect(wrapper.text()).toContain("Thank you for your donation!");
-      expect(TripServices.getBrowseTrip).toHaveBeenCalled();
+      expect(goToStripe).toHaveBeenCalledWith("https://checkout.stripe.com/c/pay/cs_1");
       wrapper.unmount();
 
       signedUp({ status: "pre_approved" });

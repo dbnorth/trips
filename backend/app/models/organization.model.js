@@ -22,7 +22,23 @@ const Organization = SequelizeInstance.define("organization", {
   colorFamily: { type: Sequelize.STRING(50) },
   subdomain: { type: Sequelize.STRING(63), allowNull: true, unique: true },
   testMode: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
+  // Encrypted (`enc1:`) Stripe secret keys; never sent in responses.
+  stripeSecretKey: { type: Sequelize.TEXT, allowNull: true },
+  stripeTestSecretKey: { type: Sequelize.TEXT, allowNull: true },
+  stripeFeeCoverage: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
   version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
 });
+
+const STRIPE_KEY_FLAGS = { stripeSecretKey: "stripeKeySaved", stripeTestSecretKey: "stripeTestKeySaved" };
+
+Organization.prototype.toJSON = function toJSON() {
+  const values = this.get({ plain: true });
+  for (const [column, flag] of Object.entries(STRIPE_KEY_FLAGS)) {
+    if (!Object.prototype.hasOwnProperty.call(values, column)) continue;
+    values[flag] = !!values[column];
+    delete values[column];
+  }
+  return values;
+};
 
 export default Organization;

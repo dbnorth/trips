@@ -6,7 +6,8 @@ const router = Router();
 
 router.get("/", [authenticate], donations.findAll);
 router.post("/", [authenticate], donations.create);
-router.post("/participant", [authenticate], donations.createByParticipant);
+router.post("/stripe-checkout", [authenticate], donations.createStaffCheckout);
+router.post("/participant/stripe-checkout", [authenticate], donations.createParticipantCheckout);
 router.put("/:id", [authenticate], donations.update);
 router.delete("/:id", [authenticate], donations.delete);
 

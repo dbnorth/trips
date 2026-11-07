@@ -2,20 +2,24 @@
 import { ref, computed, watch } from "vue";
 import DonationServices from "../services/donationServices.js";
 import MoneyInput from "./MoneyInput.vue";
+import StripePaymentMethod from "./StripePaymentMethod.vue";
 import { parseMoneyAmount } from "../utils/moneyUtils.js";
+import { ONLINE_DONATIONS_NOT_SET_UP, goToStripe } from "../utils/stripeDonations.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   tripId: { type: [Number, String], required: true },
   personId: { type: [Number, String], default: null },
   recipients: { type: Array, default: () => [] },
+  onlineDonations: { type: Boolean, default: false },
+  returnPath: { type: String, default: "/home" },
 });
 
-const emit = defineEmits(["update:modelValue", "saved"]);
+const emit = defineEmits(["update:modelValue"]);
 
 const recipientId = ref(null);
 const amount = ref("");
-const paymentInfo = ref("");
+const paymentMethod = ref("card");
 const saving = ref(false);
 const formError = ref("");
 
@@ -38,14 +42,14 @@ watch(
     if (!open) return;
     recipientId.value = recipientItems.value[0]?.value ?? null;
     amount.value = "";
-    paymentInfo.value = "";
+    paymentMethod.value = "card";
     formError.value = "";
   }
 );
 
 const close = () => emit("update:modelValue", false);
 
-const donate = () => {
+const payWithStripe = () => {
   formError.value = "";
   if (recipientId.value == null) {
     formError.value = "Choose a participant on this trip.";
@@ -56,21 +60,21 @@ const donate = () => {
     formError.value = "Donation amount is required.";
     return;
   }
+  if (parsedAmount < 0.5) {
+    formError.value = "Donation amount must be at least $0.50.";
+    return;
+  }
   saving.value = true;
-  DonationServices.createByParticipant({
+  DonationServices.startParticipantCheckout({
     tripId: Number(props.tripId),
     personId: Number(recipientId.value),
     amount: parsedAmount,
-    paymentInfo: paymentInfo.value?.trim() || null,
+    paymentMethod: paymentMethod.value,
+    returnPath: props.returnPath,
   })
-    .then(() => {
-      emit("saved");
-      close();
-    })
+    .then((res) => goToStripe(res.data.checkoutUrl))
     .catch((e) => {
-      formError.value = e.response?.data?.message || "Unable to save donation.";
-    })
-    .finally(() => {
+      formError.value = e.response?.data?.message || "Unable to start the payment.";
       saving.value = false;
     });
 };
@@ -78,7 +82,7 @@ const donate = () => {
 
 <template>
   <v-dialog :model-value="modelValue" max-width="480" @update:model-value="(v) => !v && close()">
-    <v-card>
+    <v-card data-testid="participant-donate-dialog">
       <v-card-title>Donate</v-card-title>
       <v-card-text>
         <v-select
@@ -89,13 +93,16 @@ const donate = () => {
           class="mb-2"
         />
         <MoneyInput v-model="amount" label="Amount" required />
-        <v-textarea v-model="paymentInfo" label="Payment info" density="compact" rows="2" />
+        <StripePaymentMethod v-if="onlineDonations" v-model="paymentMethod" />
+        <v-alert v-else type="info" density="compact" data-testid="online-donations-not-set-up">
+          {{ ONLINE_DONATIONS_NOT_SET_UP }}
+        </v-alert>
         <v-alert v-if="formError" type="error" density="compact" class="mt-2">{{ formError }}</v-alert>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
         <v-btn variant="text" @click="close">Cancel</v-btn>
-        <v-btn color="primary" :loading="saving" @click="donate">Donate</v-btn>
+        <v-btn v-if="onlineDonations" color="primary" :loading="saving" @click="payWithStripe">Pay with Stripe</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

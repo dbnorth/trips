@@ -3,7 +3,7 @@ import { ref, watch, computed } from "vue";
 import OrganizationServices from "../services/organizationServices.js";
 import OrganizationFormFields from "./OrganizationFormFields.vue";
 import OrganizationAgreementDialog from "./OrganizationAgreementDialog.vue";
-import { emptyOrganizationForm, buildOrganizationPayload } from "../utils/organizationForm.js";
+import { emptyOrganizationForm, buildOrganizationPayload, stripeKeyError } from "../utils/organizationForm.js";
 import { normalizeAddressFields } from "../utils/locationData.js";
 import { formatPhoneForDisplay, formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
@@ -116,6 +116,11 @@ const save = async () => {
   const phoneValidation = validatePhoneFields(form.value.phoneContryCode, form.value.phoneNumber);
   if (phoneValidation !== true) {
     formError.value = phoneValidation;
+    return;
+  }
+  const keyError = stripeKeyError(form.value);
+  if (keyError) {
+    formError.value = keyError;
     return;
   }
 

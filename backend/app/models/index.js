@@ -12,6 +12,7 @@ import Trip from "./trip.model.js";
 import TripPeopleRole from "./tripPeopleRole.model.js";
 import Donor from "./donor.model.js";
 import TripDonation from "./tripDonation.model.js";
+import DonationCheckout from "./donationCheckout.model.js";
 import EmailTemplate from "./emailTemplate.model.js";
 import EmailType from "./emailType.model.js";
 import EmailToken from "./emailToken.model.js";
@@ -56,6 +57,7 @@ db.trip = Trip;
 db.tripPeopleRole = TripPeopleRole;
 db.donor = Donor;
 db.tripDonation = TripDonation;
+db.donationCheckout = DonationCheckout;
 db.emailTemplate = EmailTemplate;
 db.emailType = EmailType;
 db.emailToken = EmailToken;
@@ -127,6 +129,17 @@ db.donor.hasMany(db.tripDonation, { foreignKey: "donorId", onDelete: "SET NULL" 
 db.tripDonation.belongsTo(db.donor, { foreignKey: "donorId", as: "donor", onDelete: "SET NULL" });
 db.person.hasOne(db.donor, { foreignKey: "personId", as: "donor", onDelete: "SET NULL" });
 db.donor.belongsTo(db.person, { foreignKey: "personId", as: "person", onDelete: "SET NULL" });
+
+db.trip.hasMany(db.donationCheckout, { foreignKey: "tripId", onDelete: "CASCADE" });
+db.donationCheckout.belongsTo(db.trip, { foreignKey: "tripId", as: "trip", onDelete: "CASCADE" });
+db.person.hasMany(db.donationCheckout, { foreignKey: "personId", onDelete: "SET NULL" });
+db.donationCheckout.belongsTo(db.person, { foreignKey: "personId", as: "participant", onDelete: "SET NULL" });
+db.person.hasMany(db.donationCheckout, { foreignKey: "giverPersonId", onDelete: "SET NULL" });
+db.donationCheckout.belongsTo(db.person, { foreignKey: "giverPersonId", as: "giver", onDelete: "SET NULL" });
+db.donor.hasMany(db.donationCheckout, { foreignKey: "donorId", onDelete: "SET NULL" });
+db.donationCheckout.belongsTo(db.donor, { foreignKey: "donorId", as: "donor", onDelete: "SET NULL" });
+db.tripDonation.hasOne(db.donationCheckout, { foreignKey: "tripDonationId", onDelete: "SET NULL" });
+db.donationCheckout.belongsTo(db.tripDonation, { foreignKey: "tripDonationId", as: "tripDonation", onDelete: "SET NULL" });
 
 db.organization.hasMany(db.emailTemplate, { foreignKey: "orgId", onDelete: "CASCADE" });
 db.emailTemplate.belongsTo(db.organization, { foreignKey: "orgId", onDelete: "CASCADE" });

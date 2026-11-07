@@ -15,6 +15,7 @@ import {
   completePersonProfile,
   findRole,
 } from "./helpers.js";
+import { fakeStripe, payWithStripe, saveStripeKeys } from "./stripeFake.js";
 
 describe("Feature 69 — Participant CSV, Roster, and Single Application Are Staff Only", () => {
   let admin;
@@ -188,12 +189,19 @@ describe("Feature 69 — Participant CSV, Roster, and Single Application Are Sta
       );
       expect(recipient).toEqual({ personId: casey.user.personId, firstName: "Casey", lastName: "Participant" });
 
-      const donate = await request(app)
-        .post("/trips/donations/participant")
-        .set(teammate.authHeader)
-        .send({ tripId: trip.id, personId: casey.user.personId, amount: 25 });
-      expect(donate.status).toBe(200);
-      expect(donate.body.personId).toBe(casey.user.personId);
+      await saveStripeKeys(admin.org);
+      const stripe = fakeStripe();
+      try {
+        const { start, donation } = await payWithStripe(stripe, {
+          path: "/trips/donations/participant/stripe-checkout",
+          authHeader: teammate.authHeader,
+          body: { tripId: trip.id, personId: casey.user.personId, amount: 25 },
+        });
+        expect(start.status).toBe(200);
+        expect(donation.personId).toBe(casey.user.personId);
+      } finally {
+        stripe.restore();
+      }
     });
   });
 });
