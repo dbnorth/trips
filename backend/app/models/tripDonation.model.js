@@ -25,16 +25,16 @@ const TripDonation = SequelizeInstance.define(
     stripePaymentMethodBrand: { type: Sequelize.STRING(100), allowNull: true },
     stripePaymentMethodLast4: { type: Sequelize.STRING(4), allowNull: true },
     stripeCheckoutSessionId: { type: Sequelize.STRING(255), allowNull: true },
-    stripePaymentIntentId: { type: Sequelize.STRING(255), allowNull: true },
+    // Column-level unique (not `indexes`): sync on an existing table would index the column before ensureSchema adds it.
+    stripePaymentIntentId: {
+      type: Sequelize.STRING(255),
+      allowNull: true,
+      unique: "tripDonations_stripePaymentIntentId_unique",
+    },
     stripeChargeId: { type: Sequelize.STRING(255), allowNull: true },
     stripeReceiptUrl: { type: Sequelize.STRING(500), allowNull: true },
     stripeData: { type: Sequelize.TEXT, allowNull: true },
     version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
-  },
-  {
-    indexes: [
-      { name: "tripDonations_stripePaymentIntentId_unique", unique: true, fields: ["stripePaymentIntentId"] },
-    ],
   }
 );
 
