@@ -104,4 +104,4 @@
 
 **Value source** — what an email token fills in, such as Participant balance due. Set by a System Admin on the Email tokens page.
 
-**Why go** — a participant's story about why they're going, entered by staff and shown on their fundraising page.
+**Why go** — a participant's story about why they're going, written on their application (and still editable after approval) and shown on their fundraising page. Staff can give a starting story when adding someone.

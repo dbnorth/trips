@@ -160,7 +160,14 @@ const save = () => {
         <div v-if="tripDefaultCost != null" class="text-caption text-medium-emphasis mb-2">
           Leave blank to use the trip default of {{ formatMoneyDisplay(tripDefaultCost) }}.
         </div>
-        <v-textarea v-model="form.whygoText" label="Why go" density="compact" rows="2" />
+        <v-textarea
+          v-model="form.whygoText"
+          label="Why go"
+          density="compact"
+          rows="2"
+          counter="2000"
+          maxlength="2000"
+        />
         <v-alert v-if="formError" type="error" density="compact" class="mt-2">{{ formError }}</v-alert>
       </v-card-text>
       <v-card-actions>

@@ -3,6 +3,8 @@
  * Spec: features/feature-7-trip-applications-and-participants.md
  * Feature 95 — Role Availability on Public Trip Pages
  * Spec: features/feature-95-public-trip-role-availability.md
+ * Feature 125 — Participant Why Go
+ * Spec: features/feature-125-participant-why-go.md
  */
 
 import request from "supertest";
@@ -1452,6 +1454,195 @@ describe("Feature 7 — Trip Applications & Participants", () => {
 
       const fetched = await request(app).get(`/trips/trips/browse/${trip.id}/application`).set(ana.authHeader);
       expect(fetched.body.application.flightNotes).toBeNull();
+    });
+  });
+
+  /**
+   * Feature 125 — Participant Why Go
+   * Spec: features/feature-125-participant-why-go.md
+   */
+  describe("Feature 125 — Participant Why Go", () => {
+    const setupApplicant = async (prefix) => {
+      const { authHeader, org } = await createOrgAdminUser({ email: `${prefix}-admin@example.com` });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id);
+      const applicant = await registerUser({ email: `${prefix}-app@example.com`, orgIds: [org.id] });
+      const application = (fields = {}) => ({
+        tripWorkerRoleId: tripWorkerRole.id,
+        willSelfFund: false,
+        willRaiseFunds: true,
+        flightPurchaseOption: "self",
+        hasPreferredRoommate: false,
+        ...fields,
+      });
+      return { adminAuth: authHeader, org, trip, tripWorkerRole, applicant, application };
+    };
+
+    const findAssignment = (tripId, personId) =>
+      db.tripPeopleRole.findOne({ where: { tripId, peopleId: personId } });
+
+    describe("US-125.1 — Tell donors why I'm going", () => {
+      it("Participant saves Why go on the application", async () => {
+        const { trip, applicant, application } = await setupApplicant("whygo-save");
+
+        const created = await request(app)
+          .post(`/trips/trips/browse/${trip.id}/apply`)
+          .set(applicant.authHeader)
+          .send(application({ whygoText: "  I want to serve.  " }));
+        expect(created.status).toBe(200);
+        expect(created.body.assignment.whygoText).toBe("I want to serve.");
+
+        const fetched = await request(app)
+          .get(`/trips/trips/browse/${trip.id}/application`)
+          .set(applicant.authHeader);
+        expect(fetched.body.application.whygoText).toBe("I want to serve.");
+
+        const unchanged = await request(app)
+          .put(`/trips/trips/browse/${trip.id}/application`)
+          .set(applicant.authHeader)
+          .send(application());
+        expect(unchanged.status).toBe(200);
+        expect(unchanged.body.application.whygoText).toBe("I want to serve.");
+
+        const cleared = await request(app)
+          .put(`/trips/trips/browse/${trip.id}/application`)
+          .set(applicant.authHeader)
+          .send(application({ whygoText: "   " }));
+        expect(cleared.status).toBe(200);
+        expect(cleared.body.application.whygoText).toBeNull();
+      });
+
+      it("Why go must be 2000 characters or less", async () => {
+        const { trip, applicant, application } = await setupApplicant("whygo-long");
+        const message = "Why go must be 2000 characters or less.";
+
+        const tooLong = await request(app)
+          .post(`/trips/trips/browse/${trip.id}/apply`)
+          .set(applicant.authHeader)
+          .send(application({ whygoText: "a".repeat(2001) }));
+        expect(tooLong.status).toBe(400);
+        expect(tooLong.body.message).toBe(message);
+
+        const atLimit = await request(app)
+          .post(`/trips/trips/browse/${trip.id}/apply`)
+          .set(applicant.authHeader)
+          .send(application({ whygoText: "a".repeat(2000) }));
+        expect(atLimit.status).toBe(200);
+
+        const update = await request(app)
+          .put(`/trips/trips/browse/${trip.id}/application`)
+          .set(applicant.authHeader)
+          .send(application({ whygoText: "b".repeat(2001) }));
+        expect(update.status).toBe(400);
+        expect(update.body.message).toBe(message);
+
+        const whyGo = await request(app)
+          .put(`/trips/trips/browse/${trip.id}/application/why-go`)
+          .set(applicant.authHeader)
+          .send({ whygoText: "c".repeat(2001) });
+        expect(whyGo.status).toBe(400);
+        expect(whyGo.body.message).toBe(message);
+
+        const stored = await findAssignment(trip.id, applicant.user.personId);
+        expect(stored.whygoText).toBe("a".repeat(2000));
+      });
+    });
+
+    describe("US-125.2 — Update my story after approval", () => {
+      it("Approved participant updates Why go", async () => {
+        const { trip, applicant, application } = await setupApplicant("whygo-approved");
+        await request(app)
+          .post(`/trips/trips/browse/${trip.id}/apply`)
+          .set(applicant.authHeader)
+          .send(application({ whygoText: "First story", flightNotes: "Window seat" }));
+        const assignment = await findAssignment(trip.id, applicant.user.personId);
+        await assignment.update({ status: "approved" });
+        const before = await findAssignment(trip.id, applicant.user.personId);
+
+        const saved = await request(app)
+          .put(`/trips/trips/browse/${trip.id}/application/why-go`)
+          .set(applicant.authHeader)
+          .send({ whygoText: "  New story  " });
+        expect(saved.status).toBe(200);
+        expect(saved.body).toEqual({ message: "Why go saved.", whygoText: "New story" });
+
+        const after = await findAssignment(trip.id, applicant.user.personId);
+        expect(after.whygoText).toBe("New story");
+        expect(after.status).toBe("approved");
+        expect(after.flightNotes).toBe("Window seat");
+        expect(after.willRaiseFunds).toBe(true);
+        expect(after.version).toBe(before.version);
+      });
+
+      it("Why go can't be changed on a cancelled application", async () => {
+        const { trip, applicant, application } = await setupApplicant("whygo-cancelled");
+        await request(app)
+          .post(`/trips/trips/browse/${trip.id}/apply`)
+          .set(applicant.authHeader)
+          .send(application({ whygoText: "Kept story" }));
+        const assignment = await findAssignment(trip.id, applicant.user.personId);
+        await assignment.update({ status: "cancelled" });
+
+        const refused = await request(app)
+          .put(`/trips/trips/browse/${trip.id}/application/why-go`)
+          .set(applicant.authHeader)
+          .send({ whygoText: "Changed" });
+        expect(refused.status).toBe(400);
+        expect(refused.body.message).toBe("This application cannot be updated while its status is cancelled.");
+        expect((await findAssignment(trip.id, applicant.user.personId)).whygoText).toBe("Kept story");
+      });
+    });
+
+    describe("US-125.3 — Staff no longer edit Why go", () => {
+      it("Staff update leaves Why go unchanged", async () => {
+        const { adminAuth, trip, applicant, application } = await setupApplicant("whygo-staff");
+        await request(app)
+          .post(`/trips/trips/browse/${trip.id}/apply`)
+          .set(applicant.authHeader)
+          .send(application({ whygoText: "My story" }));
+        const assignment = await findAssignment(trip.id, applicant.user.personId);
+
+        const update = await request(app)
+          .put(`/trips/trip-people-roles/${assignment.id}`)
+          .set(adminAuth)
+          .send({ whygoText: "Staff text", participantCost: 1900, version: assignment.version });
+        expect(update.status).toBe(200);
+
+        const after = await findAssignment(trip.id, applicant.user.personId);
+        expect(after.whygoText).toBe("My story");
+        expect(Number(after.participantCost)).toBe(1900);
+      });
+
+      it("Add participant still saves Why go", async () => {
+        const { adminAuth, org, trip, tripWorkerRole } = await setupApplicant("whygo-add");
+        const member = await registerUser({ email: "whygo-member@example.com", orgIds: [org.id] });
+        const participantRole = await findRole("Trip Participant");
+
+        const create = await request(app)
+          .post("/trips/trip-people-roles")
+          .set(adminAuth)
+          .send({
+            tripId: trip.id,
+            peopleId: member.user.personId,
+            roleId: participantRole.id,
+            tripWorkerRoleId: tripWorkerRole.id,
+            whygoText: " Starting story ",
+          });
+        expect(create.status).toBe(200);
+        expect(create.body.whygoText).toBe("Starting story");
+
+        const tooLong = await request(app)
+          .post("/trips/trip-people-roles")
+          .set(adminAuth)
+          .send({
+            tripId: trip.id,
+            peopleId: (await registerUser({ email: "whygo-member2@example.com", orgIds: [org.id] })).user.personId,
+            roleId: participantRole.id,
+            tripWorkerRoleId: tripWorkerRole.id,
+            whygoText: "a".repeat(2001),
+          });
+        expect(tooLong.status).toBe(400);
+        expect(tooLong.body.message).toBe("Why go must be 2000 characters or less.");
+      });
     });
   });
 

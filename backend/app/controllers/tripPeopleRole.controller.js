@@ -52,6 +52,7 @@ import {
   syncTripPeopleRoleOptions,
   validateSelectedTravelOptionIds,
 } from "../utils/tripOptionSelection.js";
+import { parseWhyGo } from "../utils/whyGo.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -67,7 +68,6 @@ const fields = [
   "tripWorkerRoleId",
   "status",
   "participantCost",
-  "whygoText",
   "willSelfFund",
   "willRaiseFunds",
   "licenseStatus",
@@ -342,6 +342,9 @@ exports.create = async (req, res) => {
       return res.status(403).send({ message: "Forbidden." });
     }
     const payload = { ...req.body };
+    const whyGo = parseWhyGo(payload.whygoText);
+    if (!whyGo.ok) return res.status(400).send({ message: whyGo.message });
+    payload.whygoText = whyGo.whygoText;
     payload.tripWorkerRoleId = normalizeTripWorkerRoleId(payload.tripWorkerRoleId);
     const twrCheck = await validateTripWorkerRole(payload.tripId, payload.tripWorkerRoleId);
     if (!twrCheck.ok) return res.status(twrCheck.status).send({ message: twrCheck.message });

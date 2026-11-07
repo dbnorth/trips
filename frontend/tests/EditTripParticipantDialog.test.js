@@ -357,3 +357,38 @@ describe("Feature 92 — Trip Options in the Participant Edit Dialog", () => {
     });
   });
 });
+
+/**
+ * Feature 125 — Participant Why Go
+ * Spec: features/feature-125-participant-why-go.md
+ */
+describe("Feature 125 — Participant Why Go", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    TripServices.get.mockResolvedValue({ data: { id: 7, participantCost: 2000 } });
+    TripWorkerRoleServices.getAll.mockResolvedValue({ data: [] });
+    TripPeopleRoleServices.get.mockResolvedValue({ data: { travelOptions: [] } });
+    TripPeopleRoleServices.update.mockResolvedValue({ data: {} });
+  });
+
+  describe("US-125.3 — Staff no longer edit Why go", () => {
+    it("Edit participant has no Why go", async () => {
+      const { wrapper } = await mountWithPlugins(EditTripParticipantDialog, {
+        props: { modelValue: false, participant: { ...NORA, whygoText: "My story" } },
+        global: { stubs: { VDialog: { template: "<div><slot /></div>" } } },
+      });
+      await wrapper.setProps({ modelValue: true });
+      await flushPromises();
+
+      expect(wrapper.text()).not.toContain("Why go");
+      expect(wrapper.text()).not.toContain("My story");
+
+      await button(wrapper, "Save").trigger("click");
+      await flushPromises();
+
+      expect(TripPeopleRoleServices.update).toHaveBeenCalledTimes(1);
+      expect(TripPeopleRoleServices.update.mock.calls[0][1]).not.toHaveProperty("whygoText");
+      wrapper.unmount();
+    });
+  });
+});

@@ -28,6 +28,9 @@ export default {
   updateApplication(id, data = {}) {
     return apiClient.put(`/trips/browse/${id}/application`, data);
   },
+  updateWhyGo(id, whygoText) {
+    return apiClient.put(`/trips/browse/${id}/application/why-go`, { whygoText });
+  },
   cancelApplication(id) {
     return apiClient.post(`/trips/browse/${id}/application/cancel`);
   },

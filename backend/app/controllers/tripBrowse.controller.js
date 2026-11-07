@@ -47,6 +47,7 @@ import {
   parseFlightPurchaseFields,
   flightPurchaseInclude,
 } from "../utils/flightPurchaseFields.js";
+import { parseWhyGo } from "../utils/whyGo.js";
 
 const Trip = db.trip;
 const TripWorkerRole = db.tripWorkerRole;
@@ -559,6 +560,9 @@ exports.applyToTrip = async (req, res) => {
       return res.status(400).send({ message: "That trip role has no available positions." });
     }
 
+    const whyGo = parseWhyGo(req.body?.whygoText);
+    if (!whyGo.ok) return res.status(400).send({ message: whyGo.message });
+
     const willSelfFund = parseBool(req.body?.willSelfFund);
     const willRaiseFunds = parseBool(req.body?.willRaiseFunds);
 
@@ -645,6 +649,7 @@ exports.applyToTrip = async (req, res) => {
       participantCost,
       willSelfFund,
       willRaiseFunds,
+      whygoText: whyGo.whygoText,
       licenseStatus,
       hasPreferredRoommate,
       preferredRoommateNames,
@@ -803,6 +808,10 @@ exports.updateApplication = async (req, res) => {
       return res.status(400).send({ message: "That trip role has no available positions." });
     }
 
+    const hasWhyGo = Object.prototype.hasOwnProperty.call(req.body || {}, "whygoText");
+    const whyGo = parseWhyGo(req.body?.whygoText);
+    if (hasWhyGo && !whyGo.ok) return res.status(400).send({ message: whyGo.message });
+
     const willSelfFund = parseBool(req.body?.willSelfFund);
     const willRaiseFunds = parseBool(req.body?.willRaiseFunds);
 
@@ -957,6 +966,7 @@ exports.updateApplication = async (req, res) => {
       flightNotes: Object.prototype.hasOwnProperty.call(req.body || {}, "flightNotes")
         ? parseFlightNotes(req.body.flightNotes)
         : assignment.flightNotes,
+      whygoText: hasWhyGo ? whyGo.whygoText : assignment.whygoText,
       participantCost,
       agreementAccepted: agreement.agreementAccepted,
       agreementSignatureName: agreement.agreementSignatureName,
@@ -987,6 +997,43 @@ exports.updateApplication = async (req, res) => {
       medicalAgreement,
       travelOptions: travelOptionsWithSelection,
     });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+const WHY_GO_EDITABLE_STATUSES = [...EDITABLE_APPLICATION_STATUSES, "approved"];
+
+exports.updateWhyGo = async (req, res) => {
+  try {
+    const peopleId = req.user?.personId;
+    if (!peopleId) {
+      return res.status(400).send({ message: "Your account is not linked to a person profile." });
+    }
+
+    const trip = await Trip.findByPk(req.params.id, { include: [orgInclude] });
+    if (!trip || trip.status !== "active") {
+      return res.status(404).send({ message: "Trip not found." });
+    }
+    if (!canBrowseOrg(req, trip.orgId)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+
+    const assignment = await TripPeopleRole.findOne({ where: { tripId: trip.id, peopleId } });
+    if (!assignment) {
+      return res.status(404).send({ message: "Application not found." });
+    }
+    if (!WHY_GO_EDITABLE_STATUSES.includes(assignment.status)) {
+      return res.status(400).send({
+        message: `This application cannot be updated while its status is ${assignment.status}.`,
+      });
+    }
+
+    const whyGo = parseWhyGo(req.body?.whygoText);
+    if (!whyGo.ok) return res.status(400).send({ message: whyGo.message });
+
+    await assignment.update({ whygoText: whyGo.whygoText });
+    res.send({ message: "Why go saved.", whygoText: whyGo.whygoText });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

@@ -74,7 +74,16 @@ Something is still missing. Reopen the application: the list above the buttons n
 A Pre-Approved application on an upcoming trip must stay complete. Fill in the listed items.
 
 **"This application cannot be updated while its status is approved."**
-Approved applications can't be edited by the participant. Ask your trip staff. They can **Unapprove** it so you can edit it.
+Approved applications can't be edited by the participant, except **Why go** (use **Save Why go**). For anything else, ask your trip staff. They can **Unapprove** it so you can edit it. The same message with "cancelled" or "declined" also appears when saving **Why go** on such an application.
+
+**"You are approved for this trip. You can update Why go or Cancel the application if needed."**
+Your application is Approved, so only **Why go** can still be changed. Edit it and choose **Save Why go**.
+
+**"Why go must be 2000 characters or less."**
+Shorten your **Why go** story.
+
+**I can't find Why go in Edit participant.** (staff)
+Only the participant changes **Why go**, on their application. Staff can give a starting story with **Add participant**.
 
 **"This role is reserved for you." / "Your role on this trip is reserved."**
 Staff reserved a spot in that role for your email, so the role can't be changed.

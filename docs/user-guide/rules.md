@@ -48,7 +48,7 @@ An application is complete when it has:
 - the medical agreement, when the organization has one and the applicant takes medication;
 - an adult signer's name, email, and relationship, for applicants under 18.
 
-Flight notes and **Why go** are optional.
+Flight notes and **Why go** are optional. **Why go** (up to 2000 characters) is never needed to submit or for approval.
 
 ## Submitting
 
@@ -119,8 +119,8 @@ Documents aren't part of these checks.
 
 ## Changing an application after approval
 
-- The participant can't edit an Approved application.
-- Staff can change the staff fields: worker role, status, participant cost, trip options, add-on expenses, and **Why go**.
+- The participant can't edit an Approved application, except **Why go**, which they can still change and save with **Save Why go**.
+- Staff can change the staff fields: worker role, status, participant cost, trip options, and add-on expenses. Only the participant changes **Why go** after they're on the trip; staff can give a starting story with **Add participant**.
 - To let the participant change their own answers, staff **Unapprove** it (back to Pre-Approved). The participant edits it, and staff approve it again.
 
 ## Team roles and spots

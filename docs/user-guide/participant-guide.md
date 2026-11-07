@@ -90,7 +90,7 @@ Home's **Trips you can apply for** lists open trips with how many positions are 
 
 ### The application
 
-The application asks for your trip role, funding, roommate preference, flight purchase choice, trip options, pregnancy (female applicants), and agreements. Every field is described in [Apply for trip / Update application](#apply-for-trip--update-application).
+The application asks for your trip role, funding (with an optional **Why go** story for your fundraising page), roommate preference, flight purchase choice, trip options, pregnancy (female applicants), and agreements. Every field is described in [Apply for trip / Update application](#apply-for-trip--update-application).
 
 Your health and language answers come from your profile and show on the application as text. Change them in your profile, not on the application.
 
@@ -106,7 +106,7 @@ When you reopen a saved application, a list shows anything still needed to submi
 
 ### After approval
 
-Once your application is **Approved**, you can't edit it yourself. If something on it needs to change, contact your trip staff. They can move it back to Pre-Approved so you can edit it, then approve it again. You can still update your profile, as long as required fields stay filled in.
+Once your application is **Approved**, you can't edit it yourself, except **Why go**: change the story and choose **Save Why go** to update your fundraising page. If something else on it needs to change, contact your trip staff. They can move it back to Pre-Approved so you can edit it, then approve it again. You can still update your profile, as long as required fields stay filled in.
 
 ### Cancelling
 
@@ -177,7 +177,7 @@ Your applications in this organization. Declined applications aren't listed.
 |--------|---------------|--------------|
 | **View** (eye) | Always | Opens **My Trip**. |
 | **Update App** | Incomplete or Pre-Approved | Opens your application to edit. |
-| **Manage App** | Approved or Cancelled | Opens your application (read-only when Approved, with **Cancel**; with **Uncancel** when Cancelled). |
+| **Manage App** | Approved or Cancelled | Opens your application (read-only when Approved except **Why go** and **Save Why go**, with **Cancel**; with **Uncancel** when Cancelled). |
 | **Cancel App** (red) | Incomplete, Pre-Approved, or Approved | Asks "Cancel this application? Your role slot will be freed." Choose **Cancel App** to confirm or **No** to back out. |
 | **Uncancel** | Cancelled | Asks "Uncancel this application? It will return to incomplete or pre-approved based on completeness." |
 
@@ -265,8 +265,9 @@ The Doctor Permission document isn't needed to submit. It's needed before approv
 |-------|---------|
 | **I will self-fund** | You'll pay some or all of your cost yourself. |
 | **I will raise funds** | You'll ask others to donate toward your cost. |
+| **Why go** | Optional. Your story of why you're going, up to 2000 characters. The note under it says "Shown on your fundraising page so donors can see why you're going." It isn't needed to submit or for approval. Once your application is Approved, it's the only field you can still change: use **Save Why go** below it. |
 
-Tick at least one. You can tick both.
+Tick at least one of **I will self-fund** and **I will raise funds**. You can tick both.
 
 ### Roommate preference
 
@@ -344,6 +345,7 @@ If the application can't be saved at all, the box says why, for example "This ap
 | **Save Incomplete Application** | Something is missing | Saves; the application stays Incomplete. |
 | **Submit Application** | Everything is complete | Saves and makes the application Pre-Approved. |
 | **Update Application** | Pre-Approved and complete | Saves your changes. Disabled while anything required is missing on a trip that hasn't ended. |
+| **Save Why go** | Approved | Saves only **Why go** and shows "Why go saved." Your status and other answers don't change. |
 | **Cancel** (red) | Incomplete, Pre-Approved, or Approved | Cancels the application after you confirm with **Cancel App**. |
 | **Uncancel** | Cancelled | Brings the application back after you confirm. |
 | **Close** | Always | Closes without saving. |
