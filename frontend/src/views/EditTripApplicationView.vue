@@ -7,6 +7,7 @@ import PersonDocumentServices from "../services/personDocumentServices.js";
 import Utils from "../config/utils.js";
 import DonorTripHeading from "../components/DonorTripHeading.vue";
 import ParticipantAgreementSection from "../components/ParticipantAgreementSection.vue";
+import ApplicationWhyGoField from "../components/ApplicationWhyGoField.vue";
 import TripApplicationTravelOptions from "../components/TripApplicationTravelOptions.vue";
 import TripApplicationFlightPurchase from "../components/TripApplicationFlightPurchase.vue";
 import EditPersonDialog from "../components/EditPersonDialog.vue";
@@ -77,6 +78,7 @@ const form = ref({
   tripWorkerRoleId: null,
   willSelfFund: false,
   willRaiseFunds: false,
+  whygoText: "",
   hasPreferredRoommate: false,
   preferredRoommateNames: "",
   flightPurchaseOption: null,
@@ -350,6 +352,7 @@ const applyFormFromApplication = (row) => {
     tripWorkerRoleId: row?.tripWorkerRoleId ?? null,
     willSelfFund: !!row?.willSelfFund,
     willRaiseFunds: !!row?.willRaiseFunds,
+    whygoText: row?.whygoText || "",
     hasPreferredRoommate: !!row?.hasPreferredRoommate,
     preferredRoommateNames: row?.preferredRoommateNames || "",
     flightPurchaseOption: row?.flightPurchaseOption || null,
@@ -420,7 +423,7 @@ const load = async () => {
           "This application is cancelled. You can Uncancel it if a role slot is available.";
       } else if (status === "approved") {
         formError.value =
-          "You are approved for this trip. You can Cancel the application if needed.";
+          "You are approved for this trip. You can update Why go or Cancel the application if needed.";
       } else {
         formError.value = `This application cannot be edited while its status is ${statusLabel.value}.`;
       }
@@ -510,6 +513,7 @@ const save = async () => {
       tripWorkerRoleId: Number(form.value.tripWorkerRoleId),
       willSelfFund: !!form.value.willSelfFund,
       willRaiseFunds: !!form.value.willRaiseFunds,
+      whygoText: form.value.whygoText?.trim() || null,
       licenseStatus: null,
       hasPreferredRoommate: !!form.value.hasPreferredRoommate,
       preferredRoommateNames: form.value.hasPreferredRoommate
@@ -755,6 +759,12 @@ onMounted(load);
           hide-details
           :disabled="!canEdit"
           class="mb-2"
+        />
+        <ApplicationWhyGoField
+          v-model="form.whygoText"
+          :trip-id="tripId"
+          :disabled="!canEdit"
+          :approved="application?.status === 'approved'"
         />
 
         <div class="text-subtitle-2 mb-1 mt-2">Roommate preference</div>

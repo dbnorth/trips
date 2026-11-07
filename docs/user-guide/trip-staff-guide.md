@@ -53,7 +53,7 @@ Trip Leader rows don't go through these checks.
 ## Adding and editing participants
 
 - **Add participant** adds someone to the trip directly. Adding someone as Approved runs the same approval checks and has no override. Add them as Pre-Approved and use **Override Approve** if needed.
-- **Edit** changes the staff-managed parts of an application: worker role, status, participant cost, trip options, add-on expenses, and **Why go**. The participant's own answers (funding, flights, roommate, agreements, and so on) are changed only by the participant, on their own application.
+- **Edit** changes the staff-managed parts of an application: worker role, status, participant cost, trip options, and add-on expenses. The participant's own answers (funding, **Why go**, flights, roommate, agreements, and so on) are changed only by the participant, on their own application.
 - **Editing someone's profile:** while they're Pre-Approved or Approved on a trip that hasn't ended, a save that leaves a required profile field empty is refused, with a list of what's missing. You can't change another person's password or sign-in email; only a System Admin can.
 
 ## Team roles
@@ -257,7 +257,7 @@ Then the application, read-only:
 | **Agreement** | **Participation agreed**, **Signature name**, **Agreement date**, and, if the person takes medication, **Medical agreement agreed** and **Medical agreement date**. |
 | **Pregnancy** | **Are you pregnant?** and **Due date** (female applicants). |
 | **Adult signer** | **Name**, **Email**, **Relationship** (applicants under 18). |
-| **Why go** | The staff-entered story, if any. |
+| **Why go** | The participant's fundraising story from their application, if any. |
 
 | Button | Shows when | What it does |
 |--------|------------|--------------|
@@ -301,7 +301,7 @@ Shows the file, with **Document number**, **Issue date**, and **Expiration date*
 | **Trip worker role** | The trip's team roles, as "*Role* (need *N*)" | The job on the team. "Add roles under Team roles first" if the trip has none. |
 | **Status** | Incomplete, Pre-Approved, Approved, Declined, Cancelled | Starts as **Incomplete**. Incomplete and Pre-Approved are worked out from how complete the person is. Approved runs the approval checks. |
 | **Participant cost (optional)** | A dollar amount | Leave blank to use the trip's default cost. |
-| **Why go** | Free text | The person's story, shown on their fundraising page. |
+| **Why go** | Free text, up to 2000 characters | Optional starting story, shown on their fundraising page. After that, only the person changes it, on their application. |
 
 **Add** shows "Participant added."
 
@@ -316,8 +316,6 @@ Titled "Edit participant", with the person's name.
 | **Participant cost (optional)** | Blank uses the trip's default cost. |
 | **Trip options** | One block per option set (shown only when the trip has options). A set with several options uses round buttons and needs one choice; a single option is a checkbox. Changing a choice adjusts **Participant cost** by the price difference; you can type over the result. |
 | **Add-on expenses** | Extra costs for this person, such as a visa fee. Each row has **Description**, **Cost** ($0 or more), **Days before** and **Days after** (whole numbers from −365 to 365; they move the planned arrival or departure). **Add expense** adds a row; the trash icon removes one. "Add-on total" sums them. Only one add-on can have days before, and only one days after. |
-| **Why go** | Free text. |
-
 **Save** shows "Participant updated."
 
 ## Donations for a participant

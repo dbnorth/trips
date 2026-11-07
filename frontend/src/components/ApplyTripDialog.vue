@@ -6,6 +6,7 @@ import PersonDocumentServices from "../services/personDocumentServices.js";
 import Utils from "../config/utils.js";
 import DonorTripHeading from "./DonorTripHeading.vue";
 import ParticipantAgreementSection from "./ParticipantAgreementSection.vue";
+import ApplicationWhyGoField from "./ApplicationWhyGoField.vue";
 import TripApplicationTravelOptions from "./TripApplicationTravelOptions.vue";
 import TripApplicationFlightPurchase from "./TripApplicationFlightPurchase.vue";
 import EditPersonDialog from "./EditPersonDialog.vue";
@@ -75,6 +76,7 @@ const form = ref({
   tripWorkerRoleId: null,
   willSelfFund: false,
   willRaiseFunds: false,
+  whygoText: "",
   hasPreferredRoommate: false,
   preferredRoommateNames: "",
   flightPurchaseOption: null,
@@ -315,6 +317,7 @@ const resetForm = () => {
     tripWorkerRoleId: null,
     willSelfFund: false,
     willRaiseFunds: false,
+    whygoText: "",
     hasPreferredRoommate: false,
     preferredRoommateNames: "",
     flightPurchaseOption: null,
@@ -346,6 +349,7 @@ const applyFormFromApplication = (row) => {
     tripWorkerRoleId: row?.tripWorkerRoleId ?? null,
     willSelfFund: !!row?.willSelfFund,
     willRaiseFunds: !!row?.willRaiseFunds,
+    whygoText: row?.whygoText || "",
     hasPreferredRoommate: !!row?.hasPreferredRoommate,
     preferredRoommateNames: row?.preferredRoommateNames || "",
     flightPurchaseOption: row?.flightPurchaseOption || null,
@@ -455,7 +459,7 @@ const loadExistingApplication = async () => {
     if (status === "cancelled") {
       formError.value = "This application is cancelled. You can Uncancel it if a role slot is available.";
     } else if (status === "approved") {
-      formError.value = "You are approved for this trip. You can Cancel the application if needed.";
+      formError.value = "You are approved for this trip. You can update Why go or Cancel the application if needed.";
     } else {
       formError.value = `This application cannot be edited while its status is ${status}.`;
     }
@@ -567,6 +571,7 @@ const buildPayload = () => ({
   tripWorkerRoleId: Number(form.value.tripWorkerRoleId),
   willSelfFund: !!form.value.willSelfFund,
   willRaiseFunds: !!form.value.willRaiseFunds,
+  whygoText: form.value.whygoText?.trim() || null,
   licenseStatus: null,
   hasPreferredRoommate: !!form.value.hasPreferredRoommate,
   preferredRoommateNames: form.value.hasPreferredRoommate
@@ -845,6 +850,12 @@ const confirmUncancelApplication = async () => {
             hide-details
             class="mb-2"
             :disabled="!canEdit"
+          />
+          <ApplicationWhyGoField
+            v-model="form.whygoText"
+            :trip-id="tripId"
+            :disabled="!canEdit"
+            :approved="applicationStatus === 'approved'"
           />
 
           <div class="text-subtitle-2 mb-1 mt-2">Roommate preference</div>
