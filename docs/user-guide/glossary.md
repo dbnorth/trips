@@ -44,7 +44,7 @@
 
 **Expiration check** — how long a document type must stay valid for a trip: after the trip ends, on or after it ends, or 90 or 180 days after it ends.
 
-**Expired** — the red tag on a profile document whose expiration date has passed.
+**Expired** — the red tag on a document from its expiration date on (including that day), shown in the profile's document list, in **Review documents**, and on the application's Doctor Permission line.
 
 **Flight segment** — one leg of a flight: airline, flight number, airports, and departure and arrival times. Arrival segments take a person to the trip; return segments bring them home.
 

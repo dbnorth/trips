@@ -68,7 +68,7 @@ A trip can need:
 
 A document has to be good for the trip, not just for today. Depending on its type, it must expire after the trip ends, on or after the trip ends, or 90 or 180 days after the trip ends. A passport that's valid today can still be too close to expiring for a trip next year. The trip's document list tells you when that happens.
 
-In the document table, a red **Expired** tag shows on any document whose expiration date has passed. Expired documents stay on your profile, so when you apply for a later trip you can see what needs replacing.
+In the document table, a red **Expired** tag shows on any document from its expiration date on, including the day it expires. Expired documents stay on your profile, and keep the tag after you add a newer one of the same type, so when you apply for a later trip you can see what needs replacing.
 
 If you have several documents of the same type (say, an old and a new passport), each trip uses the one that expires last.
 
@@ -255,7 +255,7 @@ If your profile is incomplete, a warning says "Your profile needs to be complete
 |-------|---------|-------|
 | **Are you pregnant?** | No, Yes | Required for female applicants. |
 | **Due date** | A date | Shown and required when you answer Yes. |
-| **Upload Doctor Permission document** | — | Shown when you answer Yes and your organization has a Doctor Permission document type. Opens **Add Document** with the type chosen; the expiration date is set to the trip's end date for you. A note says "You must provide a document from your doctor that says it is safe for you to travel on the trip dates." Once uploaded, it's listed with **View**. |
+| **Upload Doctor Permission document** | — | Shown when you answer Yes and your organization has a Doctor Permission document type. Opens **Add Document** with the type chosen; the expiration date is set to the trip's end date for you. A note says "You must provide a document from your doctor that says it is safe for you to travel on the trip dates." Once uploaded, it's listed with its expiration date and **View**, and a red **Expired** tag from its expiration date on. |
 
 The Doctor Permission document isn't needed to submit. It's needed before approval.
 
@@ -505,7 +505,7 @@ The **Documents** section of your profile.
 |--------|-------|
 | **Type** | The document type. |
 | **Issue date** | When it was issued. |
-| **Expiration date** | When it expires, with a red **Expired** tag once that date has passed. |
+| **Expiration date** | When it expires, with a red **Expired** tag from that date on. |
 | **Document** | **View** when a file is attached; "Need Document" when not. |
 | **Reviewed** | Ticked when staff have checked it (read-only). |
 | **Actions** | **Edit** and **Delete** (only before it's Reviewed), and **Download**. |

@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import TripPeopleRoleServices from "../services/tripPeopleRoleServices.js";
 import ReviewDocumentEditSection from "./ReviewDocumentEditSection.vue";
 import { formatDate } from "../utils/dateFormat.js";
+import { isDocumentExpired } from "../utils/documentTypes.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -256,6 +257,16 @@ const close = () => {
                     <span v-if="doc.documentNumber">{{ doc.documentNumber }}</span>
                     <span v-if="doc.documentNumber && doc.expirationDate"> · </span>
                     <span v-if="doc.expirationDate">expires {{ formatDate(doc.expirationDate) }}</span>
+                    <v-chip
+                      v-if="isDocumentExpired(doc)"
+                      size="x-small"
+                      color="error"
+                      variant="flat"
+                      class="ml-1"
+                      data-testid="document-expired"
+                    >
+                      Expired
+                    </v-chip>
                   </span>
                   <span
                     v-if="doc.reloadRequestedAt"

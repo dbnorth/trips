@@ -79,7 +79,7 @@ A document meets a requirement when it has a file and:
 
 Document types without an expiration date count once a file is uploaded. A Doctor Permission uploaded from the application is dated with the trip's end date, so it also counts for later trips that end on or before that date.
 
-The red **Expired** tag in a profile's document list compares with today's date, not with a trip.
+A document is **Expired** from its expiration date on, including that day. The red **Expired** tag shows in a profile's document list, in **Review documents**, and on the application's Doctor Permission line. It compares with today's date, not with a trip, and doesn't change any trip check. Documents without an expiration date never expire.
 
 ### Due date
 

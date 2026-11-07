@@ -14,7 +14,7 @@ A Trip Leader manages the trips they lead. An Org Admin manages every trip in th
 Each trip needs certain documents from each person: the documents their worker role requires (with any required specializations), a passport if the trip requires one, and a Doctor Permission document if the person is pregnant and your organization has that document type.
 
 1. Choose **Review documents** on the person's row.
-2. For each requirement you'll see the person's documents of that type. The one marked **Used for this trip** is the one that counts: the one that expires last.
+2. For each requirement you'll see the person's documents of that type. The one marked **Used for this trip** is the one that counts: the one that expires last. A red **Expired** tag shows on any document from its expiration date on.
 3. Choose **View** to see the file, number, and dates. Required specializations show with their own files.
 4. Tick **Reviewed** once you've checked it. It saves right away. A document without a file can't be reviewed.
 
@@ -275,7 +275,7 @@ Titled "Review documents — *name*", with the person's **Role**. If the trip ne
 For each requirement (a document type name, "Passport", or "Doctor Permission"):
 
 - "Not uploaded" when the person has no document of that type.
-- Otherwise a card per document: its description, a **Used for this trip** chip on the one that counts, its number and expiration date, "Reload requested *date*" if you asked for a new file, **View** (or "No file"), and the **Reviewed** checkbox. Ticking or unticking **Reviewed** saves right away.
+- Otherwise a card per document: its description, a **Used for this trip** chip on the one that counts, its number and expiration date (with a red **Expired** tag from that date on), "Reload requested *date*" if you asked for a new file, **View** (or "No file"), and the **Reviewed** checkbox. Ticking or unticking **Reviewed** saves right away.
 - **Required specializations**: each with its date and **View**, or "Not added".
 
 **Close** closes the dialog and refreshes the participants table.
