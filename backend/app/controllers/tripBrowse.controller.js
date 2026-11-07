@@ -48,6 +48,8 @@ import {
   flightPurchaseInclude,
 } from "../utils/flightPurchaseFields.js";
 import { parseWhyGo } from "../utils/whyGo.js";
+import { countedDonations } from "../utils/donationCounting.js";
+import { tripOnlineDonations } from "../utils/stripeDonations.js";
 
 const Trip = db.trip;
 const TripWorkerRole = db.tripWorkerRole;
@@ -456,7 +458,7 @@ exports.getBrowseTrip = async (req, res) => {
     if (assignment) {
       const donationTotal =
         (await TripDonation.sum("amount", {
-          where: { tripId: trip.id, personId: assignment.peopleId },
+          where: countedDonations({ tripId: trip.id, personId: assignment.peopleId }),
         })) || 0;
       const totals = await participantTotals(trip, assignment);
       myTripInfo = {
@@ -484,6 +486,7 @@ exports.getBrowseTrip = async (req, res) => {
         donationRecipients: ["incomplete", "pre_approved", "approved"].includes(assignment.status)
           ? await loadDonationRecipients(trip.id)
           : [],
+        onlineDonations: await tripOnlineDonations(trip),
         tripPeopleRoleId: assignment.id,
         hasArrivalPdf:
           isApprovedTripMember(req, trip.id) &&

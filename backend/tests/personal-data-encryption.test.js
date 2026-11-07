@@ -271,17 +271,19 @@ describe("Feature 64 — Encrypt Personal and Medical Data in the Database", () 
         .send({ firstName: "Staff", lastName: "Donor", email: "staff.donor@example.com", ...address });
       expect(staff.status).toBe(200);
       const donation = await request(app)
-        .post("/trips/public/donations")
+        .post("/trips/donations")
+        .set(admin.authHeader)
         .send({
           tripId: trip.id,
           amount: 25,
-          donor: { firstName: "Public", lastName: "Donor", email: "public.donor@example.com", ...address },
+          dateTime: "2026-10-01T17:00:00.000Z",
+          donor: { firstName: "Gift", lastName: "Donor", email: "gift.donor@example.com", ...address },
         });
       expect(donation.status).toBe(200);
 
       for (const [id, email] of [
         [staff.body.id, "staff.donor@example.com"],
-        [donation.body.donor.id, "public.donor@example.com"],
+        [donation.body.donor.id, "gift.donor@example.com"],
       ]) {
         const row = await rawRow("donors", id);
         for (const column of ["addLine1", "city", "state_prov", "postalCode", "phoneNumber"]) {

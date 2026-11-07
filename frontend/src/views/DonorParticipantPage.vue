@@ -4,7 +4,9 @@ import { useRouter } from "vue-router";
 import PublicServices from "../services/publicServices.js";
 import PersonServices from "../services/personServices.js";
 import DonorTripHeading from "../components/DonorTripHeading.vue";
+import StripePaymentMethod from "../components/StripePaymentMethod.vue";
 import { toUrlSlug, personUrlSlug } from "../utils/donateUrls.js";
+import { ONLINE_DONATIONS_NOT_SET_UP, goToStripe } from "../utils/stripeDonations.js";
 
 const props = defineProps({
   tripSlug: { type: String, required: true },
@@ -16,10 +18,12 @@ const trip = ref(null);
 const participant = ref(null);
 const whygoText = ref("");
 const donationTotal = ref(0);
+const onlineDonations = ref(false);
 const message = ref("");
-const success = ref(false);
 const donor = ref({ firstName: "", lastName: "", email: "" });
 const amount = ref("");
+const paymentMethod = ref("card");
+const paying = ref(false);
 
 const participantName = computed(() =>
   participant.value
@@ -45,6 +49,7 @@ const load = () => {
       participant.value = participantRes.data.participant;
       whygoText.value = participantRes.data.whygoText;
       donationTotal.value = participantRes.data.donationTotal;
+      onlineDonations.value = !!participantRes.data.onlineDonations;
 
       const expectedTripSlug = toUrlSlug(trip.value?.name);
       const expectedPersonSlug = personUrlSlug(participant.value);
@@ -67,19 +72,21 @@ const load = () => {
     });
 };
 
-const donate = () => {
-  PublicServices.donate({
+const payWithStripe = () => {
+  message.value = "";
+  paying.value = true;
+  PublicServices.startCheckout({
     tripId: trip.value?.id,
     personId: participant.value?.id,
     amount: Number(amount.value),
+    paymentMethod: paymentMethod.value,
     donor: donor.value,
+    returnPath: router.currentRoute.value.fullPath,
   })
-    .then(() => {
-      success.value = true;
-      message.value = "Thank you for supporting this participant!";
-    })
+    .then((r) => goToStripe(r.data.checkoutUrl))
     .catch((e) => {
       message.value = e.response?.data?.message || "Donation failed.";
+      paying.value = false;
     });
 };
 
@@ -113,16 +120,24 @@ watch(() => [props.tripSlug, props.personSlug], load);
       </v-row>
     </v-card>
 
-    <v-alert v-if="message" :type="success ? 'success' : 'error'" class="mb-4">{{ message }}</v-alert>
+    <v-alert v-if="message" type="error" class="mb-4">{{ message }}</v-alert>
 
-    <div v-if="!success" class="donation-form-wrap">
+    <div class="donation-form-wrap">
       <v-card class="pa-4">
         <v-card-title>Support {{ participant?.firstName }}</v-card-title>
         <v-text-field v-model="donor.firstName" label="Your first name" density="compact" />
         <v-text-field v-model="donor.lastName" label="Your last name" density="compact" />
         <v-text-field v-model="donor.email" label="Email" density="compact" />
         <v-text-field v-model="amount" label="Amount" type="number" density="compact" />
-        <v-btn color="primary" :disabled="!participant || !trip" @click="donate">Donate</v-btn>
+        <template v-if="onlineDonations">
+          <StripePaymentMethod v-model="paymentMethod" />
+          <v-btn color="primary" :disabled="!participant || !trip" :loading="paying" @click="payWithStripe">
+            Pay with Stripe
+          </v-btn>
+        </template>
+        <v-alert v-else-if="participant" type="info" density="compact" data-testid="online-donations-not-set-up">
+          {{ ONLINE_DONATIONS_NOT_SET_UP }}
+        </v-alert>
       </v-card>
     </div>
   </v-container>

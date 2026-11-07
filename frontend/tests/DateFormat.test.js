@@ -48,7 +48,7 @@ vi.mock("../src/services/personServices.js", () => ({
   default: { get: vi.fn(), getPictureUrl: vi.fn(() => null) },
 }));
 vi.mock("../src/services/publicServices.js", () => ({
-  default: { getTripBySlug: vi.fn(), donate: vi.fn() },
+  default: { getTripBySlug: vi.fn(), startCheckout: vi.fn() },
 }));
 vi.mock("../src/services/documentTypeServices.js", () => ({
   default: { getAll: vi.fn() },

@@ -46,7 +46,8 @@ Notes:
 | `tripFlight` | 30 | Per-participant flight header |
 | `tripFlightSegment` | 30 | Ordered flight segments |
 | `donor` | 8, 9 | Donor contacts |
-| `tripDonation` | 8, 9 | Donations |
+| `tripDonation` | 8, 9, 100 | Donations (type, payment status, Stripe payment details) |
+| `donationCheckout` | 100 | Stripe Checkout started for a donation, until it is paid or expires |
 | `emailTemplate` | 10, 39, 41, 42 | Email templates |
 | `emailType` | 39 | Email type catalog |
 | `emailToken` | 40 | Email template token catalog |
@@ -171,10 +172,15 @@ Notes:
 | medicalAgreementFileName | STRING(500) | Medical agreement Markdown path under `agreements/` |
 | colorFamily | STRING(50) | UI theme |
 | subdomain | STRING(63) | optional, unique (lowercase); org branded host label — Feature 15 |
-| testMode | BOOLEAN | required, default `false`; emails for the org's trips go to the org email — Feature 49 |
+| testMode | BOOLEAN | required, default `false`; emails for the org's trips go to the org email — Feature 49; Stripe uses the test key — Feature 100 |
+| stripeSecretKey | TEXT (encrypted, `enc1:`) | optional; live key `sk_live_` / `rk_live_`; never returned or logged — Feature 100 |
+| stripeTestSecretKey | TEXT (encrypted, `enc1:`) | optional; test key `sk_test_` / `rk_test_`; never returned or logged — Feature 100 |
+| stripeFeeCoverage | BOOLEAN | required, default `false`; card checkouts ask donors to cover the processing fee (Stripe fee coverage) — Feature 100 |
 | version | INTEGER | required, default `0` |
 
 **Associations:** `hasMany` orgPeopleRole, trip, emailTemplate, workerRole (CASCADE).
+
+`toJSON` removes both Stripe keys and adds `stripeKeySaved` / `stripeTestKeySaved` when the columns were loaded (Feature 100). Online donations are set up when the key for the organization's current mode (Test mode → test key) is saved.
 
 ---
 
@@ -612,7 +618,7 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 
 ---
 
-## `tripDonation` — Features 8, 9
+## `tripDonation` — Features 8, 9, 100
 
 | Field | Type | Rules |
 |-------|------|--------|
@@ -623,9 +629,52 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 | amount | DECIMAL(10,2) | required |
 | dateTime | DATE | required, default NOW |
 | paymentInfo | TEXT | |
+| donationType | ENUM(`Stripe-ACH`,`Stripe-Credit`,`Check`,`Other`) | required, default `Other` (existing rows became `Other`) — Feature 100 |
+| checkNumber | STRING(50) | required for Check, null otherwise — Feature 100 |
+| processingFeeAmount | DECIMAL(10,2) | processing fee the donor covered on Stripe (`fee_coverage_cost`); not part of `amount` and never counted — Feature 100 |
+| paymentStatus | ENUM(`processing`,`succeeded`,`failed`) | Stripe types only; null for Check and Other — Feature 100 |
+| paymentStatusUpdatedAt | DATE | set on each payment status change — Feature 100 |
+| stripeFailureMessage | STRING(500) | Stripe's failure reason when Failed — Feature 100 |
+| stripePaymentMethodType | STRING(50) | `card` or `us_bank_account` — Feature 100 |
+| stripePaymentMethodBrand | STRING(100) | card brand or bank name — Feature 100 |
+| stripePaymentMethodLast4 | STRING(4) | — Feature 100 |
+| stripeCheckoutSessionId | STRING(255) | — Feature 100 |
+| stripePaymentIntentId | STRING(255) | unique (`tripDonations_stripePaymentIntentId_unique`): one donation per payment — Feature 100 |
+| stripeChargeId | STRING(255) | latest charge — Feature 100 |
+| stripeReceiptUrl | STRING(500) | — Feature 100 |
+| stripeData | TEXT | Stripe session (with payment intent and charge) as JSON — Feature 100 |
 | version | INTEGER | required, default `0` |
 
 **Associations:** `belongsTo` trip; person as `participant`; donor as `donor`.
+
+A donation **counts** toward every total, raised amount, and balance when its payment status is null (Check, Other) or `succeeded` — Feature 100.
+
+---
+
+## `donationCheckout` — Feature 100
+
+| Field | Type | Rules |
+|-------|------|--------|
+| id | INTEGER PK | autoIncrement |
+| token | STRING(64) | required, unique, random; in the return URL `/donate/complete/<token>` |
+| tripId | INTEGER | required FK → trip (`ON DELETE CASCADE`) |
+| personId | INTEGER | optional FK → person (recipient, `ON DELETE SET NULL`) |
+| giverPersonId | INTEGER | optional FK → person (signed-in giver, `ON DELETE SET NULL`) |
+| donorFirstName, donorLastName, donorEmail | STRING | entered donor details (public pages) |
+| donorId | INTEGER | optional FK → donor (staff form; `ON DELETE SET NULL`) |
+| paymentInfo | TEXT | staff form **Payment info**, copied to the donation |
+| amount | DECIMAL(10,2) | required |
+| donationType | ENUM(`Stripe-ACH`,`Stripe-Credit`) | required; from the chosen payment method |
+| stripeTestMode | BOOLEAN | required; which key was used |
+| feeCoverageOffered | BOOLEAN | required, default `false`; the session asked for fee coverage (created and retrieved with the preview Stripe API version) |
+| stripeCheckoutSessionId | STRING(255) | from Stripe |
+| stripeCheckoutUrl | TEXT | from Stripe |
+| returnPath | STRING(500) | where **Back** and Stripe's cancel go |
+| status | ENUM(`pending`,`completed`,`expired`) | required, default `pending` |
+| tripDonationId | INTEGER | optional FK → tripDonation (`ON DELETE SET NULL`) |
+| createdAt, updatedAt | DATE | |
+
+**Associations:** `belongsTo` trip, person as `participant`, person as `giver`, donor, tripDonation. Created by `sequelize.sync` (`ensureSchema` adds `feeCoverageOffered` to an older table); a checkout that Stripe fails to start is deleted.
 
 ---
 

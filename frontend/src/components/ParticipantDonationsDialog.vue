@@ -10,6 +10,7 @@ const props = defineProps({
   tripId: { type: [Number, String], required: true },
   participant: { type: Object, default: null },
   readOnly: { type: Boolean, default: false },
+  onlineDonations: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue", "changed"]);
@@ -138,6 +139,7 @@ const onDonationSaved = () => {
     :trip-id="tripId"
     :person-id="personId"
     :donation="editingDonation"
+    :online-donations="onlineDonations"
     @saved="onDonationSaved"
   />
 </template>

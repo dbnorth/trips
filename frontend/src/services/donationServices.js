@@ -7,8 +7,11 @@ export default {
   create(data) {
     return apiClient.post("/donations", data);
   },
-  createByParticipant(data) {
-    return apiClient.post("/donations/participant", data);
+  startParticipantCheckout(data) {
+    return apiClient.post("/donations/participant/stripe-checkout", data);
+  },
+  startStaffCheckout(data) {
+    return apiClient.post("/donations/stripe-checkout", data);
   },
   update(id, data) {
     return apiClient.put(`/donations/${id}`, data);

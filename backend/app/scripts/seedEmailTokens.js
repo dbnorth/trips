@@ -3,6 +3,13 @@ import { pathToFileURL } from "url";
 import db from "../models/index.js";
 import { VALUE_SOURCES } from "../utils/emailTokenValues.js";
 
+export const DONATION_TOKENS = [
+  { tokenCode: "DONATION_DATE", valueSource: "donation.date" },
+  { tokenCode: "DONATION_TYPE", valueSource: "donation.type" },
+  { tokenCode: "DONATION_AMOUNT", valueSource: "donation.amount" },
+  { tokenCode: "DONATION_FEE_COVERED", valueSource: "donation.feeCovered" },
+];
+
 const tokens = [
   { tokenCode: "ORG_NAME", valueSource: "organization.name" },
   { tokenCode: "ORG_EMAIL", valueSource: "organization.email" },
@@ -50,6 +57,7 @@ const tokens = [
   { tokenCode: "LEADER_PREFERRED_NAME", valueSource: "primaryLeader.preferredName" },
   { tokenCode: "LEADER_EMAIL", valueSource: "primaryLeader.email" },
   { tokenCode: "LEADER_PHONE", valueSource: "primaryLeader.phone" },
+  ...DONATION_TOKENS,
 ];
 
 /** Add each seed token that is missing. Returns how many were inserted. */

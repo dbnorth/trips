@@ -1,5 +1,6 @@
 import db from "../models/index.js";
 import { ROLE_TRIP_LEADER, ROLE_TRIP_PARTICIPANT } from "../authorization/accessControl.js";
+import { countedDonations } from "./donationCounting.js";
 
 const getTripLeaderRoleId = async () => {
   const role = await db.role.findOne({ where: { roleName: ROLE_TRIP_LEADER } });
@@ -306,7 +307,7 @@ export const getDonationTotalsByTripIds = async (tripIds) => {
   }
 
   const donations = await db.tripDonation.findAll({
-    where: { tripId: ids },
+    where: countedDonations({ tripId: ids }),
     attributes: ["tripId", "personId", "amount"],
     raw: true,
   });

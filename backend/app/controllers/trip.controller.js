@@ -49,6 +49,8 @@ import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import { amountOwed, participantCost, participantCostBreakdown } from "../utils/participantTotals.js";
 import { participantFlightDates, participantTravelDates } from "../utils/tripDays.js";
+import { countedDonations } from "../utils/donationCounting.js";
+import { loadStripeOrganization, onlineDonationsSetUp } from "../utils/stripeDonations.js";
 import {
   arrivalPdfName,
   deleteArrivalPdf,
@@ -136,6 +138,10 @@ exports.findAll = async (req, res) => {
     const participantCountsByTripId = await getParticipantStatusCountsByTripIds(data.map((trip) => trip.id));
     const roleTotalsByTripId = await getTripRoleTotalsByTripIds(data.map((trip) => trip.id));
     const prepByTripId = await getTripPrepByTripIds(data.map((trip) => trip.id));
+    const onlineDonationsByOrgId = new Map();
+    for (const orgId of new Set(data.map((trip) => trip.orgId))) {
+      onlineDonationsByOrgId.set(orgId, onlineDonationsSetUp(await loadStripeOrganization(orgId)));
+    }
     res.send(
       data.map((trip) => {
         const unfilledRoles = roleTotalsByTripId.get(trip.id)?.unfilledRoles || [];
@@ -156,6 +162,7 @@ exports.findAll = async (req, res) => {
           totalParticipantCost,
           donationTotal,
           prepStatus: prepStatusFor({ unfilledRoles, totalParticipantCost, donationTotal, prep }),
+          onlineDonations: onlineDonationsByOrgId.get(trip.orgId) || false,
         };
       })
     );
@@ -179,6 +186,7 @@ exports.findOne = async (req, res) => {
       primaryLeaderPeopleId: await getTripPrimaryLeaderPeopleId(data.id),
       leaderNames: leadersByTripId.get(data.id) || [],
       hasArrivalPdf: !!(await loadTripWithArrivalPdf(data.id)).arrivalPdfFileName,
+      onlineDonations: onlineDonationsSetUp(await loadStripeOrganization(data.orgId)),
     });
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -266,7 +274,7 @@ exports.findStatus = async (req, res) => {
 
     const totals = await TripDonation.findAll({
       attributes: ["personId", [db.sequelize.fn("SUM", db.sequelize.col("amount")), "donationTotal"]],
-      where: { tripId, personId: { [Op.ne]: null } },
+      where: countedDonations({ tripId, personId: { [Op.ne]: null } }),
       group: ["personId"],
       raw: true,
     });

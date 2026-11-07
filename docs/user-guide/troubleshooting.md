@@ -97,6 +97,56 @@ Only one selected option can move your arrival (or departure) date.
 **"You can donate to yourself only on trips where you are pre-approved or approved."**
 Self-donations open once your application is submitted and complete.
 
+## Donations and Stripe
+
+**"Online donations aren't set up for this organization yet."**
+The organization hasn't saved the Stripe secret key for its current mode. An Org Admin adds it in **Edit organization** under **Online donations (Stripe)**: the live key when Test mode is off, the test key when it's on.
+
+**"Donation amount must be at least $0.50."**
+Stripe's minimum payment is $0.50.
+
+**"Choose Credit card or Bank account (ACH)."**
+Pick a **Payment method** before **Pay with Stripe**.
+
+**"Your first name and email are required."**
+On the public donation pages, enter your first name and email; Stripe sends the receipt there.
+
+**"Stripe couldn't start the payment. Please try again."**
+Stripe didn't answer or refused the request. Try again in a moment; if it keeps happening, an Org Admin should check that the saved Stripe key is correct and active. If only credit card payments fail, the organization may have **Ask donors to cover processing fees** ticked without Stripe's approval for fee coverage: an Org Admin should untick it in **Edit organization** until Stripe approves the account.
+
+**"Enter a live Stripe secret key (sk_live_ or rk_live_)."** / **"Enter a test Stripe secret key (sk_test_ or rk_test_)."**
+The key was pasted into the wrong field or isn't a secret key. Copy the secret (or restricted) key from the Stripe Dashboard: live keys go in **Stripe secret key**, test keys in **Stripe test secret key**.
+
+**"Use Pay with Stripe for Stripe-ACH and Stripe-Credit donations."**
+Stripe donations can't be typed in by hand. Choose **Pay with Stripe** to take the payment, or pick Check or Other for a gift you already received.
+
+**"Check number is required."**
+A Check donation needs its check number.
+
+**"A Stripe donation's amount, date, and type can't be changed."**
+These come from Stripe. Refund or adjust the payment in Stripe instead.
+
+**"Start date must be on or before End date."**
+On the **Donations** page, the start date is after the end date. Fix either date.
+
+**"Your payment didn't go through."**
+Stripe declined the payment; the reason is shown below the message. Nothing was recorded as paid. Try again with another card or account.
+
+**"Your bank payment is processing. It usually takes up to 4 business days to clear."**
+Bank payments take a few days. The donation shows as **Processing** and counts once Stripe reports it **Succeeded**.
+
+**"Your payment hasn't been confirmed yet. If you paid, it will be recorded shortly."**
+Stripe hadn't confirmed the payment when the page stopped checking. The app keeps checking every 10 minutes, so a completed payment still shows up.
+
+**"This donation link has expired."**
+The Stripe payment page wasn't used within a day. Start a new donation.
+
+**"Donation not found."**
+The return link is incomplete or wrong. Check the **Donations** page, or start a new donation.
+
+**A donation shows on the Donations page but not in the totals.** (staff)
+Its **Status** is **Processing** (a bank payment still clearing) or **Failed**. Only Succeeded Stripe payments, Checks, and Other donations count.
+
 ## Flights
 
 **"Each segment requires airports, airline, flight number, and valid departure/arrival date and time."**

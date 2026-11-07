@@ -139,10 +139,15 @@ The participant or staff can cancel; both are asked "Are you sure?". Uncancellin
 
 - **Participant cost** — the trip's cost, or a cost staff set for the person. Trip options adjust it by their price adjustments.
 - **Total trip cost** = participant cost + airfare (only when the organization books the flight and a cost is entered) + add-on expenses.
-- **Amount owed** (balance) = total trip cost − donations, never below $0.
+- **Amount owed** (balance) = total trip cost − counted donations, never below $0.
 - **Deposit** — the first amount the organization asks participants to raise. It doesn't change the cost.
 - A donation given to a participant counts toward their amount raised. Donations without a participant count toward the trip.
-- Mission Trips records donations; it doesn't process payments.
+- Every donation has a **type**: **Stripe-Credit** (credit card through Stripe), **Stripe-ACH** (bank account through Stripe), **Check** (with a check number), or **Other**.
+- Online donations are paid through Stripe Checkout, at least $0.50. They need the organization's Stripe secret key; with **Test mode** on, the test key is used. Without the key for the current mode, donation screens show "Online donations aren't set up for this organization yet."
+- A Stripe donation is recorded only after Stripe reports the payment complete, once per payment. Its **payment status** is **Succeeded**, **Processing** (a bank payment clearing, usually up to 4 business days), or **Failed**.
+- A donation **counts** when it's Check, Other, or Succeeded. Only counted donations go into amount raised, amount owed, trip totals, the deposit and fully-paid checks, and the public pages. Processing and Failed donations still appear on the **Donations** page and in its CSV.
+- When an organization asks donors to cover processing fees, Stripe's credit card page offers the fee on top of the gift (Stripe works out the amount; the donor can remove it). A donation's amount is the gift only; the fee the donor covered is recorded separately as **Fee covered** and never counts toward any total or balance. Bank account payments are never asked.
+- A Stripe donation's amount, date, and type can't be changed; refunds are done in Stripe.
 
 ## Rooming
 
@@ -160,6 +165,7 @@ The participant or staff can cancel; both are asked "Are you sure?". Uncancellin
 ## Email
 
 - **Send Now** emails go out when something happens: application started, submitted, or approved; donation received; deposit reached; fully paid; document reload requested. They go only to Trip Participants.
+- Donation emails go out when a donation starts counting (a Check or Other is saved, or a Stripe payment succeeds), not when it's edited and never for a Failed payment. The **Trip donation** email goes to both the participant and the donor.
 - **Scheduled** emails go out each morning to the people their rule picks:
   - application incomplete → Incomplete applications;
   - documents missing → Pre-Approved people missing a trip document;

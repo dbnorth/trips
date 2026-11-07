@@ -24,6 +24,7 @@ import MyTripView from "./views/MyTripView.vue";
 import EditTripApplicationView from "./views/EditTripApplicationView.vue";
 import DonorTripPage from "./views/DonorTripPage.vue";
 import DonorParticipantPage from "./views/DonorParticipantPage.vue";
+import DonationCompletePage from "./views/DonationCompletePage.vue";
 import OrganizationTripsPage from "./views/OrganizationTripsPage.vue";
 import PublicTripPage from "./views/PublicTripPage.vue";
 import ApplyAuthView from "./views/ApplyAuthView.vue";
@@ -103,6 +104,12 @@ const router = createRouter({
       component: DonorTripPage,
       props: true,
     },
+    {
+      path: "/donate/complete/:token",
+      name: "donationComplete",
+      component: DonationCompletePage,
+      props: true,
+    },
   ],
 });
 
@@ -114,6 +121,7 @@ export function applyAuthGuards(router) {
       "login",
       "donorTrip",
       "donorParticipant",
+      "donationComplete",
       "orgTrips",
       "publicTrip",
       "applyAuth",

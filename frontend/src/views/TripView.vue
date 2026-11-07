@@ -720,6 +720,7 @@ onMounted(refresh);
       v-model="showDonations"
       :trip-id="tripId"
       :participant="donationsParticipant"
+      :online-donations="!!trip?.onlineDonations"
       @changed="onDonationsChanged"
     />
     <EditTripDialog v-model="showEditTrip" :trip-id="tripId" @saved="onTripUpdated" />

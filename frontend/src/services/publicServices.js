@@ -20,9 +20,12 @@ export default {
   getTripOverviewBySlug(tripSlug) {
     return publicClient.get(`/public/trips/by-name/${encodeURIComponent(tripSlug)}/overview`);
   },
-  donate(data) {
+  startCheckout(data) {
     const token = Utils.getStore("user")?.token;
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    return publicClient.post("/public/donations", data, { headers });
+    return publicClient.post("/public/donations/stripe-checkout", data, { headers });
+  },
+  checkCheckout(token) {
+    return publicClient.post(`/public/donations/stripe-checkout/${encodeURIComponent(token)}/check`);
   },
 };

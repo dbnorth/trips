@@ -51,7 +51,7 @@ These lists are shared by every organization. Each list page has an add button, 
 |----------------|-------|
 | **Type code** | A short unique code, for example `apply-started`. Required. |
 | **Description** | The name organizations see in the template's **Email type** list. Required. |
-| **Event code** | The system event that sends Send Now and Scheduled templates of this type. Required. Emails are sent automatically only for the event codes the system knows: application-started, application-incomplete, application-submitted, application-approved, documents-missing, document-reload-requested, deposit-due, deposit-received, payment-due, payment-complete, donation-received, pre-departure, trip-arrival. `team-email` is for types sent by hand. |
+| **Event code** | The system event that sends Send Now and Scheduled templates of this type. Required. Emails are sent automatically only for the event codes the system knows: application-started, application-incomplete, application-submitted, application-approved, documents-missing, document-reload-requested, deposit-due, deposit-received, payment-due, payment-complete, donation-received, trip-donation, pre-departure, trip-arrival. `team-email` is for types sent by hand. |
 | **Event description** | Plain-language explanation of when it's sent. Shown in the info icon on the **Email templates** list. |
 
 **Add email type** adds one. A type used by a template can't be deleted ("Email type is used by a template.").
@@ -76,6 +76,7 @@ These lists are shared by every organization. Each list page has an add button, 
 | Trip | Trip name, Trip location, Trip start date, Trip end date, Trip participant cost, Trip deposit, Trip arrival PDF (attachment), Trip documents due date (90 days before the start) |
 | Participant | Participant first name, last name, preferred name, email, amount raised, amount owed, trip role, trip cost, trip options, trip options total, trip airfare, add-on expenses, add-on expenses total, total trip cost, donations, donations total, trip donations, trip donations total, balance due, arrival date, departure date, create account link, arrival flight, return flight, flight confirmation number, missing documents |
 | Document reload | Document to reload, Document type to reload, Reload request note (filled only in the reload request email) |
+| Donation | Donation date, Donation type, Donation amount, Donation fee covered (filled only in the Trip donation email) |
 | Primary trip leader | Primary trip leader first name, last name, preferred name, email, phone |
 
 Value sources that are emails (Organization email, Participant email, Primary trip leader email) make **email tokens**, usable in **From email** and **To**. Trip arrival PDF makes an **attachment token**, usable in **Attachment**.

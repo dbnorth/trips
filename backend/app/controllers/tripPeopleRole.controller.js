@@ -53,6 +53,7 @@ import {
   validateSelectedTravelOptionIds,
 } from "../utils/tripOptionSelection.js";
 import { parseWhyGo } from "../utils/whyGo.js";
+import { countedDonations } from "../utils/donationCounting.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -265,7 +266,7 @@ exports.findAll = async (req, res) => {
 
     const totals = await TripDonation.findAll({
       attributes: ["personId", [db.sequelize.fn("SUM", db.sequelize.col("amount")), "donationTotal"]],
-      where: { tripId, personId: { [Op.ne]: null } },
+      where: countedDonations({ tripId, personId: { [Op.ne]: null } }),
       group: ["personId"],
       raw: true,
     });

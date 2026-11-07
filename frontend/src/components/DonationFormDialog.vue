@@ -5,9 +5,20 @@ import DonorServices from "../services/donorServices.js";
 import TripPeopleRoleServices from "../services/tripPeopleRoleServices.js";
 import MoneyInput from "./MoneyInput.vue";
 import AddressFields from "./AddressFields.vue";
-import { parseMoneyAmount } from "../utils/moneyUtils.js";
+import { parseMoneyAmount, formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
+import { formatDateTime } from "../utils/dateFormat.js";
+import {
+  ONLINE_DONATIONS_NOT_SET_UP,
+  isStripeDonationType,
+  goToStripe,
+  paymentMethodText,
+  paymentStatusText,
+} from "../utils/stripeDonations.js";
+
+const ADD_TYPES = ["Stripe-ACH", "Stripe-Credit", "Check", "Other"];
+const EDIT_TYPES = ["Check", "Other"];
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -18,6 +29,7 @@ const props = defineProps({
   trips: { type: Array, default: () => [] },
   allowTripSelect: { type: Boolean, default: false },
   requireParticipant: { type: Boolean, default: false },
+  onlineDonations: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue", "saved"]);
@@ -57,6 +69,8 @@ const emptyDonation = () => ({
   amount: "",
   dateTime: new Date().toISOString().slice(0, 16),
   paymentInfo: "",
+  donationType: "Other",
+  checkNumber: "",
   version: 0,
 });
 
@@ -65,6 +79,16 @@ const donation = ref(emptyDonation());
 
 const isEdit = computed(() => !!props.donation?.id);
 const title = computed(() => (isEdit.value ? "Edit donation" : "Add donation"));
+
+const isStripeEdit = computed(() => isEdit.value && isStripeDonationType(props.donation?.donationType));
+const isStripeAdd = computed(() => !isEdit.value && isStripeDonationType(donation.value.donationType));
+const typeItems = computed(() => (isEdit.value ? EDIT_TYPES : ADD_TYPES));
+
+const onlineReady = computed(() => {
+  if (!props.allowTripSelect) return props.onlineDonations;
+  const trip = props.trips.find((t) => Number(t.id) === Number(selectedTripId.value));
+  return !!trip?.onlineDonations;
+});
 
 const tripItems = computed(() =>
   props.trips.map((trip) => ({ title: trip.name, value: trip.id }))
@@ -148,6 +172,8 @@ const applyDonation = (row) => {
     amount: row.amount != null ? String(row.amount) : "",
     dateTime: row.dateTime ? row.dateTime.slice(0, 16) : new Date().toISOString().slice(0, 16),
     paymentInfo: row.paymentInfo || "",
+    donationType: row.donationType || "Other",
+    checkNumber: row.checkNumber || "",
     version: row.version ?? 0,
   };
   if (row.donor) {
@@ -236,26 +262,10 @@ const save = async () => {
     return;
   }
 
-  const amount = parseMoneyAmount(donation.value.amount);
-  if (amount == null || amount <= 0) {
-    formError.value = "Donation amount is required.";
-    return;
-  }
-  if (!donation.value.dateTime) {
-    formError.value = "Donation date is required.";
-    return;
-  }
-
-  saving.value = true;
-  prepareSave();
-
   const address = normalizeAddressFields(donor.value);
-
-  const payload = {
+  const sharedPayload = {
     tripId,
     personId: resolvedPersonId,
-    amount,
-    dateTime: new Date(donation.value.dateTime).toISOString(),
     paymentInfo: donation.value.paymentInfo?.trim() || null,
     donorId: donor.value.id || null,
     donor: {
@@ -275,13 +285,69 @@ const save = async () => {
     },
   };
 
-  const request = isEdit.value
-    ? DonationServices.update(donation.value.id, {
-        ...payload,
-        version: donation.value.version,
-      })
-    : DonationServices.create(payload);
+  if (isStripeEdit.value) {
+    saving.value = true;
+    prepareSave();
+    submit(DonationServices.update(donation.value.id, { ...sharedPayload, version: donation.value.version }), tripId);
+    return;
+  }
 
+  const amount = parseMoneyAmount(donation.value.amount);
+  if (amount == null || amount <= 0) {
+    formError.value = "Donation amount is required.";
+    return;
+  }
+
+  if (isStripeAdd.value) {
+    if (amount < 0.5) {
+      formError.value = "Donation amount must be at least $0.50.";
+      return;
+    }
+    saving.value = true;
+    DonationServices.startStaffCheckout({
+      ...sharedPayload,
+      amount,
+      paymentMethod: donation.value.donationType === "Stripe-Credit" ? "card" : "us_bank_account",
+      returnPath: "/donations",
+    })
+      .then((res) => goToStripe(res.data.checkoutUrl))
+      .catch((e) => {
+        formError.value = e.response?.data?.message || "Unable to start the payment.";
+        saving.value = false;
+      });
+    return;
+  }
+
+  if (!donation.value.dateTime) {
+    formError.value = "Donation date is required.";
+    return;
+  }
+  const checkNumber = donation.value.checkNumber?.trim() || "";
+  if (donation.value.donationType === "Check" && !checkNumber) {
+    formError.value = "Check number is required.";
+    return;
+  }
+
+  saving.value = true;
+  prepareSave();
+
+  const payload = {
+    ...sharedPayload,
+    amount,
+    dateTime: new Date(donation.value.dateTime).toISOString(),
+    donationType: donation.value.donationType,
+    checkNumber: donation.value.donationType === "Check" ? checkNumber : null,
+  };
+
+  submit(
+    isEdit.value
+      ? DonationServices.update(donation.value.id, { ...payload, version: donation.value.version })
+      : DonationServices.create(payload),
+    tripId
+  );
+};
+
+const submit = (request, tripId) => {
   request
     .then(() => {
       emit("saved", { tripId });
@@ -353,17 +419,76 @@ const save = async () => {
           hide-details
           class="mb-2"
         />
-        <MoneyInput v-model="donation.amount" label="Amount" required />
-        <v-text-field v-model="donation.dateTime" label="Date" type="datetime-local" density="compact" />
+        <template v-if="isStripeEdit">
+          <v-list density="compact" class="mb-2" data-testid="stripe-donation-details">
+            <v-list-item title="Type" :subtitle="props.donation.donationType" />
+            <v-list-item title="Amount" :subtitle="formatMoneyDisplay(props.donation.amount)" />
+            <v-list-item
+              title="Fee covered"
+              :subtitle="formatMoneyDisplay(props.donation.processingFeeAmount) || '—'"
+            />
+            <v-list-item title="Date" :subtitle="formatDateTime(props.donation.dateTime) || '—'" />
+            <v-list-item title="Payment status" :subtitle="paymentStatusText(props.donation)" />
+            <v-list-item title="Payment method" :subtitle="paymentMethodText(props.donation)" />
+            <v-list-item
+              v-if="props.donation.paymentStatus === 'failed' && props.donation.stripeFailureMessage"
+              title="Failure reason"
+              :subtitle="props.donation.stripeFailureMessage"
+            />
+            <v-list-item title="Stripe payment ID" :subtitle="props.donation.stripePaymentIntentId || '—'">
+              <template v-if="props.donation.stripeReceiptUrl" #append>
+                <v-btn
+                  size="small"
+                  variant="text"
+                  :href="props.donation.stripeReceiptUrl"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  Receipt
+                </v-btn>
+              </template>
+            </v-list-item>
+          </v-list>
+        </template>
+        <template v-else>
+          <MoneyInput v-model="donation.amount" label="Amount" required />
+          <v-select
+            v-model="donation.donationType"
+            :items="typeItems"
+            label="Type"
+            density="compact"
+            data-testid="donation-type"
+          />
+          <v-text-field
+            v-if="donation.donationType === 'Check'"
+            v-model="donation.checkNumber"
+            label="Check number"
+            maxlength="50"
+            density="compact"
+          />
+          <v-text-field
+            v-if="!isStripeAdd"
+            v-model="donation.dateTime"
+            label="Date"
+            type="datetime-local"
+            density="compact"
+          />
+        </template>
         <v-textarea v-model="donation.paymentInfo" label="Payment info" density="compact" rows="2" />
 
+        <v-alert v-if="isStripeAdd && !onlineReady" type="info" density="compact" class="mt-2">
+          {{ ONLINE_DONATIONS_NOT_SET_UP }}
+        </v-alert>
         <v-alert v-if="formNotice" type="warning" density="compact" class="mt-2">{{ formNotice }}</v-alert>
         <v-alert v-if="formError" type="error" density="compact" class="mt-2">{{ formError }}</v-alert>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
         <v-btn variant="text" @click="close">Cancel</v-btn>
-        <v-btn color="primary" :loading="saving" @click="save">Save</v-btn>
+        <v-btn v-if="isStripeAdd" color="primary" :loading="saving" :disabled="!onlineReady" @click="save">
+          Pay with Stripe
+        </v-btn>
+        <v-btn v-else color="primary" :loading="saving" @click="save">Save</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
