@@ -16,6 +16,17 @@ export const EXPIRATION_CHECK_OPTIONS = [
   { title: "180 days after trip end date", value: "trip_end_180" },
 ];
 
+const todayDateOnly = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+
+/** A document is expired from its expiration date on (local date); no expiration date → never. */
+export const isDocumentExpired = (doc) => {
+  const expirationDate = String(doc?.expirationDate || "").slice(0, 10);
+  return !!expirationDate && expirationDate <= todayDateOnly();
+};
+
 /** The type's expiration check label, or "—" when it has no expiration date. */
 export const expirationCheckLabel = (row) =>
   row?.hasExpirationDate === false

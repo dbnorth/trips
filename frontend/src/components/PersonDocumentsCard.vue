@@ -7,6 +7,7 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import { resolveCountryCode, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { pdfFirstPageUrl } from "../utils/pdfThumbnail.js";
 import { formatDate } from "../utils/dateFormat.js";
+import { isDocumentExpired } from "../utils/documentTypes.js";
 
 const props = defineProps({
   personId: { type: [Number, String], default: null },
@@ -201,16 +202,6 @@ const loadThumbnail = async (row) => {
   } catch {
     if (request === thumbnailRequest) thumbnail.value = { row, name, state: "unavailable" };
   }
-};
-
-const today = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-};
-
-const isExpired = (row) => {
-  const expirationDate = String(row.expirationDate || "").slice(0, 10);
-  return !!expirationDate && expirationDate < today();
 };
 
 const onFileSelected = (files) => {
@@ -531,6 +522,15 @@ onMounted(load);
         <span v-if="row.expirationDate" class="text-medium-emphasis">
           expires {{ formatDate(row.expirationDate) }}
         </span>
+        <v-chip
+          v-if="isDocumentExpired(row)"
+          size="x-small"
+          color="error"
+          variant="flat"
+          data-testid="document-expired"
+        >
+          Expired
+        </v-chip>
         <v-btn size="small" variant="text" @click="viewDocument(row)">View</v-btn>
       </div>
       <v-btn
@@ -576,7 +576,7 @@ onMounted(load);
           <td>
             {{ formatDate(row.expirationDate) || "—" }}
             <v-chip
-              v-if="isExpired(row)"
+              v-if="isDocumentExpired(row)"
               size="x-small"
               color="error"
               variant="flat"

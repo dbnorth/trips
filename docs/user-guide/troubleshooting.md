@@ -54,7 +54,7 @@ Pick an organization in the menu bar first.
 Staff have checked this document, so it's locked. Participants: add a new document, or ask trip staff. Staff: untick **Reviewed** first.
 
 **My document shows a red "Expired" tag.**
-Its expiration date has passed. Add a current document. Each trip uses the document that expires last.
+Its expiration date is today or has passed. Add a current document. The old one keeps the tag, and each trip uses the document that expires last.
 
 **My trip says a document is Missing, but I uploaded it.**
 Check the explanation next to it. Common causes: it expires too soon for the trip (a trip can require validity until after it ends, or 90 or 180 days after), a required specialization isn't selected, it has no file, or it's a different document type than the role requires.
