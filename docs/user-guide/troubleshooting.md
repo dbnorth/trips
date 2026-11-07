@@ -168,6 +168,9 @@ You tried to reserve more emails than the role has open spots.
 **"The PDF must be 10 MB or smaller."** / **"Upload a PDF file."**
 The trip arrival file must be a PDF under 10 MB.
 
+**"Unable to download the Trip Arrival Document."**
+On **My Trip**, the download didn't finish. Staff may have removed the file since you opened the page. Reload the page: the button disappears if the file is gone, otherwise try again.
+
 **"Select an organization using the menu bar to manage …"**
 That page works on one organization. Pick one in the menu bar's **Organization** (or **Emulate org**) selector.
 

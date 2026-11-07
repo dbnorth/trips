@@ -1,6 +1,5 @@
 <script setup>
-import { ref, computed } from "vue";
-import TripServices from "../services/tripServices.js";
+import { computed } from "vue";
 import { formatDate as formatDateText } from "../utils/dateFormat.js";
 import MyTripFinancialInfo from "./MyTripFinancialInfo.vue";
 import TripDateAdjustment from "./TripDateAdjustment.vue";
@@ -14,17 +13,6 @@ const props = defineProps({
 });
 
 defineEmits(["edit-flights", "view-donations", "make-donation"]);
-
-const arrivalPdfError = ref("");
-
-const openArrivalPdf = async () => {
-  arrivalPdfError.value = "";
-  try {
-    await TripServices.openArrivalPdf(props.trip.id);
-  } catch {
-    arrivalPdfError.value = "Unable to open the Trip Arrival PDF.";
-  }
-};
 
 const showSections = computed(() => SECTION_STATUSES.includes(props.info.status));
 const room = computed(() => props.info.room || null);
@@ -60,14 +48,6 @@ const segmentTypeLabel = (type) => (type === "return" ? "Return" : "Arrival");
       </div>
     </v-col>
   </v-row>
-
-  <div v-if="info.hasArrivalPdf && trip" class="mt-4" data-testid="my-trip-arrival-info">
-    <h3 class="text-subtitle-1 font-weight-bold mb-2">Trip arrival info</h3>
-    <a href="#" data-testid="my-trip-arrival-link" @click.prevent="openArrivalPdf">
-      Trip Arrival - {{ trip.name }}.pdf
-    </a>
-    <v-alert v-if="arrivalPdfError" type="error" density="compact" class="mt-2">{{ arrivalPdfError }}</v-alert>
-  </div>
 
   <MyTripFinancialInfo
     v-if="showSections"
