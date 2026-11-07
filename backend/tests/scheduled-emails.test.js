@@ -193,6 +193,54 @@ describe("Feature 44 — Daily Scheduled Emails", () => {
     });
   });
 
+  describe("Feature 123 — Monthly Email Schedules", () => {
+    it("Monthly template sends on its day", async () => {
+      await addTemplate(await createEmailType("application-incomplete"), {
+        scheduleRule: "monthly",
+        scheduleDayOfMonth: 10,
+      });
+      const person = await addParticipant(await createTrip(), { status: "incomplete" });
+
+      await run("2026-11-10");
+      expect(await sentTo()).toEqual([person.email]);
+
+      await run("2026-11-11");
+      expect(await sentTo()).toEqual([person.email]);
+    });
+
+    it("Monthly template sends on the last day of a shorter month", async () => {
+      await addTemplate(await createEmailType("application-incomplete"), {
+        scheduleRule: "monthly",
+        scheduleDayOfMonth: 31,
+      });
+      const person = await addParticipant(await createTrip({ startDate: "2027-06-01" }), {
+        status: "incomplete",
+      });
+
+      await run("2027-04-29");
+      expect(await sentTo()).toEqual([]);
+
+      await run("2027-04-30");
+      expect(await sentTo()).toEqual([person.email]);
+    });
+
+    it("Twice monthly template sends on the 1st and 15th", async () => {
+      await addTemplate(await createEmailType("application-incomplete"), {
+        scheduleRule: "twice-monthly",
+      });
+      const person = await addParticipant(await createTrip({ startDate: "2027-03-01" }), {
+        status: "incomplete",
+      });
+
+      await run("2026-12-01");
+      await run("2026-12-15");
+      expect(await sentTo()).toEqual([person.email, person.email]);
+
+      await run("2026-12-02");
+      expect(await sentTo()).toEqual([person.email, person.email]);
+    });
+  });
+
   describe("US-44.2 — Send each email type only to the participants it is for", () => {
     it("Incomplete-application reminder goes only to incomplete applications", async () => {
       await addTemplate(await createEmailType("application-incomplete"));

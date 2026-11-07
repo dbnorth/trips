@@ -644,8 +644,9 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 | emailTypeId | INTEGER | optional FK → emailType; required when the template form saves (Feature 39) |
 | emailBody | TEXT | optional in the table; required when the template form saves (Feature 39). HTML cleaned on save to paragraphs (only style kept: `text-align:center`), line breaks, bold, italic, underline, lists, links (http, https, mailto), and library pictures as `<img data-picture-id="N" alt="…">` with an optional `width` (whole pixels, at most 600); a body with no HTML tags is read as plain text (Feature 77) |
 | toAddress | STRING(1000) | optional in the table; required when the template form saves. Comma-separated email addresses and email tokens (Feature 41) |
-| scheduleRule | STRING(20) | optional; `daily`, `weekly` (Tuesday), or `before-start`. Required when the template form saves a `Scheduled` template; empty for `Send Now` (Feature 42) |
+| scheduleRule | STRING(20) | optional; `daily`, `weekly` (Tuesday), `monthly`, `twice-monthly` (1st and 15th, Feature 123), or `before-start`. Required when the template form saves a `Scheduled` template; empty for `Send Now` (Feature 42) |
 | scheduleDaysBefore | INTEGER | optional; 1–365 when `scheduleRule` is `before-start`, otherwise empty (Feature 42) |
+| scheduleDayOfMonth | INTEGER | optional; 1–31 when `scheduleRule` is `monthly`, otherwise empty (Feature 123) |
 
 **Associations:** `belongsTo` organization, trip, emailType.
 

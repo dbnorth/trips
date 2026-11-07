@@ -33,7 +33,7 @@ const Trip = db.trip;
 const Organization = db.organization;
 const FUNCTION_CODES = ["Scheduled", "Send Now", "Trip Participant", "Person"];
 const PERSON_ON_TRIP = "Person templates cannot belong to a trip.";
-const SCHEDULE_RULES = ["daily", "weekly", "before-start"];
+const SCHEDULE_RULES = ["daily", "weekly", "monthly", "twice-monthly", "before-start"];
 const templateFields = [
   "tripId",
   "fromEmail",
@@ -164,25 +164,38 @@ const attachmentError = async (body) =>
     ? ATTACHMENT_INVALID
     : null;
 
-const validateSchedule = (body, functionCode) => {
-  if (functionCode !== "Scheduled") {
-    return { schedule: { scheduleRule: null, scheduleDaysBefore: null } };
+const wholeNumberIn = (raw, min, max) => {
+  const value = Number(raw);
+  if (raw == null || String(raw).trim() === "" || !Number.isInteger(value) || value < min || value > max) {
+    return null;
   }
+  return value;
+};
+
+const validateSchedule = (body, functionCode) => {
+  const empty = { scheduleRule: null, scheduleDaysBefore: null, scheduleDayOfMonth: null };
+  if (functionCode !== "Scheduled") return { schedule: empty };
   const scheduleRule = trimRequired(body.scheduleRule);
   if (!SCHEDULE_RULES.includes(scheduleRule)) {
     return { error: { status: 400, message: "Schedule is required for scheduled templates." } };
   }
-  if (scheduleRule !== "before-start") {
-    return { schedule: { scheduleRule, scheduleDaysBefore: null } };
+  if (scheduleRule === "before-start") {
+    const days = wholeNumberIn(body.scheduleDaysBefore, 1, 365);
+    if (days == null) {
+      return {
+        error: { status: 400, message: "Days before trip start must be a whole number from 1 to 365." },
+      };
+    }
+    return { schedule: { ...empty, scheduleRule, scheduleDaysBefore: days } };
   }
-  const raw = body.scheduleDaysBefore;
-  const days = Number(raw);
-  if (raw == null || String(raw).trim() === "" || !Number.isInteger(days) || days < 1 || days > 365) {
-    return {
-      error: { status: 400, message: "Days before trip start must be a whole number from 1 to 365." },
-    };
+  if (scheduleRule === "monthly") {
+    const day = wholeNumberIn(body.scheduleDayOfMonth, 1, 31);
+    if (day == null) {
+      return { error: { status: 400, message: "Day of month must be a whole number from 1 to 31." } };
+    }
+    return { schedule: { ...empty, scheduleRule, scheduleDayOfMonth: day } };
   }
-  return { schedule: { scheduleRule, scheduleDaysBefore: days } };
+  return { schedule: { ...empty, scheduleRule } };
 };
 
 const validateOrganizationTemplateFields = async (body) => {
@@ -239,6 +252,7 @@ const copySourceAttributes = [
   "attachment",
   "scheduleRule",
   "scheduleDaysBefore",
+  "scheduleDayOfMonth",
 ];
 
 const hasFunctionCode = {

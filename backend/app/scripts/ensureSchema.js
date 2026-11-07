@@ -1410,6 +1410,7 @@ const ensureEmailTemplateSchedule = async () => {
   const columns = [
     ["scheduleRule", "VARCHAR(20) NULL"],
     ["scheduleDaysBefore", "INT NULL"],
+    ["scheduleDayOfMonth", "INT NULL"],
   ];
   for (const [name, definition] of columns) {
     const [cols] = await db.sequelize.query(

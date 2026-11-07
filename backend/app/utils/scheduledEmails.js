@@ -11,8 +11,9 @@ import {
   substituteTokens,
 } from "./emailTokenValues.js";
 
-const SCHEDULE_RULES = ["daily", "weekly", "before-start"];
+const SCHEDULE_RULES = ["daily", "weekly", "monthly", "twice-monthly", "before-start"];
 const WEEKLY_DAY = 2; // Tuesday
+const TWICE_MONTHLY_DAYS = [1, 15];
 const JOB_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const toUtcDate = (date) => new Date(`${date}T00:00:00Z`);
@@ -37,9 +38,22 @@ const addDays = (date, days) => {
   return parsed.toISOString().slice(0, 10);
 };
 
+/** A monthly day past the end of a shorter month falls on that month's last day. */
+const isMonthlyDay = (date, dayOfMonth) => {
+  const parsed = toUtcDate(date);
+  const lastDay = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth() + 1, 0)).getUTCDate();
+  return parsed.getUTCDate() === Math.min(Number(dayOfMonth), lastDay);
+};
+
 const isDue = (template, trip, date) => {
   if (template.scheduleRule === "daily") return true;
   if (template.scheduleRule === "weekly") return toUtcDate(date).getUTCDay() === WEEKLY_DAY;
+  if (template.scheduleRule === "monthly") {
+    return !!template.scheduleDayOfMonth && isMonthlyDay(date, template.scheduleDayOfMonth);
+  }
+  if (template.scheduleRule === "twice-monthly") {
+    return TWICE_MONTHLY_DAYS.includes(toUtcDate(date).getUTCDate());
+  }
   if (template.scheduleRule === "before-start") {
     return !!trip.startDate && trip.startDate === addDays(date, template.scheduleDaysBefore);
   }
