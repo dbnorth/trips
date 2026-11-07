@@ -8,6 +8,10 @@ const ALL_TRIPS = "All trips";
 const scheduleText = (template) => {
   if (template.scheduleRule === "daily") return "Daily";
   if (template.scheduleRule === "weekly") return "Weekly (Tuesday)";
+  if (template.scheduleRule === "monthly" && template.scheduleDayOfMonth) {
+    return `Monthly (day ${Number(template.scheduleDayOfMonth)})`;
+  }
+  if (template.scheduleRule === "twice-monthly") return "Twice monthly (1st and 15th)";
   if (template.scheduleRule === "before-start" && template.scheduleDaysBefore) {
     const days = Number(template.scheduleDaysBefore);
     return `${days} ${days === 1 ? "day" : "days"} before trip start`;

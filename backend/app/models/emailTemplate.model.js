@@ -15,6 +15,7 @@ const EmailTemplate = SequelizeInstance.define("emailTemplate", {
   toAddress: { type: Sequelize.STRING(1000), allowNull: true },
   scheduleRule: { type: Sequelize.STRING(20), allowNull: true },
   scheduleDaysBefore: { type: Sequelize.INTEGER, allowNull: true },
+  scheduleDayOfMonth: { type: Sequelize.INTEGER, allowNull: true },
 });
 
 export default EmailTemplate;

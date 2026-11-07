@@ -76,7 +76,7 @@
 
 **Room type** — King, Double, or Triple. Everyone sharing a room has the same room type.
 
-**Schedule** — when a Scheduled template goes out: Daily, Weekly (Tuesday), or a number of days before the trip starts.
+**Schedule** — when a Scheduled template goes out: Daily, Weekly (Tuesday), Monthly on a chosen day of the month, Twice monthly (1st and 15th), or a number of days before the trip starts.
 
 **Specialization** — a sub-type of a document, such as Pediatrics on a board certification, with its own date and file.
 

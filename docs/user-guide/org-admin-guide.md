@@ -310,7 +310,7 @@ Recipients are Approved participants and leaders on the chosen trips with the ch
 | Column | Shows |
 |--------|-------|
 | **Function code** | How it's sent (see below). |
-| **Schedule** | For Scheduled templates: Daily, Weekly (Tuesday), or "*N* days before trip start". |
+| **Schedule** | For Scheduled templates: Daily, Weekly (Tuesday), "Monthly (day *N*)", Twice monthly (1st and 15th), or "*N* days before trip start". |
 | **Email type** | What the email is about. The info icon explains when it's sent. |
 | **Subject** | The subject line. |
 | **Scope** | The organization (or "Global (master)" for a System Admin's starting templates). |
@@ -330,10 +330,11 @@ Recipients are Approved participants and leaders on the chosen trips with the ch
 | **Organization** | Your organizations | Required. Read-only if you have just one. |
 | **Email type** | See [Email types](#email-types) | Required. What the email is about. |
 | **Function code** | See below | Required. How it's sent. |
-| **Schedule** | **Daily**, **Weekly (Tuesday)**, **Days before trip start** | Shown and required for Scheduled templates. |
+| **Schedule** | **Daily**, **Weekly (Tuesday)**, **Monthly (day of month)**, **Twice monthly (1st and 15th)**, **Days before trip start** | Shown and required for Scheduled templates. **Daily** goes every day; **Weekly (Tuesday)** every Tuesday; **Monthly (day of month)** once a month on the **Day of month**; **Twice monthly (1st and 15th)** on the 1st and 15th of each month. |
 | **Days before trip start** | 1–365 | Shown for **Days before trip start**. The email goes once, that many days before the trip starts. |
+| **Day of month** | 1–31 | Shown and required for **Monthly (day of month)**. If the month is shorter, the email goes on its last day (for example, 31 goes on April 30). |
 | **Trip** | **All trips (organization-wide)**, or one trip | A trip's own template replaces the organization's template of the same email type for that trip. |
-| **Copy from** | For an organization-wide template: the System Admin's global starting templates. For a trip template: the organization's own templates. | Shown when adding. Copies the From email, To, Schedule, Days before trip start, Subject, Content, and Attachment of the chosen template. It doesn't copy the Email type, Function code, or Email body. |
+| **Copy from** | For an organization-wide template: the System Admin's global starting templates. For a trip template: the organization's own templates. | Shown when adding. Copies the From email, To, Schedule, Days before trip start, Day of month, Subject, Content, and Attachment of the chosen template. It doesn't copy the Email type, Function code, or Email body. |
 | **Subject** | — | Required. Can include tokens. |
 | **From email** | — | Required. One email address or an email token, such as `{{ORG_EMAIL}}`. Replies go here. |
 | **To** | — | Required. Email addresses or email tokens, separated by commas. Usually `{{PARTICIPANT_EMAIL}}`. |

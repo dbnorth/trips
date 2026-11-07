@@ -197,8 +197,11 @@ Use fewer or smaller pictures.
 **"From email must be an email address or an email token."** / **"To must list email addresses or email tokens, separated by commas."**
 Use one address or one email token (such as `{{ORG_EMAIL}}`) in From email, and comma-separated addresses or email tokens in To.
 
+**"Day of month must be a whole number from 1 to 31."**
+A **Monthly (day of month)** schedule needs a **Day of month** from 1 to 31. Pick 31 to send on the last day of every month.
+
 **"Email type is used by a template."** / **"Airport is referenced by flight segments."** / **"Airline is referenced by flight segments."**
 The item is in use, so it can't be deleted.
 
 **A scheduled email didn't go to someone.**
-Scheduled emails go only to people their rule picks (for example, payment due goes to Approved people who still owe money), and at most once a day.
+Scheduled emails go only on the days the template's **Schedule** picks, only to people their rule picks (for example, payment due goes to Approved people who still owe money), and at most once a day.

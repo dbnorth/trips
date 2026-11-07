@@ -167,6 +167,7 @@ The participant or staff can cancel; both are asked "Are you sure?". Uncancellin
   - payment due → Approved people who still owe money;
   - pre-departure and trip arrival → Approved people.
   A person gets each scheduled email at most once a day.
+- A Scheduled template goes out only on the days its **Schedule** picks: every day (**Daily**), every Tuesday (**Weekly (Tuesday)**), once a month on its **Day of month** (**Monthly (day of month)**; in a shorter month, on its last day), on the 1st and 15th (**Twice monthly (1st and 15th)**), or once, that many days before the trip starts (**Days before trip start**).
 - A trip's own template is used instead of the organization's for the same email type.
 - In **test mode**, an organization's emails go to the organization's address instead of the recipients.
 - Emails come from "*sender* via Mission Trips", with replies going to the organization, trip leader, or other sender.

@@ -64,4 +64,30 @@ describe("Feature 42 — Email Template Schedule", () => {
       wrapper.unmount();
     });
   });
+
+  describe("Feature 123 — Monthly Email Schedules", () => {
+    it("Template list shows the monthly schedule", async () => {
+      EmailTemplateServices.getAll.mockResolvedValue({
+        data: [templateRow({ id: 1, scheduleRule: "monthly", scheduleDayOfMonth: 10 })],
+      });
+
+      const { wrapper } = await mountWithPlugins(EmailTemplatesList);
+      await flushPromises();
+
+      expect(wrapper.text()).toContain("Monthly (day 10)");
+      wrapper.unmount();
+    });
+
+    it("Template list shows the twice monthly schedule", async () => {
+      EmailTemplateServices.getAll.mockResolvedValue({
+        data: [templateRow({ id: 1, scheduleRule: "twice-monthly" })],
+      });
+
+      const { wrapper } = await mountWithPlugins(EmailTemplatesList);
+      await flushPromises();
+
+      expect(wrapper.text()).toContain("Twice monthly (1st and 15th)");
+      wrapper.unmount();
+    });
+  });
 });

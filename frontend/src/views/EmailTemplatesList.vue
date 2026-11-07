@@ -77,6 +77,10 @@ const scheduleLabel = (item) => {
   if (item.functionCode !== "Scheduled") return "";
   if (item.scheduleRule === "daily") return "Daily";
   if (item.scheduleRule === "weekly") return "Weekly (Tuesday)";
+  if (item.scheduleRule === "monthly" && item.scheduleDayOfMonth) {
+    return `Monthly (day ${Number(item.scheduleDayOfMonth)})`;
+  }
+  if (item.scheduleRule === "twice-monthly") return "Twice monthly (1st and 15th)";
   if (item.scheduleRule === "before-start" && item.scheduleDaysBefore) {
     const days = Number(item.scheduleDaysBefore);
     return `${days} ${days === 1 ? "day" : "days"} before trip start`;
