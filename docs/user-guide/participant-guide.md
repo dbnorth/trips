@@ -370,6 +370,10 @@ At the top, a message shows where you stand:
 
 The trip name, city and country, description, picture, **Location**, **Dates**, **Status** (the trip's status, such as `active`), and **Trip Leaders** with their email addresses.
 
+| Item | Shows |
+|------|-------|
+| **Download Trip Arrival Document** | Saves the trip's arrival information PDF to your device as "Trip Arrival - *trip name*.pdf". Shown above **Trip Leaders** once you're Approved and staff have added it. If it fails you see "Unable to download the Trip Arrival Document." |
+
 ### My Trip Info
 
 | Item | Shows |
@@ -380,8 +384,6 @@ The trip name, city and country, description, picture, **Location**, **Dates**, 
 | **Status** | Your application status. |
 | **Role** | Your trip role. |
 | **Arrive** / **Depart** | Your planned travel dates. An info icon explains when trip options or add-ons move them (for example "Trip option: Early arrival — 1 day before"). |
-| **Trip arrival info** | A link to the trip's arrival information PDF. Shown once you're Approved and staff have added it. |
-
 ### Trip financial info
 
 Shown for Incomplete, Pre-Approved, and Approved applications.

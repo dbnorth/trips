@@ -222,6 +222,21 @@ const participantName = computed(() =>
   [currentUser.value?.firstName, currentUser.value?.lastName].filter(Boolean).join(" ")
 );
 
+const downloadingArrivalPdf = ref(false);
+const arrivalPdfError = ref("");
+
+const downloadArrivalPdf = async () => {
+  downloadingArrivalPdf.value = true;
+  arrivalPdfError.value = "";
+  try {
+    await TripServices.downloadArrivalPdf(trip.value.id, `Trip Arrival - ${trip.value.name}.pdf`);
+  } catch {
+    arrivalPdfError.value = "Unable to download the Trip Arrival Document.";
+  } finally {
+    downloadingArrivalPdf.value = false;
+  }
+};
+
 const leaderPictureUrl = (leader) => PersonServices.getPictureUrl(leader?.picture);
 
 const leaderInitials = (leader) => {
@@ -292,6 +307,19 @@ onUnmounted(() => {
           <div>{{ trip.status }}</div>
         </v-col>
       </v-row>
+
+      <div v-if="myTripInfo?.hasArrivalPdf" class="mb-4" data-testid="my-trip-arrival-download">
+        <v-btn
+          color="primary"
+          variant="tonal"
+          prepend-icon="mdi-download"
+          :loading="downloadingArrivalPdf"
+          @click="downloadArrivalPdf"
+        >
+          Download Trip Arrival Document
+        </v-btn>
+        <v-alert v-if="arrivalPdfError" type="error" density="compact" class="mt-2">{{ arrivalPdfError }}</v-alert>
+      </div>
 
       <h3 class="text-subtitle-1 font-weight-bold mb-3">Trip Leaders</h3>
       <div v-if="!tripLeaders.length" data-testid="no-trip-leaders">No Trip Leader assigned</div>
