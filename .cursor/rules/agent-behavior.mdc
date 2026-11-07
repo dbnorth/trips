@@ -49,7 +49,7 @@ Map work to checks you can run:
 
 | Ask | Success looks like |
 |-----|-------------------|
-| Implement Feature N | Test Coverage Map `it`s exist and `npm test` passes; reference updated if API/schema/rules changed |
+| Implement Feature N | Test Coverage Map `it`s exist and `npm test` passes; reference updated if API/schema/rules changed; `docs/user-guide/` updated and PDFs regenerated if users would notice ([user-guide.mdc](./user-guide.mdc)) |
 | Add validation | Tests for invalid inputs pass |
 | Fix a bug | Reproducing test fails, then passes |
 | Refactor | Tests pass before and after |

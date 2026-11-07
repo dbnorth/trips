@@ -4,6 +4,7 @@ Project documentation for **Trips** outside feature specs and Cursor rules.
 
 | Directory / file | Purpose |
 |------------------|---------|
+| [user-guide/](./user-guide/README.md) | Plain-language guides for users by role, rules, glossary, troubleshooting; `npm run user-guide:pdf` writes PDFs to `user-guide/pdf/` |
 | [adr/](./adr/README.md) | Architecture Decision Records (template + index; product ADRs added as you decide) |
 | [nfr/](./nfr/README.md) | Quality attributes / NFR bars |
 | [agility-import/](./agility-import/README.md) | Digital.ai Agility import from feature specs |
