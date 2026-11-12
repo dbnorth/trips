@@ -7,6 +7,7 @@ import DonorTripHeading from "../components/DonorTripHeading.vue";
 import StripePaymentMethod from "../components/StripePaymentMethod.vue";
 import { toUrlSlug, personUrlSlug } from "../utils/donateUrls.js";
 import { ONLINE_DONATIONS_NOT_SET_UP, goToStripe } from "../utils/stripeDonations.js";
+import PublicDonorSearch from "../components/PublicDonorSearch.vue";
 
 const props = defineProps({
   tripSlug: { type: String, required: true },
@@ -21,6 +22,7 @@ const donationTotal = ref(0);
 const onlineDonations = ref(false);
 const message = ref("");
 const donor = ref({ firstName: "", lastName: "", email: "" });
+const donorId = ref(null);
 const amount = ref("");
 const paymentMethod = ref("card");
 const paying = ref(false);
@@ -72,6 +74,16 @@ const load = () => {
     });
 };
 
+const chooseDonor = (match) => {
+  donorId.value = match.id;
+  donor.value.firstName = match.name;
+  donor.value.lastName = "";
+};
+
+const clearChosenDonor = () => {
+  donorId.value = null;
+};
+
 const payWithStripe = () => {
   message.value = "";
   paying.value = true;
@@ -80,7 +92,7 @@ const payWithStripe = () => {
     personId: participant.value?.id,
     amount: Number(amount.value),
     paymentMethod: paymentMethod.value,
-    donor: donor.value,
+    donor: { ...donor.value, ...(donorId.value ? { id: donorId.value } : {}) },
     returnPath: router.currentRoute.value.fullPath,
   })
     .then((r) => goToStripe(r.data.checkoutUrl))
@@ -125,6 +137,7 @@ watch(() => [props.tripSlug, props.personSlug], load);
     <div class="donation-form-wrap">
       <v-card class="pa-4">
         <v-card-title>Support {{ participant?.firstName }}</v-card-title>
+        <PublicDonorSearch :trip-id="trip?.id" @chosen="chooseDonor" @cleared="clearChosenDonor" />
         <v-text-field v-model="donor.firstName" label="Your first name" density="compact" />
         <v-text-field v-model="donor.lastName" label="Your last name" density="compact" />
         <v-text-field v-model="donor.email" label="Email" density="compact" />

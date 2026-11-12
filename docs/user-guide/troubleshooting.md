@@ -114,6 +114,18 @@ Pick a **Payment method** before **Pay with Stripe**.
 **"Your first name and email are required."**
 On the public donation pages, enter your first name and email; Stripe sends the receipt there.
 
+**"Enter a donor name or email to look up."**
+**Look up** needs a name or an email.
+
+**"Enter at least two letters of the name, or an email."**
+A name search needs at least two letters. An email address is enough on its own.
+
+**"Several donors match. Choose one."**
+More than one donor fits that name. Choose the button for the donor you mean.
+
+**"Donor not found. Enter your name and email below."**
+No donor of this trip's organization matches. Enter your name and email to give as a new donor.
+
 **"Stripe couldn't start the payment. Please try again."**
 Stripe didn't answer or refused the request. Try again in a moment; if it keeps happening, an Org Admin should check that the saved Stripe key is correct and active. If only credit card payments fail, the organization may have **Ask donors to cover processing fees** ticked without Stripe's approval for fee coverage: an Org Admin should untick it in **Edit organization** until Stripe approves the account.
 
