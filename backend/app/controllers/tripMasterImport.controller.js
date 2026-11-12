@@ -200,7 +200,9 @@ const fillApplication = async (trip, travelOptions, assignment, row, notes, tran
   if (roommate && roommate !== "none" && !assignment.hasPreferredRoommate && isBlank(assignment.preferredRoommateNames)) {
     Object.assign(changes, { hasPreferredRoommate: true, preferredRoommateNames: row.roommate });
   }
-  if (flightFee > 0 && isBlank(assignment.flightPurchaseOption)) changes.flightPurchaseOption = "organization";
+  if (isBlank(assignment.flightPurchaseOption)) {
+    changes.flightPurchaseOption = flightFee > 0 ? "organization" : "self";
+  }
   const cityNotes = [
     row.departureCity && `Departure city: ${row.departureCity}.`,
     row.arrivalCity && `Arrival city: ${row.arrivalCity}.`,

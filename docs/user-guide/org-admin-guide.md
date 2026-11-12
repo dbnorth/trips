@@ -123,7 +123,7 @@ It copies the details, passport requirement, deposit, leaders, primary leader, r
 - Each position must match one of the trip's roles by name. If any don't, nothing is imported and the dialog says "Add these worker roles to the trip, then import again." with the list.
 - People are matched by email and name, or created without a login. Matched people only get blank fields filled.
 - "Team Leader" rows become Approved Trip Leaders. Other rows become participants: Pre-Approved when **App Received** is "X", otherwise Incomplete. Rows under "CANCELLATIONS" are cancelled; the waiting list is skipped.
-- Travel notes, name tag answers, flight fees, and departure and arrival cities can fill trip options and flight details.
+- Travel notes, name tag answers, and departure and arrival cities can fill trip options and flight details. A **Flight Fee** above $0 means the organization books the flight; a blank fee, $0, or a fee that isn't a number means the participant books it. Either is filled in only when the application doesn't already say who books the flight. The fee itself isn't saved as a flight cost.
 - The result says "Imported *N* rows: *A* people added, *U* updated, *S* skipped." with a note for each row it couldn't read.
 
 To invite imported people to create a login, send a template that uses the create account link token.

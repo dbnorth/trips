@@ -511,7 +511,7 @@ describe("Feature 80 — Import Trip Master CSV", () => {
       const lopez = await assignmentOf(ana);
       expect(await selectedOptions(lopez)).toEqual(["Need HTI Name Tag", "Arrive Saturday"]);
       expect(Number(lopez.participantCost)).toBe(950);
-      expect(lopez.flightPurchaseOption).toBeNull();
+      expect(lopez.flightPurchaseOption).toBe("self");
 
       for (const [first, last] of [
         ["Andrea", "Fletcher"],
@@ -626,6 +626,58 @@ describe("Feature 80 — Import Trip Master CSV", () => {
 
       await applied.reload();
       expect(applied.flightNotes).toBe("Flying from Columbus");
+    });
+  });
+
+  describe("Feature 128 — US-128.1 Imported applications have a flight purchase choice", () => {
+    it("A flight fee above $0 means the organization books the flight", async () => {
+      await importFile(omar.authHeader);
+
+      const lyle = await assignmentOf(await personNamed("Lyle", "Lowry"));
+      expect(lyle.flightPurchaseOption).toBe("organization");
+      expect(await db.tripFlight.count({ where: { tripPeopleRoleId: lyle.id } })).toBe(0);
+    });
+
+    it("Every other imported application is booked by the participant", async () => {
+      await importFile(omar.authHeader);
+
+      const lopez = await assignmentOf(ana);
+      const kris = await assignmentOf(await personNamed("Kris", "Smith"));
+      expect(lopez.flightPurchaseOption).toBe("self");
+      expect(kris.flightPurchaseOption).toBe("self");
+    });
+
+    it("An existing choice is kept", async () => {
+      await db.tripPeopleRole.create({
+        tripId: trip.id,
+        peopleId: ana.id,
+        roleId: (await findRole("Trip Participant")).id,
+        status: "pre_approved",
+        flightPurchaseOption: "organization",
+      });
+      const lylePerson = await db.person.create({ firstName: "Lyle", lastName: "Lowry", email: "lyle@example.org" });
+      await db.tripPeopleRole.create({
+        tripId: trip.id,
+        peopleId: lylePerson.id,
+        roleId: (await findRole("Trip Participant")).id,
+        status: "pre_approved",
+        flightPurchaseOption: "self",
+      });
+
+      await importFile(omar.authHeader);
+
+      expect((await assignmentOf(ana)).flightPurchaseOption).toBe("organization");
+      expect((await assignmentOf(lylePerson)).flightPurchaseOption).toBe("self");
+    });
+
+    it("An unreadable flight fee is noted and booked by the participant", async () => {
+      const response = await importFile(omar.authHeader, SAMPLE.toString().replace("$40.00", "tba"));
+
+      expect(response.status).toBe(200);
+      expect(response.body.notes).toContainEqual(
+        expect.objectContaining({ name: "Lyle Lowry", message: 'flight fee "tba" wasn\'t read.' })
+      );
+      expect((await assignmentOf(await personNamed("Lyle", "Lowry"))).flightPurchaseOption).toBe("self");
     });
   });
 });
