@@ -148,6 +148,10 @@ The participant or staff can cancel; both are asked "Are you sure?". Uncancellin
 - A donation **counts** when it's Check, Other, or Succeeded. Only counted donations go into amount raised, amount owed, trip totals, the deposit and fully-paid checks, and the public pages. Processing and Failed donations still appear on the **Donations** page and in its CSV.
 - When an organization asks donors to cover processing fees, Stripe's credit card page offers the fee on top of the gift (Stripe works out the amount; the donor can remove it). A donation's amount is the gift only; the fee the donor covered is recorded separately as **Fee covered** and never counts toward any total or balance. Bank account payments are never asked.
 - A Stripe donation's amount, date, and type can't be changed; refunds are done in Stripe.
+- Every donor belongs to one organization. The Donors list, add, edit, and import use the organization selected in the menu bar. The same email may be a donor of another organization, and a blank email is allowed. Lookup and reuse of a donor for a donation use the trip's organization only.
+- **Import** on **Donors** reads a donor contact list. A row updates a donor of this organization when the email matches, when the name in the file is the same name already stored, or when the first and last name both match. That update replaces the name and **Donor type**. Every other row is added as **Active**. **Donor status** is left as it is on an update.
+- **Donor type** is **Organization** or **Individual**. It starts as **Individual**, including for donors saved before the field existed. An **Individual** is named by first and last name, and may have a **Family name**. An **Organization** is named by **Organization name**, and first name, last name, and family name are left blank. **Import** sets the type from the name. A name that contains & is **Individual**: the whole name is **Family name**, the name before & is the first name, and the last word is the last name. Church, college, university, company, c of c, or a name in all capital letters is **Organization** and the whole name is kept. Any other name is **Individual**, using the first and last words and leaving out a middle name or middle initial, with **Family name** blank.
+- **Donor status** is **Active**, **Inactive**, or **No Email**. **No Email** leaves the donor off **Email donors**. It does not stop the **Trip donation** email or the **Thank you for donation** email.
 
 ## Rooming
 
@@ -166,6 +170,8 @@ The participant or staff can cancel; both are asked "Are you sure?". Uncancellin
 
 - **Send Now** emails go out when something happens: application started, submitted, or approved; donation received; deposit reached; fully paid; document reload requested. They go only to Trip Participants.
 - Donation emails go out when a donation starts counting (a Check or Other is saved, or a Stripe payment succeeds), not when it's edited and never for a Failed payment. The **Trip donation** email goes to both the participant and the donor.
+- **Thank you for donation** goes to the donor when the donor entered a donation that starts counting: a public donation page, Home **Donate**, or My Trip **Make Donation**. A bank payment sends it when the payment succeeds, not while it is Processing. Staff **Add donation** and staff **Pay with Stripe** do not send it. A donor with no email gets nothing. **No Email** does not stop it. The **Trip donation** email is still sent as well.
+- **Donor** templates belong to the organization, have no schedule, and are sent only from **Email** on the Donors page. A trip template can't use **Donor**.
 - **Scheduled** emails go out each morning to the people their rule picks:
   - application incomplete → Incomplete applications;
   - documents missing → Pre-Approved people missing a trip document;

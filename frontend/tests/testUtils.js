@@ -32,6 +32,8 @@ const feature1Routes = [
   { path: "/medical-conditions", name: "medicalConditions", component: Stub },
   { path: "/people", name: "people", component: Stub },
   { path: "/trips", name: "trips", component: Stub },
+  { path: "/donations", name: "donations", component: Stub },
+  { path: "/donors", name: "donors", component: Stub },
   { path: "/trips/:tripId", name: "tripView", component: Stub, props: true },
   { path: "/trips/:tripId/rooming", name: "tripRooming", component: Stub, props: true },
   { path: "/trips/:tripId/flights", name: "tripFlights", component: Stub, props: true },

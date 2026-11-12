@@ -342,7 +342,9 @@ exports.donationsCsv = async (req, res) => {
       paymentMethod: paymentMethodText(d),
       participant: d.participant ? `${d.participant.firstName} ${d.participant.lastName}` : "",
       donor: d.donor
-        ? `${d.donor.firstName || ""} ${d.donor.lastName || ""}`.trim()
+        ? d.donor.donorType === "organization"
+          ? d.donor.organizationName || ""
+          : `${d.donor.firstName || ""} ${d.donor.lastName || ""}`.trim()
         : "",
       donorEmail: d.donor?.email || "",
       paymentInfo: d.paymentInfo || "",

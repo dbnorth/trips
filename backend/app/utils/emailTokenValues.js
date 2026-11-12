@@ -58,6 +58,11 @@ export const VALUE_SOURCES = [
   { valueSource: "donation.type", label: "Donation type" },
   { valueSource: "donation.amount", label: "Donation amount" },
   { valueSource: "donation.feeCovered", label: "Donation fee covered" },
+  { valueSource: "donor.firstName", label: "Donor first name" },
+  { valueSource: "donor.lastName", label: "Donor last name" },
+  { valueSource: "donor.email", label: "Donor email" },
+  { valueSource: "donor.previousYearDonations", label: "Donor previous year donations" },
+  { valueSource: "donor.previousYearTotal", label: "Donor previous year total" },
 ];
 
 export const VALUE_SOURCE_KEYS = new Set(VALUE_SOURCES.map((s) => s.valueSource));
@@ -66,6 +71,7 @@ export const EMAIL_VALUE_SOURCES = new Set([
   "organization.email",
   "participant.email",
   "primaryLeader.email",
+  "donor.email",
 ]);
 
 /** Value sources that name a file a template can attach. */
@@ -185,14 +191,52 @@ export const participantAmounts = async (trip, personId, assignment) => {
   return { raised, total: totalTripCost, owed: amountOwed(totalTripCost, raised) };
 };
 
+const emailTimeZone = () => process.env.SCHEDULED_EMAIL_TIMEZONE || "America/Chicago";
+
 /** Calendar date (`YYYY-MM-DD`) of a timestamp in the app's email time zone. */
 const localDate = (value) =>
   new Intl.DateTimeFormat("en-CA", {
-    timeZone: process.env.SCHEDULED_EMAIL_TIMEZONE || "America/Chicago",
+    timeZone: emailTimeZone(),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).format(new Date(value));
+
+/** Calendar year of a timestamp in the app's email time zone. */
+export const emailCalendarYear = (value = new Date()) =>
+  Number(new Intl.DateTimeFormat("en-US", { timeZone: emailTimeZone(), year: "numeric" }).format(new Date(value)));
+
+/** Calendar year of a donation date in the app's email time zone. */
+export const donationCalendarYear = (value) => Number(localDate(value).slice(0, 4));
+
+/** Counting donations from the previous calendar year for this donor's organization. */
+const previousYearDonationValues = async (donor) => {
+  if (!donor) return { list: "", total: "" };
+  const year = emailCalendarYear() - 1;
+  const rows = await db.tripDonation.findAll({
+    where: countedDonations({ donorId: donor.id }),
+    include: [
+      { model: db.trip, as: "trip", attributes: ["id", "name", "orgId"] },
+      { model: db.person, as: "participant", attributes: ["firstName", "lastName"] },
+    ],
+    order: [
+      ["dateTime", "ASC"],
+      ["id", "ASC"],
+    ],
+  });
+  const lines = [];
+  let sum = 0;
+  for (const row of rows) {
+    if (!row.trip || Number(row.trip.orgId) !== Number(donor.orgId)) continue;
+    if (donationCalendarYear(row.dateTime) !== year) continue;
+    const participant = [row.participant?.firstName, row.participant?.lastName].filter(Boolean).join(" ").trim();
+    const parts = [formatDate(localDate(row.dateTime)), formatMoney(row.amount), row.trip.name];
+    if (participant) parts.push(participant);
+    lines.push(parts.join(" — "));
+    sum += Number(row.amount) || 0;
+  }
+  return { list: lines.join("\n"), total: formatMoney(sum) };
+};
 
 const sumAmounts = (amounts) => amounts.reduce((total, amount) => total + amount, 0);
 
@@ -341,10 +385,13 @@ export const buildSourceValues = async ({
   personId = null,
   reload = null,
   donation = null,
+  donorId = null,
 }) => {
   const org = orgId != null ? await db.organization.findByPk(orgId) : null;
   const trip = tripId != null ? await loadTripWithArrivalPdf(tripId) : null;
   const person = personId != null ? await db.person.findByPk(personId) : null;
+  const donor = donorId != null ? await db.donor.findByPk(donorId) : null;
+  const previousYear = await previousYearDonationValues(donor);
   const leader = trip ? await loadPrimaryLeader(trip.id) : null;
 
   let amountRaised = "";
@@ -411,6 +458,11 @@ export const buildSourceValues = async ({
     "donation.type": text(donation?.donationType),
     "donation.amount": formatMoney(donation?.amount),
     "donation.feeCovered": formatMoney(donation?.processingFeeAmount),
+    "donor.firstName": donor?.donorType === "organization" ? text(donor?.organizationName) : text(donor?.firstName),
+    "donor.lastName": donor?.donorType === "organization" ? "" : text(donor?.lastName),
+    "donor.email": text(donor?.email),
+    "donor.previousYearDonations": previousYear.list,
+    "donor.previousYearTotal": previousYear.total,
   };
 };
 

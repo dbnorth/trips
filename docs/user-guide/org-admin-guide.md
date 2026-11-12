@@ -232,6 +232,80 @@ Sends a **Person** template to people across trips.
 
 Recipients are Approved participants and leaders on the chosen trips with the chosen roles, each once ("Recipients: *N* person/people"). **Preview** shows one person's email; **Send** asks for confirmation and then shows the sending status.
 
+## Donors page
+
+**Donors** in the menu bar, after **Donations**. Org Admins and System Admins only. A System Admin with **All organizations** selected sees "Select an organization in the menu bar."
+
+Donors belong to the organization selected in the menu bar. The same email can be a donor of another organization. There is no delete.
+
+| Column | Shows |
+|--------|-------|
+| **Name** | The organization name, or the first and last name. |
+| **Family name** | The family name, or blank. |
+| **Type** | **Organization** or **Individual**. |
+| **Email** | Their email. |
+| **City** | Their city. |
+| **Status** | **Active**, **Inactive**, or **No Email**. |
+| **Actions** | **Edit** opens **Edit donor**. |
+
+The list is ordered by that name: organization name, or last name then first name.
+
+| Button | What it does |
+|--------|--------------|
+| **Email** | Opens [Email donors](#email-donors). |
+| **Import** | Opens [Import donors](#import-donors). |
+| **Add donor** | Opens **Add donor**. |
+
+### Add donor / Edit donor
+
+| Field | Notes |
+|-------|-------|
+| **Donor type** | **Organization** or **Individual**. Starts as **Individual**. Anything else is refused with "Donor type must be Organization or Individual." |
+| **Organization name** | Shown for **Organization**. Required ("Organization name is required."). First name, last name, and family name are not stored. |
+| **First name** | Shown for **Individual**. Required ("Donor first name is required."). |
+| **Last name**, **Family name** | Shown for **Individual**. **Family name** is optional. |
+| **Email** | Saved in lowercase. The same email can't be saved twice in one organization ("A donor with this email already exists."). A blank email is allowed. |
+| **Address line 1**, **Address line 2**, **City**, **State/province**, **Postal code**, **Country** | The donor's mailing address. |
+| **Phone country code**, **Phone number** | Optional. |
+| **Donor status** | **Active**, **Inactive**, or **No Email**. Starts as Active. **No Email** means that donor can't be chosen in **Email donors**. It does not stop the **Trip donation** or **Thank you for donation** emails. |
+
+**Save** keeps the donor in this organization. Editing can't move a donor to another organization.
+
+### Import donors
+
+**Import** opens **Import donors**. Choose a **Donor contact list** saved as CSV, then **Import**. The file needs the columns Donor full name, Phone numbers, Email, Full name, Bill address, and Ship address.
+
+A row is added as **Active**. A row updates a donor of this organization when the email matches, when the name in the file is the same name already stored, or when the first and last name match. That update replaces the name and **Donor type**. A donor of another organization is left as they are, and a new donor is added here. A later row for the same donor updates the earlier one. A row with no name, or a name that is only a number, is skipped. An update does not change **Donor status**.
+
+**Donor type** is set from the name. A name that contains & is **Individual**. The whole name is stored as **Family name**, the name before & is the first name, and the last word is the last name. A name that contains church, college, university, company, or c of c, or that is written in all capital letters, is **Organization**. The whole name is stored as **Organization name**. Any other name is **Individual**. The first word is the first name and the last word is the last name, and **Family name** is left blank. A middle name or middle initial is left out. An update sets **Donor type** and that name again.
+
+The name comes from Full name when that cell has text, and otherwise from Donor full name. A trailing (Donor) or (Dpnor) is dropped.
+
+The address comes from Bill address, or from Ship address when the bill address is blank. An address that ends with a two-letter state and a ZIP code fills **State/province**, **Postal code**, and **Country**. The city is the part after the street, or the last word when the street has no street word such as Dr, Rd, or St. A phone like Phone:(615) 370-9849 is saved with country code 1. A blank email, phone, or address on an update leaves what is already stored.
+
+When the file is accepted, the dialog says "Imported *N* rows: *N* added, *N* updated, *N* skipped." **Close** returns to the list.
+
+A file that is not a CSV, or is larger than 5 MB, is refused with "Choose a CSV file up to 5 MB." A file missing one of those columns is refused with "This file isn't a donor contact list. Missing columns: " and the missing column names.
+
+### Email donors
+
+**Email** opens **Email donors**. It sends one email to each checked donor, to that donor's own email.
+
+| Field | Choices | Notes |
+|-------|---------|-------|
+| **Template** | The organization's Donor templates, by subject | Required. Choosing one fills **Subject** and **Email body**, which you can edit for this send only. When there are none: "No Donor templates. Add one under Email templates." |
+| **Subject**, **Email body** | — | Required. |
+| **Donors** | **All**, **Donated this year**, or **Donated to a trip** | Starts as **All**. **Donated this year** is a counted donation dated this calendar year. **Donated to a trip** then requires **Trip** (the organization's trips, any status, newest start date first). |
+| **Trip** | One of the organization's trips | Shown for **Donated to a trip**. |
+
+The list shows matching donors by the same name order as the Donors page, with a checkbox each and **Select all**. An organization is listed by its organization name. Donors marked **No Email**, and donors with no email address, are left off the list. "Recipients: *N*". **All** includes donors who have never given; the other two choices do not. Changing the choice or the trip clears checks for donors no longer listed.
+
+**Preview** and **Send** stay off until a template is chosen, subject and body are filled in, a trip is chosen when the choice is **Donated to a trip**, and at least one donor is checked.
+
+**Preview as** starts as the first checked donor. **Preview** shows From, Reply-To, To, Subject, and the body for that donor and sends nothing. To is the donor's own email. Organization and donor tokens fill in, including last year's gifts. Trip, participant, leader, and donation tokens are blank.
+
+**Send** asks "Are you sure?" / "Send this email to *N* donors?". One email goes to each checked donor. One skip or failure doesn't stop the rest. The result reads "Sent *N*, skipped *N*, failed *N*" and names each skipped or failed donor with the reason.
+
 ## Worker roles page
 
 **Worker roles** in the menu bar. Worker roles are the jobs on a team, such as Nurse, Doctor, or General Helper.
@@ -358,6 +432,7 @@ Each **Insert token** list beside a field adds a token at the cursor. The lists 
 | **Scheduled** | Automatically, each morning, by its **Schedule**, to the people its email type picks. |
 | **Trip Participant** | By trip staff, from **Email team** on the trip page or **Email flight itinerary** on the Flights page ("Manual"). |
 | **Person** | By Org Admins, from **Email** on the People page ("Manual"). Can't belong to a trip. |
+| **Donor** | By Org Admins, from **Email** on the Donors page ("Manual"). Can't belong to a trip ("Donor templates cannot belong to a trip."). |
 
 ### The email body editor
 
@@ -394,6 +469,8 @@ Each template has an email type. Its **Event description** (the info icon in the
 | **Trip team update**, **Trip financial statement**, **Trip arrival info**, **Account invitation** | Not automatic. Sent by trip staff from **Email team**. |
 | **Flight itinerary** | Not automatic. Sent from **Email flight itinerary** on the Flights page. |
 | **People update** | Not automatic. Sent by Org Admins from **Email** on the People page. |
+| **Donor update**, **Annual donation** | Not automatic. Sent by Org Admins from **Email** on the Donors page. |
+| **Thank you for donation** | Send Now: a donor enters a donation and it starts counting, from a public donation page, Home **Donate**, or My Trip **Make Donation**. Goes to the donor's email only. Staff **Add donation** and staff **Pay with Stripe** do not send it. A bank payment sends it when the payment succeeds, not while it is Processing. Edits and Failed payments do not send it. A donor with no email gets nothing. **No Email** does not stop it. The **Trip donation** email is still sent as well. |
 
 Send Now emails go only to Trip Participants, except **Trip donation**, which also goes to the donor. A person gets each scheduled email at most once a day.
 
@@ -420,7 +497,10 @@ Tokens are placeholders written as `{{CODE}}` that are filled in for each recipi
 | `{{PARTICIPANT_AMOUNT_OWED}}`, `{{PARTICIPANT_BALANCE_DUE}}` | Total trip cost minus counted donations, never below $0. |
 | `{{PARTICIPANT_DONATIONS}}`, `{{PARTICIPANT_DONATIONS_TOTAL}}` | Each counted donation they gave themselves (date and amount), and the total. |
 | `{{PARTICIPANT_TRIP_DONATIONS}}`, `{{PARTICIPANT_TRIP_DONATIONS_TOTAL}}` | Each counted donation others gave them, and the total. |
-| `{{DONATION_DATE}}`, `{{DONATION_TYPE}}`, `{{DONATION_AMOUNT}}`, `{{DONATION_FEE_COVERED}}` | In the **Trip donation** email only: the donation's date, type (Stripe-ACH, Stripe-Credit, Check, or Other), amount (the gift), and the processing fee the donor covered (blank when they didn't). Blank elsewhere. |
+| `{{DONATION_DATE}}`, `{{DONATION_TYPE}}`, `{{DONATION_AMOUNT}}`, `{{DONATION_FEE_COVERED}}` | In the **Trip donation** email and the **Thank you for donation** email: the donation's date, type (Stripe-ACH, Stripe-Credit, Check, or Other), amount (the gift), and the processing fee the donor covered (blank when they didn't). Blank elsewhere. |
+| `{{DONOR_FIRST_NAME}}`, `{{DONOR_LAST_NAME}}`, `{{DONOR_EMAIL}}` | The donor's name and email. For an **Organization**, the first-name token is the organization name and the last-name token is blank. Filled in on **Email donors** and **Thank you for donation**. Blank in every other email. |
+| `{{DONOR_PREVIOUS_YEAR_DONATIONS}}` | The donor's counted gifts from the previous calendar year, oldest first: date, amount, trip name, and the participant's name when there is one. One gift per line, for example `03/02/2025 — $50.00 — Guatemala Clinic — Pat Lee`. A gift with no participant ends at the trip name. Blank when there were none. Filled in on **Email donors** and **Thank you for donation**. Blank in every other email. |
+| `{{DONOR_PREVIOUS_YEAR_TOTAL}}` | The total of that list, or `$0.00` when there were none. Filled in on **Email donors** and **Thank you for donation**. Blank in every other email. |
 | `{{PARTICIPANT_ARRIVAL_DATE}}`, `{{PARTICIPANT_DEPARTURE_DATE}}` | Their planned arrival and departure dates. |
 | `{{CREATE_ACCOUNT_LINK}}` | A link to create an account with their email and name filled in, or a sign-in link if they already have one. |
 | `{{ARRIVAL_FLIGHT}}`, `{{RETURN_FLIGHT}}` | Each flight leg: airline, flight number, airports, dates and times, class, and seat. |
@@ -429,7 +509,7 @@ Tokens are placeholders written as `{{CODE}}` that are filled in for each recipi
 | `{{RELOAD_DOCUMENT}}`, `{{RELOAD_DOCUMENT_TYPE}}`, `{{RELOAD_NOTE}}` | In the reload request email: the document, its type, and the staff note. |
 | `{{LEADER_FIRST_NAME}}`, `{{LEADER_LAST_NAME}}`, `{{LEADER_PREFERRED_NAME}}`, `{{LEADER_EMAIL}}`, `{{LEADER_PHONE}}` | The primary trip leader's name, email, and phone. |
 
-Email tokens (usable in **From email** and **To**) are `{{ORG_EMAIL}}`, `{{PARTICIPANT_EMAIL}}`, and `{{LEADER_EMAIL}}`. A System Admin can add more tokens.
+Email tokens (usable in **From email** and **To**) are `{{ORG_EMAIL}}`, `{{PARTICIPANT_EMAIL}}`, `{{LEADER_EMAIL}}`, and `{{DONOR_EMAIL}}`. A System Admin can add more tokens.
 
 Emails come from "*sender* via Mission Trips", with replies going to the **From email**. Every email sent is logged.
 

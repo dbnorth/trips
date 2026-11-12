@@ -2,6 +2,7 @@ import db from "../models/index.js";
 import { isTripParticipantForTrip } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
 import { normalizeEmail } from "../utils/userPerson.js";
+import { donorNameFields } from "../utils/donorName.js";
 import { sendCountedDonationEmails } from "../utils/eventEmails.js";
 import {
   canManageDonations,
@@ -49,6 +50,8 @@ const STRIPE_LOCKED_FIELDS = [
 const donorFields = [
   "firstName",
   "lastName",
+  "familyName",
+  "organizationName",
   "addLine1",
   "addLine2",
   "city",
@@ -59,6 +62,7 @@ const donorFields = [
   "phoneNumber",
   "email",
   "status",
+  "donorType",
 ];
 
 const loadDonation = (id) =>
@@ -74,46 +78,67 @@ const pickDonorPayload = (donor) => {
   for (const key of donorFields) {
     if (Object.prototype.hasOwnProperty.call(donor, key)) payload[key] = donor[key];
   }
-  if (payload.email) payload.email = normalizeEmail(payload.email);
+  if (Object.prototype.hasOwnProperty.call(payload, "email")) payload.email = normalizeEmail(payload.email);
   return payload;
 };
 
-const upsertDonor = async (donorBody, donorId) => {
+const donorByEmail = (orgId, email) =>
+  Donor.findOne({
+    where: {
+      orgId,
+      [Op.and]: [db.sequelize.where(db.sequelize.fn("LOWER", db.sequelize.col("email")), email)],
+    },
+  });
+
+const namePayload = (donorBody, fallbackType) => {
+  const payload = pickDonorPayload(donorBody || {});
+  const names = donorNameFields(payload, payload.donorType || fallbackType || "individual");
+  if (names.error) throw new Error(names.error);
+  return { ...payload, ...names };
+};
+
+const NAME_MESSAGES = new Set(["Donor first name is required.", "Organization name is required."]);
+
+const upsertDonor = async (donorBody, donorId, orgId) => {
   if (donorId) {
-    const existing = await Donor.findByPk(donorId);
-    if (!existing) return null;
-    if (donorBody) await existing.update(pickDonorPayload(donorBody));
-    return existing;
+    const existing = await Donor.findOne({ where: { id: donorId, orgId } });
+    if (existing) {
+      if (donorBody) await existing.update(namePayload(donorBody, existing.donorType));
+      return existing;
+    }
   }
-  if (!donorBody?.firstName?.trim()) {
-    throw new Error("Donor first name is required.");
-  }
-  const payload = pickDonorPayload(donorBody);
+  const payload = namePayload(donorBody);
   if (payload.email) {
-    const existing = await Donor.findOne({
-      where: db.sequelize.where(db.sequelize.fn("LOWER", db.sequelize.col("email")), payload.email),
-    });
+    const existing = await donorByEmail(orgId, payload.email);
     if (existing) {
       await existing.update(payload);
       return existing;
     }
   }
-  return Donor.create(payload);
+  return Donor.create({ ...payload, orgId });
 };
 
 class PersonNotFoundError extends Error {}
 
 /** Staff save with `donor.personId` and no chosen donor: use or create the person's linked donor. */
-const linkedDonorForStaffSave = async (req, tripId, donorBody) => {
+const linkedDonorForStaffSave = async (req, tripId, donorBody, orgId) => {
   const person = await findDonatablePerson(req, tripId, { id: donorBody.personId });
   if (!person) throw new PersonNotFoundError("Person not found.");
-  const payload = pickDonorPayload(donorBody);
-  const existing = await Donor.findOne({ where: { personId: person.id } });
+  const payload = namePayload(donorBody, "individual");
+  const existing = await Donor.findOne({ where: { personId: person.id, orgId } });
   if (existing) {
     await existing.update(payload);
     return existing;
   }
-  return Donor.create({ ...payload, personId: person.id });
+  if (payload.email) {
+    const byEmail = await donorByEmail(orgId, payload.email);
+    if (byEmail) {
+      if (!byEmail.personId) await byEmail.update({ ...payload, personId: person.id });
+      else await byEmail.update(payload);
+      return byEmail;
+    }
+  }
+  return Donor.create({ ...payload, personId: person.id, orgId });
 };
 
 /** Approved participant or any active application assignment for this trip. */
@@ -170,9 +195,16 @@ const pickDonationFields = (body) => {
   return picked;
 };
 
+const tripOrgId = async (tripId) =>
+  (await db.trip.findByPk(tripId, { attributes: ["orgId"] }))?.orgId ?? null;
+
 /** Donor for a staff save: the chosen donor, the person's linked donor, or one found or created from the details. */
-const staffDonor = (req, tripId, donor, donorId) =>
-  donor?.personId && !donorId ? linkedDonorForStaffSave(req, tripId, donor) : upsertDonor(donor, donorId);
+const staffDonor = async (req, tripId, donor, donorId) => {
+  const orgId = await tripOrgId(tripId);
+  return donor?.personId && !donorId
+    ? linkedDonorForStaffSave(req, tripId, donor, orgId)
+    : upsertDonor(donor, donorId, orgId);
+};
 
 const sendCheckout = async (res, checkoutOptions) => {
   try {
@@ -236,7 +268,9 @@ exports.create = async (req, res) => {
     await sendCountedDonationEmails(data);
     res.send(await loadDonation(data.id));
   } catch (err) {
-    if (err instanceof PersonNotFoundError) return res.status(400).send({ message: err.message });
+    if (err instanceof PersonNotFoundError || NAME_MESSAGES.has(err.message)) {
+      return res.status(400).send({ message: err.message });
+    }
     res.status(500).send({ message: err.message });
   }
 };
@@ -250,8 +284,9 @@ exports.createStaffCheckout = async (req, res) => {
     }
     const inputError = checkoutInputError({ amount, paymentMethod });
     if (inputError) return res.status(400).send({ message: inputError });
-    if (!donorId && !donor?.firstName?.trim()) {
-      return res.status(400).send({ message: "Donor first name is required." });
+    if (!donorId) {
+      const names = donorNameFields(donor, donor?.donorType || "individual");
+      if (names.error) return res.status(400).send({ message: names.error });
     }
     let participant = null;
     if (personId != null && personId !== "") {
@@ -337,16 +372,18 @@ exports.update = async (req, res) => {
     }
     donationBody.version = body.version;
     if (donor?.personId && !donorId) {
-      const donorRecord = await linkedDonorForStaffSave(req, row.tripId, donor);
+      const donorRecord = await linkedDonorForStaffSave(req, row.tripId, donor, await tripOrgId(row.tripId));
       donationBody.donorId = donorRecord.id;
     } else if (donor || donorId) {
-      await upsertDonor(donor, donorId || row.donorId);
+      await upsertDonor(donor, donorId || row.donorId, await tripOrgId(row.tripId));
     }
     const result = await optimisticUpdate(TripDonation, req.params.id, donationBody, fields);
     if (!result.ok) return res.status(result.status).send({ message: result.message });
     res.send(await loadDonation(req.params.id));
   } catch (err) {
-    if (err instanceof PersonNotFoundError) return res.status(400).send({ message: err.message });
+    if (err instanceof PersonNotFoundError || NAME_MESSAGES.has(err.message)) {
+      return res.status(400).send({ message: err.message });
+    }
     res.status(500).send({ message: err.message });
   }
 };

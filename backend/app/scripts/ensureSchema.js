@@ -3,8 +3,8 @@ import logger from "../config/logger.js";
 import fs from "fs";
 import { LANGUAGE_SEED } from "../data/languages.js";
 import { VALUE_SOURCES } from "../utils/emailTokenValues.js";
-import { TRIP_DONATION_EMAIL_TYPE } from "./seedEmailTypes.js";
-import { DONATION_TOKENS } from "./seedEmailTokens.js";
+import { DONOR_THANK_YOU_EMAIL_TYPE, TRIP_DONATION_EMAIL_TYPE } from "./seedEmailTypes.js";
+import { DONATION_TOKENS, DONOR_TOKENS } from "./seedEmailTokens.js";
 
 export const tableExists = async (table) => {
   const [rows] = await db.sequelize.query(
@@ -218,6 +218,230 @@ const ensureTripDonationEmail = async () => {
       defaults: { description: labels.get(valueSource), valueSource },
     });
     if (tokenCreated) logger.info(`${tokenCode} email token added.`);
+  }
+};
+
+const DONOR_NOT_SENT =
+  "This email is not sent automatically. Org Admins send it from Email on the Donors page.";
+
+const DONOR_EMAIL_TYPES = [
+  {
+    typeCode: "donor-update",
+    description: "Donor update",
+    eventCode: "team-email",
+    eventDescription: DONOR_NOT_SENT,
+  },
+  {
+    typeCode: "annual-donation",
+    description: "Annual donation",
+    eventCode: "team-email",
+    eventDescription: DONOR_NOT_SENT,
+  },
+  DONOR_THANK_YOU_EMAIL_TYPE,
+];
+
+/** Feature 130: Donor email types and donor tokens. */
+const ensureDonorEmail = async () => {
+  for (const { typeCode, ...defaults } of DONOR_EMAIL_TYPES) {
+    const [, created] = await db.emailType.findOrCreate({ where: { typeCode }, defaults });
+    if (created) logger.info(`${typeCode} email type added.`);
+  }
+  const labels = new Map(VALUE_SOURCES.map((s) => [s.valueSource, s.label]));
+  for (const { tokenCode, valueSource } of DONOR_TOKENS) {
+    const [, tokenCreated] = await db.emailToken.findOrCreate({
+      where: { tokenCode },
+      defaults: { description: labels.get(valueSource), valueSource },
+    });
+    if (tokenCreated) logger.info(`${tokenCode} email token added.`);
+  }
+};
+
+const donorContact = (donor) => {
+  const plain = donor.get({ plain: true });
+  const { id, orgId, personId, version, createdAt, updatedAt, ...rest } = plain;
+  return rest;
+};
+
+/** Feature 130: Donor type Organization or Individual. Donors saved before the column are Individual. */
+const ensureDonorType = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'donors'
+       AND COLUMN_NAME = 'donorType'`
+  );
+  if (rows.length) return;
+  await db.sequelize.query(
+    "ALTER TABLE donors ADD COLUMN donorType ENUM('organization', 'individual') NOT NULL DEFAULT 'individual' AFTER status"
+  );
+  logger.info("donors.donorType column added.");
+};
+
+/** Feature 130: an organization donor is named by organizationName. Move a name that was stored as first name. */
+const ensureDonorOrganizationName = async () => {
+  const [columns] = await db.sequelize.query(
+    `SELECT COLUMN_NAME, IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'donors'
+       AND COLUMN_NAME IN ('organizationName', 'firstName')`
+  );
+  const byName = new Map(columns.map((row) => [row.COLUMN_NAME, row]));
+  if (!byName.has("organizationName")) {
+    await db.sequelize.query("ALTER TABLE donors ADD COLUMN organizationName VARCHAR(255) NULL AFTER lastName");
+    logger.info("donors.organizationName column added.");
+  }
+  if (byName.get("firstName")?.IS_NULLABLE === "NO") {
+    await db.sequelize.query("ALTER TABLE donors MODIFY firstName VARCHAR(255) NULL");
+    logger.info("donors.firstName may be blank for an organization.");
+  }
+  await db.sequelize.query(
+    `UPDATE donors
+     SET organizationName = firstName
+     WHERE donorType = 'organization'
+       AND (organizationName IS NULL OR organizationName = '')
+       AND firstName IS NOT NULL
+       AND firstName <> ''`
+  );
+  await db.sequelize.query(
+    `UPDATE donors
+     SET firstName = NULL, lastName = NULL
+     WHERE donorType = 'organization'
+       AND organizationName IS NOT NULL
+       AND organizationName <> ''`
+  );
+};
+
+/** Feature 130: Family name for an individual whose name contains &. */
+const ensureDonorFamilyName = async () => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'donors'
+       AND COLUMN_NAME = 'familyName'`
+  );
+  if (rows.length) return;
+  await db.sequelize.query("ALTER TABLE donors ADD COLUMN familyName VARCHAR(255) NULL AFTER lastName");
+  logger.info("donors.familyName column added.");
+};
+
+/** Feature 130: each donor belongs to one organization. Split donors who gave to more than one. */
+const ensureDonorOrganization = async () => {
+  const [columns] = await db.sequelize.query(
+    `SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'donors'
+       AND COLUMN_NAME = 'orgId'`
+  );
+  if (!columns.length) {
+    await db.sequelize.query("ALTER TABLE donors ADD COLUMN orgId INT NULL");
+    logger.info("donors.orgId column added.");
+  }
+
+  const unplaced = await db.donor.findAll({ where: { orgId: null } });
+  for (const donor of unplaced) {
+    const donations = await db.tripDonation.findAll({
+      where: { donorId: donor.id },
+      include: [{ model: db.trip, as: "trip", attributes: ["id", "orgId"], required: true }],
+      order: [
+        ["dateTime", "ASC"],
+        ["id", "ASC"],
+      ],
+    });
+    const orgOrder = [];
+    for (const row of donations) {
+      if (!orgOrder.includes(row.trip.orgId)) orgOrder.push(row.trip.orgId);
+    }
+    if (!orgOrder.length && donor.personId) {
+      const role = await db.orgPeopleRole.findOne({
+        where: { peopleId: donor.personId },
+        order: [["id", "ASC"]],
+      });
+      if (role) orgOrder.push(role.orgId);
+    }
+    if (!orgOrder.length) {
+      await donor.destroy();
+      continue;
+    }
+    await donor.update({ orgId: orgOrder[0] });
+    const contact = donorContact(donor);
+    const checkouts = await db.donationCheckout.findAll({
+      where: { donorId: donor.id },
+      include: [{ model: db.trip, as: "trip", attributes: ["orgId"], required: true }],
+    });
+    for (const orgId of orgOrder.slice(1)) {
+      const copy = await db.donor.create({ ...contact, orgId, personId: null, status: donor.status || "active" });
+      const donationIds = donations.filter((row) => row.trip.orgId === orgId).map((row) => row.id);
+      if (donationIds.length) {
+        await db.tripDonation.update({ donorId: copy.id }, { where: { id: donationIds } });
+      }
+      const checkoutIds = checkouts.filter((row) => row.trip.orgId === orgId).map((row) => row.id);
+      if (checkoutIds.length) {
+        await db.donationCheckout.update({ donorId: copy.id }, { where: { id: checkoutIds } });
+      }
+    }
+  }
+
+  const [stillNull] = await db.sequelize.query(
+    `SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'donors'
+       AND COLUMN_NAME = 'orgId'`
+  );
+  if (stillNull[0]?.IS_NULLABLE === "YES") {
+    await db.sequelize.query("DELETE FROM donors WHERE orgId IS NULL");
+    await db.sequelize.query("ALTER TABLE donors MODIFY orgId INT NOT NULL");
+    logger.info("donors.orgId is required.");
+  }
+
+  const [indexes] = await db.sequelize.query(
+    `SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'donors'`
+  );
+  const indexNames = new Set(indexes.map((row) => row.INDEX_NAME));
+  if (indexNames.has("donors_personId_unique")) {
+    const [personFks] = await db.sequelize.query(
+      `SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'donors'
+         AND COLUMN_NAME = 'personId'
+         AND REFERENCED_TABLE_NAME IS NOT NULL`
+    );
+    for (const row of personFks) {
+      await db.sequelize.query(`ALTER TABLE donors DROP FOREIGN KEY \`${row.CONSTRAINT_NAME}\``);
+    }
+    await db.sequelize.query("ALTER TABLE donors DROP INDEX donors_personId_unique");
+    await db.sequelize.query(
+      `ALTER TABLE donors
+       ADD CONSTRAINT donors_personId_fk
+       FOREIGN KEY (personId) REFERENCES people(id)
+       ON DELETE SET NULL ON UPDATE CASCADE`
+    );
+    logger.info("donors.personId unique index removed.");
+  }
+  if (!indexNames.has("donors_orgId_personId_unique")) {
+    await db.sequelize.query(
+      "ALTER TABLE donors ADD UNIQUE INDEX donors_orgId_personId_unique (orgId, personId)"
+    );
+  }
+  if (!indexNames.has("donors_orgId_email_unique")) {
+    await db.sequelize.query("ALTER TABLE donors ADD UNIQUE INDEX donors_orgId_email_unique (orgId, email)");
+  }
+
+  const [fkRows] = await db.sequelize.query(
+    `SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'donors'
+       AND COLUMN_NAME = 'orgId'
+       AND REFERENCED_TABLE_NAME IS NOT NULL`
+  );
+  if (!fkRows.length) {
+    await db.sequelize.query(
+      `ALTER TABLE donors
+       ADD CONSTRAINT donors_orgId_fk
+       FOREIGN KEY (orgId) REFERENCES organizations(id)
+       ON DELETE CASCADE ON UPDATE CASCADE`
+    );
+    logger.info("donors.orgId foreign key added (ON DELETE CASCADE).");
   }
 };
 
@@ -1742,7 +1966,12 @@ export const ensureSchema = async () => {
   await ensureOrganizationStripeKeys();
   await ensureTripDonationStripeFields();
   await ensureTripDonationEmail();
+  await ensureDonorEmail();
   await ensureDonorPersonId();
+  await ensureDonorType();
+  await ensureDonorOrganizationName();
+  await ensureDonorFamilyName();
+  await ensureDonorOrganization();
   await ensureTripPeopleRoleTripWorkerRoleId();
   await ensurePersonProfileFields();
   await ensureTripPeopleRoleApplicationFields();

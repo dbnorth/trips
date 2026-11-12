@@ -1,7 +1,7 @@
 import db from "../models/index.js";
 import { orBlank, organizationHeader, drawOrganizationHeader, rowHeight, drawRow, renderPdf } from "./pdf.js";
 
-const FUNCTION_CODE_ORDER = ["Scheduled", "Send Now", "Trip Participant", "Person"];
+const FUNCTION_CODE_ORDER = ["Scheduled", "Send Now", "Trip Participant", "Person", "Donor"];
 const NO_FUNCTION_CODE = "No function code";
 const ALL_TRIPS = "All trips";
 
@@ -22,7 +22,9 @@ const scheduleText = (template) => {
 const whenSent = (template) => {
   if (template.functionCode === "Scheduled") return scheduleText(template);
   if (template.functionCode === "Send Now") return "On Event";
-  if (template.functionCode === "Trip Participant" || template.functionCode === "Person") return "Manual";
+  if (template.functionCode === "Trip Participant" || template.functionCode === "Person" || template.functionCode === "Donor") {
+    return "Manual";
+  }
   return orBlank(null);
 };
 
