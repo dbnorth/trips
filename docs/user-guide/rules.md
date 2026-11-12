@@ -83,7 +83,7 @@ A document is **Expired** from its expiration date on, including that day. The r
 
 ### Due date
 
-Documents are due **90 days before the trip starts**. The due date is guidance: it's shown in next steps, on the profile, and in reminder emails, but nothing is blocked when it passes.
+Documents are due **90 days before the trip starts**. The due date is guidance: it's shown in next steps, on the profile, and in reminder emails, but nothing is blocked when it passes. You can submit an application and secure a role before those documents are uploaded.
 
 ### Reviewed
 
@@ -125,7 +125,7 @@ Documents aren't part of these checks.
 
 ## Team roles and spots
 
-- Incomplete, Pre-Approved, and Approved applications each take a spot in their role. Declined and Cancelled ones free it.
+- Pre-Approved and Approved applications each take a spot in their role. Incomplete, Declined, and Cancelled ones do not. Submitting a complete application is what holds the spot.
 - **Available** = Number Needed − Signed up − Reserved.
 - Applicants can choose only roles with an available spot.
 - **Reserved spots** are held for specific people by email. A person with a reservation is placed in that role when they apply, can't switch roles, and can uncancel even if the role is full.

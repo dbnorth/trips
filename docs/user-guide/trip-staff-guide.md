@@ -172,7 +172,7 @@ Click **Team roles** to open it. The heading shows "*X* signed up / *Y* needed".
 | **Role** | The role, its description, and "Reserved emails: …". |
 | **Document type** | The documents the role requires. |
 | **Number Needed** | How many people the trip needs. Change it here; it saves right away. It can't go below the number of reserved emails. |
-| **Number Signed Up** | Incomplete, Pre-Approved, and Approved applications in this role. |
+| **Number Signed Up** | Pre-Approved and Approved applications in this role. Incomplete applications are not signed up. |
 | **Reserved** | Spots held for specific emails. |
 | **Actions** | **Reserved emails** opens the reservation list. **Remove** (red minus, only when nobody has signed up) takes the role off the trip right away. |
 | **Filled** | A green tick when every spot is taken, a red icon when spots are open. |

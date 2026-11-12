@@ -201,7 +201,14 @@ describe("Feature 121 — Complete Data for Active Trips", () => {
       const { wrapper } = await mountWithPlugins(EditTripApplicationView, {
         props: { tripId: 42 },
         router,
-        global: { stubs: { DonorTripHeading: true, EditPersonDialog: true, PersonProfileFields: true } },
+        global: {
+          stubs: {
+            DonorTripHeading: true,
+            EditPersonDialog: true,
+            PersonProfileFields: true,
+            VDialog: { props: ["modelValue"], template: '<div v-if="modelValue"><slot /></div>' },
+          },
+        },
       });
       await flushPromises();
       return wrapper;
@@ -227,6 +234,8 @@ describe("Feature 121 — Complete Data for Active Trips", () => {
       expect(primary.text()).toBe("Save Incomplete Application");
       expect(primary.attributes("disabled")).toBeUndefined();
       await primary.trigger("click");
+      await flushPromises();
+      await wrapper.find('[data-testid="incomplete-save-ok"]').trigger("click");
       await flushPromises();
 
       expect(TripServices.updateApplication).toHaveBeenCalledTimes(1);

@@ -96,8 +96,8 @@ Your health and language answers come from your profile and show on the applicat
 
 ### Saving and submitting
 
-- **Save Incomplete Application** saves your answers while something is still missing. The application stays **Incomplete**.
-- **Submit Application** appears when your profile and application are complete. Submitting makes it **Pre-Approved**.
+- **Save Incomplete Application** saves your answers while something is still missing. The application stays **Incomplete**. It does not hold a role spot. A warning above the button says "Saving an Incomplete application does not secure your role on the trip. Complete the application and required profile fields to be able to submit the application which will secure the role." Clicking the button asks you to confirm with **OK**: "Your application data will be saved, but a role on the trip has not yet been secured." **OK** saves and closes the application. On the application page, **OK** saves and returns to Home.
+- **Submit Application** appears when your profile and application are complete. A notice above the button says "Submitting the application will hold your role on the trip pending review of your documents once they are uploaded." Submitting makes it **Pre-Approved** and holds a role spot.
 - **Update Application** saves changes to a Pre-Approved application. While the trip hasn't ended, it stays disabled until everything required is filled in, and a list shows what's missing.
 
 Documents never block submitting. They're needed before approval.
@@ -227,7 +227,7 @@ Opened from **View** in **Trips you can apply for**. Once you've applied, openin
 |--------|-------|
 | **Role** | The role's name, with its description underneath. |
 | **Number Needed** | How many people the trip needs in this role. |
-| **Positions Filled** | Applications that hold a spot (Incomplete, Pre-Approved, or Approved). |
+| **Positions Filled** | Applications that hold a spot (Pre-Approved or Approved). |
 | **Reserved** | Spots held for specific people by email. |
 | **Available** | Open spots anyone can apply for. |
 
@@ -338,17 +338,20 @@ When you update a saved application, a blue box lists "Complete the following to
 
 If the application can't be saved at all, the box says why, for example "This application cannot be saved while its status is Approved.", "There are no trip roles with available positions.", or "This trip is not available right now."
 
+The questions scroll. The box above, and the warning or notice, stay with the buttons. **Save Incomplete Application** shows "Saving an Incomplete application does not secure your role on the trip. Complete the application and required profile fields to be able to submit the application which will secure the role." **Submit Application** shows "Submitting the application will hold your role on the trip pending review of your documents once they are uploaded." **Update Application** shows neither.
+
 ### Buttons
 
 | Button | When it shows | What it does |
 |--------|---------------|--------------|
-| **Save Incomplete Application** | Something is missing | Saves; the application stays Incomplete. |
-| **Submit Application** | Everything is complete | Saves and makes the application Pre-Approved. |
+| **Save Incomplete Application** | Something is missing | Opens "Your application data will be saved, but a role on the trip has not yet been secured." **OK** saves; the application stays Incomplete and does not hold a spot. |
+| **Submit Application** | Everything is complete | Saves and makes the application Pre-Approved, which holds a role spot. |
 | **Update Application** | Pre-Approved and complete | Saves your changes. Disabled while anything required is missing on a trip that hasn't ended. |
 | **Save Why go** | Approved | Saves only **Why go** and shows "Why go saved." Your status and other answers don't change. |
 | **Cancel** (red) | Incomplete, Pre-Approved, or Approved | Cancels the application after you confirm with **Cancel App**. |
 | **Uncancel** | Cancelled | Brings the application back after you confirm. |
 | **Close** | Always | Closes without saving. |
+| **OK** | After **Save Incomplete Application** | Saves the incomplete application, then closes the application. On the application page, returns to Home. |
 | **OK** | No spot is available for you | Closes the dialog. |
 
 ## My Trip
@@ -380,7 +383,7 @@ The trip name, city and country, description, picture, **Location**, **Dates**, 
 |------|-------|
 | **My fundraising page** and **Copy link** | Your public donation page, and a button that copies its address to share. Shown when you're Pre-Approved or Approved and the trip is active. |
 | **Update App** | Opens your application. Shown when you're Incomplete or Pre-Approved and no next step already offers it. |
-| Next steps | The same messages as on Home, without the deposit and donation steps. |
+| Next steps | The same messages as on Home, without the deposit and donation steps. When the message is "Complete missing information on your application and profile so you can submit your application.", the next line is "You do not have a role secured on this trip. Complete the application and profile required fields and submit the application." |
 | **Status** | Your application status. |
 | **Role** | Your trip role. |
 | **Arrive** / **Depart** | Your planned travel dates. An info icon explains when trip options or add-ons move them (for example "Trip option: Early arrival — 1 day before"). |
@@ -499,7 +502,7 @@ When you answer Yes to languages, choose **Add language** for each language you 
 
 ### Documents
 
-See [Documents](#documents) below. For your own profile, it starts with your upcoming trips and the documents each needs: "All documents for your trips must be uploaded 90 days before the trip starts." Each trip shows "*Trip* — starts *date*, due *date*", then each document marked **Uploaded** (green) or **Missing** (red) with what to fix.
+See [Documents](#documents) below. For your own profile, it starts with your upcoming trips and the documents each needs: "All documents for your trips must be uploaded 90 days before the trip starts. You can submit an application and secure a role on the trip without uploading the documents required for the trip." Each trip shows "*Trip* — starts *date*, due *date*", then each document marked **Uploaded** (green) or **Missing** (red) with what to fix.
 
 ## Documents
 

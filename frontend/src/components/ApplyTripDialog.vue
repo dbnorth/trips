@@ -33,6 +33,7 @@ import {
   getSubmitUnavailableReasons,
   isPreApprovedUpdateLocked,
 } from "../utils/applicationSubmitAvailability.js";
+import { INCOMPLETE_SAVE_CONFIRM, roleHoldNotice } from "../utils/applicationRoleHold.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -102,6 +103,7 @@ const canEdit = ref(true);
 const applicationStatus = ref(null);
 const showConfirmCancel = ref(false);
 const showConfirmUncancel = ref(false);
+const showRoleNotSecured = ref(false);
 
 const canCancelApplication = computed(() =>
   ["incomplete", "pre_approved", "approved"].includes(String(applicationStatus.value || "").toLowerCase())
@@ -236,6 +238,10 @@ const primaryActionLabel = computed(() => {
   if (!readyToSubmit.value && !updateLocked.value) return "Save Incomplete Application";
   return applicationStatus.value === "pre_approved" ? "Update Application" : "Submit Application";
 });
+
+const roleHold = computed(() =>
+  roleHoldNotice(primaryActionLabel.value, showPrimarySubmitButton.value)
+);
 
 const showPrimarySubmitButton = computed(() =>
   canShowPrimarySubmitButton({
@@ -710,6 +716,19 @@ const save = async () => {
   }
 };
 
+const onPrimaryAction = () => {
+  if (primaryActionLabel.value === "Save Incomplete Application") {
+    showRoleNotSecured.value = true;
+    return;
+  }
+  save();
+};
+
+const confirmIncompleteSave = async () => {
+  await save();
+  showRoleNotSecured.value = false;
+};
+
 const cancelApplication = () => {
   if (!canCancelApplication.value || !props.tripId) return;
   showConfirmCancel.value = true;
@@ -763,7 +782,7 @@ const confirmUncancelApplication = async () => {
   <v-dialog v-model="open" max-width="640" max-height="90vh" scrollable persistent>
     <v-card class="d-flex flex-column" style="max-height: min(90vh, 900px)">
       <v-card-title class="flex-shrink-0">{{ dialogTitle }}</v-card-title>
-      <v-card-text class="overflow-y-auto flex-grow-1">
+      <v-card-text class="overflow-y-auto flex-grow-1" data-testid="application-questions">
         <v-progress-linear v-if="loading" indeterminate class="mb-4" />
 
         <p v-if="!loading && noSpot" class="text-body-1" data-testid="no-spot-message">{{ noSpot }}</p>
@@ -925,6 +944,15 @@ const confirmUncancelApplication = async () => {
         :reasons="submitUnavailableReasons"
         :intro="submitUnavailableIntro"
       />
+      <v-alert
+        v-if="roleHold"
+        :type="roleHold.type"
+        density="compact"
+        class="mx-4 mb-2 flex-shrink-0"
+        data-testid="application-role-hold-notice"
+      >
+        {{ roleHold.text }}
+      </v-alert>
       <v-card-actions v-if="!noSpot" class="flex-shrink-0">
         <v-btn
           v-if="canCancelApplication"
@@ -952,9 +980,21 @@ const confirmUncancelApplication = async () => {
           :loading="saving"
           :disabled="updateLocked"
           data-testid="application-primary-action"
-          @click="save"
+          @click="onPrimaryAction"
         >
           {{ primaryActionLabel }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <v-dialog v-model="showRoleNotSecured" max-width="420" persistent>
+    <v-card data-testid="incomplete-save-dialog">
+      <v-card-text>{{ INCOMPLETE_SAVE_CONFIRM }}</v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn color="primary" data-testid="incomplete-save-ok" :loading="saving" @click="confirmIncompleteSave">
+          OK
         </v-btn>
       </v-card-actions>
     </v-card>

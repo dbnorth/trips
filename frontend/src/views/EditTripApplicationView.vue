@@ -32,6 +32,7 @@ import {
   getSubmitUnavailableReasons,
   isPreApprovedUpdateLocked,
 } from "../utils/applicationSubmitAvailability.js";
+import { INCOMPLETE_SAVE_CONFIRM, roleHoldNotice } from "../utils/applicationRoleHold.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], required: true },
@@ -71,6 +72,7 @@ const travelOptionsRef = ref(null);
 const showProfileDialog = ref(false);
 const showConfirmCancel = ref(false);
 const showConfirmUncancel = ref(false);
+const showRoleNotSecured = ref(false);
 
 const personId = computed(() => person.value?.id ?? Utils.getStore("user")?.personId ?? null);
 
@@ -225,6 +227,10 @@ const primaryActionLabel = computed(() => {
   if (!readyToSubmit.value && !updateLocked.value) return "Save Incomplete Application";
   return application.value?.status === "pre_approved" ? "Update Application" : "Submit Application";
 });
+
+const roleHold = computed(() =>
+  roleHoldNotice(primaryActionLabel.value, showPrimarySubmitButton.value)
+);
 
 const showPrimarySubmitButton = computed(() =>
   canShowPrimarySubmitButton({
@@ -595,6 +601,19 @@ const save = async () => {
   }
 };
 
+const onPrimaryAction = () => {
+  if (primaryActionLabel.value === "Save Incomplete Application") {
+    showRoleNotSecured.value = true;
+    return;
+  }
+  save();
+};
+
+const confirmIncompleteSave = async () => {
+  await save();
+  showRoleNotSecured.value = false;
+};
+
 const canCancelApplication = computed(() =>
   ["incomplete", "pre_approved", "approved"].includes(
     String(application.value?.status || "").toLowerCase()
@@ -679,7 +698,14 @@ onMounted(load);
     <template v-if="!loading && trip">
       <DonorTripHeading :trip="trip" :show-org-website="false" />
 
-      <v-card class="pa-4 mt-4 mx-auto" variant="outlined" max-width="640" width="100%">
+      <v-card
+        class="pa-4 mt-4 mx-auto d-flex flex-column"
+        style="max-height: calc(100vh - 12rem)"
+        variant="outlined"
+        max-width="640"
+        width="100%"
+      >
+        <div class="overflow-y-auto" data-testid="application-questions">
         <v-alert
           v-if="!availableRoles.length"
           type="warning"
@@ -822,12 +848,24 @@ onMounted(load);
           :disabled="!canEdit"
         />
 
+        </div>
+
         <ApplicationSubmitUnavailableAlert
+          class="flex-shrink-0"
           :reasons="submitUnavailableReasons"
           :intro="submitUnavailableIntro"
         />
+        <v-alert
+          v-if="roleHold"
+          :type="roleHold.type"
+          density="compact"
+          class="mt-3 flex-shrink-0"
+          data-testid="application-role-hold-notice"
+        >
+          {{ roleHold.text }}
+        </v-alert>
 
-        <div class="d-flex justify-end ga-2 mt-4 flex-wrap">
+        <div class="d-flex justify-end ga-2 mt-4 flex-wrap flex-shrink-0">
           <v-btn
             v-if="canCancelApplication"
             color="error"
@@ -856,13 +894,25 @@ onMounted(load);
             :loading="saving"
             :disabled="updateLocked"
             data-testid="application-primary-action"
-            @click="save"
+            @click="onPrimaryAction"
           >
             {{ primaryActionLabel }}
           </v-btn>
         </div>
       </v-card>
     </template>
+
+    <v-dialog v-model="showRoleNotSecured" max-width="420" persistent>
+      <v-card data-testid="incomplete-save-dialog">
+        <v-card-text>{{ INCOMPLETE_SAVE_CONFIRM }}</v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn color="primary" data-testid="incomplete-save-ok" :loading="saving" @click="confirmIncompleteSave">
+            OK
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <EditPersonDialog
       v-if="personId"
