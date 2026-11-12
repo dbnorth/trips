@@ -88,7 +88,7 @@ Choose **Flights** on the trip's row.
 
 The **Donations** page records donations for trips you manage:
 
-- **Add donation** — enter the donor's email and choose **Look up** to find an existing donor or a person in the organization; otherwise enter the donor's details. Then the trip, the participant it's for (optional), the amount, the **Type**, and payment info.
+- **Add donation** — enter a donor's name or email and choose **Look up** to find an existing donor or a person in the organization; otherwise enter the donor's details. Then the trip, the participant it's for (optional), the amount, the **Type**, and payment info.
   - **Check** or **Other** — a gift you received outside the app. Enter the date (and the check number for a Check) and choose **Save**.
   - **Stripe-Credit** or **Stripe-ACH** — take a card or bank payment now. **Pay with Stripe** opens Stripe's payment page, where you enter the donor's card or bank details; afterwards **Back** returns to **Donations**. This needs the organization's Stripe key (see the Org Admin guide).
 - Donations to a participant reduce that participant's amount owed. Donations without a participant count toward the trip.
@@ -437,7 +437,7 @@ The **Flight segments** dialog is described in the [Participant guide](./partici
 
 | Field | Notes |
 |-------|-------|
-| **Donor email** + **Look up** | Finds an existing donor or a person in the organization and fills in their details. Messages: "Donor found. Review and update details below if needed.", "Person found. A donor will be added from their details.", or "Donor not found. Enter donor details below." |
+| **Name or email** + **Look up** | Finds a donor of this trip's organization by email, or by name (organization name, family name, first name, last name, or the name shown in the list). An email can also find a person in the organization. One match fills in the donor. Several matches show "Several donors match. Choose one." and a button for each (the name, the city and state when they are saved, and the email when there is one). Messages: "Donor found. Review and update details below if needed.", "Person found. A donor will be added from their details.", or "Donor not found. Enter donor details below." A blank search says "Enter a donor name or email to look up." Fewer than two letters says "Enter at least two letters of the name, or an email." |
 | **Donor type** | **Organization** or **Individual**. Starts as **Individual**. |
 | **Organization name** | Shown for **Organization**. Required ("Organization name is required."). First name, last name, and family name are not stored. |
 | **Donor first name** | Shown for **Individual**. Required ("Donor first name is required."). |

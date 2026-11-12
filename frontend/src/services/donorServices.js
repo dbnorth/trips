@@ -7,6 +7,9 @@ export default {
   lookupByEmail(email, tripId = null) {
     return apiClient.get("/donors/lookup", { params: { email, tripId } });
   },
+  lookup(q, tripId = null) {
+    return apiClient.get("/donors/lookup", { params: { q, tripId } });
+  },
   create(data) {
     return apiClient.post("/donors", data);
   },

@@ -25,6 +25,7 @@ vi.mock("../src/services/publicServices.js", () => ({
     getParticipantBySlug: vi.fn(),
     startCheckout: vi.fn(),
     checkCheckout: vi.fn(),
+    searchDonors: vi.fn(),
   },
 }));
 
@@ -51,7 +52,7 @@ vi.mock("../src/services/exportServices.js", () => ({
 }));
 
 vi.mock("../src/services/donorServices.js", () => ({
-  default: { lookupByEmail: vi.fn() },
+  default: { lookupByEmail: vi.fn(), lookup: vi.fn() },
 }));
 
 vi.mock("../src/services/personServices.js", () => ({
@@ -73,6 +74,7 @@ import TripServices from "../src/services/tripServices.js";
 import TripPeopleRoleServices from "../src/services/tripPeopleRoleServices.js";
 import ExportServices from "../src/services/exportServices.js";
 import { goToStripe } from "../src/utils/stripeDonations.js";
+import DonorServices from "../src/services/donorServices.js";
 
 const STRIPE_URL = "https://checkout.stripe.com/c/pay/cs_1";
 const NOT_SET_UP = "Online donations aren't set up for this organization yet.";
@@ -163,6 +165,55 @@ const mountDonationsList = async () => {
   await flushPromises();
   return wrapper;
 };
+
+describe("Feature 131 — Donor lookup by name or email", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+  });
+
+  it("Add donation looks up a donor by name", async () => {
+    DonorServices.lookup.mockResolvedValue({
+      data: {
+        matches: [
+          { id: 1, firstName: "Ada", lastName: "Smith", email: "ada@example.com", city: "Cabot", state_prov: "AR", donorType: "individual" },
+          { id: 2, firstName: "Ben", lastName: "Smith", email: "ben@example.com", city: "Austin", state_prov: "TX", donorType: "individual" },
+        ],
+      },
+    });
+    const wrapper = await mountDonationForm();
+    await field(wrapper, "Name or email").find("input").setValue("Smith");
+    await button(wrapper, "Look up").trigger("click");
+    await flushPromises();
+
+    expect(DonorServices.lookup).toHaveBeenCalledWith("Smith", TRIP.id);
+    expect(wrapper.text()).toContain("Several donors match. Choose one.");
+    await button(wrapper, "Ada Smith — Cabot, AR — ada@example.com").trigger("click");
+    expect(field(wrapper, "Donor first name").props("modelValue")).toBe("Ada");
+  });
+
+  it("The public donation page looks up a donor by name", async () => {
+    PublicServices.searchDonors.mockResolvedValue({
+      data: {
+        matches: [
+          { id: 9, name: "Ada Smith", city: "Cabot", state: "AR" },
+          { id: 10, name: "Ben Smith", city: "Austin", state: "TX" },
+        ],
+      },
+    });
+    const wrapper = await mountParticipantPage(true);
+    await field(wrapper, "Name or email").find("input").setValue("Ada");
+    await button(wrapper, "Look up").trigger("click");
+    await flushPromises();
+
+    expect(PublicServices.searchDonors).toHaveBeenCalledWith(TRIP.id, "Ada");
+    expect(wrapper.text()).toContain("Several donors match. Choose one.");
+    expect(wrapper.text()).toContain("Ada Smith — Cabot, AR");
+    await button(wrapper, "Ada Smith — Cabot, AR").trigger("click");
+    expect(wrapper.text()).toContain("Donor found.");
+    expect(field(wrapper, "Your first name").props("modelValue")).toBe("Ada Smith");
+  });
+});
 
 describe("Feature 100 — Stripe Donations", () => {
   beforeEach(() => {

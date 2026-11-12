@@ -20,6 +20,9 @@ export default {
   getTripOverviewBySlug(tripSlug) {
     return publicClient.get(`/public/trips/by-name/${encodeURIComponent(tripSlug)}/overview`);
   },
+  searchDonors(tripId, q) {
+    return publicClient.get("/public/donors/search", { params: { tripId, q } });
+  },
   startCheckout(data) {
     const token = Utils.getStore("user")?.token;
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
