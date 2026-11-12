@@ -614,6 +614,7 @@ The trip card, its availability, **Donate**, **Apply**, and **Roles needed**: ea
 | Field | Notes |
 |-------|-------|
 | **Support a participant (optional)** | Pick a Pre-Approved or Approved person, or leave blank to give to the trip. |
+| **Name or email** + **Look up** | Finds a donor of this trip's organization by name or email. One match fills **Your first name** and shows "Donor found." Several matches show "Several donors match. Choose one." and a button for each name, with the city and state when they are saved. No match shows "Donor not found. Enter your name and email below." A blank search says "Enter a donor name or email to look up." Fewer than two letters says "Enter at least two letters of the name, or an email." The page does not show the donor's email, street address, or phone. **Pay with Stripe** records the gift on the donor you chose. |
 | **Your first name** | Required. |
 | **Your last name** | Optional. |
 | **Email** | Required; Stripe sends the receipt here. |
@@ -624,7 +625,7 @@ The trip card, its availability, **Donate**, **Apply**, and **Roles needed**: ea
 
 ### Participant fundraising page
 
-The person's photo, name, "Why go" story, bio, and "Raised so far" (only payments that have gone through). The **Support *first name*** form has **Your first name**, **Your last name**, **Email**, **Amount**, **Payment method**, and **Pay with Stripe**, which work as on the trip donate page.
+The person's photo, name, "Why go" story, bio, and "Raised so far" (only payments that have gone through). The **Support *first name*** form has **Name or email**, **Look up**, **Your first name**, **Your last name**, **Email**, **Amount**, **Payment method**, and **Pay with Stripe**, which work as on the trip donate page.
 
 ### Donation return page
 

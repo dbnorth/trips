@@ -14,6 +14,15 @@ export const donorSortKey = (donor) => {
   return `${collapse(donor?.lastName).toLowerCase()}\n${collapse(donor?.firstName).toLowerCase()}`;
 };
 
+/** True when the query appears in the organization name, family name, first name, last name, or shown name. */
+export const donorNameMatches = (donor, query) => {
+  const q = collapse(query).toLowerCase();
+  if (q.length < 2) return false;
+  return [donor?.organizationName, donor?.familyName, donor?.firstName, donor?.lastName, donorDisplayName(donor)].some(
+    (value) => collapse(value).toLowerCase().includes(q)
+  );
+};
+
 /** Match key for import. Organizations match on organization name; individuals on first and last. */
 export const donorNameKey = (donor) => {
   if (donor?.donorType === "organization") return `org\n${collapse(donor.organizationName).toLowerCase()}`;

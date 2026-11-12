@@ -10,6 +10,7 @@ import { parseMoneyAmount, formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
 import { formatDateTime } from "../utils/dateFormat.js";
+import { donorLookupChoice, formatDonorName } from "../utils/donorUtils.js";
 import {
   ONLINE_DONATIONS_NOT_SET_UP,
   isStripeDonationType,
@@ -35,7 +36,8 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "saved"]);
 
-const lookupEmail = ref("");
+const lookupQuery = ref("");
+const lookupMatches = ref([]);
 const lookupBusy = ref(false);
 const lookupNotice = ref("");
 const saving = ref(false);
@@ -152,7 +154,8 @@ const loadDialogParticipants = async () => {
 };
 
 const resetForm = () => {
-  lookupEmail.value = "";
+  lookupQuery.value = "";
+  lookupMatches.value = [];
   lookupNotice.value = "";
   formError.value = "";
   formNotice.value = "";
@@ -182,7 +185,7 @@ const applyDonation = (row) => {
   };
   if (row.donor) {
     donor.value = { ...emptyDonor(), ...normalizeAddressFields(row.donor) };
-    lookupEmail.value = row.donor.email || "";
+    lookupQuery.value = row.donor.email || formatDonorName(row.donor);
   }
   if (props.allowTripSelect && row.tripId != null) {
     selectedTripId.value = Number(row.tripId);
@@ -212,26 +215,37 @@ watch(selectedTripId, () => {
 
 const close = () => emit("update:modelValue", false);
 
+const applyLookupDonor = (row) => {
+  lookupMatches.value = [];
+  donor.value = { ...emptyDonor(), ...normalizeAddressFields(row) };
+  lookupNotice.value =
+    row.source === "person"
+      ? "Person found. A donor will be added from their details."
+      : "Donor found. Review and update details below if needed.";
+};
+
 const lookupDonor = () => {
-  const email = lookupEmail.value?.trim();
-  if (!email) {
-    formError.value = "Enter a donor email to look up.";
+  const q = lookupQuery.value?.trim();
+  if (!q) {
+    formError.value = "Enter a donor name or email to look up.";
     return;
   }
   lookupBusy.value = true;
   formError.value = "";
   lookupNotice.value = "";
-  DonorServices.lookupByEmail(email, resolvedTripId())
+  lookupMatches.value = [];
+  DonorServices.lookup(q, resolvedTripId())
     .then((r) => {
-      donor.value = { ...emptyDonor(), ...normalizeAddressFields(r.data) };
-      lookupNotice.value =
-        r.data.source === "person"
-          ? "Person found. A donor will be added from their details."
-          : "Donor found. Review and update details below if needed.";
+      if (Array.isArray(r.data?.matches)) {
+        lookupMatches.value = r.data.matches;
+        lookupNotice.value = "Several donors match. Choose one.";
+        return;
+      }
+      applyLookupDonor(r.data);
     })
     .catch((e) => {
       if (e.response?.status === 404) {
-        donor.value = { ...emptyDonor(), email };
+        donor.value = { ...emptyDonor(), email: q.includes("@") ? q : "" };
         lookupNotice.value = "Donor not found. Enter donor details below.";
       } else {
         formError.value = e.response?.data?.message || "Unable to look up donor.";
@@ -249,7 +263,12 @@ const save = async () => {
     formError.value = "Trip is required.";
     return;
   }
-  if (!donor.value.firstName?.trim()) {
+  if (donor.value.donorType === "organization") {
+    if (!(donor.value.organizationName || "").trim()) {
+      formError.value = "Organization name is required.";
+      return;
+    }
+  } else if (!(donor.value.firstName || "").trim()) {
     formError.value = "Donor first name is required.";
     return;
   }
@@ -277,7 +296,7 @@ const save = async () => {
       lastName: donor.value.donorType === "organization" ? null : (donor.value.lastName || "").trim() || null,
       familyName: donor.value.donorType === "organization" ? null : (donor.value.familyName || "").trim() || null,
       organizationName: donor.value.donorType === "organization" ? donor.value.organizationName?.trim() || null : null,
-      email: donor.value.email?.trim() || lookupEmail.value.trim() || null,
+      email: donor.value.email?.trim() || (lookupQuery.value.includes("@") ? lookupQuery.value.trim() : "") || null,
       country: address.country || null,
       addLine1: donor.value.addLine1?.trim() || null,
       addLine2: donor.value.addLine2?.trim() || null,
@@ -378,9 +397,8 @@ const submit = (request, tripId) => {
         <v-row dense class="mb-2">
           <v-col cols="8">
             <v-text-field
-              v-model="lookupEmail"
-              label="Donor email"
-              type="email"
+              v-model="lookupQuery"
+              label="Name or email"
               density="compact"
               autocomplete="off"
               hide-details
@@ -390,6 +408,17 @@ const submit = (request, tripId) => {
             <v-btn variant="tonal" :loading="lookupBusy" @click="lookupDonor">Look up</v-btn>
           </v-col>
         </v-row>
+        <div v-if="lookupMatches.length" class="mb-3">
+          <v-btn
+            v-for="match in lookupMatches"
+            :key="match.id"
+            variant="text"
+            class="d-block"
+            @click="applyLookupDonor(match)"
+          >
+            {{ donorLookupChoice(match) }}
+          </v-btn>
+        </div>
         <v-alert v-if="lookupNotice" type="info" density="compact" class="mb-3">{{ lookupNotice }}</v-alert>
 
         <v-select v-model="donor.donorType" :items="DONOR_TYPE_ITEMS" label="Donor type" density="compact" />

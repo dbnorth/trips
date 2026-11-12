@@ -6,6 +6,7 @@ import DonorTripHeading from "../components/DonorTripHeading.vue";
 import StripePaymentMethod from "../components/StripePaymentMethod.vue";
 import { toUrlSlug, personUrlSlug } from "../utils/donateUrls.js";
 import { ONLINE_DONATIONS_NOT_SET_UP, goToStripe } from "../utils/stripeDonations.js";
+import PublicDonorSearch from "../components/PublicDonorSearch.vue";
 
 const props = defineProps({
   tripSlug: { type: String, required: true },
@@ -17,6 +18,7 @@ const participants = ref([]);
 const onlineDonations = ref(false);
 const message = ref("");
 const donor = ref({ firstName: "", lastName: "", email: "" });
+const donorId = ref(null);
 const amount = ref("");
 const paymentMethod = ref("card");
 const selectedPersonId = ref(null);
@@ -49,6 +51,16 @@ const load = () => {
     });
 };
 
+const chooseDonor = (match) => {
+  donorId.value = match.id;
+  donor.value.firstName = match.name;
+  donor.value.lastName = "";
+};
+
+const clearChosenDonor = () => {
+  donorId.value = null;
+};
+
 const payWithStripe = () => {
   message.value = "";
   paying.value = true;
@@ -57,7 +69,7 @@ const payWithStripe = () => {
     personId: selectedPersonId.value,
     amount: Number(amount.value),
     paymentMethod: paymentMethod.value,
-    donor: donor.value,
+    donor: { ...donor.value, ...(donorId.value ? { id: donorId.value } : {}) },
     returnPath: router.currentRoute.value.fullPath,
   })
     .then((r) => goToStripe(r.data.checkoutUrl))
@@ -79,6 +91,7 @@ onMounted(load);
     <div class="donation-form-wrap">
       <v-card class="pa-4">
         <v-card-title>Make a donation</v-card-title>
+        <PublicDonorSearch :trip-id="trip?.id" @chosen="chooseDonor" @cleared="clearChosenDonor" />
         <v-select
           v-model="selectedPersonId"
           :items="participants"

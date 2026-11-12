@@ -9,6 +9,7 @@ import { normalizeEmail } from "../utils/userPerson.js";
 import { donorDetailsFromPerson, findDonatablePerson } from "../utils/donorPerson.js";
 import { readDonorContactList } from "../utils/donorCsv.js";
 import { donorDisplayName, donorNameFields, donorNameKey, donorSortKey } from "../utils/donorName.js";
+import { lookupQueryError, searchOrgDonors } from "../utils/donorLookup.js";
 
 const Donor = db.donor;
 const Op = db.Sequelize.Op;
@@ -188,8 +189,11 @@ exports.findAll = async (req, res) => {
 
 exports.lookupByEmail = async (req, res) => {
   try {
-    const emailNorm = normalizeEmail(req.query.email);
-    if (!emailNorm) return res.status(400).send({ message: "Email is required." });
+    const hasQuery = req.query.q != null && String(req.query.q).trim() !== "";
+    const text = hasQuery ? String(req.query.q) : String(req.query.email ?? "");
+    const asEmail = hasQuery ? text.includes("@") : true;
+    const queryError = lookupQueryError(text, asEmail);
+    if (queryError) return res.status(400).send({ message: queryError });
 
     let orgId;
     if (req.query.tripId) {
@@ -201,6 +205,15 @@ exports.lookupByEmail = async (req, res) => {
       if (orgId == null) return;
     }
 
+    if (!asEmail) {
+      const { donors } = await searchOrgDonors(orgId, text);
+      if (!donors.length) return res.status(404).send({ message: "Donor not found." });
+      if (donors.length === 1) return res.send({ ...donors[0].toJSON(), source: "donor" });
+      return res.send({ matches: donors.map((donor) => donor.toJSON()) });
+    }
+
+    const emailNorm = normalizeEmail(text);
+    if (!emailNorm) return res.status(404).send({ message: "Donor not found." });
     const donor = await Donor.findOne({ where: emailWhere(orgId, emailNorm) });
     if (donor) return res.send({ ...donor.toJSON(), source: "donor" });
 

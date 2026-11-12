@@ -12,6 +12,7 @@ import { tripRoleAvailability, withCapacityFields } from "../utils/tripRoleCapac
 import { DONATION_STATUSES, isDonationRecipient } from "../utils/donorPerson.js";
 import { countedDonations } from "../utils/donationCounting.js";
 import { toUrlSlug } from "../utils/urlSlug.js";
+import { lookupQueryError, publicDonorMatch, searchOrgDonors } from "../utils/donorLookup.js";
 import {
   ONLINE_DONATIONS_NOT_SET_UP,
   StripeStartError,
@@ -231,6 +232,20 @@ exports.getParticipantForDonorBySlug = async (req, res) => {
   }
 };
 
+exports.searchPublicDonors = async (req, res) => {
+  try {
+    const trip = await Trip.findByPk(req.query.tripId, { attributes: ["id", "orgId", "status"] });
+    if (!trip || trip.status !== "active") return res.status(404).send({ message: "Trip not found." });
+    const text = String(req.query.q ?? "");
+    const queryError = lookupQueryError(text, text.includes("@"));
+    if (queryError) return res.status(400).send({ message: queryError });
+    const { donors } = await searchOrgDonors(trip.orgId, text);
+    res.send({ matches: donors.map(publicDonorMatch).filter((row) => row.name) });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
 exports.createPublicCheckout = async (req, res) => {
   try {
     const { tripId, personId, donor, amount, paymentMethod, returnPath } = req.body;
@@ -264,6 +279,12 @@ exports.createPublicCheckout = async (req, res) => {
     const org = await loadStripeOrganization(trip.orgId);
     if (!onlineDonationsSetUp(org)) return res.status(400).send({ message: ONLINE_DONATIONS_NOT_SET_UP });
     const lastName = String(donor?.lastName ?? "").trim() || null;
+    let donorId = null;
+    if (donor?.id != null && donor.id !== "") {
+      const existing = await db.donor.findOne({ where: { id: donor.id, orgId: trip.orgId }, attributes: ["id"] });
+      if (!existing) return res.status(404).send({ message: "Donor not found." });
+      donorId = existing.id;
+    }
     res.send(
       await startCheckout({
         trip,
@@ -272,7 +293,13 @@ exports.createPublicCheckout = async (req, res) => {
         amount,
         paymentMethod,
         returnPath: safeReturnPath(returnPath, trip),
-        fields: { giverPersonId: signedInPersonId, donorFirstName: firstName, donorLastName: lastName, donorEmail: email },
+        fields: {
+          giverPersonId: signedInPersonId,
+          donorFirstName: firstName,
+          donorLastName: lastName,
+          donorEmail: email,
+          donorId,
+        },
         donorDisplay: { firstName, lastName, email },
       })
     );
