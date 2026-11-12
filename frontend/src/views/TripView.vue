@@ -17,6 +17,7 @@ import TripTeamEmailDialog from "../components/TripTeamEmailDialog.vue";
 import TripCostBreakdown from "../components/TripCostBreakdown.vue";
 import TripDateAdjustment from "../components/TripDateAdjustment.vue";
 import TripArrivalInfo from "../components/TripArrivalInfo.vue";
+import ParticipantCount from "../components/ParticipantCount.vue";
 import ExportServices from "../services/exportServices.js";
 import TripTravelOptionServices from "../services/tripTravelOptionServices.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
@@ -81,7 +82,18 @@ const participantDonorLink = (row) =>
 
 const formatLeaders = computed(() => (trip.value?.leaderNames || []).join(", ") || "—");
 
-const participantCount = computed(() => participants.value.length);
+const COUNTED_STATUSES = ["incomplete", "pre_approved", "approved"];
+
+const countedRows = (roleName) =>
+  participants.value.filter((row) => row.role?.roleName === roleName && COUNTED_STATUSES.includes(row.status));
+
+const leaderCount = computed(() => countedRows("Trip Leader").length);
+
+const participantStatusCounts = computed(() => {
+  const rows = countedRows("Trip Participant");
+  const count = (status) => rows.filter((row) => row.status === status).length;
+  return { incomplete: count("incomplete"), preApproved: count("pre_approved"), approved: count("approved") };
+});
 
 const sumDonations = (rows) =>
   rows.reduce((total, row) => total + Number(row.amount || 0), 0);
@@ -456,21 +468,27 @@ onMounted(refresh);
       </div>
     </v-card>
 
-    <v-card v-if="trip" variant="tonal" class="mb-6 pa-4">
+    <v-card v-if="trip" variant="tonal" class="mb-6 pa-4" data-testid="trip-summary">
       <v-row dense>
-        <v-col cols="12" sm="6" md="3">
-          <div class="text-caption text-medium-emphasis">Participants</div>
-          <div class="text-body-1">{{ participantCount }}</div>
+        <v-col cols="12" sm="6" md>
+          <div class="text-caption text-medium-emphasis">Leaders</div>
+          <div class="text-body-1" data-testid="trip-summary-leaders">{{ leaderCount }}</div>
         </v-col>
-        <v-col cols="12" sm="6" md="3">
+        <v-col cols="12" sm="6" md>
+          <div class="text-caption text-medium-emphasis">Participants</div>
+          <div class="text-body-1" data-testid="trip-summary-participants">
+            <ParticipantCount v-bind="participantStatusCounts" />
+          </div>
+        </v-col>
+        <v-col cols="12" sm="6" md>
           <div class="text-caption text-medium-emphasis">Cost per participant</div>
           <div class="text-body-1">{{ formatParticipantCost(trip.participantCost) }}</div>
         </v-col>
-        <v-col cols="12" sm="6" md="3">
+        <v-col cols="12" sm="6" md>
           <div class="text-caption text-medium-emphasis">Total donations</div>
           <div class="text-body-1">{{ formatMoneyDisplay(totalDonations) || "$0.00" }}</div>
         </v-col>
-        <v-col cols="12" sm="6" md="3">
+        <v-col cols="12" sm="6" md>
           <div class="text-caption text-medium-emphasis">Donations without participant</div>
           <div class="text-body-1">{{ formatMoneyDisplay(unassignedDonations) || "$0.00" }}</div>
         </v-col>
@@ -702,6 +720,7 @@ onMounted(refresh);
       v-model="showDonations"
       :trip-id="tripId"
       :participant="donationsParticipant"
+      :online-donations="!!trip?.onlineDonations"
       @changed="onDonationsChanged"
     />
     <EditTripDialog v-model="showEditTrip" :trip-id="tripId" @saved="onTripUpdated" />

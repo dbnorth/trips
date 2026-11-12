@@ -17,6 +17,7 @@ import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "./o
 import { normalizeApplicationPregnancy } from "./pregnancyFields.js";
 import { amountOwed, participantTotals } from "./participantTotals.js";
 import { participantFlightDates, participantTravelDates } from "./tripDays.js";
+import { countedDonations } from "./donationCounting.js";
 
 const todayDateOnly = () => {
   const now = new Date();
@@ -234,7 +235,9 @@ export const missingNonDocumentItems = async (assignmentRow, trip, person) => {
 };
 
 const amountRaisedFor = async (tripId, personId) =>
-  Math.round(Number((await db.tripDonation.sum("amount", { where: { tripId, personId } })) || 0) * 100) /
+  Math.round(
+    Number((await db.tripDonation.sum("amount", { where: countedDonations({ tripId, personId }) })) || 0) * 100
+  ) /
   100;
 
 const flightSegmentCount = async (tripPeopleRoleId) => {

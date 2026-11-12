@@ -21,6 +21,8 @@ const FUNCTION_CODES = FUNCTION_CODE_ITEMS.map((item) => item.value);
 const SCHEDULE_ITEMS = [
   { title: "Daily", value: "daily" },
   { title: "Weekly (Tuesday)", value: "weekly" },
+  { title: "Monthly (day of month)", value: "monthly" },
+  { title: "Twice monthly (1st and 15th)", value: "twice-monthly" },
   { title: "Days before trip start", value: "before-start" },
 ];
 
@@ -66,6 +68,7 @@ const emptyForm = () => ({
   functionCode: null,
   scheduleRule: null,
   scheduleDaysBefore: null,
+  scheduleDayOfMonth: null,
   subject: "",
   content: "",
   emailBody: "",
@@ -91,6 +94,7 @@ watch(isTripTemplate, (tripTemplate) => {
 });
 const isScheduled = computed(() => form.value.functionCode === "Scheduled");
 const showDaysBefore = computed(() => isScheduled.value && form.value.scheduleRule === "before-start");
+const showDayOfMonth = computed(() => isScheduled.value && form.value.scheduleRule === "monthly");
 const title = computed(() => (isEdit.value ? "Edit template" : "Add template"));
 
 const adminOrgOptions = computed(() => {
@@ -338,6 +342,7 @@ const applyTemplate = (row) => {
     functionCode: normalizeFunctionCode(row?.functionCode),
     scheduleRule: row?.scheduleRule ?? null,
     scheduleDaysBefore: row?.scheduleDaysBefore ?? null,
+    scheduleDayOfMonth: row?.scheduleDayOfMonth ?? null,
     subject: row?.subject || "",
     content: row?.content || "",
     emailBody: row?.emailBody || "",
@@ -354,6 +359,7 @@ const applyCopySource = (functionCode) => {
   form.value.toAddress = source.toAddress || "";
   form.value.scheduleRule = source.scheduleRule ?? null;
   form.value.scheduleDaysBefore = source.scheduleDaysBefore ?? null;
+  form.value.scheduleDayOfMonth = source.scheduleDayOfMonth ?? null;
   form.value.subject = source.subject || "";
   form.value.content = source.content || "";
   form.value.attachment = source.attachment || "";
@@ -454,6 +460,18 @@ const save = async () => {
     formError.value = "Days before trip start must be a whole number from 1 to 365.";
     return;
   }
+  const dayOfMonth = Number(form.value.scheduleDayOfMonth);
+  if (
+    showDayOfMonth.value &&
+    (form.value.scheduleDayOfMonth == null ||
+      String(form.value.scheduleDayOfMonth).trim() === "" ||
+      !Number.isInteger(dayOfMonth) ||
+      dayOfMonth < 1 ||
+      dayOfMonth > 31)
+  ) {
+    formError.value = "Day of month must be a whole number from 1 to 31.";
+    return;
+  }
   if (!form.value.subject?.trim()) {
     formError.value = "Subject is required.";
     return;
@@ -492,6 +510,7 @@ const save = async () => {
     functionCode: form.value.functionCode,
     scheduleRule: isScheduled.value ? form.value.scheduleRule : null,
     scheduleDaysBefore: showDaysBefore.value ? daysBefore : null,
+    scheduleDayOfMonth: showDayOfMonth.value ? dayOfMonth : null,
     subject: form.value.subject.trim(),
     content: form.value.content?.trim() || null,
     emailBody: form.value.emailBody.trim(),
@@ -572,6 +591,18 @@ const save = async () => {
           type="number"
           min="1"
           max="365"
+          density="compact"
+          class="mb-2"
+        />
+        <v-text-field
+          v-if="showDayOfMonth"
+          v-model="form.scheduleDayOfMonth"
+          label="Day of month"
+          type="number"
+          min="1"
+          max="31"
+          hint="If the month is shorter, the email goes on its last day."
+          persistent-hint
           density="compact"
           class="mb-2"
         />

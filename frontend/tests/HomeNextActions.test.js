@@ -160,6 +160,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
 
     const actions = nextActionsRowFor(wrapper, "Guatemala Clinic");
     expect(actions.text()).toContain("Complete missing information on your application so you can submit your application.");
+    expect(actions.text()).not.toContain("You do not have a role secured on this trip.");
 
     const row = tripRow(wrapper, "Guatemala Clinic");
     expect(button(row, "View")).toBeTruthy();

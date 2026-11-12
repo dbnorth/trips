@@ -7,6 +7,7 @@ import PersonDocumentServices from "../services/personDocumentServices.js";
 import Utils from "../config/utils.js";
 import DonorTripHeading from "../components/DonorTripHeading.vue";
 import ParticipantAgreementSection from "../components/ParticipantAgreementSection.vue";
+import ApplicationWhyGoField from "../components/ApplicationWhyGoField.vue";
 import TripApplicationTravelOptions from "../components/TripApplicationTravelOptions.vue";
 import TripApplicationFlightPurchase from "../components/TripApplicationFlightPurchase.vue";
 import EditPersonDialog from "../components/EditPersonDialog.vue";
@@ -31,6 +32,7 @@ import {
   getSubmitUnavailableReasons,
   isPreApprovedUpdateLocked,
 } from "../utils/applicationSubmitAvailability.js";
+import { INCOMPLETE_SAVE_CONFIRM, roleHoldNotice } from "../utils/applicationRoleHold.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], required: true },
@@ -70,6 +72,7 @@ const travelOptionsRef = ref(null);
 const showProfileDialog = ref(false);
 const showConfirmCancel = ref(false);
 const showConfirmUncancel = ref(false);
+const showRoleNotSecured = ref(false);
 
 const personId = computed(() => person.value?.id ?? Utils.getStore("user")?.personId ?? null);
 
@@ -77,6 +80,7 @@ const form = ref({
   tripWorkerRoleId: null,
   willSelfFund: false,
   willRaiseFunds: false,
+  whygoText: "",
   hasPreferredRoommate: false,
   preferredRoommateNames: "",
   flightPurchaseOption: null,
@@ -224,6 +228,10 @@ const primaryActionLabel = computed(() => {
   return application.value?.status === "pre_approved" ? "Update Application" : "Submit Application";
 });
 
+const roleHold = computed(() =>
+  roleHoldNotice(primaryActionLabel.value, showPrimarySubmitButton.value)
+);
+
 const showPrimarySubmitButton = computed(() =>
   canShowPrimarySubmitButton({
     loading: loading.value,
@@ -350,6 +358,7 @@ const applyFormFromApplication = (row) => {
     tripWorkerRoleId: row?.tripWorkerRoleId ?? null,
     willSelfFund: !!row?.willSelfFund,
     willRaiseFunds: !!row?.willRaiseFunds,
+    whygoText: row?.whygoText || "",
     hasPreferredRoommate: !!row?.hasPreferredRoommate,
     preferredRoommateNames: row?.preferredRoommateNames || "",
     flightPurchaseOption: row?.flightPurchaseOption || null,
@@ -420,7 +429,7 @@ const load = async () => {
           "This application is cancelled. You can Uncancel it if a role slot is available.";
       } else if (status === "approved") {
         formError.value =
-          "You are approved for this trip. You can Cancel the application if needed.";
+          "You are approved for this trip. You can update Why go or Cancel the application if needed.";
       } else {
         formError.value = `This application cannot be edited while its status is ${statusLabel.value}.`;
       }
@@ -510,6 +519,7 @@ const save = async () => {
       tripWorkerRoleId: Number(form.value.tripWorkerRoleId),
       willSelfFund: !!form.value.willSelfFund,
       willRaiseFunds: !!form.value.willRaiseFunds,
+      whygoText: form.value.whygoText?.trim() || null,
       licenseStatus: null,
       hasPreferredRoommate: !!form.value.hasPreferredRoommate,
       preferredRoommateNames: form.value.hasPreferredRoommate
@@ -589,6 +599,19 @@ const save = async () => {
   } finally {
     saving.value = false;
   }
+};
+
+const onPrimaryAction = () => {
+  if (primaryActionLabel.value === "Save Incomplete Application") {
+    showRoleNotSecured.value = true;
+    return;
+  }
+  save();
+};
+
+const confirmIncompleteSave = async () => {
+  await save();
+  showRoleNotSecured.value = false;
 };
 
 const canCancelApplication = computed(() =>
@@ -675,7 +698,14 @@ onMounted(load);
     <template v-if="!loading && trip">
       <DonorTripHeading :trip="trip" :show-org-website="false" />
 
-      <v-card class="pa-4 mt-4 mx-auto" variant="outlined" max-width="640" width="100%">
+      <v-card
+        class="pa-4 mt-4 mx-auto d-flex flex-column"
+        style="max-height: calc(100vh - 12rem)"
+        variant="outlined"
+        max-width="640"
+        width="100%"
+      >
+        <div class="overflow-y-auto" data-testid="application-questions">
         <v-alert
           v-if="!availableRoles.length"
           type="warning"
@@ -756,6 +786,12 @@ onMounted(load);
           :disabled="!canEdit"
           class="mb-2"
         />
+        <ApplicationWhyGoField
+          v-model="form.whygoText"
+          :trip-id="tripId"
+          :disabled="!canEdit"
+          :approved="application?.status === 'approved'"
+        />
 
         <div class="text-subtitle-2 mb-1 mt-2">Roommate preference</div>
         <v-checkbox
@@ -812,12 +848,24 @@ onMounted(load);
           :disabled="!canEdit"
         />
 
+        </div>
+
         <ApplicationSubmitUnavailableAlert
+          class="flex-shrink-0"
           :reasons="submitUnavailableReasons"
           :intro="submitUnavailableIntro"
         />
+        <v-alert
+          v-if="roleHold"
+          :type="roleHold.type"
+          density="compact"
+          class="mt-3 flex-shrink-0"
+          data-testid="application-role-hold-notice"
+        >
+          {{ roleHold.text }}
+        </v-alert>
 
-        <div class="d-flex justify-end ga-2 mt-4 flex-wrap">
+        <div class="d-flex justify-end ga-2 mt-4 flex-wrap flex-shrink-0">
           <v-btn
             v-if="canCancelApplication"
             color="error"
@@ -846,13 +894,25 @@ onMounted(load);
             :loading="saving"
             :disabled="updateLocked"
             data-testid="application-primary-action"
-            @click="save"
+            @click="onPrimaryAction"
           >
             {{ primaryActionLabel }}
           </v-btn>
         </div>
       </v-card>
     </template>
+
+    <v-dialog v-model="showRoleNotSecured" max-width="420" persistent>
+      <v-card data-testid="incomplete-save-dialog">
+        <v-card-text>{{ INCOMPLETE_SAVE_CONFIRM }}</v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn color="primary" data-testid="incomplete-save-ok" :loading="saving" @click="confirmIncompleteSave">
+            OK
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <EditPersonDialog
       v-if="personId"

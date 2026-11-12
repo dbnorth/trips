@@ -51,6 +51,13 @@ const shownNextActions = computed(() =>
   nextActions.value.filter((action) => !FUNDING_ACTION_CODES.includes(action.code))
 );
 
+const roleNotSecured = computed(() =>
+  shownNextActions.value.some(
+    (action) =>
+      action.code === "complete-application" && action.applicationIncomplete && action.profileIncomplete
+  )
+);
+
 const STATUS_PENDING = { type: "warning", color: "amber-lighten-4" };
 const STATUS_APPROVED = { type: "success", color: "green-lighten-4" };
 const STATUS_ENDED = { type: "error", color: "red-lighten-4" };
@@ -116,12 +123,6 @@ const tripPlace = computed(() =>
 );
 
 const tripImageUrl = computed(() => TripServices.getImageUrl(trip.value?.image));
-
-const onDonated = () => {
-  messageType.value = "success";
-  message.value = "Thank you for your donation!";
-  load();
-};
 
 const load = async () => {
   loading.value = true;
@@ -222,6 +223,21 @@ const participantName = computed(() =>
   [currentUser.value?.firstName, currentUser.value?.lastName].filter(Boolean).join(" ")
 );
 
+const downloadingArrivalPdf = ref(false);
+const arrivalPdfError = ref("");
+
+const downloadArrivalPdf = async () => {
+  downloadingArrivalPdf.value = true;
+  arrivalPdfError.value = "";
+  try {
+    await TripServices.downloadArrivalPdf(trip.value.id, `Trip Arrival - ${trip.value.name}.pdf`);
+  } catch {
+    arrivalPdfError.value = "Unable to download the Trip Arrival Document.";
+  } finally {
+    downloadingArrivalPdf.value = false;
+  }
+};
+
 const leaderPictureUrl = (leader) => PersonServices.getPictureUrl(leader?.picture);
 
 const leaderInitials = (leader) => {
@@ -293,6 +309,19 @@ onUnmounted(() => {
         </v-col>
       </v-row>
 
+      <div v-if="myTripInfo?.hasArrivalPdf" class="mb-4" data-testid="my-trip-arrival-download">
+        <v-btn
+          color="primary"
+          variant="tonal"
+          prepend-icon="mdi-download"
+          :loading="downloadingArrivalPdf"
+          @click="downloadArrivalPdf"
+        >
+          Download Trip Arrival Document
+        </v-btn>
+        <v-alert v-if="arrivalPdfError" type="error" density="compact" class="mt-2">{{ arrivalPdfError }}</v-alert>
+      </div>
+
       <h3 class="text-subtitle-1 font-weight-bold mb-3">Trip Leaders</h3>
       <div v-if="!tripLeaders.length" data-testid="no-trip-leaders">No Trip Leader assigned</div>
       <div v-else class="d-flex flex-column ga-4">
@@ -351,6 +380,7 @@ onUnmounted(() => {
         v-if="shownNextActions.length"
         class="mb-3"
         :actions="shownNextActions"
+        :role-not-secured="roleNotSecured"
         @update="openUpdateApplication"
         @cancel="showConfirmCancelApp = true"
         @flights="showFlightsDialog = true"
@@ -405,7 +435,8 @@ onUnmounted(() => {
       v-model="showDonateDialog"
       :trip-id="tripId"
       :person-id="currentUser.personId"
-      @saved="onDonated"
+      :online-donations="!!myTripInfo?.onlineDonations"
+      :return-path="router.currentRoute.value.fullPath"
     />
     <FlightSegmentsDialog
       v-if="myTripInfo?.tripPeopleRoleId"

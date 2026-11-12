@@ -317,6 +317,7 @@ onUnmounted(() => {
       v-model="showDonations"
       :trip-id="selectedTripId"
       :participant="donationsParticipant"
+      :online-donations="!!trip?.onlineDonations"
       @changed="onDonationsChanged"
     />
     <EditTripDialog

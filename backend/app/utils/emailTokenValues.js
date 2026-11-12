@@ -5,6 +5,7 @@ import { amountOwed, loadSelectedTripOptions, participantTotals } from "./partic
 import { arrivalPdfName, loadTripWithArrivalPdf } from "./tripArrivalPdf.js";
 import { participantTravelDates } from "./tripDays.js";
 import { documentsDueDate, loadMissingTripDocuments } from "./myTripNextActions.js";
+import { countedDonations } from "./donationCounting.js";
 
 export const VALUE_SOURCES = [
   { valueSource: "organization.name", label: "Organization name" },
@@ -53,6 +54,10 @@ export const VALUE_SOURCES = [
   { valueSource: "primaryLeader.preferredName", label: "Primary trip leader preferred name" },
   { valueSource: "primaryLeader.email", label: "Primary trip leader email" },
   { valueSource: "primaryLeader.phone", label: "Primary trip leader phone" },
+  { valueSource: "donation.date", label: "Donation date" },
+  { valueSource: "donation.type", label: "Donation type" },
+  { valueSource: "donation.amount", label: "Donation amount" },
+  { valueSource: "donation.feeCovered", label: "Donation fee covered" },
 ];
 
 export const VALUE_SOURCE_KEYS = new Set(VALUE_SOURCES.map((s) => s.valueSource));
@@ -174,7 +179,7 @@ const loadParticipantTripRole = async (tripId, personId) => {
  */
 export const participantAmounts = async (trip, personId, assignment) => {
   const raised = Number(
-    (await db.tripDonation.sum("amount", { where: { tripId: trip.id, personId } })) || 0
+    (await db.tripDonation.sum("amount", { where: countedDonations({ tripId: trip.id, personId }) })) || 0
   );
   const { totalTripCost } = await participantTotals(trip, assignment);
   return { raised, total: totalTripCost, owed: amountOwed(totalTripCost, raised) };
@@ -197,7 +202,7 @@ const sumAmounts = (amounts) => amounts.reduce((total, amount) => total + amount
  */
 const loadDonationsBySource = async (tripId, person) => {
   const rows = await db.tripDonation.findAll({
-    where: { tripId, personId: person.id },
+    where: countedDonations({ tripId, personId: person.id }),
     include: [{ model: db.donor, as: "donor", attributes: ["personId"] }],
     order: [
       ["dateTime", "ASC"],
@@ -326,10 +331,17 @@ const flightLines = (flight, segmentType) =>
 
 /**
  * Build the value for every value source from an organization and an optional trip and participant.
- * `reload` (`{ document, documentType, note }`) is only given for a document reload request email.
+ * `reload` (`{ document, documentType, note }`) is only given for a document reload request email,
+ * and `donation` (a trip donation) only for a Trip donation email.
  * Missing data yields empty text.
  */
-export const buildSourceValues = async ({ orgId, tripId = null, personId = null, reload = null }) => {
+export const buildSourceValues = async ({
+  orgId,
+  tripId = null,
+  personId = null,
+  reload = null,
+  donation = null,
+}) => {
   const org = orgId != null ? await db.organization.findByPk(orgId) : null;
   const trip = tripId != null ? await loadTripWithArrivalPdf(tripId) : null;
   const person = personId != null ? await db.person.findByPk(personId) : null;
@@ -395,6 +407,10 @@ export const buildSourceValues = async ({ orgId, tripId = null, personId = null,
     "primaryLeader.preferredName": preferredName(leader),
     "primaryLeader.email": text(leader?.email),
     "primaryLeader.phone": formatPhone(leader?.phoneContryCode, leader?.phoneNumber),
+    "donation.date": donation?.dateTime ? formatDate(localDate(donation.dateTime)) : "",
+    "donation.type": text(donation?.donationType),
+    "donation.amount": formatMoney(donation?.amount),
+    "donation.feeCovered": formatMoney(donation?.processingFeeAmount),
   };
 };
 

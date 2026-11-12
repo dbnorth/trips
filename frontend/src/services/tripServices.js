@@ -28,6 +28,9 @@ export default {
   updateApplication(id, data = {}) {
     return apiClient.put(`/trips/browse/${id}/application`, data);
   },
+  updateWhyGo(id, whygoText) {
+    return apiClient.put(`/trips/browse/${id}/application/why-go`, { whygoText });
+  },
   cancelApplication(id) {
     return apiClient.post(`/trips/browse/${id}/application/cancel`);
   },
@@ -104,6 +107,17 @@ export default {
   async openArrivalPdf(id) {
     const response = await apiClient.get(`/trips/${id}/arrival-pdf`, { responseType: "blob" });
     window.open(URL.createObjectURL(response.data), "_blank");
+  },
+  async downloadArrivalPdf(id, filename) {
+    const response = await apiClient.get(`/trips/${id}/arrival-pdf`, { responseType: "blob" });
+    const url = URL.createObjectURL(response.data);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   },
   removeArrivalPdf(id) {
     return apiClient.delete(`/trips/${id}/arrival-pdf`);

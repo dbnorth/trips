@@ -295,12 +295,14 @@ const hasCompleteApplicationAction = (trip) => hasApplicationAction(trip?.nextAc
 const showDonateDialog = ref(false);
 const donateTripId = ref(null);
 const donateRecipients = ref([]);
+const donateOnline = ref(false);
 
 const openDonate = async (trip) => {
   browseMessage.value = "";
   try {
     const res = await TripServices.getBrowseTrip(trip.id);
     donateRecipients.value = res.data?.myTripInfo?.donationRecipients || [];
+    donateOnline.value = !!res.data?.myTripInfo?.onlineDonations;
     donateTripId.value = trip.id;
     await nextTick();
     showDonateDialog.value = true;
@@ -1046,7 +1048,8 @@ onUnmounted(() => {
       :trip-id="donateTripId"
       :person-id="user?.personId"
       :recipients="donateRecipients"
-      @saved="loadBrowseTrips"
+      :online-donations="donateOnline"
+      :return-path="router.currentRoute.value.fullPath"
     />
     <FlightSegmentsDialog
       v-model="showFlightsDialog"

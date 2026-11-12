@@ -81,3 +81,4 @@ Full table and branch names: [features/README.md](features/README.md).
 1. Backfill automated tests mapped in each feature’s **Test Coverage Map**.
 2. Prefer a new feature delta (or revise a Shipped spec carefully) when changing product behavior.
 3. Keep `features/reference/*` updated in the same PR as API/schema/rule changes.
+4. Keep `docs/user-guide/` updated in the same PR as any change users would notice, then run `npm run user-guide:pdf`.

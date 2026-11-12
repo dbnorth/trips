@@ -24,7 +24,7 @@ import {
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
-import { findReservationForPerson, tripRoleAvailability, withCapacityFields } from "../utils/tripRoleCapacity.js";
+import { findReservationForPerson, occupiesRole, tripRoleAvailability, withCapacityFields } from "../utils/tripRoleCapacity.js";
 import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 import { loadDonationRecipients } from "../utils/donorPerson.js";
 import { loadMyTripDocuments, loadMyTripNextActions } from "../utils/myTripNextActions.js";
@@ -47,6 +47,9 @@ import {
   parseFlightPurchaseFields,
   flightPurchaseInclude,
 } from "../utils/flightPurchaseFields.js";
+import { parseWhyGo } from "../utils/whyGo.js";
+import { countedDonations } from "../utils/donationCounting.js";
+import { tripOnlineDonations } from "../utils/stripeDonations.js";
 
 const Trip = db.trip;
 const TripWorkerRole = db.tripWorkerRole;
@@ -455,7 +458,7 @@ exports.getBrowseTrip = async (req, res) => {
     if (assignment) {
       const donationTotal =
         (await TripDonation.sum("amount", {
-          where: { tripId: trip.id, personId: assignment.peopleId },
+          where: countedDonations({ tripId: trip.id, personId: assignment.peopleId }),
         })) || 0;
       const totals = await participantTotals(trip, assignment);
       myTripInfo = {
@@ -483,6 +486,7 @@ exports.getBrowseTrip = async (req, res) => {
         donationRecipients: ["incomplete", "pre_approved", "approved"].includes(assignment.status)
           ? await loadDonationRecipients(trip.id)
           : [],
+        onlineDonations: await tripOnlineDonations(trip),
         tripPeopleRoleId: assignment.id,
         hasArrivalPdf:
           isApprovedTripMember(req, trip.id) &&
@@ -555,9 +559,8 @@ exports.applyToTrip = async (req, res) => {
     if (!selectedRole) {
       return res.status(400).send({ message: "Worker role must belong to this trip." });
     }
-    if (!reservation && (selectedRole.availableCount || 0) < 1) {
-      return res.status(400).send({ message: "That trip role has no available positions." });
-    }
+    const whyGo = parseWhyGo(req.body?.whygoText);
+    if (!whyGo.ok) return res.status(400).send({ message: whyGo.message });
 
     const willSelfFund = parseBool(req.body?.willSelfFund);
     const willRaiseFunds = parseBool(req.body?.willRaiseFunds);
@@ -636,6 +639,10 @@ exports.applyToTrip = async (req, res) => {
       orgId: trip.orgId,
     });
 
+    if (occupiesRole(status) && !reservation && (selectedRole.availableCount || 0) < 1) {
+      return res.status(400).send({ message: "That trip role has no available positions." });
+    }
+
     const link = await TripPeopleRole.create({
       tripId: trip.id,
       peopleId,
@@ -645,6 +652,7 @@ exports.applyToTrip = async (req, res) => {
       participantCost,
       willSelfFund,
       willRaiseFunds,
+      whygoText: whyGo.whygoText,
       licenseStatus,
       hasPreferredRoommate,
       preferredRoommateNames,
@@ -803,6 +811,10 @@ exports.updateApplication = async (req, res) => {
       return res.status(400).send({ message: "That trip role has no available positions." });
     }
 
+    const hasWhyGo = Object.prototype.hasOwnProperty.call(req.body || {}, "whygoText");
+    const whyGo = parseWhyGo(req.body?.whygoText);
+    if (hasWhyGo && !whyGo.ok) return res.status(400).send({ message: whyGo.message });
+
     const willSelfFund = parseBool(req.body?.willSelfFund);
     const willRaiseFunds = parseBool(req.body?.willRaiseFunds);
 
@@ -871,6 +883,11 @@ exports.updateApplication = async (req, res) => {
       travelOptionsComplete: !selectionCheck.missingSelection,
       orgId: trip.orgId,
     });
+
+    const becomingOccupant = occupiesRole(status) && !occupiesRole(assignment.status);
+    if (becomingOccupant && !reservation && (selectedRole.availableCount || 0) < 1) {
+      return res.status(400).send({ message: "That trip role has no available positions." });
+    }
 
     if (assignment.status === "pre_approved" && isTripActive(trip)) {
       const missingItems = getApplicationMissingItemLabels({
@@ -957,6 +974,7 @@ exports.updateApplication = async (req, res) => {
       flightNotes: Object.prototype.hasOwnProperty.call(req.body || {}, "flightNotes")
         ? parseFlightNotes(req.body.flightNotes)
         : assignment.flightNotes,
+      whygoText: hasWhyGo ? whyGo.whygoText : assignment.whygoText,
       participantCost,
       agreementAccepted: agreement.agreementAccepted,
       agreementSignatureName: agreement.agreementSignatureName,
@@ -987,6 +1005,43 @@ exports.updateApplication = async (req, res) => {
       medicalAgreement,
       travelOptions: travelOptionsWithSelection,
     });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+};
+
+const WHY_GO_EDITABLE_STATUSES = [...EDITABLE_APPLICATION_STATUSES, "approved"];
+
+exports.updateWhyGo = async (req, res) => {
+  try {
+    const peopleId = req.user?.personId;
+    if (!peopleId) {
+      return res.status(400).send({ message: "Your account is not linked to a person profile." });
+    }
+
+    const trip = await Trip.findByPk(req.params.id, { include: [orgInclude] });
+    if (!trip || trip.status !== "active") {
+      return res.status(404).send({ message: "Trip not found." });
+    }
+    if (!canBrowseOrg(req, trip.orgId)) {
+      return res.status(403).send({ message: "Forbidden." });
+    }
+
+    const assignment = await TripPeopleRole.findOne({ where: { tripId: trip.id, peopleId } });
+    if (!assignment) {
+      return res.status(404).send({ message: "Application not found." });
+    }
+    if (!WHY_GO_EDITABLE_STATUSES.includes(assignment.status)) {
+      return res.status(400).send({
+        message: `This application cannot be updated while its status is ${assignment.status}.`,
+      });
+    }
+
+    const whyGo = parseWhyGo(req.body?.whygoText);
+    if (!whyGo.ok) return res.status(400).send({ message: whyGo.message });
+
+    await assignment.update({ whygoText: whyGo.whygoText });
+    res.send({ message: "Why go saved.", whygoText: whyGo.whygoText });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

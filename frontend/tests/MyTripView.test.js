@@ -20,6 +20,7 @@ vi.mock("../src/services/tripServices.js", () => ({
     getOrgTrips: vi.fn(),
     getAll: vi.fn(),
     cancelApplication: vi.fn(),
+    downloadArrivalPdf: vi.fn(),
   },
 }));
 
@@ -44,13 +45,19 @@ vi.mock("../src/services/exportServices.js", () => ({
 }));
 
 vi.mock("../src/services/donationServices.js", () => ({
-  default: { createByParticipant: vi.fn() },
+  default: { startParticipantCheckout: vi.fn() },
+}));
+
+vi.mock("../src/utils/stripeDonations.js", async (importOriginal) => ({
+  ...(await importOriginal()),
+  goToStripe: vi.fn(),
 }));
 
 import TripServices from "../src/services/tripServices.js";
 import DonationServices from "../src/services/donationServices.js";
 import MoneyInput from "../src/components/MoneyInput.vue";
 import PersonServices from "../src/services/personServices.js";
+import { goToStripe } from "../src/utils/stripeDonations.js";
 
 const ORG_ID = 3;
 const TRIP = {
@@ -345,8 +352,8 @@ describe("Feature 119 — My Trip Page", () => {
     });
 
     it("Donation buttons on the Donations line", async () => {
-      DonationServices.createByParticipant.mockResolvedValue({ data: { id: 1 } });
-      signedUp();
+      DonationServices.startParticipantCheckout.mockResolvedValue({ data: { checkoutUrl: "https://checkout.stripe.com/c/pay/cs_1" } });
+      signedUp({ onlineDonations: true });
       const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
 
       const line = section(wrapper, "my-trip-donations-line");
@@ -364,19 +371,17 @@ describe("Feature 119 — My Trip Page", () => {
       const dialog = section(wrapper, "make-donation-dialog");
       expect(dialog.text()).toContain("Donate toward your trip balance.");
       dialog.findComponent(MoneyInput).vm.$emit("update:modelValue", "250");
-      await dialog.find("textarea").setValue("Check #1001");
-      TripServices.getBrowseTrip.mockClear();
-      await button(dialog, "Donate").trigger("click");
+      await button(dialog, "Pay with Stripe").trigger("click");
       await flushPromises();
 
-      expect(DonationServices.createByParticipant).toHaveBeenCalledWith({
+      expect(DonationServices.startParticipantCheckout).toHaveBeenCalledWith({
         tripId: 7,
         personId: 5,
         amount: 250,
-        paymentInfo: "Check #1001",
+        paymentMethod: "card",
+        returnPath: "/my-trips/7",
       });
-      expect(wrapper.text()).toContain("Thank you for your donation!");
-      expect(TripServices.getBrowseTrip).toHaveBeenCalled();
+      expect(goToStripe).toHaveBeenCalledWith("https://checkout.stripe.com/c/pay/cs_1");
       wrapper.unmount();
 
       signedUp({ status: "pre_approved" });
@@ -539,6 +544,73 @@ describe("Feature 119 — My Trip Page", () => {
       await flushPromises();
       expect(filled.wrapper.findComponent({ name: "FlightSegmentsDialog" }).props("modelValue")).toBe(true);
       filled.wrapper.unmount();
+    });
+  });
+});
+
+/**
+ * Feature 126 — Trip Arrival Document Download
+ * Spec: features/feature-126-trip-arrival-download.md
+ */
+describe("Feature 126 — Trip Arrival Document Download", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+    Utils.setStore("user", { personId: 5, firstName: "Pat", lastName: "Lee", orgRoles: [], tripRoles: [] });
+  });
+
+  const downloadButton = (wrapper) => button(section(wrapper, "my-trip-trip-info"), "Download Trip Arrival Document");
+
+  describe("US-126.1 — Download the trip arrival document", () => {
+    it("Approved participant sees the download button above Trip Leaders", async () => {
+      signedUp({ hasArrivalPdf: true });
+      const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
+
+      const tripInfo = section(wrapper, "my-trip-trip-info");
+      expect(downloadButton(wrapper)).toBeTruthy();
+      const html = tripInfo.html();
+      expect(html.indexOf("Download Trip Arrival Document")).toBeLessThan(html.indexOf("Trip Leaders"));
+      expect(html.indexOf("Download Trip Arrival Document")).toBeGreaterThan(html.indexOf("my-trip-trip-dates"));
+      expect(wrapper.text()).not.toContain("Trip arrival info");
+      wrapper.unmount();
+    });
+
+    it("No download button without the PDF or approval", async () => {
+      for (const info of [{ status: "pre_approved", hasArrivalPdf: false }, { hasArrivalPdf: false }, {}]) {
+        signedUp(info);
+        const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
+        expect(downloadButton(wrapper)).toBeUndefined();
+        expect(wrapper.text()).not.toContain("Download Trip Arrival Document");
+        wrapper.unmount();
+      }
+    });
+
+    it("Download saves the Trip Arrival PDF", async () => {
+      TripServices.downloadArrivalPdf.mockResolvedValue();
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+      signedUp({ hasArrivalPdf: true });
+      const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
+
+      await downloadButton(wrapper).trigger("click");
+      await flushPromises();
+      expect(TripServices.downloadArrivalPdf).toHaveBeenCalledWith(7, "Trip Arrival - Guatemala Clinic.pdf");
+      expect(openSpy).not.toHaveBeenCalled();
+      expect(wrapper.text()).not.toContain("Unable to download the Trip Arrival Document.");
+      openSpy.mockRestore();
+      wrapper.unmount();
+    });
+
+    it("Download failure shows an error", async () => {
+      TripServices.downloadArrivalPdf.mockRejectedValue(new Error("Not found"));
+      signedUp({ hasArrivalPdf: true });
+      const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
+
+      await downloadButton(wrapper).trigger("click");
+      await flushPromises();
+      expect(section(wrapper, "my-trip-arrival-download").text()).toContain(
+        "Unable to download the Trip Arrival Document."
+      );
+      wrapper.unmount();
     });
   });
 });

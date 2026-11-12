@@ -2,7 +2,7 @@
 import { ref, watch } from "vue";
 import OrganizationServices from "../services/organizationServices.js";
 import OrganizationFormFields from "./OrganizationFormFields.vue";
-import { emptyOrganizationForm, buildOrganizationPayload } from "../utils/organizationForm.js";
+import { emptyOrganizationForm, buildOrganizationPayload, stripeKeyError } from "../utils/organizationForm.js";
 import { formatCountryCode, validatePhoneFields } from "../utils/phoneUtils.js";
 
 const props = defineProps({
@@ -57,6 +57,11 @@ const save = async () => {
   const phoneValidation = validatePhoneFields(form.value.phoneContryCode, form.value.phoneNumber);
   if (phoneValidation !== true) {
     formError.value = phoneValidation;
+    return;
+  }
+  const keyError = stripeKeyError(form.value);
+  if (keyError) {
+    formError.value = keyError;
     return;
   }
 

@@ -394,6 +394,7 @@ Before merging `feature/N-*` → `dev`:
 - [ ] **Spec** — Feature file matches what shipped (stories, **FR-00N**, **SC-00N**, Screen/API/Data, Out of Scope).
 - [ ] **Tests** — Every Gherkin scenario has a real `it`; Test Coverage Map complete; suites pass.
 - [ ] **Living reference** — Update in this PR when the integrated product changed: [reference/data-model.md](./reference/data-model.md) (schema), [reference/api.md](./reference/api.md) (routes/payloads), and/or [reference/behavior.md](./reference/behavior.md) (product rules). Required DoD — not optional cleanup.
+- [ ] **User guide** — Update the affected [docs/user-guide/](../docs/user-guide/README.md) files in this PR when anything users see or do changed, then run `npm run user-guide:pdf` ([user-guide.mdc](../.cursor/rules/user-guide.mdc)). Required DoD.
 - [ ] **Catalog** — [features/README.md](./README.md) row for new features; ADR links if architecture changed.
 - [ ] **NFRs** — If an app-wide quality bar changed: update [docs/nfr/quality-attributes.md](../docs/nfr/quality-attributes.md) (and ADR/rule if approach or coding constraint changed).
 - [ ] **Agility sync** — If stories or Gherkin changed (or this is a new feature):
@@ -566,6 +567,7 @@ Implement Feature N from @features/feature-N-short-name.md on branch `feature/N-
 Follow layer order in @features/framework.md (models → routes → backend tests → frontend → frontend tests).
 Map every Gherkin scenario in the Test Coverage Map; run `npm test` before finishing.
 If API routes, payloads, schema, or product rules changed per this spec, update @features/reference/api.md, @features/reference/data-model.md, and/or @features/reference/behavior.md in the same PR to match shipped code.
+If anything users see or do changed, update the affected @docs/user-guide/ files and run `npm run user-guide:pdf`.
 Complete Definition of Done and the merge checklist in @features/framework.md.
 Do not implement behavior not in this spec.
 \`\`\`
@@ -584,6 +586,7 @@ Implement Feature N from @features/feature-N-short-name.md on branch `feature/N-
 
 Follow @features/framework.md layer order and Test Coverage Map.
 When API, schema, or product rules change, update @features/reference/api.md, @features/reference/data-model.md, and/or @features/reference/behavior.md in the same PR.
+When anything users see or do changes, update the affected @docs/user-guide/ files and run `npm run user-guide:pdf`.
 Run `npm test`. Complete Definition of Done in the feature file.
 ```
 
@@ -607,6 +610,7 @@ Layer-by-layer prompts are still fine (e.g. “implement Data Model Requirements
 *   [ ] `features/reference/data-model.md` updated (if schema changed)
 *   [ ] `features/reference/api.md` updated (if API changed)
 *   [ ] `features/reference/behavior.md` updated (if product rules changed)
+*   [ ] `docs/user-guide/` updated and PDFs regenerated (if anything users see or do changed)
 ```
 
 ---

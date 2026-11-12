@@ -16,6 +16,7 @@
     "specs:pdf": "node scripts/export-specs-pdf.mjs",
     "specs:pdf:setup": "npx puppeteer browsers install chrome",
     "writing-guides:pdf": "node scripts/export-writing-guides-pdf.mjs",
+    "user-guide:pdf": "node scripts/export-user-guide-pdf.mjs",
     "agility:export": "node scripts/export-agility-import.mjs --project \"Trips\"",
     "agility:push": "node scripts/push-agility-api.mjs",
     "agility:push:dry-run": "node scripts/push-agility-api.mjs --dry-run",

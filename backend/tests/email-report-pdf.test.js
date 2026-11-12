@@ -124,6 +124,30 @@ describe("Feature 118 — Email Report", () => {
       expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
     });
 
+    it("Email Report shows the new schedules", async () => {
+      const type = await db.emailType.create({
+        typeCode: "application-incomplete",
+        description: "Application incomplete reminder",
+        eventCode: "application-incomplete",
+      });
+      const scheduled = (fields) =>
+        db.emailTemplate.create({
+          orgId: hope.id,
+          functionCode: "Scheduled",
+          emailTypeId: type.id,
+          fromEmail: "trips@example.org",
+          toAddress: "{{PARTICIPANT_EMAIL}}",
+          ...fields,
+        });
+      await scheduled({ scheduleRule: "monthly", scheduleDayOfMonth: 10, subject: "Monthly check-in" });
+      await scheduled({ scheduleRule: "twice-monthly", subject: "Twice monthly check-in" });
+
+      const data = await buildEmailReportData(hope.id);
+      const whenSent = Object.fromEntries(data.groups[0].rows.map((r) => [r.subject, r.whenSent]));
+      expect(whenSent["Monthly check-in"]).toBe("Monthly (day 10)");
+      expect(whenSent["Twice monthly check-in"]).toBe("Twice monthly (1st and 15th)");
+    });
+
     it("Org Admin downloads the email report PDF", async () => {
       const res = await request(app)
         .get("/trips/email-templates/report/pdf")

@@ -351,12 +351,21 @@ describe("Feature 112 — Application and Profile Status Messages", () => {
   });
 
   describe("US-112.3 — See every document my upcoming trips need", () => {
+    it("The profile says documents are not required to secure a role", async () => {
+      const wrapper = await openProfile(MARIA.id);
+
+      expect(wrapper.find('[data-testid="my-trip-documents"]').text()).toContain(
+        "All documents for your trips must be uploaded 90 days before the trip starts. You can submit an application and secure a role on the trip without uploading the documents required for the trip."
+      );
+      wrapper.unmount();
+    });
+
     it("Required documents listed by trip", async () => {
       const wrapper = await openProfile(MARIA.id);
 
       const section = wrapper.find('[data-testid="my-trip-documents"]');
       expect(section.text()).toContain(
-        "All documents for your trips must be uploaded 90 days before the trip starts."
+        "All documents for your trips must be uploaded 90 days before the trip starts. You can submit an application and secure a role on the trip without uploading the documents required for the trip."
       );
       const trip = section.find('[data-testid="my-trip-documents-trip"]');
       expect(trip.text()).toContain("Guatemala Clinic — starts 03/15/2027, due 12/15/2026");

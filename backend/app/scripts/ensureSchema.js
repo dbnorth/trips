@@ -2,6 +2,9 @@ import db from "../models/index.js";
 import logger from "../config/logger.js";
 import fs from "fs";
 import { LANGUAGE_SEED } from "../data/languages.js";
+import { VALUE_SOURCES } from "../utils/emailTokenValues.js";
+import { TRIP_DONATION_EMAIL_TYPE } from "./seedEmailTypes.js";
+import { DONATION_TOKENS } from "./seedEmailTokens.js";
 
 export const tableExists = async (table) => {
   const [rows] = await db.sequelize.query(
@@ -150,6 +153,72 @@ const ensureOrganizationTestMode = async () => {
     "ALTER TABLE organizations ADD COLUMN testMode TINYINT(1) NOT NULL DEFAULT 0 AFTER subdomain"
   );
   logger.info("organizations.testMode column added.");
+};
+
+const addMissingColumns = async (table, columns) => {
+  for (const [name, definition] of columns) {
+    const [cols] = await db.sequelize.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = :table
+         AND COLUMN_NAME = :name`,
+      { replacements: { table, name } }
+    );
+    if (cols.length) continue;
+    await db.sequelize.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${name}\` ${definition}`);
+    logger.info(`${table}.${name} column added.`);
+  }
+};
+
+/** Feature 100: organization Stripe keys and fee coverage. */
+const ensureOrganizationStripeKeys = () =>
+  addMissingColumns("organizations", [
+    ["stripeSecretKey", "TEXT NULL"],
+    ["stripeTestSecretKey", "TEXT NULL"],
+    ["stripeFeeCoverage", "TINYINT(1) NOT NULL DEFAULT 0"],
+  ]);
+
+/** Feature 100: donation type, payment status, and Stripe fields; existing donations become Other. */
+const ensureTripDonationStripeFields = async () => {
+  await addMissingColumns("tripDonations", [
+    ["donationType", "ENUM('Stripe-ACH','Stripe-Credit','Check','Other') NOT NULL DEFAULT 'Other'"],
+    ["checkNumber", "VARCHAR(50) NULL"],
+    ["processingFeeAmount", "DECIMAL(10,2) NULL"],
+    ["paymentStatus", "ENUM('processing','succeeded','failed') NULL"],
+    ["paymentStatusUpdatedAt", "DATETIME NULL"],
+    ["stripeFailureMessage", "VARCHAR(500) NULL"],
+    ["stripePaymentMethodType", "VARCHAR(50) NULL"],
+    ["stripePaymentMethodBrand", "VARCHAR(100) NULL"],
+    ["stripePaymentMethodLast4", "VARCHAR(4) NULL"],
+    ["stripeCheckoutSessionId", "VARCHAR(255) NULL"],
+    ["stripePaymentIntentId", "VARCHAR(255) NULL"],
+    ["stripeChargeId", "VARCHAR(255) NULL"],
+    ["stripeReceiptUrl", "VARCHAR(500) NULL"],
+    ["stripeData", "TEXT NULL"],
+  ]);
+  const [indexes] = await db.sequelize.query("SHOW INDEX FROM `tripDonations`");
+  if (!indexes.some((row) => row.Key_name === "tripDonations_stripePaymentIntentId_unique")) {
+    await db.sequelize.query(
+      "ALTER TABLE tripDonations ADD UNIQUE INDEX tripDonations_stripePaymentIntentId_unique (stripePaymentIntentId)"
+    );
+    logger.info("tripDonations.stripePaymentIntentId unique index added.");
+  }
+  await addMissingColumns("donationCheckouts", [["feeCoverageOffered", "TINYINT(1) NOT NULL DEFAULT 0"]]);
+};
+
+/** Feature 100: Trip donation email type and the donation tokens. */
+const ensureTripDonationEmail = async () => {
+  const { typeCode, ...defaults } = TRIP_DONATION_EMAIL_TYPE;
+  const [, created] = await db.emailType.findOrCreate({ where: { typeCode }, defaults });
+  if (created) logger.info("Trip donation email type added.");
+  const labels = new Map(VALUE_SOURCES.map((s) => [s.valueSource, s.label]));
+  for (const { tokenCode, valueSource } of DONATION_TOKENS) {
+    const [, tokenCreated] = await db.emailToken.findOrCreate({
+      where: { tokenCode },
+      defaults: { description: labels.get(valueSource), valueSource },
+    });
+    if (tokenCreated) logger.info(`${tokenCode} email token added.`);
+  }
 };
 
 const ensureDonorPersonId = async () => {
@@ -1410,6 +1479,7 @@ const ensureEmailTemplateSchedule = async () => {
   const columns = [
     ["scheduleRule", "VARCHAR(20) NULL"],
     ["scheduleDaysBefore", "INT NULL"],
+    ["scheduleDayOfMonth", "INT NULL"],
   ];
   for (const [name, definition] of columns) {
     const [cols] = await db.sequelize.query(
@@ -1669,6 +1739,9 @@ export const ensureSchema = async () => {
   await ensureOrganizationAgreementFileName();
   await ensureOrganizationMedicalAgreementFileName();
   await ensureOrganizationTestMode();
+  await ensureOrganizationStripeKeys();
+  await ensureTripDonationStripeFields();
+  await ensureTripDonationEmail();
   await ensureDonorPersonId();
   await ensureTripPeopleRoleTripWorkerRoleId();
   await ensurePersonProfileFields();

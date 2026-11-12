@@ -1,0 +1,39 @@
+---
+description: A feature that changes what users see or do is not done until docs/user-guide/ is updated in the same PR and the PDFs are regenerated.
+alwaysApply: true
+---
+
+# User guide gate
+
+`docs/user-guide/` is the plain-language guide users (and AI notebooks such as NotebookLM) read. It must describe the product as shipped. Feature specs still authorize scope (constitution Principle 1); the guide only documents what shipped.
+
+## Definition of Done
+
+An implementation is **not done** until every user guide it affects is updated in the same PR. This sits beside the `features/reference/` updates in the feature's Definition of Done and the merge checklist in `features/framework.md`.
+
+Applies when a change alters anything a user sees or does: screens, buttons, labels, messages, steps, statuses, rules, permissions, emails. Skip it for changes users can't see (refactors, tests, internal APIs with no screen change) and say so.
+
+## Which file to update
+
+| Change affects | Update |
+|----|----|
+| Participants: profile, documents, applying, next steps, My Trip, donating, own flights | `participant-guide.md` |
+| Running a trip: trip page, review documents, approval, rooming, flights, donations, team email | `trip-staff-guide.md` |
+| Organization setup: people, trips, worker roles, document types, medical conditions, templates, pictures | `org-admin-guide.md` |
+| Agents or System Admins | `agent-guide.md`, `system-admin-guide.md` |
+| Sign-in, accounts, navigation | `getting-started.md` |
+| Any rule (statuses, completeness, documents, approval, costs, email) | `rules.md` |
+| New or changed message text | `troubleshooting.md` |
+| New term | `glossary.md` |
+
+## How to write it
+
+- Every menu item, screen, and dialog appears in a guide's **Screen reference**, and each field is listed with its choices and what they mean. A new or changed field, choice, column, button, or menu item updates that table. New menu items also go in the menu reference in `getting-started.md`.
+- Plain language, with screen names in **bold** exactly as shown. No API paths, status codes, field keys, file names, or feature numbers.
+- Describe the current behavior only; don't narrate the change ("now", "used to", "new in").
+- Quote user-facing messages exactly so they can be searched.
+- Fix every place the old behavior is described (search the folder for it).
+
+## After editing
+
+Run `npm run user-guide:pdf` (run `npm install` at the repo root first if needed) so `docs/user-guide/pdf/` matches the Markdown.

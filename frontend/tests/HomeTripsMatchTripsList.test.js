@@ -49,8 +49,10 @@ const guatemala = {
   endDate: "2099-06-17",
   leaderNames: ["Omar Diaz"],
   activeParticipantCount: 3,
-  memberCount: 4,
-  preApprovedMemberCount: 1,
+  participantCount: 6,
+  incompleteParticipantCount: 1,
+  preApprovedParticipantCount: 2,
+  approvedParticipantCount: 3,
   totalRoles: 6,
   unfilledRoles: [
     { name: "Doctor", needed: 1 },
@@ -69,7 +71,7 @@ const honduras = {
   endDate: "2020-01-20",
   leaderNames: [],
   activeParticipantCount: 0,
-  memberCount: 0,
+  participantCount: 0,
   totalRoles: 0,
   unfilledRoles: [],
   totalParticipantCost: 0,
@@ -124,7 +126,7 @@ describe("Feature 108 — Home Organization Trips Match the Trips List", () => {
       expect(headersIn(card)).toEqual([
         "Name",
         "Leaders",
-        "Members",
+        "Participants",
         "Total Roles",
         "Total cost",
         "Total donations",
@@ -138,7 +140,7 @@ describe("Feature 108 — Home Organization Trips Match the Trips List", () => {
       expect(cells.slice(0, 8)).toEqual([
         "Guatemala Clinic 2027",
         "Omar Diaz",
-        "4",
+        "6",
         "6",
         "$2,850.00",
         "$500.00",
@@ -146,24 +148,6 @@ describe("Feature 108 — Home Organization Trips Match the Trips List", () => {
         formatDateRange("2099-06-10", "2099-06-17"),
       ]);
       expect(row.text()).not.toContain("Donate");
-      home.unmount();
-    });
-
-    it("Members info shows the pre-approved and approved counts", async () => {
-      const { wrapper: home } = await mountWithPlugins(Home, {
-        global: {
-          stubs: {
-            ...stubs,
-            VTooltip: { template: '<div><slot name="activator" :props="{}" /><slot /></div>' },
-          },
-        },
-      });
-      await flushPromises();
-
-      const row = rowFor(tripsCard(home), "Guatemala Clinic 2027");
-      expect(row.find('[data-testid="member-count-info"]').exists()).toBe(true);
-      const lines = row.findAll('[data-testid="member-count-breakdown"] > div').map((d) => d.text().trim());
-      expect(lines).toEqual(["Pre-approved: 1", "Approved: 3"]);
       home.unmount();
     });
 
@@ -262,6 +246,54 @@ describe("Feature 108 — Home Organization Trips Match the Trips List", () => {
       expect(html).toContain("Active trips");
       expect(html.indexOf("Active trips")).toBeLessThan(html.indexOf("Organization Trips"));
       expect(rowFor(tripsCard(home), "Guatemala Clinic 2027")).toBeTruthy();
+      home.unmount();
+    });
+  });
+});
+
+/**
+ * Feature 127 — Participant Counts
+ * Spec: features/feature-127-participant-counts.md
+ */
+describe("Feature 127 — Participant Counts", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    setUser("Org Admin");
+    TripServices.getAll.mockResolvedValue({ data: [guatemala, honduras] });
+    TripServices.getBrowseTrips.mockResolvedValue({ data: [] });
+    TripServices.getMyBrowseTrips.mockResolvedValue({ data: [] });
+  });
+
+  describe("US-127.1 — Participants column on the trips table", () => {
+    it("Trips table shows the Participants column", async () => {
+      for (const component of [Home, TripsList]) {
+        const wrapper = await mount(component);
+        const table = component === Home ? tripsCard(wrapper) : wrapper;
+        const headers = headersIn(table);
+        expect(headers).toContain("Participants");
+        expect(headers).not.toContain("Members");
+        const row = rowFor(table, "Guatemala Clinic 2027");
+        expect(row.findAll("td")[headers.indexOf("Participants")].text().trim()).toBe("6");
+        wrapper.unmount();
+      }
+    });
+
+    it("Participants info shows the status breakdown", async () => {
+      const { wrapper: home } = await mountWithPlugins(Home, {
+        global: {
+          stubs: {
+            ...stubs,
+            VTooltip: { template: '<div><slot name="activator" :props="{}" /><slot /></div>' },
+          },
+        },
+      });
+      await flushPromises();
+
+      const row = rowFor(tripsCard(home), "Guatemala Clinic 2027");
+      expect(row.find('[data-testid="participant-count-info"]').attributes("aria-label")).toBe("Participant details");
+      const lines = row.findAll('[data-testid="participant-count-breakdown"] > div').map((d) => d.text().trim());
+      expect(lines).toEqual(["Incomplete: 1", "Pre-approved: 2", "Approved: 3"]);
       home.unmount();
     });
   });

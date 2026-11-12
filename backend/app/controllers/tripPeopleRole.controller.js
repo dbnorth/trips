@@ -52,6 +52,8 @@ import {
   syncTripPeopleRoleOptions,
   validateSelectedTravelOptionIds,
 } from "../utils/tripOptionSelection.js";
+import { parseWhyGo } from "../utils/whyGo.js";
+import { countedDonations } from "../utils/donationCounting.js";
 
 const TripPeopleRole = db.tripPeopleRole;
 const Trip = db.trip;
@@ -67,7 +69,6 @@ const fields = [
   "tripWorkerRoleId",
   "status",
   "participantCost",
-  "whygoText",
   "willSelfFund",
   "willRaiseFunds",
   "licenseStatus",
@@ -265,7 +266,7 @@ exports.findAll = async (req, res) => {
 
     const totals = await TripDonation.findAll({
       attributes: ["personId", [db.sequelize.fn("SUM", db.sequelize.col("amount")), "donationTotal"]],
-      where: { tripId, personId: { [Op.ne]: null } },
+      where: countedDonations({ tripId, personId: { [Op.ne]: null } }),
       group: ["personId"],
       raw: true,
     });
@@ -342,6 +343,9 @@ exports.create = async (req, res) => {
       return res.status(403).send({ message: "Forbidden." });
     }
     const payload = { ...req.body };
+    const whyGo = parseWhyGo(payload.whygoText);
+    if (!whyGo.ok) return res.status(400).send({ message: whyGo.message });
+    payload.whygoText = whyGo.whygoText;
     payload.tripWorkerRoleId = normalizeTripWorkerRoleId(payload.tripWorkerRoleId);
     const twrCheck = await validateTripWorkerRole(payload.tripId, payload.tripWorkerRoleId);
     if (!twrCheck.ok) return res.status(twrCheck.status).send({ message: twrCheck.message });

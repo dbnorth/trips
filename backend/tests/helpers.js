@@ -40,6 +40,7 @@ export const seedRoles = async () => {
 export const resetTestDatabase = async () => {
   assertTestDatabase();
   const ordered = [
+    db.donationCheckout,
     db.tripFlightSegment,
     db.tripFlight,
     db.tripRoomAssignment,

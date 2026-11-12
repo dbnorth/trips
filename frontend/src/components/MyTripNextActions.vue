@@ -1,9 +1,11 @@
 <script setup>
 import { computed } from "vue";
 import { APPLICATION_ACTION_CODES, nextActionText, nextActionsTone } from "../utils/myTripNextActions.js";
+import { TRIP_INFO_ROLE_NOT_SECURED } from "../utils/applicationRoleHold.js";
 
 const props = defineProps({
   actions: { type: Array, default: () => [] },
+  roleNotSecured: { type: Boolean, default: false },
 });
 
 defineEmits(["update", "cancel", "donate", "flights", "documents"]);
@@ -16,47 +18,52 @@ const tone = computed(() => nextActionsTone(props.actions));
     :class="['my-trip-next-actions', `my-trip-next-actions--${tone}`]"
     data-testid="my-trip-next-actions"
   >
-    <div
-      v-for="action in actions"
-      :key="action.code"
-      class="d-flex align-center flex-wrap ga-2 py-1"
-    >
-      <span>{{ nextActionText(action) }}</span>
-      <template v-if="APPLICATION_ACTION_CODES.includes(action.code)">
-        <v-btn v-if="action.code === 'upload-documents'" size="small" color="primary" @click="$emit('documents')">
-          Update Documents
+    <div v-for="action in actions" :key="action.code" class="py-1">
+      <div class="d-flex align-center flex-wrap ga-2">
+        <span>{{ nextActionText(action) }}</span>
+        <template v-if="APPLICATION_ACTION_CODES.includes(action.code)">
+          <v-btn v-if="action.code === 'upload-documents'" size="small" color="primary" @click="$emit('documents')">
+            Update Documents
+          </v-btn>
+          <v-btn size="small" color="primary" @click="$emit('update')">
+            {{ action.code === "submit-application" ? "Submit App" : "Update App" }}
+          </v-btn>
+          <v-btn size="small" color="error" variant="tonal" @click="$emit('cancel')">
+            Cancel App
+          </v-btn>
+        </template>
+        <v-btn
+          v-if="action.code === 'make-deposit' || action.code === 'make-donation'"
+          size="small"
+          color="primary"
+          @click="$emit('donate')"
+        >
+          Donate
         </v-btn>
-        <v-btn size="small" color="primary" @click="$emit('update')">
-          {{ action.code === "submit-application" ? "Submit App" : "Update App" }}
+        <v-btn
+          v-if="action.code === 'enter-flights'"
+          size="small"
+          color="primary"
+          @click="$emit('flights')"
+        >
+          Enter Flights
         </v-btn>
-        <v-btn size="small" color="error" variant="tonal" @click="$emit('cancel')">
-          Cancel App
+        <v-btn
+          v-if="action.code.endsWith('-flight-mismatch') && action.canEditFlights"
+          size="small"
+          color="primary"
+          @click="$emit('flights')"
+        >
+          Edit Flights
         </v-btn>
-      </template>
-      <v-btn
-        v-if="action.code === 'make-deposit' || action.code === 'make-donation'"
-        size="small"
-        color="primary"
-        @click="$emit('donate')"
+      </div>
+      <div
+        v-if="roleNotSecured && action.code === 'complete-application'"
+        class="text-warning mt-1"
+        data-testid="role-not-secured-warning"
       >
-        Donate
-      </v-btn>
-      <v-btn
-        v-if="action.code === 'enter-flights'"
-        size="small"
-        color="primary"
-        @click="$emit('flights')"
-      >
-        Enter Flights
-      </v-btn>
-      <v-btn
-        v-if="action.code.endsWith('-flight-mismatch') && action.canEditFlights"
-        size="small"
-        color="primary"
-        @click="$emit('flights')"
-      >
-        Edit Flights
-      </v-btn>
+        {{ TRIP_INFO_ROLE_NOT_SECURED }}
+      </div>
     </div>
   </div>
 </template>

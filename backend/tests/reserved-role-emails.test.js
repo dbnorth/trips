@@ -6,7 +6,14 @@
 import request from "supertest";
 import app from "../server.js";
 import db from "../app/models/index.js";
-import { syncTestDatabase, resetTestDatabase, registerUser, createOrgAdminUser } from "./helpers.js";
+import {
+  syncTestDatabase,
+  resetTestDatabase,
+  registerUser,
+  createOrgAdminUser,
+  completePersonProfile,
+  COMPLETE_APPLICATION,
+} from "./helpers.js";
 
 describe("Feature 56 — Reserved Role Emails", () => {
   let admin;
@@ -112,7 +119,12 @@ describe("Feature 56 — Reserved Role Emails", () => {
 
     it("Reservations only take open slots", async () => {
       await setNurseQuantity(2);
-      expect((await apply(await person("Carl", "Diaz"), nurse)).status).toBe(200);
+      const carl = await person("Carl", "Diaz");
+      expect((await apply(carl, nurse)).status).toBe(200);
+      await db.tripPeopleRole.update(
+        { status: "pre_approved" },
+        { where: { tripId: trip.id, peopleId: carl.user.personId } }
+      );
 
       const res = await reserve(nurse, ["ana@example.org", "ben@example.org"]);
 
@@ -212,9 +224,9 @@ describe("Feature 56 — Reserved Role Emails", () => {
 
       expect(res.status).toBe(200);
       expect(await applicationRoleId(ana)).toBe(nurse.id);
-      expect(await counts(nurse)).toEqual({ signedUpCount: 1, reservedCount: 0, availableCount: 1 });
+      expect(await counts(nurse)).toEqual({ signedUpCount: 0, reservedCount: 1, availableCount: 1 });
       const [row] = (await reservations(nurse)).body;
-      expect(row).toMatchObject({ filled: true, applicantName: "Ana Lopez", applicationStatus: "incomplete" });
+      expect(row).toMatchObject({ filled: false, applicantName: null, applicationStatus: null });
     });
 
     it("Reserved person can apply when no open slots remain", async () => {
@@ -225,7 +237,7 @@ describe("Feature 56 — Reserved Role Emails", () => {
       const res = await apply(await person("Ana", "Lopez"), nurse);
 
       expect(res.status).toBe(200);
-      expect(await counts(nurse)).toEqual({ signedUpCount: 2, reservedCount: 0, availableCount: 0 });
+      expect(await counts(nurse)).toEqual({ signedUpCount: 0, reservedCount: 1, availableCount: 1 });
     });
 
     it("Others cannot take reserved slots", async () => {
@@ -235,7 +247,9 @@ describe("Feature 56 — Reserved Role Emails", () => {
 
       const res = await apply(await person("Carl", "Diaz"), nurse);
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(200);
+      expect(res.body.applicationStatus).toBe("incomplete");
+      expect(await counts(nurse)).toEqual({ signedUpCount: 0, reservedCount: 1, availableCount: 1 });
     });
 
     it("Reserved person cannot switch roles", async () => {
@@ -263,13 +277,13 @@ describe("Feature 56 — Reserved Role Emails", () => {
         .post(`/trips/trips/browse/${trip.id}/application/cancel`)
         .set(ana.authHeader);
       expect(cancel.status).toBe(200);
-      expect(await counts(nurse)).toEqual({ signedUpCount: 1, reservedCount: 1, availableCount: 0 });
+      expect(await counts(nurse)).toEqual({ signedUpCount: 0, reservedCount: 1, availableCount: 1 });
 
       const uncancel = await request(app)
         .post(`/trips/trips/browse/${trip.id}/application/uncancel`)
         .set(ana.authHeader);
       expect(uncancel.status).toBe(200);
-      expect(await counts(nurse)).toEqual({ signedUpCount: 2, reservedCount: 0, availableCount: 0 });
+      expect(await counts(nurse)).toEqual({ signedUpCount: 0, reservedCount: 1, availableCount: 1 });
     });
 
     it("Browse shows my reserved role", async () => {
@@ -291,7 +305,7 @@ describe("Feature 56 — Reserved Role Emails", () => {
       const ben = await person("Ben", "Cruz");
       expect((await apply(ben, nurse)).status).toBe(200);
       await reserve(nurse, ["ana@example.org"]);
-      const expected = { signedUpCount: 1, reservedCount: 1, availableCount: 1 };
+      const expected = { signedUpCount: 0, reservedCount: 1, availableCount: 2 };
       const pick = (roles) => {
         const role = roles.find((r) => r.id === nurse.id);
         return {
@@ -310,6 +324,33 @@ describe("Feature 56 — Reserved Role Emails", () => {
       expect(pick(status.body.rolesNeeded)).toEqual(expected);
       expect(overview.status).toBe(200);
       expect(pick(overview.body.rolesNeeded)).toEqual(expected);
+    });
+  });
+
+  describe("Feature 129 — US-129.2 An incomplete application does not fill a reservation", () => {
+    it("An incomplete application does not fill a reservation", async () => {
+      await setNurseQuantity(1);
+      await reserve(nurse, ["ana@example.org"]);
+      const ana = await person("Ana", "Lopez", "ana@example.org");
+      await completePersonProfile(ana.user.personId);
+
+      const saved = await apply(ana, nurse);
+      expect(saved.status).toBe(200);
+      expect(saved.body.applicationStatus).toBe("incomplete");
+      expect(await counts(nurse)).toEqual({ signedUpCount: 0, reservedCount: 1, availableCount: 0 });
+
+      const submitted = await request(app)
+        .put(`/trips/trips/browse/${trip.id}/application`)
+        .set(ana.authHeader)
+        .send({
+          ...COMPLETE_APPLICATION,
+          tripWorkerRoleId: nurse.id,
+          willRaiseFunds: false,
+          version: saved.body.assignment.version,
+        });
+      expect(submitted.status).toBe(200);
+      expect(submitted.body.applicationStatus).toBe("pre_approved");
+      expect(await counts(nurse)).toEqual({ signedUpCount: 1, reservedCount: 0, availableCount: 0 });
     });
   });
 });

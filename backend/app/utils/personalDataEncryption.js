@@ -58,6 +58,9 @@ const decryptValue = (key, stored) => {
   ]).toString("utf8");
 };
 
+/** The original text of a value stored by `encryptValue`. */
+export const decryptText = (stored) => decryptValue(currentKey(), stored);
+
 const yesNoText = (value) => {
   if (value === "") return null;
   if ([true, 1, "1", "true"].includes(value)) return "1";

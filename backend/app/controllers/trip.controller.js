@@ -16,8 +16,7 @@ import {
   getActiveParticipantCountsByTripIds,
   getActiveParticipantTotalCostsByTripIds,
   getDonationTotalsByTripIds,
-  getMemberCountsByTripIds,
-  getPreApprovedMemberCountsByTripIds,
+  getParticipantStatusCountsByTripIds,
   getTripRoleTotalsByTripIds,
   getTripPrepByTripIds,
   getTripPrimaryLeaderPeopleId,
@@ -50,6 +49,8 @@ import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import { amountOwed, participantCost, participantCostBreakdown } from "../utils/participantTotals.js";
 import { participantFlightDates, participantTravelDates } from "../utils/tripDays.js";
+import { countedDonations } from "../utils/donationCounting.js";
+import { loadStripeOrganization, onlineDonationsSetUp } from "../utils/stripeDonations.js";
 import {
   arrivalPdfName,
   deleteArrivalPdf,
@@ -134,27 +135,34 @@ exports.findAll = async (req, res) => {
     const activeParticipantsByTripId = await getActiveParticipantCountsByTripIds(data.map((trip) => trip.id));
     const totalCostsByTripId = await getActiveParticipantTotalCostsByTripIds(data);
     const donationTotalsByTripId = await getDonationTotalsByTripIds(data.map((trip) => trip.id));
-    const memberCountsByTripId = await getMemberCountsByTripIds(data.map((trip) => trip.id));
-    const preApprovedCountsByTripId = await getPreApprovedMemberCountsByTripIds(data.map((trip) => trip.id));
+    const participantCountsByTripId = await getParticipantStatusCountsByTripIds(data.map((trip) => trip.id));
     const roleTotalsByTripId = await getTripRoleTotalsByTripIds(data.map((trip) => trip.id));
     const prepByTripId = await getTripPrepByTripIds(data.map((trip) => trip.id));
+    const onlineDonationsByOrgId = new Map();
+    for (const orgId of new Set(data.map((trip) => trip.orgId))) {
+      onlineDonationsByOrgId.set(orgId, onlineDonationsSetUp(await loadStripeOrganization(orgId)));
+    }
     res.send(
       data.map((trip) => {
         const unfilledRoles = roleTotalsByTripId.get(trip.id)?.unfilledRoles || [];
         const totalParticipantCost = totalCostsByTripId.get(trip.id) || 0;
         const donationTotal = donationTotalsByTripId.get(trip.id) || 0;
         const prep = prepByTripId.get(trip.id) || {};
+        const participants = participantCountsByTripId.get(trip.id) || { incomplete: 0, pre_approved: 0, approved: 0 };
         return {
           ...trip.toJSON(),
           leaderNames: leadersByTripId.get(trip.id) || [],
           activeParticipantCount: activeParticipantsByTripId.get(trip.id) || 0,
-          memberCount: memberCountsByTripId.get(trip.id) || 0,
-          preApprovedMemberCount: preApprovedCountsByTripId.get(trip.id) || 0,
+          participantCount: participants.incomplete + participants.pre_approved + participants.approved,
+          incompleteParticipantCount: participants.incomplete,
+          preApprovedParticipantCount: participants.pre_approved,
+          approvedParticipantCount: participants.approved,
           totalRoles: roleTotalsByTripId.get(trip.id)?.totalRoles || 0,
           unfilledRoles,
           totalParticipantCost,
           donationTotal,
           prepStatus: prepStatusFor({ unfilledRoles, totalParticipantCost, donationTotal, prep }),
+          onlineDonations: onlineDonationsByOrgId.get(trip.orgId) || false,
         };
       })
     );
@@ -178,6 +186,7 @@ exports.findOne = async (req, res) => {
       primaryLeaderPeopleId: await getTripPrimaryLeaderPeopleId(data.id),
       leaderNames: leadersByTripId.get(data.id) || [],
       hasArrivalPdf: !!(await loadTripWithArrivalPdf(data.id)).arrivalPdfFileName,
+      onlineDonations: onlineDonationsSetUp(await loadStripeOrganization(data.orgId)),
     });
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -265,7 +274,7 @@ exports.findStatus = async (req, res) => {
 
     const totals = await TripDonation.findAll({
       attributes: ["personId", [db.sequelize.fn("SUM", db.sequelize.col("amount")), "donationTotal"]],
-      where: { tripId, personId: { [Op.ne]: null } },
+      where: countedDonations({ tripId, personId: { [Op.ne]: null } }),
       group: ["personId"],
       raw: true,
     });

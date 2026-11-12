@@ -293,6 +293,8 @@ describe("Feature 42 — Email Template Schedule", () => {
     expect(selectByLabel(wrapper, "Schedule").props("items").map((item) => item.title)).toEqual([
       "Daily",
       "Weekly (Tuesday)",
+      "Monthly (day of month)",
+      "Twice monthly (1st and 15th)",
       "Days before trip start",
     ]);
 
@@ -317,6 +319,34 @@ describe("Feature 42 — Email Template Schedule", () => {
     expect(daysField()).toBeTruthy();
 
     wrapper.unmount();
+  });
+
+  describe("Feature 123 — Monthly Email Schedules", () => {
+    it("Day of month shows for the monthly schedule", async () => {
+      const { wrapper } = await mountForm();
+      await flushPromises();
+
+      await choose(wrapper, "Function code", "Scheduled");
+      const textLabels = () =>
+        wrapper.findAllComponents({ name: "VTextField" }).map((field) => field.props("label"));
+      expect(textLabels()).not.toContain("Day of month");
+
+      await choose(wrapper, "Schedule", "monthly");
+      const dayField = wrapper
+        .findAllComponents({ name: "VTextField" })
+        .find((field) => field.props("label") === "Day of month");
+      expect(dayField).toBeTruthy();
+      expect(dayField.props("hint")).toBe("If the month is shorter, the email goes on its last day.");
+      const scheduleEl = selectByLabel(wrapper, "Schedule").element;
+      expect(
+        scheduleEl.compareDocumentPosition(dayField.element) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+
+      await choose(wrapper, "Schedule", "twice-monthly");
+      expect(textLabels()).not.toContain("Day of month");
+
+      wrapper.unmount();
+    });
   });
 
   describe("Feature 46 — Email Trip Team", () => {

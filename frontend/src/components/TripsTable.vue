@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import EditTripDialog from "./EditTripDialog.vue";
 import ImportTripMasterDialog from "./ImportTripMasterDialog.vue";
 import RowAction from "./RowAction.vue";
+import ParticipantCount from "./ParticipantCount.vue";
 import Utils from "../config/utils.js";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { formatDateRange } from "../utils/dateFormat.js";
@@ -25,7 +26,7 @@ const importTrip = ref(null);
 const headers = [
   { title: "Name", key: "name" },
   { title: "Leaders", key: "leaders" },
-  { title: "Members", key: "memberCount" },
+  { title: "Participants", key: "participantCount" },
   { title: "Total Roles", key: "totalRoles" },
   { title: "Total cost", key: "totalParticipantCost" },
   { title: "Total donations", key: "donationTotal" },
@@ -70,26 +71,12 @@ const formatMoney = (value) =>
 <template>
   <v-data-table :items="trips" :loading="loading" :headers="headers" density="compact">
     <template #item.leaders="{ item }">{{ formatLeaders(item) }}</template>
-    <template #item.memberCount="{ item }">
-      <span class="d-inline-flex align-center ga-1">
-        <span>{{ item.memberCount ?? 0 }}</span>
-        <v-tooltip location="top">
-          <template #activator="{ props: activator }">
-            <v-icon
-              v-bind="activator"
-              icon="mdi-information-outline"
-              size="small"
-              tabindex="0"
-              aria-label="Member details"
-              data-testid="member-count-info"
-            />
-          </template>
-          <div data-testid="member-count-breakdown">
-            <div>Pre-approved: {{ item.preApprovedMemberCount ?? 0 }}</div>
-            <div>Approved: {{ item.activeParticipantCount ?? 0 }}</div>
-          </div>
-        </v-tooltip>
-      </span>
+    <template #item.participantCount="{ item }">
+      <ParticipantCount
+        :incomplete="item.incompleteParticipantCount ?? 0"
+        :pre-approved="item.preApprovedParticipantCount ?? 0"
+        :approved="item.approvedParticipantCount ?? 0"
+      />
     </template>
     <template #item.totalRoles="{ item }">
       <span class="d-inline-flex align-center ga-1">

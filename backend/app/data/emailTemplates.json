@@ -154,6 +154,14 @@
       "toAddress": "{{PARTICIPANT_EMAIL}}",
       "subject": "Your {{TRIP_NAME}} flight itinerary",
       "emailBody": "Hi {{PARTICIPANT_FIRST_NAME}},\n\nHere is your flight itinerary for {{TRIP_NAME}} ({{PARTICIPANT_ARRIVAL_DATE}} to {{PARTICIPANT_DEPARTURE_DATE}}).\n\nConfirmation number: {{FLIGHT_CONFIRMATION_NUM}}\n\nArrival flight:\n{{ARRIVAL_FLIGHT}}\n\nReturn flight:\n{{RETURN_FLIGHT}}\n\nIf anything looks wrong, reply to this email.\n\nBlessings,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "trip-donation",
+      "functionCode": "Send Now",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{PARTICIPANT_EMAIL}}",
+      "subject": "Thank you for your donation to {{TRIP_NAME}}",
+      "emailBody": "Thank you for your donation!\n\nTrip: {{TRIP_NAME}}\nLocation: {{TRIP_LOCATION}}\nDates: {{TRIP_START_DATE}} to {{TRIP_END_DATE}}\nParticipant: {{PARTICIPANT_FIRST_NAME}} {{PARTICIPANT_LAST_NAME}}\n\nDonation date: {{DONATION_DATE}}\nDonation type: {{DONATION_TYPE}}\nDonation amount: {{DONATION_AMOUNT}}\n\nYour gift helps send our team to {{TRIP_LOCATION}}. We are grateful for your support.\n\nBlessings,\n{{ORG_NAME}}"
     }
   ]
 }

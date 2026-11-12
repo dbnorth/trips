@@ -10,6 +10,7 @@ import logger from "./app/config/logger.js";
 import { ensureSchema } from "./app/scripts/ensureSchema.js";
 import { convertHeicDocuments } from "./app/scripts/convertHeicDocuments.js";
 import { loadPersonalDataKey } from "./app/utils/personalDataEncryption.js";
+import { startStripeChecks } from "./app/utils/stripeDonations.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,6 +56,7 @@ export const startServer = async () => {
     .then(() => ensureSchema())
     .then(() => convertHeicDocuments())
     .then(() => {
+      startStripeChecks();
       if (syncOptions.alter) {
         logger.info("Database sync completed with alter: true.");
       }

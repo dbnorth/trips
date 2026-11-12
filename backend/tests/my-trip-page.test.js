@@ -7,6 +7,7 @@ import request from "supertest";
 import app from "../server.js";
 import db from "../app/models/index.js";
 import { syncTestDatabase, resetTestDatabase, registerUser, createOrganization, findRole } from "./helpers.js";
+import { fakeStripe, payWithStripe, saveStripeKeys } from "./stripeFake.js";
 
 describe("Feature 119 — My Trip Page", () => {
   beforeAll(async () => {
@@ -87,13 +88,20 @@ describe("Feature 119 — My Trip Page", () => {
         flightPurchaseOption: "organization",
       });
 
+      await saveStripeKeys(org);
+      const stripe = fakeStripe();
       const donate = () =>
-        request(app)
-          .post("/trips/donations/participant")
-          .set(pat.authHeader)
-          .send({ tripId: trip.id, personId: pat.user.personId, amount: 50 });
+        payWithStripe(stripe, {
+          path: "/trips/donations/participant/stripe-checkout",
+          authHeader: pat.authHeader,
+          body: { tripId: trip.id, personId: pat.user.personId, amount: 50 },
+        });
 
-      expect((await donate()).status).toBe(200);
+      try {
+        expect((await donate()).start.status).toBe(200);
+      } finally {
+        stripe.restore();
+      }
 
       const browse = await request(app).get(`/trips/trips/browse/${trip.id}`).set(pat.authHeader);
       expect(browse.body.myTripInfo.donationRecipients.map((r) => r.personId)).toEqual([pat.user.personId]);
@@ -107,7 +115,10 @@ describe("Feature 119 — My Trip Page", () => {
       expect(publicPat.status).toBe(200);
 
       await assignment.update({ status: "incomplete" });
-      const refused = await donate();
+      const refused = await request(app)
+        .post("/trips/donations/participant/stripe-checkout")
+        .set(pat.authHeader)
+        .send({ tripId: trip.id, personId: pat.user.personId, amount: 50, paymentMethod: "card" });
       expect(refused.status).toBe(403);
       expect(refused.body.message).toBe(
         "You can donate to yourself only on trips where you are pre-approved or approved."

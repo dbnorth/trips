@@ -8,6 +8,7 @@ import {
   getTripLeaderOrgIds,
 } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
+import { encryptValue } from "../utils/personalDataEncryption.js";
 import {
   getAgreementsDir,
   AGREEMENT_KIND_MEDICAL,
@@ -41,6 +42,7 @@ const orgFields = [
   "colorFamily",
   "subdomain",
   "testMode",
+  "stripeFeeCoverage",
 ];
 
 const pickOrgPayload = (body, { includeSubdomain }) => {
@@ -67,6 +69,31 @@ const applySubdomainToPayload = async (payload, { excludeOrgId = null } = {}) =>
 
 const canManageOrg = (req, orgId) =>
   isOrgAdminForOrg(req, orgId) || isSystemAdmin(req);
+
+const STRIPE_KEY_RULES = [
+  {
+    field: "stripeSecretKey",
+    pattern: /^(sk|rk)_live_/,
+    message: "Enter a live Stripe secret key (sk_live_ or rk_live_).",
+  },
+  {
+    field: "stripeTestSecretKey",
+    pattern: /^(sk|rk)_test_/,
+    message: "Enter a test Stripe secret key (sk_test_ or rk_test_).",
+  },
+];
+
+/** Encrypted Stripe keys from the body; a blank or missing key keeps the saved one. */
+const pickStripeKeys = (body) => {
+  const keys = {};
+  for (const { field, pattern, message } of STRIPE_KEY_RULES) {
+    const value = typeof body[field] === "string" ? body[field].trim() : "";
+    if (!value) continue;
+    if (!pattern.test(value)) return { ok: false, message };
+    keys[field] = encryptValue(value);
+  }
+  return { ok: true, keys };
+};
 
 const exports = {};
 
@@ -119,9 +146,11 @@ exports.create = async (req, res) => {
       return res.status(400).send({ message: "Name is required." });
     }
     payload.name = payload.name.trim();
+    const stripe = pickStripeKeys(req.body);
+    if (!stripe.ok) return res.status(400).send({ message: stripe.message });
     const withSub = await applySubdomainToPayload(payload);
     if (!withSub.ok) return res.status(withSub.status).send({ message: withSub.message });
-    const data = await Organization.create(withSub.payload);
+    const data = await Organization.create({ ...withSub.payload, ...stripe.keys });
     res.send(data);
   } catch (err) {
     res.status(500).send({ message: err.message });
@@ -134,8 +163,13 @@ exports.update = async (req, res) => {
       return res.status(403).send({ message: "Forbidden." });
     }
     const includeSubdomain = isSystemAdmin(req);
-    const allowed = includeSubdomain ? orgFields : orgFields.filter((f) => f !== "subdomain");
-    const body = { ...req.body };
+    const stripe = pickStripeKeys(req.body);
+    if (!stripe.ok) return res.status(400).send({ message: stripe.message });
+    const allowed = [
+      ...(includeSubdomain ? orgFields : orgFields.filter((f) => f !== "subdomain")),
+      ...Object.keys(stripe.keys),
+    ];
+    const body = { ...req.body, ...stripe.keys };
     if (includeSubdomain && Object.prototype.hasOwnProperty.call(body, "subdomain")) {
       const withSub = await applySubdomainToPayload(
         { subdomain: body.subdomain },

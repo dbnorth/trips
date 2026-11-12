@@ -5,7 +5,7 @@ import {
 } from "./tripParticipantApplicationStatus.js";
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "./organizationAgreement.js";
 import { normalizeApplicationPregnancy } from "./pregnancyFields.js";
-import { findReservationForPerson, withCapacityFields } from "./tripRoleCapacity.js";
+import { findReservationForPerson, occupiesRole, withCapacityFields } from "./tripRoleCapacity.js";
 
 const TripWorkerRole = db.tripWorkerRole;
 
@@ -20,7 +20,8 @@ const resolveUncancelStatus = async (assignment, orgId) => {
     !!medicalAgreement?.exists &&
     !!medicalAgreement?.content?.trim() &&
     (person?.takesMedication === true || person?.takesMedication === 1);
-  const pregnancy = normalizeApplicationPregnancy(assignment, { gender: person?.gender ?? null });
+  const stored = typeof assignment.get === "function" ? assignment.get({ plain: true }) : assignment;
+  const pregnancy = normalizeApplicationPregnancy(stored, { gender: person?.gender ?? null });
   return resolvePreApprovedOrIncompleteStatus({
     person,
     tripWorkerRoleId: assignment.tripWorkerRoleId,
@@ -29,6 +30,12 @@ const resolveUncancelStatus = async (assignment, orgId) => {
     licenseStatus: assignment.licenseStatus || null,
     hasPreferredRoommate: !!assignment.hasPreferredRoommate,
     preferredRoommateNames: assignment.preferredRoommateNames || null,
+    flightPurchaseOption: stored.flightPurchaseOption || null,
+    preferredDepartureAirportId: stored.preferredDepartureAirportId || null,
+    preferredReturnAirportId: stored.preferredReturnAirportId || null,
+    preferredCabinClass: stored.preferredCabinClass || null,
+    preferredAirlineId: stored.preferredAirlineId || null,
+    preferredRefundableTicket: stored.preferredRefundableTicket,
     agreementRequired,
     agreementAccepted: !!assignment.agreementAccepted,
     agreementSignatureName: assignment.agreementSignatureName || null,
@@ -81,18 +88,17 @@ export const uncancelApplicationAssignment = async (assignment, { orgId } = {}) 
   if (!twr) {
     return { ok: false, status: 400, message: "Role is no longer available on this trip." };
   }
+  const nextStatus = await resolveUncancelStatus(assignment, orgId);
   const reservation = await findReservationForPerson(assignment.tripId, assignment.peopleId);
   const reservedForRole = Number(reservation?.tripWorkerRoleId) === Number(tripWorkerRoleId);
   const [role] = await withCapacityFields(assignment.tripId, [twr]);
-  if (!reservedForRole && role.availableCount < 1) {
+  if (occupiesRole(nextStatus) && !reservedForRole && role.availableCount < 1) {
     return {
       ok: false,
       status: 400,
       message: "This role is full. Uncancel is not available.",
     };
   }
-
-  const nextStatus = await resolveUncancelStatus(assignment, orgId);
   await assignment.update({
     status: nextStatus,
     version: Number(assignment.version || 1) + 1,

@@ -9,6 +9,8 @@
  * Spec: features/feature-89-negative-trip-days.md
  * Feature 95 — Role Availability on Public Trip Pages
  * Spec: features/feature-95-public-trip-role-availability.md
+ * Feature 125 — Participant Why Go
+ * Spec: features/feature-125-participant-why-go.md
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -24,7 +26,7 @@ import { travelOptionDaysError } from "../src/utils/tripApplicationForm.js";
 import { mountWithPlugins } from "./testUtils.js";
 
 vi.mock("../src/services/tripServices.js", () => ({
-  default: { getBrowseTrip: vi.fn(), getApplication: vi.fn(), applyToTrip: vi.fn() },
+  default: { getBrowseTrip: vi.fn(), getApplication: vi.fn(), applyToTrip: vi.fn(), updateWhyGo: vi.fn() },
 }));
 vi.mock("../src/services/personServices.js", () => ({
   default: { get: vi.fn(), update: vi.fn() },
@@ -322,6 +324,9 @@ describe("Feature 47 — Simplify Application Warnings", () => {
         .find((b) => b.text() === "Save Incomplete Application")
         .trigger("click");
       await flushPromises();
+      expect(TripServices.applyToTrip).not.toHaveBeenCalled();
+      await wrapper.find('[data-testid="incomplete-save-ok"]').trigger("click");
+      await flushPromises();
 
       expect(TripServices.applyToTrip).toHaveBeenCalledTimes(1);
       expect(PersonServices.update).not.toHaveBeenCalled();
@@ -385,5 +390,302 @@ describe("Feature 89 — Negative Trip Days", () => {
       expect(travelOptionDaysError(options, [1, 2])).toBe("Choose only one trip option with days after the trip.");
       expect(travelOptionDaysError(options, [1, 3])).toBeNull();
     });
+  });
+});
+
+describe("Feature 125 — Participant Why Go", () => {
+  const TRIP = { id: 42, orgId: 1, name: "Clinic Trip", startDate: "2026-12-01", endDate: "2026-12-10" };
+  const OPEN_ROLE = { id: 3, availableCount: 2, workerRole: { name: "Nurse" } };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.setItem("user", JSON.stringify({ personId: 5 }));
+    PersonServices.get.mockResolvedValue({ data: { id: 5, firstName: "Ana", lastName: "Lopez" } });
+    PersonDocumentServices.getAll.mockResolvedValue({ data: [] });
+    TripServices.getBrowseTrip.mockResolvedValue({
+      data: { trip: TRIP, rolesNeeded: [OPEN_ROLE], travelOptions: [], alreadyApplied: false },
+    });
+  });
+
+  afterEach(() => {
+    window.localStorage.removeItem("user");
+  });
+
+  const openDialog = async () => {
+    const { wrapper } = await mountWithPlugins(ApplyTripDialog, {
+      props: { modelValue: false, tripId: 42 },
+      global: {
+        stubs: {
+          VDialog: { props: ["modelValue"], template: '<div v-if="modelValue"><slot /></div>' },
+          PersonProfileFields: true,
+          EditPersonDialog: true,
+          ParticipantAgreementSection: true,
+          TripApplicationTravelOptions: true,
+          TripApplicationFlightPurchase: true,
+          DonorTripHeading: true,
+        },
+      },
+    });
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+    return wrapper;
+  };
+
+  const whyGoField = (wrapper) =>
+    wrapper
+      .find('[data-testid="application-why-go"]')
+      .findAllComponents({ name: "VTextarea" })
+      .find((c) => c.props("label") === "Why go");
+
+  describe("US-125.1 — Tell donors why I'm going", () => {
+    it("Why go shows in Funding with the fundraising note", async () => {
+      TripServices.applyToTrip.mockResolvedValue({ data: {} });
+      const wrapper = await openDialog();
+
+      const html = wrapper.html();
+      const raiseFunds = html.indexOf("I will raise funds");
+      const whyGo = html.indexOf('data-testid="application-why-go"');
+      const roommate = html.indexOf("Roommate preference");
+      expect(raiseFunds).toBeGreaterThan(-1);
+      expect(whyGo).toBeGreaterThan(raiseFunds);
+      expect(roommate).toBeGreaterThan(whyGo);
+
+      const field = whyGoField(wrapper);
+      expect(field.props("hint")).toBe("Shown on your fundraising page so donors can see why you're going.");
+      expect(field.props("disabled")).toBe(false);
+      expect(wrapper.find('[data-testid="save-why-go"]').exists()).toBe(false);
+
+      wrapper
+        .findAllComponents({ name: "VSelect" })
+        .find((c) => c.props("label") === "Trip role")
+        .vm.$emit("update:modelValue", OPEN_ROLE.id);
+      field.vm.$emit("update:modelValue", "  I want to serve.  ");
+      await flushPromises();
+      await wrapper
+        .findAll("button")
+        .find((b) => b.text() === "Save Incomplete Application")
+        .trigger("click");
+      await flushPromises();
+      await wrapper.find('[data-testid="incomplete-save-ok"]').trigger("click");
+      await flushPromises();
+
+      expect(TripServices.applyToTrip).toHaveBeenCalledWith(
+        42,
+        expect.objectContaining({ whygoText: "I want to serve." })
+      );
+      wrapper.unmount();
+    });
+  });
+
+  describe("US-125.2 — Update my story after approval", () => {
+    it("Approved application can update Why go only", async () => {
+      TripServices.getBrowseTrip.mockResolvedValue({
+        data: {
+          trip: TRIP,
+          rolesNeeded: [OPEN_ROLE],
+          travelOptions: [],
+          alreadyApplied: true,
+          applicationStatus: "approved",
+        },
+      });
+      TripServices.getApplication.mockResolvedValue({
+        data: {
+          trip: TRIP,
+          rolesNeeded: [OPEN_ROLE],
+          travelOptions: [],
+          canEdit: false,
+          applicationStatus: "approved",
+          application: { status: "approved", tripWorkerRoleId: OPEN_ROLE.id, willRaiseFunds: true, whygoText: "Old story" },
+        },
+      });
+      TripServices.updateWhyGo.mockResolvedValue({ data: { message: "Why go saved.", whygoText: "New story" } });
+      const wrapper = await openDialog();
+
+      expect(wrapper.text()).toContain(
+        "You are approved for this trip. You can update Why go or Cancel the application if needed."
+      );
+      const field = whyGoField(wrapper);
+      expect(field.props("modelValue")).toBe("Old story");
+      expect(field.props("disabled")).toBe(false);
+      const raiseFunds = wrapper
+        .findAllComponents({ name: "VCheckbox" })
+        .find((c) => c.props("label") === "I will raise funds");
+      expect(raiseFunds.props("disabled")).toBe(true);
+      expect(wrapper.findAll("button").some((b) => b.text() === "Update Application")).toBe(false);
+
+      field.vm.$emit("update:modelValue", "New story ");
+      await flushPromises();
+      await wrapper.find('[data-testid="save-why-go"]').trigger("click");
+      await flushPromises();
+
+      expect(TripServices.updateWhyGo).toHaveBeenCalledWith(42, "New story ");
+      expect(wrapper.find('[data-testid="why-go-notice"]').text()).toBe("Why go saved.");
+      expect(whyGoField(wrapper).props("modelValue")).toBe("New story");
+      wrapper.unmount();
+    });
+  });
+});
+
+describe("Feature 129 — US-129.1 The application says whether the role is held", () => {
+  const TRIP = { id: 42, orgId: 1, name: "Clinic Trip", startDate: "2026-12-01", endDate: "2026-12-10" };
+  const OPEN_ROLE = { id: 3, availableCount: 2, workerRole: { name: "Nurse" } };
+  const INCOMPLETE_WARNING =
+    "Saving an Incomplete application does not secure your role on the trip. Complete the application and required profile fields to be able to submit the application which will secure the role.";
+  const SUBMIT_NOTICE =
+    "Submitting the application will hold your role on the trip pending review of your documents once they are uploaded.";
+  const CONFIRM = "Your application data will be saved, but a role on the trip has not yet been secured.";
+  const COMPLETE_PERSON = {
+    id: 5,
+    firstName: "Ana",
+    lastName: "Lopez",
+    middleName: "Maria",
+    email: "ana@example.org",
+    addLine1: "1 Main St",
+    city: "Tulsa",
+    country: "United States",
+    state_prov: "OK",
+    postalCode: "74101",
+    phoneContryCode: "+1",
+    phoneNumber: "5555550100",
+    birthDate: "1990-01-01",
+    gender: "female",
+    emergencyContactName: "Ben Lopez",
+    emergencyContactPhoneCountryCode: "+1",
+    emergencyContactPhoneNumber: "5555550101",
+    emergencyContactRelationship: "Spouse",
+    hasAllergies: false,
+    takesMedication: false,
+    speaksOtherLanguage: false,
+    currentChurchHome: "Grace Church",
+    currentChurchHomeCity: "Tulsa",
+    currentChurchHomeStateProv: "OK",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.setItem("user", JSON.stringify({ personId: 5 }));
+    PersonServices.get.mockResolvedValue({ data: { id: 5, firstName: "Ana", lastName: "Lopez" } });
+    PersonDocumentServices.getAll.mockResolvedValue({ data: [] });
+    TripServices.getBrowseTrip.mockResolvedValue({
+      data: { trip: TRIP, rolesNeeded: [OPEN_ROLE], travelOptions: [], alreadyApplied: false },
+    });
+  });
+
+  afterEach(() => {
+    window.localStorage.removeItem("user");
+  });
+
+  const openDialog = async () => {
+    const { wrapper } = await mountWithPlugins(ApplyTripDialog, {
+      props: { modelValue: false, tripId: 42 },
+      global: {
+        stubs: {
+          VDialog: { props: ["modelValue"], template: '<div v-if="modelValue"><slot /></div>' },
+          PersonProfileFields: true,
+          EditPersonDialog: true,
+          ParticipantAgreementSection: true,
+          TripApplicationTravelOptions: true,
+          TripApplicationFlightPurchase: true,
+          DonorTripHeading: true,
+        },
+      },
+    });
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+    return wrapper;
+  };
+
+  const noticeOutsideQuestions = (wrapper) => {
+    const questions = wrapper.find('[data-testid="application-questions"]');
+    const notice = wrapper.find('[data-testid="application-role-hold-notice"]');
+    expect(questions.exists()).toBe(true);
+    expect(notice.exists()).toBe(true);
+    expect(questions.find('[data-testid="application-role-hold-notice"]').exists()).toBe(false);
+    return notice;
+  };
+
+  it("Saving an incomplete application warns that the role is not secured", async () => {
+    const wrapper = await openDialog();
+    const notice = noticeOutsideQuestions(wrapper);
+    expect(notice.text()).toBe(INCOMPLETE_WARNING);
+    expect(wrapper.text()).toContain("Save Incomplete Application");
+    wrapper.unmount();
+  });
+
+  it("Save Incomplete Application confirms before it saves", async () => {
+    TripServices.applyToTrip.mockResolvedValue({ data: {} });
+    const wrapper = await openDialog();
+    wrapper
+      .findAllComponents({ name: "VSelect" })
+      .find((c) => c.props("label") === "Trip role")
+      .vm.$emit("update:modelValue", OPEN_ROLE.id);
+    await flushPromises();
+
+    await wrapper.find('[data-testid="application-primary-action"]').trigger("click");
+    await flushPromises();
+
+    const dialog = wrapper.find('[data-testid="incomplete-save-dialog"]');
+    expect(dialog.text()).toContain(CONFIRM);
+    expect(dialog.findAll("button").map((b) => b.text().trim())).toEqual(["OK"]);
+    expect(TripServices.applyToTrip).not.toHaveBeenCalled();
+
+    await dialog.find('[data-testid="incomplete-save-ok"]').trigger("click");
+    await flushPromises();
+
+    expect(TripServices.applyToTrip).toHaveBeenCalledTimes(1);
+    expect(wrapper.find('[data-testid="incomplete-save-dialog"]').exists()).toBe(false);
+    expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual([false]);
+    wrapper.unmount();
+  });
+
+  it("Submitting says the role will be held", async () => {
+    PersonServices.get.mockResolvedValue({ data: COMPLETE_PERSON });
+    const wrapper = await openDialog();
+    wrapper.vm.form.tripWorkerRoleId = OPEN_ROLE.id;
+    wrapper.vm.form.willSelfFund = true;
+    wrapper.vm.form.flightPurchaseOption = "self";
+    await flushPromises();
+
+    const notice = noticeOutsideQuestions(wrapper);
+    expect(notice.text()).toBe(SUBMIT_NOTICE);
+    expect(wrapper.text()).toContain("Submit Application");
+    expect(wrapper.text()).not.toContain(INCOMPLETE_WARNING);
+    wrapper.unmount();
+  });
+
+  it("An application that already holds the role has neither notice", async () => {
+    PersonServices.get.mockResolvedValue({ data: COMPLETE_PERSON });
+    TripServices.getBrowseTrip.mockResolvedValue({
+      data: {
+        trip: TRIP,
+        rolesNeeded: [OPEN_ROLE],
+        travelOptions: [],
+        alreadyApplied: true,
+        applicationStatus: "pre_approved",
+      },
+    });
+    TripServices.getApplication.mockResolvedValue({
+      data: {
+        trip: TRIP,
+        rolesNeeded: [OPEN_ROLE],
+        travelOptions: [],
+        canEdit: true,
+        applicationStatus: "pre_approved",
+        application: {
+          status: "pre_approved",
+          tripWorkerRoleId: OPEN_ROLE.id,
+          willSelfFund: true,
+          flightPurchaseOption: "self",
+          version: 1,
+        },
+      },
+    });
+    const wrapper = await openDialog();
+
+    expect(wrapper.find('[data-testid="application-primary-action"]').text()).toBe("Update Application");
+    expect(wrapper.find('[data-testid="application-role-hold-notice"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain(INCOMPLETE_WARNING);
+    expect(wrapper.text()).not.toContain(SUBMIT_NOTICE);
+    wrapper.unmount();
   });
 });

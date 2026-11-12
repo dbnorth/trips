@@ -242,6 +242,7 @@ Implement Feature N from @features/feature-N-short-name.md on branch `feature/N-
 Follow layer order in @features/framework.md (models → routes → backend tests → frontend → frontend tests).
 Map every Gherkin scenario in the Test Coverage Map; run `npm test` before finishing.
 If API routes, payloads, schema, or product rules changed per this spec, update @features/reference/api.md, @features/reference/data-model.md, and/or @features/reference/behavior.md in the same PR to match shipped code.
+If anything users see or do changed, update the affected @docs/user-guide/ files and run `npm run user-guide:pdf`.
 Complete Definition of Done and the merge checklist in @features/framework.md.
 Do not implement behavior not in this spec.
 ```
@@ -275,12 +276,14 @@ The feature-local merge checklist. If a box is unchecked, the feature is not rea
 *   [ ] `features/reference/data-model.md` updated (if schema changed)
 *   [ ] `features/reference/api.md` updated (if API changed)
 *   [ ] `features/reference/behavior.md` updated (if product rules changed)
+*   [ ] `docs/user-guide/` updated and PDFs regenerated (if anything users see or do changed)
 ```
 
 ### Principles
 
 - Keep DoD aligned with [framework.md](./framework.md) merge checklist.
 - Reference updates are **required when the integrated product changed** — not optional cleanup.
+- User guide updates are **required when users would notice the change** — see [user-guide.mdc](../.cursor/rules/user-guide.mdc).
 - Do not delete checklist rows to “look done.”
 
 ---
@@ -331,7 +334,7 @@ Use when this feature leaves a temporary placeholder another feature will replac
 - [ ] Data model fields support API payloads and screens; associations documented
 - [ ] Test Coverage Map has one row per Gherkin scenario (names match)
 - [ ] Agent implementation request has correct Feature ID, branch, and reference files
-- [ ] Definition of Done present (including reference update lines)
+- [ ] Definition of Done present (including reference and user guide update lines)
 - [ ] Out of Scope lists real deferrals with links where possible
 - [ ] Nothing in design contradicts FRs or stories (update requirements first if needed)
 - [ ] Catalog row exists / will exist in [features/README.md](./README.md)

@@ -119,7 +119,7 @@ describe("Feature 76 — Trip Arrival Info", () => {
   });
 
   describe("US-76.5 — Approved participants open the arrival PDF", () => {
-    it("My Trip Info shows the Trip Arrival PDF link", async () => {
+    it("My Trip Info no longer shows the Trip Arrival PDF link", async () => {
       TripServices.getBrowseTrip.mockResolvedValue({
         data: {
           trip: {
@@ -167,12 +167,10 @@ describe("Feature 76 — Trip Arrival Info", () => {
       });
       await flushPromises();
 
-      const section = wrapper.find('[data-testid="my-trip-arrival-info"]');
-      expect(section.find("h3").text()).toBe("Trip arrival info");
-      const link = section.find('[data-testid="my-trip-arrival-link"]');
-      expect(link.text()).toBe("Trip Arrival - Guatemala Clinic.pdf");
-      await link.trigger("click");
-      expect(TripServices.openArrivalPdf).toHaveBeenCalledWith(7);
+      expect(wrapper.find('[data-testid="my-trip-arrival-info"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="my-trip-arrival-link"]').exists()).toBe(false);
+      expect(wrapper.text()).not.toContain("Trip arrival info");
+      expect(wrapper.find('[data-testid="my-trip-arrival-download"]').exists()).toBe(true);
 
       wrapper.unmount();
     });

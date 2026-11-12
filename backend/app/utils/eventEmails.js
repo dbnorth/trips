@@ -97,3 +97,31 @@ export const sendDonationEventEmails = (donation) =>
       await sendEventEmails({ eventCode, tripId: trip.id, personId: donation.personId });
     }
   });
+
+/** Send each Trip donation template to the participant's and the donor's email, each address once. Never throws. */
+export const sendTripDonationEmails = (donation) =>
+  withoutFailing(`trip donation ${donation.id}`, async () => {
+    const trip = await db.trip.findByPk(donation.tripId);
+    if (!trip) return;
+    const participant = donation.personId
+      ? await db.person.findByPk(donation.personId, { attributes: ["email"] })
+      : null;
+    const donor = donation.donorId ? await db.donor.findByPk(donation.donorId, { attributes: ["email"] }) : null;
+    const addresses = new Map();
+    for (const email of [participant?.email, donor?.email]) {
+      const trimmed = String(email || "").trim();
+      if (trimmed && !addresses.has(trimmed.toLowerCase())) addresses.set(trimmed.toLowerCase(), trimmed);
+    }
+    if (!addresses.size) return;
+    for (const template of await findEventTemplates("trip-donation", trip)) {
+      for (const toEmail of addresses.values()) {
+        await sendTemplateEmail({ template, tripId: trip.id, personId: donation.personId, toEmail, donation });
+      }
+    }
+  });
+
+/** Emails for a donation that has just started counting toward totals. Never throws. */
+export const sendCountedDonationEmails = async (donation) => {
+  await sendDonationEventEmails(donation);
+  await sendTripDonationEmails(donation);
+};

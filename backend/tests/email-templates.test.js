@@ -493,7 +493,7 @@ describe("Feature 10 — Email Templates", () => {
       it("Schedule is required for scheduled templates", async () => {
         const { authHeader, templateBody } = await setupScheduleAuthoring();
 
-        for (const scheduleRule of [undefined, "monthly"]) {
+        for (const scheduleRule of [undefined, "yearly"]) {
           const create = await request(app)
             .post("/trips/email-templates")
             .set(authHeader)
@@ -533,6 +533,69 @@ describe("Feature 10 — Email Templates", () => {
         expect(loaded.status).toBe(200);
         expect(loaded.body.scheduleRule).toBeNull();
         expect(loaded.body.scheduleDaysBefore).toBeNull();
+      });
+    });
+
+    describe("Feature 123 — Monthly Email Schedules", () => {
+      const createAndLoad = async (authHeader, body) => {
+        const create = await request(app).post("/trips/email-templates").set(authHeader).send(body);
+        expect(create.status).toBe(200);
+        const loaded = await request(app)
+          .get(`/trips/email-templates/${create.body.id}`)
+          .set(authHeader);
+        expect(loaded.status).toBe(200);
+        return loaded.body;
+      };
+
+      describe("US-123.1 — Send a scheduled template once a month on a chosen day", () => {
+        it("Monthly schedule is saved", async () => {
+          const { authHeader, templateBody } = await setupScheduleAuthoring();
+
+          const loaded = await createAndLoad(
+            authHeader,
+            templateBody({ scheduleRule: "monthly", scheduleDayOfMonth: 10 })
+          );
+          expect(loaded.scheduleRule).toBe("monthly");
+          expect(loaded.scheduleDayOfMonth).toBe(10);
+          expect(loaded.scheduleDaysBefore).toBeNull();
+        });
+
+        it("Day of month must be 1 to 31", async () => {
+          const { authHeader, templateBody } = await setupScheduleAuthoring();
+
+          for (const scheduleDayOfMonth of [0, 32, 2.5, "", undefined]) {
+            const create = await request(app)
+              .post("/trips/email-templates")
+              .set(authHeader)
+              .send(templateBody({ scheduleRule: "monthly", scheduleDayOfMonth }));
+            expect(create.status).toBe(400);
+            expect(create.body.message).toBe("Day of month must be a whole number from 1 to 31.");
+          }
+        });
+
+        it("Other schedules store no day of month", async () => {
+          const { authHeader, templateBody } = await setupScheduleAuthoring();
+
+          const loaded = await createAndLoad(
+            authHeader,
+            templateBody({ scheduleRule: "weekly", scheduleDayOfMonth: 10 })
+          );
+          expect(loaded.scheduleRule).toBe("weekly");
+          expect(loaded.scheduleDayOfMonth).toBeNull();
+        });
+      });
+
+      describe("US-123.2 — Send a scheduled template twice a month", () => {
+        it("Twice monthly schedule is saved", async () => {
+          const { authHeader, templateBody } = await setupScheduleAuthoring();
+
+          const loaded = await createAndLoad(
+            authHeader,
+            templateBody({ scheduleRule: "twice-monthly", scheduleDayOfMonth: 10 })
+          );
+          expect(loaded.scheduleRule).toBe("twice-monthly");
+          expect(loaded.scheduleDayOfMonth).toBeNull();
+        });
       });
     });
   });

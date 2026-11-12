@@ -34,7 +34,6 @@ const form = ref({
   tripWorkerRoleId: null,
   participantCost: "",
   addonExpenses: [],
-  whygoText: "",
   version: 0,
 });
 
@@ -70,7 +69,6 @@ const applyParticipant = (row) => {
       daysBefore: expense.daysBefore ? String(expense.daysBefore) : "",
       daysAfter: expense.daysAfter ? String(expense.daysAfter) : "",
     })),
-    whygoText: row.whygoText || "",
     version: row.version ?? 0,
   };
 };
@@ -206,7 +204,6 @@ const save = async () => {
     status: form.value.status,
     tripWorkerRoleId: form.value.tripWorkerRoleId ? Number(form.value.tripWorkerRoleId) : null,
     addonExpenses,
-    whygoText: form.value.whygoText?.trim() || null,
     version: form.value.version,
   };
   if (travelOptions.value.length) payload.selectedTravelOptionIds = selectedTravelOptionIds.value;
@@ -333,7 +330,6 @@ const save = async () => {
         <div class="text-body-2 mt-2 mb-3" data-testid="addon-total">
           Add-on total: {{ formatMoneyDisplay(addonTotal.toFixed(2)) }}
         </div>
-        <v-textarea v-model="form.whygoText" label="Why go" density="compact" rows="3" />
         <v-alert v-if="formNotice" type="info" density="compact" class="mt-2">{{ formNotice }}</v-alert>
         <v-alert v-if="formError" type="error" density="compact" class="mt-2">{{ formError }}</v-alert>
       </v-card-text>

@@ -129,7 +129,7 @@ describe("Feature 101 — MM/DD/YYYY Dates", () => {
       expect(participants.text).toContain(",05/15/1990,");
       expect(participants.text).toContain(",01/05/2027 9:05 AM,");
       expect(donations.status).toBe(200);
-      expect(donations.text).toContain(",01/15/2027 2:30 PM,");
+      expect(donations.text).toContain("\n01/15/2027 2:30 PM,");
     });
   });
 });
