@@ -1,4 +1,5 @@
 import db from "../models/index.js";
+import { normalizeEmail } from "./userPerson.js";
 import {
   ROLE_TRIP_LEADER,
   ROLE_TRIP_PARTICIPANT,
@@ -63,12 +64,20 @@ export const findDonatablePerson = async (req, tripId, where) => {
   return (await isPersonInOrg(person.id, trip.orgId)) ? person : null;
 };
 
-/** The person's linked donor, created from `details` (or the person record) when none is linked. */
-export const findOrCreateLinkedDonor = async (personId, details = null) => {
-  const existing = await db.donor.findOne({ where: { personId } });
+/** The person's linked donor in this organization, created from `details` (or the person) when none is linked. */
+export const findOrCreateLinkedDonor = async (personId, details = null, orgId = null) => {
+  const existing = await db.donor.findOne({ where: { personId, orgId } });
   if (existing) return existing;
   const source = details ?? donorDetailsFromPerson(await db.person.findByPk(personId));
-  return db.donor.create({ ...source, status: source.status || "active", personId });
+  const email = normalizeEmail(source.email);
+  if (email) {
+    const byEmail = await db.donor.findOne({ where: { orgId, email } });
+    if (byEmail) {
+      if (!byEmail.personId) await byEmail.update({ personId });
+      return byEmail;
+    }
+  }
+  return db.donor.create({ ...source, email, status: source.status || "active", personId, orgId });
 };
 
 const approvedMemberRoleInclude = {

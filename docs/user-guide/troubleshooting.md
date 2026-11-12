@@ -147,6 +147,39 @@ The Stripe payment page wasn't used within a day. Start a new donation.
 **"Donation not found."**
 The return link is incomplete or wrong. Check the **Donations** page, or start a new donation.
 
+**"Select an organization in the menu bar."**
+**Donors** needs one organization. A System Admin with **All organizations** selected picks an organization in the menu bar.
+
+**"Organization name is required."**
+**Donor type** **Organization** needs an **Organization name**.
+
+**"Donor type must be Organization or Individual."**
+**Donor type** is **Organization** or **Individual**.
+
+**"Donor first name is required."**
+**Add donor** and **Edit donor** need a first name.
+
+**"A donor with this email already exists."**
+That email is already a donor of this organization. The same email can still be added for a different organization. **Import** updates that donor instead of adding another.
+
+**"This file isn't a donor contact list. Missing columns: Email."**
+**Import donors** needs a CSV with the columns Donor full name, Phone numbers, Email, Full name, Bill address, and Ship address. The message names each column that is missing.
+
+**"Donor templates cannot belong to a trip."**
+**Donor** templates are for the organization. Choose **All trips (organization-wide)**, or pick another function code for a trip template.
+
+**"No Donor templates. Add one under Email templates."**
+**Email donors** has nothing to send until the organization has a template whose function code is **Donor**.
+
+**"Donors marked No Email can't be emailed."**
+A donor whose status is **No Email** was included in the send. Leave them unchecked. **No Email** does not stop a donation thank-you.
+
+**"Enter an email address for every selected donor."**
+A checked donor has no email. Add an email on **Edit donor**, or leave them unchecked.
+
+**"Choose a trip."**
+**Donated to a trip** needs a **Trip** before the list and the send.
+
 **A donation shows on the Donations page but not in the totals.** (staff)
 Its **Status** is **Processing** (a bank payment still clearing) or **Failed**. Only Succeeded Stripe payments, Checks, and Other donations count.
 

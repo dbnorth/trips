@@ -4,8 +4,10 @@ import { encryptedColumn } from "../utils/personalDataEncryption.js";
 
 const Donor = SequelizeInstance.define("donor", {
   id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
-  firstName: { type: Sequelize.STRING, allowNull: false },
+  firstName: { type: Sequelize.STRING, allowNull: true },
   lastName: { type: Sequelize.STRING },
+  familyName: { type: Sequelize.STRING },
+  organizationName: { type: Sequelize.STRING },
   addLine1: encryptedColumn("text"),
   addLine2: encryptedColumn("text"),
   city: encryptedColumn("text"),
@@ -16,7 +18,11 @@ const Donor = SequelizeInstance.define("donor", {
   phoneNumber: encryptedColumn("text"),
   email: { type: Sequelize.STRING },
   status: { type: Sequelize.ENUM("active", "inactive", "dontcontact"), allowNull: false, defaultValue: "active" },
-  personId: { type: Sequelize.INTEGER, allowNull: true, unique: "donors_personId_unique" },
+  donorType: { type: Sequelize.ENUM("organization", "individual"), allowNull: false, defaultValue: "individual" },
+  personId: { type: Sequelize.INTEGER, allowNull: true },
+  // orgId and its unique indexes are added by ensureSchema. Declaring the indexes here makes sync
+  // index orgId before that column exists on a database created before Feature 130.
+  orgId: { type: Sequelize.INTEGER, allowNull: false },
   version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
 });
 

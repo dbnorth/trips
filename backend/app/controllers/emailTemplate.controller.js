@@ -31,8 +31,9 @@ const EmailTemplate = db.emailTemplate;
 const EmailType = db.emailType;
 const Trip = db.trip;
 const Organization = db.organization;
-const FUNCTION_CODES = ["Scheduled", "Send Now", "Trip Participant", "Person"];
+const FUNCTION_CODES = ["Scheduled", "Send Now", "Trip Participant", "Person", "Donor"];
 const PERSON_ON_TRIP = "Person templates cannot belong to a trip.";
+const DONOR_ON_TRIP = "Donor templates cannot belong to a trip.";
 const SCHEDULE_RULES = ["daily", "weekly", "monthly", "twice-monthly", "before-start"];
 const templateFields = [
   "tripId",
@@ -209,7 +210,7 @@ const validateOrganizationTemplateFields = async (body) => {
   }
   const functionCode = trimRequired(body.functionCode);
   if (!FUNCTION_CODES.includes(functionCode)) {
-    return { error: { status: 400, message: "Function code must be Scheduled, Send Now, Trip Participant, or Person." } };
+    return { error: { status: 400, message: "Function code must be Scheduled, Send Now, Trip Participant, Person, or Donor." } };
   }
   const { schedule, error: scheduleError } = validateSchedule(body, functionCode);
   if (scheduleError) return { error: scheduleError };
@@ -449,6 +450,9 @@ exports.create = async (req, res) => {
     if (payload.functionCode === "Person" && payload.tripId != null) {
       return res.status(400).send({ message: PERSON_ON_TRIP });
     }
+    if (payload.functionCode === "Donor" && payload.tripId != null) {
+      return res.status(400).send({ message: DONOR_ON_TRIP });
+    }
     const createPictureError = await pictureRuleError(payload.emailBody, orgId);
     if (createPictureError) return res.status(400).send({ message: createPictureError });
 
@@ -520,6 +524,9 @@ exports.update = async (req, res) => {
     const savedTripId = payload.tripId !== undefined ? payload.tripId : template.tripId;
     if (functionCode === "Person" && savedTripId != null) {
       return res.status(400).send({ message: PERSON_ON_TRIP });
+    }
+    if (functionCode === "Donor" && savedTripId != null) {
+      return res.status(400).send({ message: DONOR_ON_TRIP });
     }
     const updatePictureError = await pictureRuleError(
       payload.emailBody ?? template.emailBody,

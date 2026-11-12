@@ -120,8 +120,29 @@ export const sendTripDonationEmails = (donation) =>
     }
   });
 
+/** Send the donor thank-you to the donor's email when the donor entered a counting donation. Never throws. */
+export const sendDonorThankYou = (donation) =>
+  withoutFailing(`donor thank-you ${donation.id}`, async () => {
+    const donor = donation.donorId ? await db.donor.findByPk(donation.donorId) : null;
+    const email = String(donor?.email || "").trim();
+    if (!email) return;
+    const trip = await db.trip.findByPk(donation.tripId);
+    if (!trip) return;
+    for (const template of await findEventTemplates("donor-thank-you", trip)) {
+      await sendTemplateEmail({
+        template,
+        tripId: trip.id,
+        personId: donation.personId,
+        toEmail: email,
+        donation,
+        donorId: donor.id,
+      });
+    }
+  });
+
 /** Emails for a donation that has just started counting toward totals. Never throws. */
-export const sendCountedDonationEmails = async (donation) => {
+export const sendCountedDonationEmails = async (donation, { donorEntered = false } = {}) => {
   await sendDonationEventEmails(donation);
   await sendTripDonationEmails(donation);
+  if (donorEntered) await sendDonorThankYou(donation);
 };

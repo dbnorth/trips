@@ -98,7 +98,7 @@ describe("Feature 53 — Participant Donations and Donor–Person Link", () => {
 
     it("A second donation reuses the linked donor", async () => {
       await addAssignment(ana, "approved");
-      const linked = await db.donor.create({ firstName: "Ana", personId: ana.user.personId });
+      const linked = await db.donor.create({ firstName: "Ana", personId: ana.user.personId, orgId: admin.org.id });
 
       const { start, donation } = await participantDonate(ana, ana, 50);
 
@@ -180,7 +180,7 @@ describe("Feature 53 — Participant Donations and Donor–Person Link", () => {
     });
 
     it("Signed-in public donation uses the existing linked donor", async () => {
-      const linked = await db.donor.create({ firstName: "Ana", personId: ana.user.personId });
+      const linked = await db.donor.create({ firstName: "Ana", personId: ana.user.personId, orgId: admin.org.id });
 
       const { start, donation } = await publicDonate(
         ben,
@@ -204,7 +204,7 @@ describe("Feature 53 — Participant Donations and Donor–Person Link", () => {
 
   describe("US-53.4 — Staff lookup finds a person when no donor exists", () => {
     it("Lookup returns a donor first", async () => {
-      const donor = await db.donor.create({ firstName: "Ana", email: "ana@example.org" });
+      const donor = await db.donor.create({ firstName: "Ana", email: "ana@example.org", orgId: admin.org.id });
 
       const res = await lookup(admin, "ana@example.org");
 
@@ -231,6 +231,7 @@ describe("Feature 53 — Participant Donations and Donor–Person Link", () => {
         firstName: "Ana",
         email: "ana.old@example.org",
         personId: ana.user.personId,
+        orgId: admin.org.id,
       });
 
       const res = await lookup(admin, "ana@example.org");

@@ -5,6 +5,17 @@ import db from "../models/index.js";
 const SENT_FROM_EMAIL_TEAM =
   "This email is not sent automatically. Trip staff send it to the trip team from Email team on the trip page.";
 
+const DONOR_NOT_SENT =
+  "This email is not sent automatically. Org Admins send it from Email on the Donors page.";
+
+export const DONOR_THANK_YOU_EMAIL_TYPE = {
+  typeCode: "donor-thank-you",
+  description: "Thank you for donation",
+  eventCode: "donor-thank-you",
+  eventDescription:
+    "This event happens when a donor enters a donation and it starts counting: a public donation page, Home Donate, or My Trip Make Donation. The email goes to the donor. Staff Add donation and staff Pay with Stripe do not send it.",
+};
+
 export const TRIP_DONATION_EMAIL_TYPE = {
   typeCode: "trip-donation",
   description: "Trip donation",
@@ -113,6 +124,19 @@ const emailTypes = [
     eventCode: "team-email",
     eventDescription: "This email is not sent automatically. Org Admins send it from Email on the People page.",
   },
+  {
+    typeCode: "donor-update",
+    description: "Donor update",
+    eventCode: "team-email",
+    eventDescription: DONOR_NOT_SENT,
+  },
+  {
+    typeCode: "annual-donation",
+    description: "Annual donation",
+    eventCode: "team-email",
+    eventDescription: DONOR_NOT_SENT,
+  },
+  DONOR_THANK_YOU_EMAIL_TYPE,
   {
     typeCode: "trip-arrival",
     description: "Trip arrival info",

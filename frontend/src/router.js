@@ -10,6 +10,7 @@ import TripRoomingView from "./views/TripRoomingView.vue";
 import TripFlightsView from "./views/TripFlightsView.vue";
 import TripPeopleRolesList from "./views/TripPeopleRolesList.vue";
 import DonationsList from "./views/DonationsList.vue";
+import DonorsList from "./views/DonorsList.vue";
 import EmailTemplatesList from "./views/EmailTemplatesList.vue";
 import EmailTypesList from "./views/EmailTypesList.vue";
 import EmailTokensList from "./views/EmailTokensList.vue";
@@ -65,6 +66,7 @@ const router = createRouter({
     },
     { path: "/trip-people", name: "tripPeople", component: TripPeopleRolesList },
     { path: "/donations", name: "donations", component: DonationsList },
+    { path: "/donors", name: "donors", component: DonorsList },
     { path: "/templates", name: "templates", component: EmailTemplatesList },
     { path: "/email-types", name: "emailTypes", component: EmailTypesList },
     { path: "/email-tokens", name: "emailTokens", component: EmailTokensList },
@@ -177,7 +179,8 @@ export function applyAuthGuards(router) {
       (to.name === "workerRoles" ||
         to.name === "emailPictures" ||
         to.name === "documentTypes" ||
-        to.name === "organizations") &&
+        to.name === "organizations" ||
+        to.name === "donors") &&
       !user.isAdmin
     ) {
       const isOrgAdmin = (user.orgRoles || []).some((r) => r.roleName === "Org Admin");

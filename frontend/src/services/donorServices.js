@@ -1,6 +1,9 @@
 import apiClient from "./services.js";
 
 export default {
+  getAll() {
+    return apiClient.get("/donors");
+  },
   lookupByEmail(email, tripId = null) {
     return apiClient.get("/donors/lookup", { params: { email, tripId } });
   },
@@ -9,5 +12,10 @@ export default {
   },
   update(id, data) {
     return apiClient.put(`/donors/${id}`, data);
+  },
+  importCsv(file) {
+    const form = new FormData();
+    form.append("file", file);
+    return apiClient.post("/donors/import", form);
   },
 };

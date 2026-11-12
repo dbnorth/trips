@@ -598,23 +598,29 @@ Table `tripPeopleRoleExpenses`, created by `ensureSchema` when missing.
 
 ---
 
-## `donor` — Features 8, 9, 64
+## `donor` — Features 8, 9, 64, 130
 
 | Field | Type | Rules |
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
-| firstName | STRING | required |
+| firstName | STRING | required for an Individual; blank for an Organization |
 | lastName | STRING | |
+| familyName | STRING | optional for an Individual; blank for an Organization. The whole name when an import name contains `&`. `ensureDonorFamilyName` adds the column |
+| organizationName | STRING | required for an Organization; blank for an Individual. `ensureDonorOrganizationName` adds the column and moves an organization name that was stored in `firstName` |
 | addLine1, addLine2, city, state_prov, postalCode | Encrypted text | Feature 64 |
 | country | STRING(2) | |
 | phoneContryCode | STRING(10) | |
 | phoneNumber | Encrypted text | Feature 64 |
-| email | STRING | |
-| status | ENUM(`active`,`inactive`,`dontcontact`) | required, default `active` |
-| personId | INTEGER | optional FK → person, unique (`donors_personId_unique`), `ON DELETE SET NULL`; the person's linked donor (Feature 53) |
+| email | STRING | unique per organization when present (`donors_orgId_email_unique`); blank stored as null, and several blanks are allowed (Feature 130) |
+| status | ENUM(`active`,`inactive`,`dontcontact`) | required, default `active`. `dontcontact` is shown as **No Email** (Feature 130) |
+| donorType | ENUM(`organization`,`individual`) | required, default `individual`. **Donor type** **Organization** or **Individual** (Feature 130). `ensureDonorType` adds the column and sets existing donors to `individual` |
+| personId | INTEGER | optional FK → person, unique with `orgId` (`donors_orgId_personId_unique`), `ON DELETE SET NULL`; one linked donor per person per organization (Feature 130; was globally unique in Feature 53) |
+| orgId | INTEGER | required FK → organization, `ON DELETE CASCADE` (Feature 130) |
 | version | INTEGER | required, default `0` |
 
-**Associations:** `hasMany` tripDonation (SET NULL); `belongsTo` person as `person` (Feature 53).
+**Associations:** `belongsTo` organization (CASCADE); `hasMany` tripDonation (SET NULL); `belongsTo` person as `person`; person `hasMany` donors as `donors` (Feature 130).
+
+**Startup:** `ensureDonorOrganization` adds `orgId`, places each existing donor (donations in one organization use that organization; donations in several keep the original donor on the organization of the earliest donation and copy the donor, without `personId`, for each other organization, retargeting that organization's donations and checkout rows; a donor with no donations uses the linked person's earliest organization role; a donor with neither is deleted), then sets `orgId` NOT NULL, drops `donors_personId_unique`, and adds the two unique indexes and the organization foreign key.
 
 ---
 

@@ -10,6 +10,7 @@ import {
   retrievePaymentIntent,
 } from "./stripeClient.js";
 import { findOrCreateLinkedDonor } from "./donorPerson.js";
+import { normalizeEmail } from "./userPerson.js";
 import { sendCountedDonationEmails } from "./eventEmails.js";
 import { donationCounts } from "./donationCounting.js";
 import { toUrlSlug } from "./urlSlug.js";
@@ -179,13 +180,25 @@ const paymentFields = (paymentIntent) => {
 };
 
 const resolveDonorId = async (checkout) => {
+  const trip = await db.trip.findByPk(checkout.tripId, { attributes: ["orgId"] });
+  const orgId = trip?.orgId ?? null;
   if (checkout.donorId) return checkout.donorId;
   const details =
     checkout.donorFirstName || checkout.donorEmail
-      ? { firstName: checkout.donorFirstName, lastName: checkout.donorLastName, email: checkout.donorEmail }
+      ? {
+          firstName: checkout.donorFirstName,
+          lastName: checkout.donorLastName,
+          email: normalizeEmail(checkout.donorEmail),
+        }
       : null;
-  if (checkout.giverPersonId) return (await findOrCreateLinkedDonor(checkout.giverPersonId, details)).id;
-  if (details) return (await db.donor.create({ ...details, status: "active" })).id;
+  if (checkout.giverPersonId) return (await findOrCreateLinkedDonor(checkout.giverPersonId, details, orgId)).id;
+  if (details) {
+    if (details.email) {
+      const existing = await db.donor.findOne({ where: { orgId, email: details.email } });
+      if (existing) return existing.id;
+    }
+    return (await db.donor.create({ ...details, status: "active", orgId })).id;
+  }
   return null;
 };
 
@@ -253,7 +266,9 @@ export const checkCheckout = async (checkout) => {
     if (!(err instanceof db.Sequelize.UniqueConstraintError)) throw err;
     return;
   }
-  if (donation && donationCounts(donation)) await sendCountedDonationEmails(donation);
+  if (donation && donationCounts(donation)) {
+    await sendCountedDonationEmails(donation, { donorEntered: checkout.donorId == null });
+  }
 };
 
 /** What the return page shows for a checkout. */
@@ -307,7 +322,9 @@ export const refreshProcessingDonation = async (donation) => {
     { where: { id: donation.id, paymentStatus: "processing" } }
   );
   if (changed && paymentStatus === "succeeded") {
-    await sendCountedDonationEmails(await db.tripDonation.findByPk(donation.id));
+    await sendCountedDonationEmails(await db.tripDonation.findByPk(donation.id), {
+      donorEntered: checkout != null && checkout.donorId == null,
+    });
   }
 };
 

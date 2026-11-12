@@ -25,6 +25,7 @@ import AirportRoutes from "./airport.routes.js";
 import AirlineRoutes from "./airline.routes.js";
 import LanguageRoutes from "./language.routes.js";
 import PeopleEmailRoutes from "./peopleEmail.routes.js";
+import DonorEmailRoutes from "./donorEmail.routes.js";
 import EmailPictureRoutes from "./emailPicture.routes.js";
 
 const router = Router();
@@ -53,6 +54,7 @@ router.use("/airports", AirportRoutes);
 router.use("/airlines", AirlineRoutes);
 router.use("/languages", LanguageRoutes);
 router.use("/people-email", PeopleEmailRoutes);
+router.use("/donor-email", DonorEmailRoutes);
 router.use("/email-pictures", EmailPictureRoutes);
 router.use("/public", PublicRoutes);
 

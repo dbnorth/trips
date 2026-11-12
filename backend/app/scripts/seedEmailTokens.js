@@ -10,6 +10,14 @@ export const DONATION_TOKENS = [
   { tokenCode: "DONATION_FEE_COVERED", valueSource: "donation.feeCovered" },
 ];
 
+export const DONOR_TOKENS = [
+  { tokenCode: "DONOR_FIRST_NAME", valueSource: "donor.firstName" },
+  { tokenCode: "DONOR_LAST_NAME", valueSource: "donor.lastName" },
+  { tokenCode: "DONOR_EMAIL", valueSource: "donor.email" },
+  { tokenCode: "DONOR_PREVIOUS_YEAR_DONATIONS", valueSource: "donor.previousYearDonations" },
+  { tokenCode: "DONOR_PREVIOUS_YEAR_TOTAL", valueSource: "donor.previousYearTotal" },
+];
+
 const tokens = [
   { tokenCode: "ORG_NAME", valueSource: "organization.name" },
   { tokenCode: "ORG_EMAIL", valueSource: "organization.email" },
@@ -58,6 +66,7 @@ const tokens = [
   { tokenCode: "LEADER_EMAIL", valueSource: "primaryLeader.email" },
   { tokenCode: "LEADER_PHONE", valueSource: "primaryLeader.phone" },
   ...DONATION_TOKENS,
+  ...DONOR_TOKENS,
 ];
 
 /** Add each seed token that is missing. Returns how many were inserted. */
