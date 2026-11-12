@@ -246,7 +246,8 @@ const reservationEmailError = async (tripId, emails) => {
       where: {
         tripId,
         peopleId: people.map((p) => p.id),
-        status: { [Op.in]: ROLE_OCCUPYING_STATUSES },
+        // Incomplete has already applied, even though it does not take a spot (Feature 129).
+        status: { [Op.in]: ["incomplete", "pre_approved", "approved"] },
       },
       attributes: ["peopleId"],
     });

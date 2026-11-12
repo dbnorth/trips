@@ -24,7 +24,7 @@ import {
 import { loadOrganizationAgreement, loadOrganizationMedicalAgreement } from "../utils/organizationAgreement.js";
 import { getTripLeadersForDisplay } from "../utils/tripLeaders.js";
 import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
-import { findReservationForPerson, tripRoleAvailability, withCapacityFields } from "../utils/tripRoleCapacity.js";
+import { findReservationForPerson, occupiesRole, tripRoleAvailability, withCapacityFields } from "../utils/tripRoleCapacity.js";
 import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 import { loadDonationRecipients } from "../utils/donorPerson.js";
 import { loadMyTripDocuments, loadMyTripNextActions } from "../utils/myTripNextActions.js";
@@ -559,10 +559,6 @@ exports.applyToTrip = async (req, res) => {
     if (!selectedRole) {
       return res.status(400).send({ message: "Worker role must belong to this trip." });
     }
-    if (!reservation && (selectedRole.availableCount || 0) < 1) {
-      return res.status(400).send({ message: "That trip role has no available positions." });
-    }
-
     const whyGo = parseWhyGo(req.body?.whygoText);
     if (!whyGo.ok) return res.status(400).send({ message: whyGo.message });
 
@@ -642,6 +638,10 @@ exports.applyToTrip = async (req, res) => {
       travelOptionsComplete: !selectionCheck.missingSelection,
       orgId: trip.orgId,
     });
+
+    if (occupiesRole(status) && !reservation && (selectedRole.availableCount || 0) < 1) {
+      return res.status(400).send({ message: "That trip role has no available positions." });
+    }
 
     const link = await TripPeopleRole.create({
       tripId: trip.id,
@@ -883,6 +883,11 @@ exports.updateApplication = async (req, res) => {
       travelOptionsComplete: !selectionCheck.missingSelection,
       orgId: trip.orgId,
     });
+
+    const becomingOccupant = occupiesRole(status) && !occupiesRole(assignment.status);
+    if (becomingOccupant && !reservation && (selectedRole.availableCount || 0) < 1) {
+      return res.status(400).send({ message: "That trip role has no available positions." });
+    }
 
     if (assignment.status === "pre_approved" && isTripActive(trip)) {
       const missingItems = getApplicationMissingItemLabels({

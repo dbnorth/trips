@@ -1051,22 +1051,23 @@ describe("Feature 7 — Trip Applications & Participants", () => {
         .set(personB.authHeader);
       expect(browse.status).toBe(200);
       const role = (browse.body.rolesNeeded || []).find((r) => Number(r.id) === Number(tripWorkerRole.id));
-      expect(role?.availableCount).toBe(0);
+      expect(role?.signedUpCount).toBe(0);
+      expect(role?.availableCount).toBe(1);
 
       const applyB = await request(app)
         .post(`/trips/trips/browse/${trip.id}/apply`)
         .set(personB.authHeader)
         .send({
           tripWorkerRoleId: tripWorkerRole.id,
-          willSelfFund: true,
+          willSelfFund: false,
           flightPurchaseOption: "self",
           willRaiseFunds: false,
-          isPregnant: false,
-          agreementAccepted: true,
-          agreementSignatureName: "Person B",
         });
-      expect(applyB.status).toBe(400);
-      expect(applyB.body.message).toMatch(/no available|full|available/i);
+      expect(applyB.status).toBe(200);
+      expect(applyB.body.applicationStatus).toBe("incomplete");
+      const again = await request(app).get(`/trips/trips/browse/${trip.id}`).set(personB.authHeader);
+      const stillOpen = (again.body.rolesNeeded || []).find((r) => Number(r.id) === Number(tripWorkerRole.id));
+      expect(stillOpen?.availableCount).toBe(1);
     });
 
     it("Applied application occupies a role slot", async () => {
@@ -1688,11 +1689,219 @@ describe("Feature 7 — Trip Applications & Participants", () => {
       };
 
       const forBen = await browseFor(ben);
-      expect(forBen.roleAvailability).toEqual({ reserved: 2, open: 1 });
+      expect(forBen.roleAvailability).toEqual({ reserved: 2, open: 2 });
       expect(forBen.myReservedTripWorkerRoleId).toBeNull();
       const forAna = await browseFor(ana);
-      expect(forAna.roleAvailability).toEqual({ reserved: 2, open: 1 });
+      expect(forAna.roleAvailability).toEqual({ reserved: 2, open: 2 });
       expect(forAna.myReservedTripWorkerRoleId).toBe(nurse.id);
+    });
+  });
+
+  describe("Feature 129 — US-129.2 Only a submitted application holds a role spot", () => {
+    const incompleteBody = (roleId) => ({
+      tripWorkerRoleId: roleId,
+      willSelfFund: false,
+      willRaiseFunds: false,
+      flightPurchaseOption: "self",
+    });
+
+    const countsFor = async (authHeader, tripId, roleId) => {
+      const browse = await request(app).get(`/trips/trips/browse/${tripId}`).set(authHeader);
+      const role = (browse.body.rolesNeeded || []).find((r) => Number(r.id) === Number(roleId));
+      return {
+        signedUpCount: role?.signedUpCount,
+        availableCount: role?.availableCount,
+        reservedCount: role?.reservedCount,
+      };
+    };
+
+    const applyIncomplete = (authHeader, tripId, roleId) =>
+      request(app).post(`/trips/trips/browse/${tripId}/apply`).set(authHeader).send(incompleteBody(roleId));
+
+    it("Incomplete applications leave the spot open", async () => {
+      const { authHeader, org } = await createOrgAdminUser({ email: "hold-open-admin@example.com" });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Hold Open",
+        quantity: 1,
+      });
+      const personA = await registerUser({ email: "hold-open-a@example.com", orgIds: [org.id] });
+      const personB = await registerUser({ email: "hold-open-b@example.com", orgIds: [org.id] });
+
+      expect((await applyIncomplete(personA.authHeader, trip.id, tripWorkerRole.id)).status).toBe(200);
+      expect((await applyIncomplete(personB.authHeader, trip.id, tripWorkerRole.id)).status).toBe(200);
+
+      expect(await countsFor(authHeader, trip.id, tripWorkerRole.id)).toEqual({
+        signedUpCount: 0,
+        availableCount: 1,
+        reservedCount: 0,
+      });
+    });
+
+    it("The first submit holds the spot", async () => {
+      const { authHeader, org } = await createOrgAdminUser({ email: "hold-submit-admin@example.com" });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Hold Submit",
+        quantity: 1,
+      });
+      const personA = await registerUser({ email: "hold-submit-a@example.com", orgIds: [org.id] });
+      const personB = await registerUser({ email: "hold-submit-b@example.com", orgIds: [org.id] });
+      await completePersonProfile(personA.user.personId);
+      await completePersonProfile(personB.user.personId);
+      const applyA = await applyIncomplete(personA.authHeader, trip.id, tripWorkerRole.id);
+      const applyB = await applyIncomplete(personB.authHeader, trip.id, tripWorkerRole.id);
+      expect(applyA.status).toBe(200);
+      expect(applyB.status).toBe(200);
+
+      const submitA = await request(app)
+        .put(`/trips/trips/browse/${trip.id}/application`)
+        .set(personA.authHeader)
+        .send({
+          ...COMPLETE_APPLICATION,
+          tripWorkerRoleId: tripWorkerRole.id,
+          willRaiseFunds: false,
+          version: applyA.body.assignment.version,
+        });
+      expect(submitA.status).toBe(200);
+      expect(submitA.body.applicationStatus).toBe("pre_approved");
+      expect(await countsFor(authHeader, trip.id, tripWorkerRole.id)).toMatchObject({
+        signedUpCount: 1,
+        availableCount: 0,
+      });
+
+      const submitB = await request(app)
+        .put(`/trips/trips/browse/${trip.id}/application`)
+        .set(personB.authHeader)
+        .send({
+          ...COMPLETE_APPLICATION,
+          tripWorkerRoleId: tripWorkerRole.id,
+          willRaiseFunds: false,
+          version: applyB.body.assignment.version,
+        });
+      expect(submitB.status).toBe(400);
+      expect(submitB.body.message).toBe("That trip role has no available positions.");
+      const still = await db.tripPeopleRole.findOne({ where: { peopleId: personB.user.personId, tripId: trip.id } });
+      expect(still.status).toBe("incomplete");
+    });
+
+    it("Updating a held role does not need another spot", async () => {
+      const { authHeader, org } = await createOrgAdminUser({ email: "hold-update-admin@example.com" });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Hold Update",
+        quantity: 1,
+      });
+      const personA = await registerUser({ email: "hold-update-a@example.com", orgIds: [org.id] });
+      await completePersonProfile(personA.user.personId);
+      const applied = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(personA.authHeader)
+        .send({ ...COMPLETE_APPLICATION, tripWorkerRoleId: tripWorkerRole.id, willRaiseFunds: false });
+      expect(applied.body.applicationStatus).toBe("pre_approved");
+      expect((await countsFor(authHeader, trip.id, tripWorkerRole.id)).availableCount).toBe(0);
+
+      const updated = await request(app)
+        .put(`/trips/trips/browse/${trip.id}/application`)
+        .set(personA.authHeader)
+        .send({
+          ...COMPLETE_APPLICATION,
+          tripWorkerRoleId: tripWorkerRole.id,
+          willRaiseFunds: false,
+          agreementSignatureName: "Pat Lee Updated",
+          version: applied.body.assignment.version,
+        });
+      expect(updated.status).toBe(200);
+      expect(updated.body.applicationStatus).toBe("pre_approved");
+    });
+
+    it("Uncancel holds a spot only when it comes back submitted", async () => {
+      const { authHeader, org } = await createOrgAdminUser({ email: "hold-uncancel-admin@example.com" });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Hold Uncancel",
+        quantity: 1,
+      });
+      const submitted = await registerUser({ email: "hold-uncancel-full@example.com", orgIds: [org.id] });
+      const incomplete = await registerUser({ email: "hold-uncancel-open@example.com", orgIds: [org.id] });
+      const holder = await registerUser({ email: "hold-uncancel-holder@example.com", orgIds: [org.id] });
+      await completePersonProfile(submitted.user.personId);
+      await completePersonProfile(holder.user.personId);
+
+      const fullApply = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(submitted.authHeader)
+        .send({ ...COMPLETE_APPLICATION, tripWorkerRoleId: tripWorkerRole.id, willRaiseFunds: false });
+      expect(fullApply.body.applicationStatus).toBe("pre_approved");
+      expect(
+        (await request(app).post(`/trips/trips/browse/${trip.id}/application/cancel`).set(submitted.authHeader)).status
+      ).toBe(200);
+
+      const holderApply = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/apply`)
+        .set(holder.authHeader)
+        .send({ ...COMPLETE_APPLICATION, tripWorkerRoleId: tripWorkerRole.id, willRaiseFunds: false });
+      expect(holderApply.body.applicationStatus).toBe("pre_approved");
+
+      expect((await applyIncomplete(incomplete.authHeader, trip.id, tripWorkerRole.id)).status).toBe(200);
+      expect(
+        (await request(app).post(`/trips/trips/browse/${trip.id}/application/cancel`).set(incomplete.authHeader)).status
+      ).toBe(200);
+      const uncancelIncomplete = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/application/uncancel`)
+        .set(incomplete.authHeader);
+      expect(uncancelIncomplete.status).toBe(200);
+      expect(uncancelIncomplete.body.applicationStatus).toBe("incomplete");
+      expect(await countsFor(authHeader, trip.id, tripWorkerRole.id)).toMatchObject({
+        signedUpCount: 1,
+        availableCount: 0,
+      });
+
+      const uncancelSubmitted = await request(app)
+        .post(`/trips/trips/browse/${trip.id}/application/uncancel`)
+        .set(submitted.authHeader);
+      expect(uncancelSubmitted.status).toBe(400);
+      expect(uncancelSubmitted.body.message).toBe("This role is full. Uncancel is not available.");
+    });
+
+    it("Only submitted applications block removing a role", async () => {
+      const { authHeader, org } = await createOrgAdminUser({ email: "hold-remove-admin@example.com" });
+      const { trip, tripWorkerRole } = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Hold Remove",
+        quantity: 1,
+      });
+      const participantRole = await findRole("Trip Participant");
+      const incompletePerson = await registerUser({ email: "hold-remove-open@example.com", orgIds: [org.id] });
+      const row = await db.tripPeopleRole.create({
+        tripId: trip.id,
+        peopleId: incompletePerson.user.personId,
+        roleId: participantRole.id,
+        tripWorkerRoleId: tripWorkerRole.id,
+        status: "incomplete",
+      });
+
+      const removed = await request(app)
+        .delete(`/trips/trip-worker-roles/${tripWorkerRole.id}`)
+        .set(authHeader);
+      expect(removed.status).toBe(200);
+      await row.reload();
+      expect(row.tripWorkerRoleId).toBeNull();
+
+      const held = await createActiveTripWithRole(authHeader, org.id, {
+        tripName: "Hold Remove Kept",
+        quantity: 1,
+      });
+      const heldPerson = await registerUser({ email: "hold-remove-held@example.com", orgIds: [org.id] });
+      await db.tripPeopleRole.create({
+        tripId: held.trip.id,
+        peopleId: heldPerson.user.personId,
+        roleId: participantRole.id,
+        tripWorkerRoleId: held.tripWorkerRole.id,
+        status: "pre_approved",
+      });
+      const refused = await request(app)
+        .delete(`/trips/trip-worker-roles/${held.tripWorkerRole.id}`)
+        .set(authHeader);
+      expect(refused.status).toBe(400);
+      expect(refused.body.message).toBe(
+        "People have signed up for this role. Move or cancel them before removing it."
+      );
     });
   });
 });

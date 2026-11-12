@@ -324,6 +324,9 @@ describe("Feature 47 — Simplify Application Warnings", () => {
         .find((b) => b.text() === "Save Incomplete Application")
         .trigger("click");
       await flushPromises();
+      expect(TripServices.applyToTrip).not.toHaveBeenCalled();
+      await wrapper.find('[data-testid="incomplete-save-ok"]').trigger("click");
+      await flushPromises();
 
       expect(TripServices.applyToTrip).toHaveBeenCalledTimes(1);
       expect(PersonServices.update).not.toHaveBeenCalled();
@@ -463,6 +466,8 @@ describe("Feature 125 — Participant Why Go", () => {
         .find((b) => b.text() === "Save Incomplete Application")
         .trigger("click");
       await flushPromises();
+      await wrapper.find('[data-testid="incomplete-save-ok"]').trigger("click");
+      await flushPromises();
 
       expect(TripServices.applyToTrip).toHaveBeenCalledWith(
         42,
@@ -518,5 +523,169 @@ describe("Feature 125 — Participant Why Go", () => {
       expect(whyGoField(wrapper).props("modelValue")).toBe("New story");
       wrapper.unmount();
     });
+  });
+});
+
+describe("Feature 129 — US-129.1 The application says whether the role is held", () => {
+  const TRIP = { id: 42, orgId: 1, name: "Clinic Trip", startDate: "2026-12-01", endDate: "2026-12-10" };
+  const OPEN_ROLE = { id: 3, availableCount: 2, workerRole: { name: "Nurse" } };
+  const INCOMPLETE_WARNING =
+    "Saving an Incomplete application does not secure your role on the trip. Complete the application and required profile fields to be able to submit the application which will secure the role.";
+  const SUBMIT_NOTICE =
+    "Submitting the application will hold your role on the trip pending review of your documents once they are uploaded.";
+  const CONFIRM = "Your application data will be saved, but a role on the trip has not yet been secured.";
+  const COMPLETE_PERSON = {
+    id: 5,
+    firstName: "Ana",
+    lastName: "Lopez",
+    middleName: "Maria",
+    email: "ana@example.org",
+    addLine1: "1 Main St",
+    city: "Tulsa",
+    country: "United States",
+    state_prov: "OK",
+    postalCode: "74101",
+    phoneContryCode: "+1",
+    phoneNumber: "5555550100",
+    birthDate: "1990-01-01",
+    gender: "female",
+    emergencyContactName: "Ben Lopez",
+    emergencyContactPhoneCountryCode: "+1",
+    emergencyContactPhoneNumber: "5555550101",
+    emergencyContactRelationship: "Spouse",
+    hasAllergies: false,
+    takesMedication: false,
+    speaksOtherLanguage: false,
+    currentChurchHome: "Grace Church",
+    currentChurchHomeCity: "Tulsa",
+    currentChurchHomeStateProv: "OK",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.setItem("user", JSON.stringify({ personId: 5 }));
+    PersonServices.get.mockResolvedValue({ data: { id: 5, firstName: "Ana", lastName: "Lopez" } });
+    PersonDocumentServices.getAll.mockResolvedValue({ data: [] });
+    TripServices.getBrowseTrip.mockResolvedValue({
+      data: { trip: TRIP, rolesNeeded: [OPEN_ROLE], travelOptions: [], alreadyApplied: false },
+    });
+  });
+
+  afterEach(() => {
+    window.localStorage.removeItem("user");
+  });
+
+  const openDialog = async () => {
+    const { wrapper } = await mountWithPlugins(ApplyTripDialog, {
+      props: { modelValue: false, tripId: 42 },
+      global: {
+        stubs: {
+          VDialog: { props: ["modelValue"], template: '<div v-if="modelValue"><slot /></div>' },
+          PersonProfileFields: true,
+          EditPersonDialog: true,
+          ParticipantAgreementSection: true,
+          TripApplicationTravelOptions: true,
+          TripApplicationFlightPurchase: true,
+          DonorTripHeading: true,
+        },
+      },
+    });
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+    return wrapper;
+  };
+
+  const noticeOutsideQuestions = (wrapper) => {
+    const questions = wrapper.find('[data-testid="application-questions"]');
+    const notice = wrapper.find('[data-testid="application-role-hold-notice"]');
+    expect(questions.exists()).toBe(true);
+    expect(notice.exists()).toBe(true);
+    expect(questions.find('[data-testid="application-role-hold-notice"]').exists()).toBe(false);
+    return notice;
+  };
+
+  it("Saving an incomplete application warns that the role is not secured", async () => {
+    const wrapper = await openDialog();
+    const notice = noticeOutsideQuestions(wrapper);
+    expect(notice.text()).toBe(INCOMPLETE_WARNING);
+    expect(wrapper.text()).toContain("Save Incomplete Application");
+    wrapper.unmount();
+  });
+
+  it("Save Incomplete Application confirms before it saves", async () => {
+    TripServices.applyToTrip.mockResolvedValue({ data: {} });
+    const wrapper = await openDialog();
+    wrapper
+      .findAllComponents({ name: "VSelect" })
+      .find((c) => c.props("label") === "Trip role")
+      .vm.$emit("update:modelValue", OPEN_ROLE.id);
+    await flushPromises();
+
+    await wrapper.find('[data-testid="application-primary-action"]').trigger("click");
+    await flushPromises();
+
+    const dialog = wrapper.find('[data-testid="incomplete-save-dialog"]');
+    expect(dialog.text()).toContain(CONFIRM);
+    expect(dialog.findAll("button").map((b) => b.text().trim())).toEqual(["OK"]);
+    expect(TripServices.applyToTrip).not.toHaveBeenCalled();
+
+    await dialog.find('[data-testid="incomplete-save-ok"]').trigger("click");
+    await flushPromises();
+
+    expect(TripServices.applyToTrip).toHaveBeenCalledTimes(1);
+    expect(wrapper.find('[data-testid="incomplete-save-dialog"]').exists()).toBe(false);
+    expect(wrapper.emitted("update:modelValue")?.at(-1)).toEqual([false]);
+    wrapper.unmount();
+  });
+
+  it("Submitting says the role will be held", async () => {
+    PersonServices.get.mockResolvedValue({ data: COMPLETE_PERSON });
+    const wrapper = await openDialog();
+    wrapper.vm.form.tripWorkerRoleId = OPEN_ROLE.id;
+    wrapper.vm.form.willSelfFund = true;
+    wrapper.vm.form.flightPurchaseOption = "self";
+    await flushPromises();
+
+    const notice = noticeOutsideQuestions(wrapper);
+    expect(notice.text()).toBe(SUBMIT_NOTICE);
+    expect(wrapper.text()).toContain("Submit Application");
+    expect(wrapper.text()).not.toContain(INCOMPLETE_WARNING);
+    wrapper.unmount();
+  });
+
+  it("An application that already holds the role has neither notice", async () => {
+    PersonServices.get.mockResolvedValue({ data: COMPLETE_PERSON });
+    TripServices.getBrowseTrip.mockResolvedValue({
+      data: {
+        trip: TRIP,
+        rolesNeeded: [OPEN_ROLE],
+        travelOptions: [],
+        alreadyApplied: true,
+        applicationStatus: "pre_approved",
+      },
+    });
+    TripServices.getApplication.mockResolvedValue({
+      data: {
+        trip: TRIP,
+        rolesNeeded: [OPEN_ROLE],
+        travelOptions: [],
+        canEdit: true,
+        applicationStatus: "pre_approved",
+        application: {
+          status: "pre_approved",
+          tripWorkerRoleId: OPEN_ROLE.id,
+          willSelfFund: true,
+          flightPurchaseOption: "self",
+          version: 1,
+        },
+      },
+    });
+    const wrapper = await openDialog();
+
+    expect(wrapper.find('[data-testid="application-primary-action"]').text()).toBe("Update Application");
+    expect(wrapper.find('[data-testid="application-role-hold-notice"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain(INCOMPLETE_WARNING);
+    expect(wrapper.text()).not.toContain(SUBMIT_NOTICE);
+    wrapper.unmount();
   });
 });

@@ -136,8 +136,8 @@ describe("Feature 28 — View Trip Status", () => {
       const role = response.body.rolesNeeded.find((r) => Number(r.id) === Number(tripWorkerRole.id));
       expect(role).toMatchObject({
         quantity: 2,
-        signedUpCount: 1,
-        availableCount: 1,
+        signedUpCount: 0,
+        availableCount: 2,
         workerRoleName: "Nurse",
       });
     });

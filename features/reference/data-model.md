@@ -300,7 +300,7 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | peopleId | INTEGER | required FK → person |
 | roleId | INTEGER | required FK → role |
 | tripWorkerRoleId | INTEGER | optional FK → tripWorkerRole |
-| status | ENUM(`incomplete`,`pre_approved`,`approved`,`declined`,`cancelled`) | required, default `incomplete`; **capacity** (Feature 26): `incomplete`/`pre_approved`/`approved` occupy a trip worker-role slot; `cancelled`/`declined` do not; `pre_approved` replaced `applied` (Feature 104; `ensureSchema` migrates `applied` / `ready` rows) |
+| status | ENUM(`incomplete`,`pre_approved`,`approved`,`declined`,`cancelled`) | required, default `incomplete`; **capacity** (Feature 129): `pre_approved`/`approved` occupy a trip worker-role slot; `incomplete`/`cancelled`/`declined` do not; `pre_approved` replaced `applied` (Feature 104; `ensureSchema` migrates `applied` / `ready` rows) |
 | participantCost | DECIMAL(10,2) | |
 | whygoText | TEXT | optional; the participant's fundraising story, up to 2000 characters (trimmed; blank → null). Written by the participant's application (apply, update, or the why-go save, also when Approved) and by staff only on create (**Add participant**); the staff update ignores it (Feature 125) |
 | willSelfFund, willRaiseFunds | BOOLEAN | required, default `false` |

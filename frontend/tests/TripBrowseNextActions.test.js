@@ -83,6 +83,7 @@ describe("Feature 60 — My Trips Next Actions (trip page)", () => {
     const actions = wrapper.find('[data-testid="my-trip-next-actions"]');
     expect(actions.classes()).toContain("my-trip-next-actions--needed");
     expect(actions.text()).toContain("Complete missing information on your application so you can submit your application.");
+    expect(wrapper.find('[data-testid="role-not-secured-warning"]').exists()).toBe(false);
     expect(wrapper.findAll("button").filter((b) => b.text().trim() === "Update App")).toHaveLength(1);
 
     await button(actions, "Update App").trigger("click");
@@ -95,6 +96,35 @@ describe("Feature 60 — My Trips Next Actions (trip page)", () => {
     expect(confirm.props("modelValue")).toBe(true);
     expect(confirm.props("message")).toBe("Cancel this application? Your role slot will be freed.");
 
+    wrapper.unmount();
+  });
+
+  it("My Trip Info warns when the application and profile are both incomplete", async () => {
+    TripServices.getBrowseTrip.mockResolvedValue({
+      data: {
+        trip: { id: 7, orgId: 3, name: "Guatemala Clinic", status: "active", startDate: "2027-01-10", endDate: "2027-01-20" },
+        rolesNeeded: [],
+        alreadyApplied: true,
+        applicationStatus: "incomplete",
+        tripLeaders: [],
+        myTripInfo: {
+          status: "incomplete",
+          workerRoleName: "Nurse",
+          participantCost: 1800,
+          donationTotal: 0,
+          donationRecipients: [],
+          tripPeopleRoleId: 70,
+          nextActions: [{ code: "complete-application", applicationIncomplete: true, profileIncomplete: true }],
+        },
+      },
+    });
+
+    const wrapper = await mountView();
+    const actions = wrapper.find('[data-testid="my-trip-next-actions"]');
+    const message = "Complete missing information on your application and profile so you can submit your application.";
+    const warning =
+      "You do not have a role secured on this trip. Complete the application and profile required fields and submit the application.";
+    expect(actions.text().indexOf(warning)).toBeGreaterThan(actions.text().indexOf(message));
     wrapper.unmount();
   });
 

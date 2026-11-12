@@ -210,7 +210,7 @@ describe("Feature 9 — Public Fundraising Pages", () => {
       expect(response.status).toBe(200);
       expect(response.body.trips.find((t) => t.id === trip.id).roleAvailability).toEqual({
         reserved: 2,
-        open: 1,
+        open: 2,
       });
     });
   });

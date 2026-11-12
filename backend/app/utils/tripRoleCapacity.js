@@ -4,8 +4,10 @@ import db from "../models/index.js";
 const TripPeopleRole = db.tripPeopleRole;
 const TripWorkerRoleReservation = db.tripWorkerRoleReservation;
 
-/** Statuses that occupy a trip worker-role capacity slot (Feature 26). */
-export const ROLE_OCCUPYING_STATUSES = ["incomplete", "pre_approved", "approved"];
+/** Statuses that occupy a trip worker-role capacity slot (Feature 129: not incomplete). */
+export const ROLE_OCCUPYING_STATUSES = ["pre_approved", "approved"];
+
+export const occupiesRole = (status) => ROLE_OCCUPYING_STATUSES.includes(status);
 
 export const normalizeEmail = (value) => String(value ?? "").trim().toLowerCase();
 

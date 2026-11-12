@@ -21,7 +21,7 @@ defineExpose({ load });
 
 <template>
   <div class="mb-3" data-testid="my-trip-documents">
-    <p class="text-body-2 mb-2">All documents for your trips must be uploaded 90 days before the trip starts.</p>
+    <p class="text-body-2 mb-2">All documents for your trips must be uploaded 90 days before the trip starts. You can submit an application and secure a role on the trip without uploading the documents required for the trip.</p>
     <div v-for="trip in trips" :key="trip.tripId" class="mb-2" data-testid="my-trip-documents-trip">
       <div class="font-weight-medium">
         {{ trip.tripName }} — starts {{ formatDate(trip.startDate) }}, due {{ formatDate(trip.dueDate) }}

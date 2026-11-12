@@ -51,6 +51,13 @@ const shownNextActions = computed(() =>
   nextActions.value.filter((action) => !FUNDING_ACTION_CODES.includes(action.code))
 );
 
+const roleNotSecured = computed(() =>
+  shownNextActions.value.some(
+    (action) =>
+      action.code === "complete-application" && action.applicationIncomplete && action.profileIncomplete
+  )
+);
+
 const STATUS_PENDING = { type: "warning", color: "amber-lighten-4" };
 const STATUS_APPROVED = { type: "success", color: "green-lighten-4" };
 const STATUS_ENDED = { type: "error", color: "red-lighten-4" };
@@ -373,6 +380,7 @@ onUnmounted(() => {
         v-if="shownNextActions.length"
         class="mb-3"
         :actions="shownNextActions"
+        :role-not-secured="roleNotSecured"
         @update="openUpdateApplication"
         @cancel="showConfirmCancelApp = true"
         @flights="showFlightsDialog = true"

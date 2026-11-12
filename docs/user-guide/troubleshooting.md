@@ -50,6 +50,9 @@ Pick an organization in the menu bar first.
 
 ## Documents
 
+**"All documents for your trips must be uploaded 90 days before the trip starts. You can submit an application and secure a role on the trip without uploading the documents required for the trip."**
+On your own profile, the trip documents list starts with this note. The 90-day date is when documents should be uploaded. You can still submit a complete application and hold your role before those documents are uploaded. Staff review them before they approve you.
+
 **"Reviewed documents can't be changed."** / **"Untick Reviewed to edit this document."**
 Staff have checked this document, so it's locked. Participants: add a new document, or ask trip staff. Staff: untick **Reviewed** first.
 
@@ -192,7 +195,13 @@ Add another Org Admin before removing this one.
 ## Trips and roles
 
 **"People have signed up for this role. Move or cancel them before removing it."**
-A role with Incomplete, Pre-Approved, or Approved people can't be removed.
+A role with Pre-Approved or Approved people can't be removed. Incomplete applications don't block removing it.
+
+**"Your application data will be saved, but a role on the trip has not yet been secured."**
+**Save Incomplete Application** asks you to confirm with **OK** before it saves. The application stays Incomplete and does not hold a role spot.
+
+**"You do not have a role secured on this trip. Complete the application and profile required fields and submit the application."**
+On **My Trip**, under "Complete missing information on your application and profile so you can submit your application." Fill in the missing application and profile fields, then submit. That holds your role.
 
 **"Remove reserved emails first."**
 Number Needed can't go below the number of reserved spots.
