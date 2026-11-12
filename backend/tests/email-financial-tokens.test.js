@@ -77,7 +77,12 @@ describe("Feature 52 — Participant Financial Statement Email Tokens", () => {
     const donor =
       donorEmail === undefined
         ? null
-        : await db.donor.create({ firstName: "Donor", email: donorEmail, personId: donorPersonId });
+        : await db.donor.create({
+            firstName: "Donor",
+            email: donorEmail,
+            personId: donorPersonId,
+            orgId: org.id,
+          });
     await db.tripDonation.create({
       tripId: trip.id,
       personId: ana.id,

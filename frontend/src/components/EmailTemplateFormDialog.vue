@@ -15,6 +15,7 @@ const FUNCTION_CODE_ITEMS = [
   { title: "Send Now", value: "Send Now" },
   { title: "Trip Participant", value: "Trip Participant" },
   { title: "Person", value: "Person" },
+  { title: "Donor", value: "Donor" },
 ];
 const FUNCTION_CODES = FUNCTION_CODE_ITEMS.map((item) => item.value);
 
@@ -86,11 +87,13 @@ const showCopyFromPicker = computed(() => !isEdit.value && form.value.orgId != n
 const isTripTemplate = computed(() => isTripLeaderAdd.value || form.value.tripId != null);
 const functionCodeItems = computed(() =>
   isTripTemplate.value
-    ? FUNCTION_CODE_ITEMS.filter((item) => item.value !== "Person")
+    ? FUNCTION_CODE_ITEMS.filter((item) => item.value !== "Person" && item.value !== "Donor")
     : FUNCTION_CODE_ITEMS
 );
 watch(isTripTemplate, (tripTemplate) => {
-  if (tripTemplate && form.value.functionCode === "Person") form.value.functionCode = null;
+  if (tripTemplate && (form.value.functionCode === "Person" || form.value.functionCode === "Donor")) {
+    form.value.functionCode = null;
+  }
 });
 const isScheduled = computed(() => form.value.functionCode === "Scheduled");
 const showDaysBefore = computed(() => isScheduled.value && form.value.scheduleRule === "before-start");

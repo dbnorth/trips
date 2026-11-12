@@ -110,6 +110,7 @@ The menu bar runs across the top of every page once you're signed in. Its color 
 | **Trips** (for Org Admins and System Admins) | The **Trips** list: every trip in the organization | Org Admins, System Admins | [Organization admin guide](./org-admin-guide.md#trips-page) |
 | **Trips** (for Trip Leaders) | The **Trips** page: the participants of the trips you lead | Trip Leaders who aren't Org Admins | [Trip staff guide](./trip-staff-guide.md#trips-page-for-trip-leaders) |
 | **Donations** | The **Donations** page for a trip | Org Admins, System Admins, approved Trip Leaders, approved Trip Participants | [Trip staff guide](./trip-staff-guide.md#donations-page) |
+| **Donors** | The organization's **Donors** list, with **Add donor** and **Email** | Org Admins, System Admins | [Organization admin guide](./org-admin-guide.md#donors-page) |
 | **Templates** | The **Email templates** list | Org Admins, System Admins, approved Trip Leaders | [Organization admin guide](./org-admin-guide.md#email-templates-page) |
 | **Pictures** | The organization's picture library for emails | Org Admins, System Admins | [Organization admin guide](./org-admin-guide.md#pictures-page) |
 | **Worker roles** | The jobs on a team, such as Nurse, and the documents each needs | Org Admins, System Admins | [Organization admin guide](./org-admin-guide.md#worker-roles-page) |

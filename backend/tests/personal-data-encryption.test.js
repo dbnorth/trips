@@ -563,7 +563,7 @@ describe("Feature 64 — Encrypt Personal and Medical Data in the Database", () 
       await db.sequelize.query("UPDATE personDocuments SET documentNumber = 'Z7654321' WHERE id = :id", {
         replacements: { id: document.id },
       });
-      const donor = await db.donor.create({ firstName: "Dana", email: "dana@example.com" });
+      const donor = await db.donor.create({ firstName: "Dana", email: "dana@example.com", orgId: org.id });
       await db.sequelize.query("UPDATE donors SET addLine1 = '1 Donor Way', phoneNumber = '5550100' WHERE id = :id", {
         replacements: { id: donor.id },
       });

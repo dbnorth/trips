@@ -5,6 +5,7 @@ import DonorServices from "../services/donorServices.js";
 import TripPeopleRoleServices from "../services/tripPeopleRoleServices.js";
 import MoneyInput from "./MoneyInput.vue";
 import AddressFields from "./AddressFields.vue";
+import { DONOR_STATUS_ITEMS, DONOR_TYPE_ITEMS } from "../utils/donorStatus.js";
 import { parseMoneyAmount, formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { normalizeAddressFields, US_COUNTRY_CODE } from "../utils/locationData.js";
 import { useVersionConflictForm } from "../utils/useVersionConflictForm.js";
@@ -50,6 +51,8 @@ const emptyDonor = () => ({
   id: null,
   firstName: "",
   lastName: "",
+  familyName: "",
+  organizationName: "",
   email: "",
   addLine1: "",
   addLine2: "",
@@ -59,6 +62,7 @@ const emptyDonor = () => ({
   postalCode: "",
   phoneContryCode: "",
   phoneNumber: "",
+  donorType: "individual",
   status: "active",
   personId: null,
   version: 0,
@@ -269,8 +273,10 @@ const save = async () => {
     paymentInfo: donation.value.paymentInfo?.trim() || null,
     donorId: donor.value.id || null,
     donor: {
-      firstName: donor.value.firstName.trim(),
-      lastName: donor.value.lastName?.trim() || null,
+      firstName: donor.value.donorType === "organization" ? null : (donor.value.firstName || "").trim(),
+      lastName: donor.value.donorType === "organization" ? null : (donor.value.lastName || "").trim() || null,
+      familyName: donor.value.donorType === "organization" ? null : (donor.value.familyName || "").trim() || null,
+      organizationName: donor.value.donorType === "organization" ? donor.value.organizationName?.trim() || null : null,
       email: donor.value.email?.trim() || lookupEmail.value.trim() || null,
       country: address.country || null,
       addLine1: donor.value.addLine1?.trim() || null,
@@ -280,6 +286,7 @@ const save = async () => {
       postalCode: donor.value.postalCode?.trim() || null,
       phoneContryCode: donor.value.phoneContryCode?.trim() || null,
       phoneNumber: donor.value.phoneNumber?.trim() || null,
+      donorType: donor.value.donorType || "individual",
       status: donor.value.status || "active",
       personId: donor.value.personId || null,
     },
@@ -385,14 +392,25 @@ const submit = (request, tripId) => {
         </v-row>
         <v-alert v-if="lookupNotice" type="info" density="compact" class="mb-3">{{ lookupNotice }}</v-alert>
 
-        <v-text-field v-model="donor.firstName" label="Donor first name" density="compact" autocomplete="off" />
-        <v-text-field v-model="donor.lastName" label="Donor last name" density="compact" autocomplete="off" />
+        <v-select v-model="donor.donorType" :items="DONOR_TYPE_ITEMS" label="Donor type" density="compact" />
+        <v-text-field
+          v-if="donor.donorType === 'organization'"
+          v-model="donor.organizationName"
+          label="Organization name"
+          density="compact"
+          autocomplete="off"
+        />
+        <template v-else>
+          <v-text-field v-model="donor.firstName" label="Donor first name" density="compact" autocomplete="off" />
+          <v-text-field v-model="donor.lastName" label="Donor last name" density="compact" autocomplete="off" />
+          <v-text-field v-model="donor.familyName" label="Family name" density="compact" autocomplete="off" />
+        </template>
         <v-text-field v-model="donor.email" label="Donor email" type="email" density="compact" autocomplete="off" />
         <AddressFields v-model="donor" />
         <v-text-field v-model="donor.phoneNumber" label="Phone number" density="compact" autocomplete="off" />
         <v-select
           v-model="donor.status"
-          :items="['active', 'inactive', 'dontcontact']"
+          :items="DONOR_STATUS_ITEMS"
           label="Donor status"
           density="compact"
         />

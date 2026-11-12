@@ -438,11 +438,14 @@ The **Flight segments** dialog is described in the [Participant guide](./partici
 | Field | Notes |
 |-------|-------|
 | **Donor email** + **Look up** | Finds an existing donor or a person in the organization and fills in their details. Messages: "Donor found. Review and update details below if needed.", "Person found. A donor will be added from their details.", or "Donor not found. Enter donor details below." |
-| **Donor first name** | Required. |
-| **Donor last name**, **Donor email** | Optional. |
+| **Donor type** | **Organization** or **Individual**. Starts as **Individual**. |
+| **Organization name** | Shown for **Organization**. Required ("Organization name is required."). First name, last name, and family name are not stored. |
+| **Donor first name** | Shown for **Individual**. Required ("Donor first name is required."). |
+| **Donor last name**, **Family name** | Shown for **Individual**. **Family name** is optional. |
+| **Donor email** | Optional. |
 | **Country**, **Address line 1**, **Address line 2**, **City**, **State** / **State / province**, **Postal code** | The donor's mailing address. |
 | **Phone number** | Optional. |
-| **Donor status** | **active**, **inactive**, or **dontcontact** (do not contact). Starts as active. It's a note for your records; it doesn't stop the **Trip donation** thank-you email. |
+| **Donor status** | **Active**, **Inactive**, or **No Email**. Starts as Active. **No Email** keeps the donor off **Email donors**. It doesn't stop the **Trip donation** thank-you or the **Thank you for donation** email. |
 
 **Donation:**
 

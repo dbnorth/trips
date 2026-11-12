@@ -162,6 +162,30 @@
       "toAddress": "{{PARTICIPANT_EMAIL}}",
       "subject": "Thank you for your donation to {{TRIP_NAME}}",
       "emailBody": "Thank you for your donation!\n\nTrip: {{TRIP_NAME}}\nLocation: {{TRIP_LOCATION}}\nDates: {{TRIP_START_DATE}} to {{TRIP_END_DATE}}\nParticipant: {{PARTICIPANT_FIRST_NAME}} {{PARTICIPANT_LAST_NAME}}\n\nDonation date: {{DONATION_DATE}}\nDonation type: {{DONATION_TYPE}}\nDonation amount: {{DONATION_AMOUNT}}\n\nYour gift helps send our team to {{TRIP_LOCATION}}. We are grateful for your support.\n\nBlessings,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "donor-update",
+      "functionCode": "Donor",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{DONOR_EMAIL}}",
+      "subject": "A note from {{ORG_NAME}}",
+      "emailBody": "Hi {{DONOR_FIRST_NAME}},\n\n{{ORG_NAME}} is grateful for your support. We wanted to send you a short note.\n\nBlessings,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "annual-donation",
+      "functionCode": "Donor",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{DONOR_EMAIL}}",
+      "subject": "Your annual donations to {{ORG_NAME}}",
+      "emailBody": "Hi {{DONOR_FIRST_NAME}},\n\nHere are your donations to {{ORG_NAME}} last year:\n\n{{DONOR_PREVIOUS_YEAR_DONATIONS}}\n\nTotal: {{DONOR_PREVIOUS_YEAR_TOTAL}}\n\nThank you,\n{{ORG_NAME}}"
+    },
+    {
+      "typeCode": "donor-thank-you",
+      "functionCode": "Send Now",
+      "fromEmail": "{{ORG_EMAIL}}",
+      "toAddress": "{{DONOR_EMAIL}}",
+      "subject": "Thank you for your donation",
+      "emailBody": "Hi {{DONOR_FIRST_NAME}},\n\nThank you for your donation to {{ORG_NAME}}.\n\nTrip: {{TRIP_NAME}}\nParticipant: {{PARTICIPANT_FIRST_NAME}} {{PARTICIPANT_LAST_NAME}}\nDonation date: {{DONATION_DATE}}\nDonation amount: {{DONATION_AMOUNT}}\n\nBlessings,\n{{ORG_NAME}}"
     }
   ]
 }

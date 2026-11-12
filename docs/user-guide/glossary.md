@@ -36,9 +36,13 @@
 
 **Donation type** — how a donation was given: Stripe-Credit (credit card through Stripe), Stripe-ACH (bank account through Stripe), Check (with its check number), or Other.
 
-**Donor status** — a note on a donor's record: active, inactive, or dontcontact (do not contact).
+**Donor status** — a note on a donor's record: Active, Inactive, or No Email. **No Email** means the donor is left off **Email donors**. It does not stop donation thank-you emails.
 
-**Email token** — a token that fills in an email address, usable in a template's From email and To: `{{ORG_EMAIL}}`, `{{PARTICIPANT_EMAIL}}`, or `{{LEADER_EMAIL}}`.
+**Donor type** — whether a donor is an Organization or an Individual. An Organization is shown by its organization name. An Individual is shown by first and last name.
+
+**Family name** — the full name of an Individual when that name contains &. The first name is the part before &, and the last name is the last word.
+
+**Email token** — a token that fills in an email address, usable in a template's From email and To: `{{ORG_EMAIL}}`, `{{PARTICIPANT_EMAIL}}`, `{{LEADER_EMAIL}}`, or `{{DONOR_EMAIL}}`.
 
 **Email type** — what an email is about, such as Application approved or Deposit due. Its event description says when it's sent.
 
@@ -54,7 +58,7 @@
 
 **Flight segment** — one leg of a flight: airline, flight number, airports, and departure and arrival times. Arrival segments take a person to the trip; return segments bring them home.
 
-**Function code** — how an email template is sent: Send Now (when its event happens), Scheduled (each morning by its schedule), Trip Participant (from Email team), or Person (from the People page).
+**Function code** — how an email template is sent: Send Now (when its event happens), Scheduled (each morning by its schedule), Trip Participant (from Email team), Person (from the People page), or Donor (from the Donors page).
 
 **Missing items** — what's still missing from a person's profile, application, or trip documents, shown on the trip page.
 
