@@ -531,4 +531,56 @@ describe("Feature 5 — Trip Catalog Management", () => {
       expect(loaded.body.deposit).toBeNull();
     });
   });
+
+  describe("Feature 132 — Trip account number", () => {
+    it("A trip saves an account number", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "acct-trip@example.com",
+      });
+
+      const created = await request(app)
+        .post("/trips/trips")
+        .set(authHeader)
+        .send(tripPayload(org.id, { name: "Account Trip", accountNumber: "7712" }));
+
+      expect(created.status).toBe(200);
+      expect(created.body.accountNumber).toBe("7712");
+
+      const loaded = await request(app).get(`/trips/trips/${created.body.id}`).set(authHeader);
+      expect(loaded.body.accountNumber).toBe("7712");
+    });
+
+    it("A trip account number is at most 50 characters", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "acct-trip-long@example.com",
+      });
+
+      const created = await request(app)
+        .post("/trips/trips")
+        .set(authHeader)
+        .send(tripPayload(org.id, { accountNumber: "1".repeat(51) }));
+
+      expect(created.status).toBe(400);
+      expect(created.body.message).toBe("Account number must be 50 characters or less.");
+    });
+
+    it("Copy trip keeps the account number", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "acct-trip-copy@example.com",
+      });
+      const source = await request(app)
+        .post("/trips/trips")
+        .set(authHeader)
+        .send(tripPayload(org.id, { name: "Account Source", accountNumber: "7712" }));
+      expect(source.status).toBe(200);
+
+      const copy = await request(app)
+        .post(`/trips/trips/${source.body.id}/copy`)
+        .set(authHeader)
+        .send({ name: "Account Copy" });
+
+      expect(copy.status).toBe(201);
+      expect(copy.body.accountNumber).toBe("7712");
+    });
+  });
 });

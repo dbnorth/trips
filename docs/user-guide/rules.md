@@ -24,6 +24,10 @@ Incomplete and Pre-Approved are set automatically from what's filled in. Staff s
 
 Home's **Organization Trips** shows `active` trips that haven't ended unless **Show all trips** is ticked.
 
+## Account number
+
+An organization and a trip each have their own optional **Account number**. A trip does not use the organization's number. It can be any text up to 50 characters; spaces at the ends are dropped, and a blank value means no account number. The same number can be used more than once. It is edited with the organization or the trip, shown on **Organizations** and on the trip page when it is saved, and copied when you copy a trip. It is not shown on the Trips list, public pages, donation pages, or emails, and a Trip Master import does not set it.
+
 ## Complete profile
 
 A profile is complete when it has: first, middle, and last name; email; address (line 1, city, state/province, postal code, country); phone country code and number; birthdate; gender; emergency contact name, country code, phone number, and relationship; and current church home with its city and state/province. Also:

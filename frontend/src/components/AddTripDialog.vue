@@ -39,6 +39,7 @@ const rolesError = ref("");
 
 const emptyForm = () => ({
   name: "",
+  accountNumber: "",
   status: "active",
   location: "",
   city: "",
@@ -260,6 +261,7 @@ const save = async () => {
   const payload = {
     orgId: form.value.orgId,
     name: form.value.name.trim(),
+    accountNumber: form.value.accountNumber?.trim() || null,
     status: form.value.status,
     location: form.value.location?.trim() || null,
     city: form.value.city?.trim() || null,
@@ -327,6 +329,7 @@ const save = async () => {
 
       <v-card-text>
         <v-text-field v-model="form.name" label="Name" density="compact" autocomplete="off" />
+        <v-text-field v-model="form.accountNumber" label="Account number" density="compact" autocomplete="off" />
 
         <v-select
           v-model="form.status"

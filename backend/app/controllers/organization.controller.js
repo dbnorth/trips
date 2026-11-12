@@ -23,10 +23,12 @@ import {
   validateSubdomainValue,
   isSubdomainTaken,
 } from "../utils/organizationSubdomain.js";
+import { applyAccountNumber } from "../utils/accountNumber.js";
 
 const Organization = db.organization;
 const orgFields = [
   "name",
+  "accountNumber",
   "addLine1",
   "addLine2",
   "city",
@@ -146,6 +148,8 @@ exports.create = async (req, res) => {
       return res.status(400).send({ message: "Name is required." });
     }
     payload.name = payload.name.trim();
+    const accountError = applyAccountNumber(payload);
+    if (accountError) return res.status(400).send({ message: accountError });
     const stripe = pickStripeKeys(req.body);
     if (!stripe.ok) return res.status(400).send({ message: stripe.message });
     const withSub = await applySubdomainToPayload(payload);
@@ -170,6 +174,8 @@ exports.update = async (req, res) => {
       ...Object.keys(stripe.keys),
     ];
     const body = { ...req.body, ...stripe.keys };
+    const accountError = applyAccountNumber(body);
+    if (accountError) return res.status(400).send({ message: accountError });
     if (includeSubdomain && Object.prototype.hasOwnProperty.call(body, "subdomain")) {
       const withSub = await applySubdomainToPayload(
         { subdomain: body.subdomain },

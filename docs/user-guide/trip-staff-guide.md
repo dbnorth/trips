@@ -134,6 +134,7 @@ The trip name, organization, city and country, then:
 
 | Item | Shows |
 |------|-------|
+| **Account number:** | The trip's account number, when one is saved. Nothing is shown when it is blank. |
 | **Status:** | The trip status: `active` (open for applying and donating), `completed`, or `inactive`. |
 | **Dates:** | Start and end dates. |
 | **Location:** | Where the trip goes. |

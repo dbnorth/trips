@@ -16,6 +16,7 @@ They do **not** authorize new scope — implement only from `features/feature-*.
 | Rule | Enforcement | Provenance |
 |------|-------------|------------|
 | Auth is email + password; sessions JWT + `sessions` table; TTL **4 hours** | `auth.controller.js`, `auth.config.js` | Feature 1 |
+| Organization and trip **Account number**: optional text, trimmed, blank stored as null, at most 50 characters (`400` "Account number must be 50 characters or less."). A trip does not use the organization's number. Edited on Add/Edit organization and Add/Edit trip; shown on Organizations and on Trip details when saved; Copy trip copies the trip's number. Not on the Trips table, public pages, emails, or Trip Master import | `accountNumber.js`, `organization.controller.js`, `trip.controller.js`, `ensureSchema.js` | Feature 132 |
 | Passwords bcrypt-hashed; never returned | User `defaultScope` | Feature 1 |
 | **Menu bar listeners**: the menu bar listens for the window events `user-logged-in`, `user-updated`, `user-logged-out`, and `organizations-updated` only while it is showing, and removes all four when it unmounts (for example on logout to the login page). Logging out and back in without reloading leaves one menu reacting, so each event runs the refresh once | `MenuBar.vue` | Feature 111 |
 | System admin = `user.isAdmin` | `accessControl.js` | Features 1–10 |

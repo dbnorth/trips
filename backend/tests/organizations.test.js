@@ -214,4 +214,54 @@ describe("Feature 3 — Organizations & Agreements", () => {
       }
     });
   });
+
+  describe("Feature 132 — Organization account number", () => {
+    it("An organization saves an account number", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "acct-org@example.com",
+        orgName: "Hope Mission",
+      });
+
+      const saved = await request(app)
+        .put(`/trips/organizations/${org.id}`)
+        .set(authHeader)
+        .send({ accountNumber: "  4500  " });
+
+      expect(saved.status).toBe(200);
+      expect(saved.body.accountNumber).toBe("4500");
+
+      const list = await request(app).get("/trips/organizations").set(authHeader);
+      expect(list.body.find((row) => row.id === org.id).accountNumber).toBe("4500");
+    });
+
+    it("An organization account number may be blank", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "acct-org-blank@example.com",
+        orgName: "Hope Mission",
+      });
+
+      const saved = await request(app)
+        .put(`/trips/organizations/${org.id}`)
+        .set(authHeader)
+        .send({ accountNumber: "   " });
+
+      expect(saved.status).toBe(200);
+      expect(saved.body.accountNumber).toBeNull();
+    });
+
+    it("An organization account number is at most 50 characters", async () => {
+      const { authHeader, org } = await createOrgAdminUser({
+        email: "acct-org-long@example.com",
+        orgName: "Hope Mission",
+      });
+
+      const saved = await request(app)
+        .put(`/trips/organizations/${org.id}`)
+        .set(authHeader)
+        .send({ accountNumber: "1".repeat(51) });
+
+      expect(saved.status).toBe(400);
+      expect(saved.body.message).toBe("Account number must be 50 characters or less.");
+    });
+  });
 });

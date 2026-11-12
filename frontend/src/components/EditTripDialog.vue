@@ -36,6 +36,7 @@ const emptyForm = () => ({
   id: null,
   orgId: null,
   name: "",
+  accountNumber: "",
   status: "active",
   location: "",
   city: "",
@@ -443,6 +444,7 @@ const applyTripData = (data) => {
     endDate: data.endDate || "",
     participantCost: data.participantCost != null ? String(data.participantCost) : "",
     deposit: data.deposit != null ? String(data.deposit) : "",
+    accountNumber: data.accountNumber || "",
     requirePassport: !!data.requirePassport,
   };
   clearImageSelection();
@@ -556,6 +558,7 @@ const save = async () => {
   const payload = {
     orgId: form.value.orgId,
     name: form.value.name.trim(),
+    accountNumber: form.value.accountNumber?.trim() || null,
     status: form.value.status,
     location: form.value.location?.trim() || null,
     city: form.value.city?.trim() || null,
@@ -616,6 +619,7 @@ const save = async () => {
 
         <template v-if="!loading">
           <v-text-field v-model="form.name" label="Name" density="compact" autocomplete="off" />
+          <v-text-field v-model="form.accountNumber" label="Account number" density="compact" autocomplete="off" />
 
           <v-select
             v-model="form.status"

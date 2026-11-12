@@ -5,6 +5,7 @@ export const COLOR_OPTIONS = ["blue", "teal", "green", "purple", "red", "orange"
 export const emptyOrganizationForm = () => ({
   id: null,
   name: "",
+  accountNumber: "",
   addLine1: "",
   addLine2: "",
   city: "",
@@ -45,6 +46,7 @@ export const buildOrganizationPayload = (form, { includeVersion = false } = {}) 
   const subdomainRaw = form.subdomain?.trim() || "";
   const payload = {
     name: form.name.trim(),
+    accountNumber: form.accountNumber?.trim() || null,
     country: address.country || null,
     addLine1: form.addLine1?.trim() || null,
     addLine2: form.addLine2?.trim() || null,

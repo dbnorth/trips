@@ -97,6 +97,21 @@ describe("Feature 40 — Email Template Tokens and Preview", () => {
     WorkerRoleServices.getAll.mockResolvedValue({ data: [] });
   });
 
+  it("Add trip shows Account number after Name", async () => {
+    const { wrapper } = await mountWithPlugins(AddTripDialog, {
+      props: { modelValue: false },
+      global: {
+        plugins: [vuetify],
+        stubs: { VDialog: { template: "<div><slot /></div>" } },
+      },
+    });
+    await wrapper.setProps({ modelValue: true });
+    await flushPromises();
+    const labels = wrapper.findAllComponents({ name: "VTextField" }).map((field) => field.props("label"));
+    expect(labels.indexOf("Account number")).toBe(labels.indexOf("Name") + 1);
+    wrapper.unmount();
+  });
+
   it("Trip form shows Primary trip leader", async () => {
     const { wrapper } = await mountWithPlugins(AddTripDialog, {
       props: { modelValue: false },

@@ -6,6 +6,7 @@ const Trip = SequelizeInstance.define("trip", {
   orgId: { type: Sequelize.INTEGER, allowNull: false },
   status: { type: Sequelize.ENUM("active", "completed", "inactive"), allowNull: false, defaultValue: "active" },
   name: { type: Sequelize.STRING(255), allowNull: false },
+  accountNumber: { type: Sequelize.STRING(50), allowNull: true },
   location: { type: Sequelize.STRING(255) },
   city: { type: Sequelize.STRING(100) },
   country: { type: Sequelize.STRING(100) },
