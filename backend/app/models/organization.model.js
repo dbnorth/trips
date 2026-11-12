@@ -4,6 +4,7 @@ import SequelizeInstance from "../config/sequelizeInstance.js";
 const Organization = SequelizeInstance.define("organization", {
   id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
   name: { type: Sequelize.STRING(255), allowNull: false },
+  accountNumber: { type: Sequelize.STRING(50), allowNull: true },
   addLine1: { type: Sequelize.STRING },
   addLine2: { type: Sequelize.STRING },
   city: { type: Sequelize.STRING },

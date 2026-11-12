@@ -426,6 +426,9 @@ onMounted(refresh);
       </v-card-subtitle>
       <v-card-text class="px-0">
         <v-row dense>
+          <v-col v-if="trip.accountNumber" cols="12" sm="6" md="4">
+            <strong>Account number:</strong> {{ trip.accountNumber }}
+          </v-col>
           <v-col cols="12" sm="6" md="4"><strong>Status:</strong> {{ trip.status }}</v-col>
           <v-col cols="12" sm="6" md="4">
             <strong>Dates:</strong> {{ formatDate(trip.startDate) }} – {{ formatDate(trip.endDate) }}

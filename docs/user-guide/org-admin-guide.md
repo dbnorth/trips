@@ -63,6 +63,7 @@ Messages: "Trip created.", "Trip copied.", "Trip updated."
 | Field | Choices | Notes |
 |-------|---------|-------|
 | **Name** | — | Required. Also used in the trip's public web address. |
+| **Account number** | — | Optional. Any text up to 50 characters. Leave it blank for no account number. A trip's number is separate from the organization's. |
 | **Status** | `active`, `completed`, `inactive` | Starts as `active`. **active**: open for applying and donating, and listed on the public pages. **completed**: the trip has happened. **inactive**: hidden from applicants and donors (for example, while you're still setting it up, or if it's called off). |
 | **Organization** | Your organizations | Required. Read-only if you administer just one. |
 | **Location** | — | Where the trip goes, for example a clinic or region. |
@@ -113,7 +114,7 @@ Each option in the table can be edited in place or removed. Changes save with th
 | **Name** | The new trip's name. Required. |
 | **Trip to copy** | The trip to copy from. |
 
-It copies the details, passport requirement, deposit, leaders, primary leader, roles, travel options, and image. It doesn't copy participants, donations, or the trip arrival PDF.
+It copies the details, account number, passport requirement, deposit, leaders, primary leader, roles, travel options, and image. It doesn't copy participants, donations, or the trip arrival PDF.
 
 ## Import Trip Master CSV
 
@@ -135,6 +136,7 @@ To invite imported people to create a login, send a template that uses the creat
 | Column | Shows |
 |--------|-------|
 | **Name** | The organization. |
+| **Account number** | Its account number, when one is saved. |
 | **Email** | Its email address. |
 | **City** | Its city. |
 | **Color** | Its color family. |
@@ -145,6 +147,7 @@ To invite imported people to create a login, send a template that uses the creat
 | Field | Choices | Notes |
 |-------|---------|-------|
 | **Name** | — | Required. Also used in the public trips page address. |
+| **Account number** | — | Optional. Any text up to 50 characters. Leave it blank for no account number. |
 | **Subdomain** | — | The organization's own web address. People who create an account there join the organization automatically. Only a System Admin can set it. |
 | **Email** | — | The organization's email. Used as the sender for many emails, and where Test mode sends everything. |
 | **Test mode** | Tick box | Sends every email for this organization to the organization email instead of the real recipients. Subjects start with "[Test]" and bodies say who it was meant for. Needs an organization email. Online donations use the Stripe test key while it's on. |

@@ -159,6 +159,7 @@ Notes:
 |-------|------|--------|
 | id | INTEGER PK | autoIncrement |
 | name | STRING(255) | required |
+| accountNumber | STRING(50) | optional; trimmed; blank stored as null; a trip does not use this value — Feature 132 |
 | addLine1, addLine2, city, state_prov, postalCode | STRING | |
 | country | STRING(2) | |
 | phoneContryCode | STRING(10) | |
@@ -273,6 +274,7 @@ Dev seed: `backend/app/data/documentTypes.json` via `seedDocumentTypes.js` (part
 | orgId | INTEGER | required FK → organization |
 | status | ENUM(`active`,`completed`,`inactive`) | required, default `active` |
 | name | STRING(255) | required |
+| accountNumber | STRING(50) | optional; trimmed; blank stored as null; not the organization's number — Feature 132 |
 | location | STRING(255) | |
 | city | STRING(100) | |
 | country | STRING(100) | |

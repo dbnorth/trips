@@ -162,6 +162,9 @@ The return link is incomplete or wrong. Check the **Donations** page, or start a
 **"Select an organization in the menu bar."**
 **Donors** needs one organization. A System Admin with **All organizations** selected picks an organization in the menu bar.
 
+**"Account number must be 50 characters or less."**
+**Account number** on an organization or a trip is longer than 50 characters. Shorten it, or leave it blank.
+
 **"Organization name is required."**
 **Donor type** **Organization** needs an **Organization name**.
 

@@ -2,6 +2,8 @@
 
 **Active trip** — a trip whose end date (or start date, if it has no end date) is today or later. People with a Pre-Approved or Approved application on one must keep their profile complete. Not the same as a trip whose **Status** is `active`.
 
+**Account number** — optional text, up to 50 characters, saved on an organization and separately on a trip.
+
 **Add-on expense** — an extra cost staff add to one person's application, such as a visa fee. It's part of their total trip cost, and can move their planned arrival or departure.
 
 **Agent** — a travel agent role that can manage an organization's flights and nothing else.

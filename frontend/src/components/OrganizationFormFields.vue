@@ -14,6 +14,7 @@ const SAVED_KEY_HINT = "A key is saved. Leave blank to keep it.";
 
 <template>
   <v-text-field v-model="modelValue.name" label="Name" density="compact" autocomplete="off" />
+  <v-text-field v-model="modelValue.accountNumber" label="Account number" density="compact" autocomplete="off" />
   <v-text-field
     v-if="showSubdomain"
     v-model="modelValue.subdomain"
