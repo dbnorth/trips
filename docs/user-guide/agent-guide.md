@@ -70,6 +70,7 @@ The table lists everyone who is Incomplete, Pre-Approved, or Approved.
 Titled "Flight segments — *name*", with **Booked by**, **Planned arrival**, **Planned departure**, **Requested** (airports, class, airline, refundable), and **Flight notes**.
 
 - **Confirmation number** — the booking reference, up to 50 characters.
+- **Load from text** — opens **Load itinerary from text**. Paste the airline's itinerary email into **Itinerary text**. **Parsed itinerary** lists each flight it could read, using the full airline list and the full airport list. A date on its own line applies to the flights below it. The airport and time may be listed before the flight number. When the arrival time is earlier than the departure time, the arrival date is the next day. **Seat:** in the email is copied to **Seat #**. **Confirmation code:** or **Confirmation number:** in the email is copied to **Confirmation number**. The earlier dates are arrival flights. The later dates are return flights. **Load** fills the segments and closes the text dialog. It does not save. **Cancel** closes it and leaves the segments as they were.
 - **Arrival Flight** / **Return Flight** — each with **Add Segment**.
 
 Each segment has:

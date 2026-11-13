@@ -16,6 +16,7 @@ import ConfirmDialog from "../components/ConfirmDialog.vue";
 import TripTeamEmailDialog from "../components/TripTeamEmailDialog.vue";
 import TripCostBreakdown from "../components/TripCostBreakdown.vue";
 import TripDateAdjustment from "../components/TripDateAdjustment.vue";
+import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
 import TripArrivalInfo from "../components/TripArrivalInfo.vue";
 import ParticipantCount from "../components/ParticipantCount.vue";
 import ExportServices from "../services/exportServices.js";
@@ -49,6 +50,8 @@ const loading = ref(false);
 const message = ref("");
 const showAddParticipant = ref(false);
 const showEditParticipant = ref(false);
+const showFlights = ref(false);
+const flightsParticipant = ref(null);
 const editParticipant = ref(null);
 const showEditTrip = ref(false);
 const showTeamEmail = ref(false);
@@ -237,6 +240,11 @@ const refresh = async () => {
 const openDonations = (row) => {
   donationsParticipant.value = row;
   showDonations.value = true;
+};
+
+const openFlights = (row) => {
+  flightsParticipant.value = row;
+  showFlights.value = true;
 };
 
 const openEdit = (row) => {
@@ -720,6 +728,7 @@ onMounted(refresh);
             @click="requestUncancelParticipant(item)"
           />
           <RowAction icon="mdi-pencil" label="Edit" @click="openEdit(item)" />
+          <RowAction icon="mdi-airplane" label="Flight segments" @click="openFlights(item)" />
           <RowAction icon="mdi-hand-heart" label="View donations" @click="openDonations(item)" />
           <RowAction
             icon="mdi-file-pdf-box"
@@ -744,6 +753,15 @@ onMounted(refresh);
       v-model="showAddParticipant"
       :trip-id="tripId"
       @saved="onParticipantAdded"
+    />
+    <FlightSegmentsDialog
+      v-model="showFlights"
+      :trip-id="tripId"
+      :trip-people-role-id="flightsParticipant?.id"
+      :participant-name="flightsParticipant?.name || ''"
+      :trip-start-date="trip?.startDate || ''"
+      :trip-end-date="trip?.endDate || ''"
+      @saved="loadParticipants"
     />
     <EditTripParticipantDialog
       v-model="showEditParticipant"

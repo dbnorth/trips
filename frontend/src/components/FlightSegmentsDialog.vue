@@ -7,6 +7,7 @@ import { CABIN_CLASSES } from "../utils/cabinClasses.js";
 import { flightBookedByLabel } from "../utils/flightBookedBy.js";
 import { flightAirportWarnings } from "../utils/flightAirportWarnings.js";
 import { formatDate } from "../utils/dateFormat.js";
+import { parseItineraryText } from "../utils/itineraryText.js";
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -37,6 +38,8 @@ const requested = ref("");
 const requestedPreferences = ref(null);
 const flightNotes = ref("");
 const confirmationNumber = ref("");
+const showLoadText = ref(false);
+const itineraryText = ref("");
 
 const formatPlannedDate = (value) => formatDate(String(value || "").slice(0, 10)) || "—";
 
@@ -159,6 +162,45 @@ const onDepartureDate = (seg, value) => {
 
 const close = () => emit("update:modelValue", false);
 
+const parsedItinerary = computed(() =>
+  parseItineraryText(itineraryText.value, {
+    airlines: airlines.value,
+    airports: airports.value,
+    tripStartDate: props.tripStartDate,
+  })
+);
+
+const openLoadText = () => {
+  itineraryText.value = "";
+  showLoadText.value = true;
+};
+
+const closeLoadText = () => {
+  showLoadText.value = false;
+};
+
+const loadParsedFlights = () => {
+  const toSegment = (flight) => ({
+    segmentType: flight.segmentType,
+    segmentNumber: flight.segmentNumber,
+    departureAirportCode: flight.departureAirportCode,
+    airlineCode: flight.airlineCode,
+    flightNumber: flight.flightNumber,
+    departureDate: flight.departureDate,
+    departureTime: flight.departureTime,
+    arrivalAirportCode: flight.arrivalAirportCode,
+    arrivalDate: flight.arrivalDate,
+    arrivalTime: flight.arrivalTime,
+    cabinClass: "",
+    seatNumber: flight.seatNumber || "",
+  });
+  segments.value = parsedItinerary.value.flights.map(toSegment);
+  if (parsedItinerary.value.confirmationNumber) {
+    confirmationNumber.value = parsedItinerary.value.confirmationNumber;
+  }
+  showLoadText.value = false;
+};
+
 const load = async () => {
   if (!props.tripId || !props.tripPeopleRoleId) return;
   loading.value = true;
@@ -248,6 +290,8 @@ watch(
       flightNotes.value = "";
       confirmationNumber.value = "";
       error.value = "";
+      showLoadText.value = false;
+      itineraryText.value = "";
     }
   }
 );
@@ -302,6 +346,11 @@ watch(
             style="max-width: 320px"
             data-testid="flight-confirmation-number"
           />
+          <div class="mb-4">
+            <v-btn size="small" variant="tonal" data-testid="load-from-text" @click="openLoadText">
+              Load from text
+            </v-btn>
+          </div>
           <div
             v-for="(section, sectionIndex) in SEGMENT_SECTIONS"
             :key="section.type"
@@ -467,6 +516,39 @@ watch(
         <v-spacer />
         <v-btn variant="text" @click="close">Close</v-btn>
         <v-btn color="primary" :loading="saving" :disabled="loading" @click="save">Save</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <v-dialog v-if="showLoadText" v-model="showLoadText" max-width="720">
+    <v-card>
+      <v-card-title>Load itinerary from text</v-card-title>
+      <v-card-text>
+        <v-textarea
+          v-model="itineraryText"
+          label="Itinerary text"
+          rows="8"
+          data-testid="itinerary-text"
+        />
+        <v-textarea
+          :model-value="parsedItinerary.text"
+          label="Parsed itinerary"
+          readonly
+          rows="6"
+          data-testid="parsed-itinerary"
+        />
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="closeLoadText">Cancel</v-btn>
+        <v-btn
+          color="primary"
+          :disabled="!parsedItinerary.flights.length"
+          data-testid="load-itinerary"
+          @click="loadParsedFlights"
+        >
+          Load
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
