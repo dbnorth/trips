@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { formatDate as formatDateText } from "../utils/dateFormat.js";
+import { showParticipantFlightLinks } from "../utils/participantFlightLinks.js";
 import MyTripFinancialInfo from "./MyTripFinancialInfo.vue";
 import TripDateAdjustment from "./TripDateAdjustment.vue";
 
@@ -88,7 +89,7 @@ const segmentTypeLabel = (type) => (type === "return" ? "Return" : "Arrival");
   <div v-if="showSections" class="mt-4" data-testid="my-trip-flights">
     <div class="d-flex align-center justify-space-between flex-wrap ga-2 mb-2">
       <h3 class="text-subtitle-1 font-weight-bold mb-0">Flights</h3>
-      <v-btn v-if="canEditFlights" size="small" color="primary" variant="tonal" @click="$emit('edit-flights')">
+      <v-btn v-if="showParticipantFlightLinks && canEditFlights" size="small" color="primary" variant="tonal" @click="$emit('edit-flights')">
         {{ segments.length ? "Edit Flights" : "Add Flights" }}
       </v-btn>
     </div>

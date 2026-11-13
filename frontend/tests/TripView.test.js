@@ -275,7 +275,8 @@ describe("Feature 110 — Update Trip View", () => {
 
     const table = wrapper.findAll("table").find((t) => t.text().includes("Lee Test"));
     const headers = table.findAll("th").map((th) => th.text().trim());
-    expect(headers[1]).toBe("Role");
+    expect(headers[1]).toBe("Trip Status");
+    expect(headers[2]).toBe("Role");
     expect(headers).not.toContain("Worker role");
     const roleOf = (name) =>
       table
@@ -1019,6 +1020,130 @@ describe("Feature 132 — Trip account number", () => {
 
     expect(wrapper.text()).toContain("Account number:");
     expect(wrapper.text()).toContain("7712");
+    wrapper.unmount();
+  });
+});
+
+describe("Feature 135 — Trip Ready Status", () => {
+  const person = (id, firstName) => ({
+    id,
+    peopleId: id,
+    status: "approved",
+    person: { id, firstName, lastName: "Lee" },
+    role: { roleName: "Trip Participant" },
+  });
+
+  it("An approved participant with flights and a room is Trip Ready", async () => {
+    TripServices.get.mockResolvedValue({
+      data: { id: 42, name: "Guatemala Clinic", orgId: 10, status: "active", leaderNames: [] },
+    });
+    TripPeopleRoleServices.getAll.mockResolvedValue({
+      data: [person(1, "Ana"), person(2, "Ben")],
+    });
+    DonationServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({ data: [] });
+    TripServices.getStatus.mockResolvedValue({
+      data: {
+        participants: [
+          { id: 1, tripReady: true, tripReadyMissing: [] },
+          { id: 2, tripReady: false, tripReadyMissing: ["No return flight."] },
+        ],
+      },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: {
+        stubs: {
+          TripWorkerRolesCard: Stub,
+          VTooltip: { template: '<div><slot name="activator" :props="{}" /><slot /></div>' },
+        },
+      },
+    });
+    await flushPromises();
+
+    const table = wrapper.findAll("table").find((t) => t.text().includes("Ana Lee"));
+    const headers = table.findAll("th").map((th) => th.text().trim());
+    expect(headers[0]).toBe("Name");
+    expect(headers[1]).toBe("Trip Status");
+
+    const row = (name) => table.findAll("tbody tr").find((tr) => tr.text().includes(name));
+    const ana = row("Ana Lee");
+    const anaStatus = ana.find('[data-testid="trip-status"]');
+    expect(anaStatus.text()).toBe("Trip Ready");
+    expect(anaStatus.classes()).toContain("trip-status-ready");
+    expect(ana.find('[data-testid="trip-ready-info"]').exists()).toBe(false);
+
+    const ben = row("Ben Lee");
+    const benStatus = ben.find('[data-testid="trip-status"]');
+    expect(benStatus.text()).toBe("Not Ready");
+    expect(benStatus.classes()).toContain("trip-status-not-ready");
+    expect(ben.find('[data-testid="trip-ready-info"]').attributes("aria-label")).toBe(
+      "Not ready: No return flight."
+    );
+    expect(ben.find('[data-testid="trip-ready-missing"]').text()).toBe("No return flight.");
+
+    wrapper.unmount();
+  });
+});
+
+describe("Feature 136 — Trip View Flight Itinerary", () => {
+  it("Flight segments opens from the participant row", async () => {
+    TripServices.get.mockResolvedValue({
+      data: { id: 42, name: "Guatemala Clinic", orgId: 10, status: "active", leaderNames: [] },
+    });
+    TripPeopleRoleServices.getAll.mockResolvedValue({
+      data: [
+        {
+          id: 7,
+          peopleId: 5,
+          status: "approved",
+          person: { id: 5, firstName: "Ava", lastName: "Reed" },
+          role: { roleName: "Trip Participant" },
+        },
+      ],
+    });
+    DonationServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({ data: [] });
+    TripServices.getStatus.mockResolvedValue({ data: { participants: [] } });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: { stubs: { TripWorkerRolesCard: Stub } },
+    });
+    await flushPromises();
+
+    const edit = wrapper.find('[aria-label="Edit"]');
+    const flights = wrapper.find('[aria-label="Flight segments"]');
+    expect(flights.exists()).toBe(true);
+    expect(edit.element.compareDocumentPosition(flights.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await flights.trigger("click");
+    const dialog = wrapper.findComponent({ name: "FlightSegmentsDialog" });
+    expect(dialog.props("modelValue")).toBe(true);
+    expect(dialog.props("participantName")).toBe("Ava Reed");
+    expect(dialog.props("tripPeopleRoleId")).toBe(7);
+
     wrapper.unmount();
   });
 });

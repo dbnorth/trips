@@ -205,6 +205,7 @@ The **Name** column stays on the left and **Actions** on the right while the oth
 | Column | Shows |
 |--------|-------|
 | **Name** | Photo and full name. Click it to see the person's profile. |
+| **Trip Status** | **Trip Ready** in white text on a green oval when the person is Approved, has at least one arrival flight and one return flight, and has a room on the saved rooming list. Otherwise **Not Ready** in black text on a yellow oval. An info icon next to **Not Ready** lists what is missing, from: "Not approved.", "No arrival flight.", "No return flight.", "No room assigned." |
 | **Role** | The worker role, with "Trip Leader" for leaders. |
 | **Status** | Incomplete, Pre-Approved, Approved, Declined, or Cancelled. |
 | **Arrives** | Planned arrival date. An info icon explains trip options or add-ons that move it. A warning icon means the arrival flight lands on a different day. |
@@ -228,6 +229,7 @@ The **Name** column stays on the left and **Actions** on the right while the oth
 | **Cancel** (red) | Incomplete, Pre-Approved, or Approved | Asks "Cancel this application? The role slot will be freed." Choose **Cancel App** to confirm. |
 | **Uncancel** | Cancelled | Asks "Uncancel this application? It will return to incomplete or pre-approved based on completeness." |
 | **Edit** | Always | Opens [Edit participant](#edit-participant). |
+| **Flight segments** | Always | Opens the flight dialog for that person. The same dialog as **Flight segments** on the Flights page. |
 | **View donations** | Always | Opens [Donations for *name*](#donations-for-a-participant). |
 | **Documents PDF** | Always | Downloads all of the person's documents and files in one PDF. |
 | **Donate page** | The row has a person | Opens the person's public fundraising page. |
@@ -391,6 +393,8 @@ Titled "*Trip* — Flights". **Back to trips**, **Flights PDF**, and **Email fli
 | **Actions** | **Save** saves the row's Cost and Comments ("Saved flight for *name*."). **Flight segments** opens the segments dialog. |
 
 The **Flight segments** dialog is described in the [Participant guide](./participant-guide.md#flight-segments). For staff it also shows **Requested** (the participant's requested airports, class, airline, and refundable choice) and warns "Arrival flight departs from *XXX*, but *YYY* was requested." or "Return flight arrives at *XXX*, but *YYY* was requested."
+
+**Load from text**, above **Arrival Flight**, opens **Load itinerary from text**. Paste the airline's itinerary email into **Itinerary text**. **Parsed itinerary** shows each flight it could read: the airline code, flight number, airports, dates, and times. It matches those codes against the full airline list and the full airport list. A date on its own line applies to the flights below it, and the airport and time may be listed before the flight number. When the arrival time is earlier than the departure time, the arrival date is the next day. **Seat:** in the email is copied to **Seat #**. **Confirmation code:** or **Confirmation number:** in the email is copied to **Confirmation number**. The earlier dates are arrival flights. The later dates are return flights. A flight missing an airport, a date, or a time is listed as `Not read: "…"`. **Load** puts the parsed flights into the arrival and return segments and closes the text dialog. It does not save. **Cancel** closes the text dialog and leaves the segments as they were. **Save** on **Flight segments** stores them.
 
 ## Trips page for Trip Leaders
 

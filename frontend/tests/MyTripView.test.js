@@ -525,24 +525,23 @@ describe("Feature 119 — My Trip Page", () => {
       plain.wrapper.unmount();
     });
 
-    it("Self-booked participant adds and edits flights", async () => {
+    it("My Trip does not offer Add Flights", async () => {
       signedUp({ flightPurchaseOption: "self" });
       const empty = await mountPage(MyTripView, "/my-trips/7");
       const noSegments = section(empty.wrapper, "my-trip-flights");
       expect(noSegments.text()).toContain("Not yet available");
-      await button(noSegments, "Add Flights").trigger("click");
-      await flushPromises();
-      expect(empty.wrapper.findComponent({ name: "FlightSegmentsDialog" }).props("modelValue")).toBe(true);
+      expect(button(noSegments, "Add Flights")).toBeUndefined();
+      expect(empty.wrapper.findComponent({ name: "FlightSegmentsDialog" }).props("modelValue")).toBe(false);
       empty.wrapper.unmount();
+    });
 
+    it("My Trip does not offer Edit Flights", async () => {
       signedUp({ flightPurchaseOption: "self", flightSegments: [ARRIVAL] });
       const filled = await mountPage(MyTripView, "/my-trips/7");
       const withSegments = section(filled.wrapper, "my-trip-flights");
       expect(withSegments.text()).toContain("American Airlines");
-      expect(button(withSegments, "Add Flights")).toBeUndefined();
-      await button(withSegments, "Edit Flights").trigger("click");
-      await flushPromises();
-      expect(filled.wrapper.findComponent({ name: "FlightSegmentsDialog" }).props("modelValue")).toBe(true);
+      expect(button(withSegments, "Edit Flights")).toBeUndefined();
+      expect(filled.wrapper.findComponent({ name: "FlightSegmentsDialog" }).props("modelValue")).toBe(false);
       filled.wrapper.unmount();
     });
   });

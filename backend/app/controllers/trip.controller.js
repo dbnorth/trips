@@ -285,6 +285,37 @@ exports.findStatus = async (req, res) => {
     );
 
     const assignmentIds = assignments.map((row) => row.id);
+    const roomRows =
+      assignmentIds.length > 0
+        ? await db.tripRoomAssignment.findAll({
+            where: { tripPeopleRoleId: { [Op.in]: assignmentIds } },
+            attributes: ["tripPeopleRoleId"],
+          })
+        : [];
+    const roomedIds = new Set(roomRows.map((row) => Number(row.tripPeopleRoleId)));
+    const flightRows =
+      assignmentIds.length > 0
+        ? await db.tripFlight.findAll({
+            where: { tripPeopleRoleId: { [Op.in]: assignmentIds } },
+            attributes: ["tripPeopleRoleId"],
+            include: [{ model: db.tripFlightSegment, as: "segments", attributes: ["segmentType"] }],
+          })
+        : [];
+    const flightTypesByAssignment = new Map(
+      flightRows.map((flight) => [
+        Number(flight.tripPeopleRoleId),
+        new Set((flight.segments || []).map((segment) => segment.segmentType)),
+      ])
+    );
+    const tripReadyFor = (assignmentId, status) => {
+      const types = flightTypesByAssignment.get(Number(assignmentId)) || new Set();
+      const tripReadyMissing = [];
+      if (status !== "approved") tripReadyMissing.push("Not approved.");
+      if (!types.has("arrival")) tripReadyMissing.push("No arrival flight.");
+      if (!types.has("return")) tripReadyMissing.push("No return flight.");
+      if (!roomedIds.has(Number(assignmentId))) tripReadyMissing.push("No room assigned.");
+      return { tripReady: tripReadyMissing.length === 0, tripReadyMissing };
+    };
     const optionRows =
       assignmentIds.length > 0
         ? await TripPeopleRoleOption.findAll({
@@ -426,6 +457,7 @@ exports.findStatus = async (req, res) => {
         selectedTravelOptionIds,
         ...(await participantTravelDates(tripJson, json.id)),
         ...(await participantFlightDates(json.id)),
+        ...tripReadyFor(json.id, json.status),
       });
     }
 
