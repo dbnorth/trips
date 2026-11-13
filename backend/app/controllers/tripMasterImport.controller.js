@@ -10,7 +10,6 @@ import { normalizeEmail } from "../utils/userPerson.js";
 import { daysLimitMessage, TRIP_OPTION_DAYS_MESSAGES } from "../utils/tripDays.js";
 import {
   chooseNoteOptions,
-  isFlightOption,
   isNameTagOption,
   normalizeText,
   parseAllergies,
@@ -145,16 +144,32 @@ const setOf = (option) => (Number(option.setNumber) > 0 ? Number(option.setNumbe
 /** A row needs a name tag unless it answered "Yes"; a file without the column says nothing. */
 const needsNameTag = (row) => row.hasNameTag !== undefined && !["yes", "y"].includes(normalizeText(row.hasNameTag));
 
+const HTI_FLIGHT_OPTION = "hti purchase my flight (plus flight cost)";
+const OWN_FLIGHT_OPTION = "purchase my own flight";
+
+const isNamedFlightOption = (option) => {
+  const text = normalizeText(option?.description);
+  return text === HTI_FLIGHT_OPTION || text === OWN_FLIGHT_OPTION;
+};
+
+/** The named flight option for this Flight Fee: a number other than 0, otherwise own flight. */
+const flightOptionForFlightFee = (travelOptions, flightFee) => {
+  const wanted = flightFee != null && Number(flightFee) !== 0 ? HTI_FLIGHT_OPTION : OWN_FLIGHT_OPTION;
+  return travelOptions
+    .filter((option) => normalizeText(option.description) === wanted)
+    .sort((a, b) => setOf(a) - setOf(b) || Number(a.id) - Number(b.id))[0] || null;
+};
+
 /**
  * Options the Travel Notes, Flight Fee, and name tag answer pick, in sets the application hasn't
- * answered; returns those selected.
+ * answered; returns those selected and any named flight option the fee replaced.
  */
 const selectTripOptions = async (assignment, row, flightFee, notes, travelOptions, transaction) => {
   const { chosen, tiedSets } = chooseNoteOptions(row.travelNotes, travelOptions);
-  const flightOption = flightFee > 0 ? travelOptions.find(isFlightOption) : null;
+  const flightOption = flightOptionForFlightFee(travelOptions, flightFee);
   const nameTagOption = needsNameTag(row) ? travelOptions.find(isNameTagOption) : null;
   const candidates = [...chosen, flightOption, nameTagOption].filter(Boolean);
-  if (!candidates.length && !tiedSets.length) return [];
+  if (!candidates.length && !tiedSets.length) return { added: [], removed: [] };
 
   const rows = await db.tripPeopleRoleOption.findAll({ where: { tripPeopleRoleId: assignment.id }, transaction });
   const byId = new Map(travelOptions.map((option) => [Number(option.id), option]));
@@ -170,13 +185,8 @@ const selectTripOptions = async (assignment, row, flightFee, notes, travelOption
     }
   }
   const added = [];
-  for (const option of candidates) {
-    if (answered(setOf(option))) continue;
-    const message = daysLimitMessage([...selected, option], TRIP_OPTION_DAYS_MESSAGES);
-    if (message) {
-      notes.push(`trip option "${option.description}" wasn't selected: ${message}`);
-      continue;
-    }
+  const removed = [];
+  const selectOption = async (option) => {
     const existing = rows.find((r) => Number(r.tripTravelOptionId) === Number(option.id));
     if (existing) await existing.update({ selected: true }, { transaction });
     else {
@@ -187,8 +197,42 @@ const selectTripOptions = async (assignment, row, flightFee, notes, travelOption
     }
     selected.push(option);
     added.push(option);
+  };
+  for (const option of candidates) {
+    if (answered(setOf(option))) {
+      const current = selected.find((item) => setOf(item) === setOf(option));
+      if (
+        option !== flightOption ||
+        !current ||
+        Number(current.id) === Number(option.id) ||
+        !isNamedFlightOption(current) ||
+        !isNamedFlightOption(option)
+      ) {
+        continue;
+      }
+      const message = daysLimitMessage(
+        [...selected.filter((item) => item !== current), option],
+        TRIP_OPTION_DAYS_MESSAGES
+      );
+      if (message) {
+        notes.push(`trip option "${option.description}" wasn't selected: ${message}`);
+        continue;
+      }
+      const currentRow = rows.find((r) => Number(r.tripTravelOptionId) === Number(current.id));
+      if (currentRow) await currentRow.update({ selected: false }, { transaction });
+      selected.splice(selected.indexOf(current), 1);
+      removed.push(current);
+      await selectOption(option);
+      continue;
+    }
+    const message = daysLimitMessage([...selected, option], TRIP_OPTION_DAYS_MESSAGES);
+    if (message) {
+      notes.push(`trip option "${option.description}" wasn't selected: ${message}`);
+      continue;
+    }
+    await selectOption(option);
   }
-  return added;
+  return { added, removed };
 };
 
 /** Roommate, flight booking, flight notes, and trip options go into the application's blank fields only. */
@@ -200,19 +244,20 @@ const fillApplication = async (trip, travelOptions, assignment, row, notes, tran
   if (roommate && roommate !== "none" && !assignment.hasPreferredRoommate && isBlank(assignment.preferredRoommateNames)) {
     Object.assign(changes, { hasPreferredRoommate: true, preferredRoommateNames: row.roommate });
   }
-  if (isBlank(assignment.flightPurchaseOption)) {
-    changes.flightPurchaseOption = flightFee > 0 ? "organization" : "self";
-  }
+  const booking = flightFee > 0 ? "organization" : "self";
+  if (assignment.flightPurchaseOption !== booking) changes.flightPurchaseOption = booking;
   const cityNotes = [
     row.departureCity && `Departure city: ${row.departureCity}.`,
     row.arrivalCity && `Arrival city: ${row.arrivalCity}.`,
   ].filter(Boolean);
   if (cityNotes.length && isBlank(assignment.flightNotes)) changes.flightNotes = cityNotes.join(" ");
 
-  const added = await selectTripOptions(assignment, row, flightFee, notes, travelOptions, transaction);
-  if (added.length) {
+  const { added, removed } = await selectTripOptions(assignment, row, flightFee, notes, travelOptions, transaction);
+  if (added.length || removed.length) {
     const base = Number((isBlank(assignment.participantCost) ? trip.participantCost : assignment.participantCost) ?? 0);
-    const adjustment = added.reduce((sum, option) => sum + Number(option.priceAdjustment || 0), 0);
+    const adjustment =
+      added.reduce((sum, option) => sum + Number(option.priceAdjustment || 0), 0) -
+      removed.reduce((sum, option) => sum + Number(option.priceAdjustment || 0), 0);
     changes.participantCost = Math.round((base + adjustment) * 100) / 100;
   }
   if (Object.keys(changes).length) await assignment.update(changes, { transaction });
