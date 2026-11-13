@@ -151,7 +151,7 @@ describe("Feature 61 — Trip Page My Travel Details", () => {
   });
 
   describe("US-61.2 — See my flights on the trip page", () => {
-    it("Self-purchase participant can edit flights from the trip page", async () => {
+    it("Self-purchase participant sees flights without Edit Flights", async () => {
       mockTrip({ flightPurchaseOption: "self", flightSegments: [ARRIVAL] });
       const wrapper = await mountView();
 
@@ -162,12 +162,8 @@ describe("Feature 61 — Trip Page My Travel Details", () => {
       expect(text).toContain("DFW");
       expect(text).toContain("GUA");
       expect(text).toContain("01/10/2027 8:30 AM");
-
-      await button(flights, "Edit Flights").trigger("click");
-      await flushPromises();
-      const dialog = wrapper.findComponent({ name: "FlightSegmentsDialog" });
-      expect(dialog.props("modelValue")).toBe(true);
-      expect(dialog.props("tripPeopleRoleId")).toBe(70);
+      expect(button(flights, "Edit Flights")).toBeUndefined();
+      expect(button(flights, "Add Flights")).toBeUndefined();
 
       wrapper.unmount();
     });

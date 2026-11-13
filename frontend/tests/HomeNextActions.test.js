@@ -244,22 +244,15 @@ describe("Feature 60 — My Trips Next Actions", () => {
     wrapper.unmount();
   });
 
-  it("Enter Flights opens the flight segments dialog", async () => {
+  it("Enter your flight info has no Enter Flights button", async () => {
     const wrapper = await mountHome([
       myTrip(1, "Guatemala Clinic", "approved", [{ code: "enter-flights" }]),
     ]);
 
     const actions = nextActionsRowFor(wrapper, "Guatemala Clinic");
     expect(actions.text()).toContain("Enter your flight info.");
-
-    await button(actions, "Enter Flights").trigger("click");
-    await flushPromises();
-
-    const flights = wrapper.findComponent({ name: "FlightSegmentsDialog" });
-    expect(flights.props("modelValue")).toBe(true);
-    expect(flights.props("tripId")).toBe(1);
-    expect(flights.props("tripPeopleRoleId")).toBe(10);
-    expect(flights.props("participantName")).toBe("Ana Lopez");
+    expect(button(actions, "Enter Flights")).toBeUndefined();
+    expect(wrapper.findComponent({ name: "FlightSegmentsDialog" }).props("modelValue")).toBe(false);
 
     wrapper.unmount();
   });
@@ -288,11 +281,32 @@ describe("Feature 60 — My Trips Next Actions", () => {
     expect(button(orgBooked, "Edit Flights")).toBeUndefined();
 
     const selfBooked = nextActionsRowFor(wrapper, "Honduras Clinic");
-    await button(selfBooked, "Edit Flights").trigger("click");
-    await flushPromises();
-    const flights = wrapper.findComponent({ name: "FlightSegmentsDialog" });
-    expect(flights.props("modelValue")).toBe(true);
-    expect(flights.props("tripId")).toBe(2);
+    expect(selfBooked.text()).toContain(
+      "Your arrival flight lands 06/08/2027, but you are planned to arrive 06/07/2027."
+    );
+    expect(button(selfBooked, "Edit Flights")).toBeUndefined();
+    expect(wrapper.findComponent({ name: "FlightSegmentsDialog" }).props("modelValue")).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it("A flight date mismatch has no Edit Flights button", async () => {
+    const wrapper = await mountHome([
+      myTrip(2, "Honduras Clinic", "approved", [
+        {
+          code: "arrival-flight-mismatch",
+          flightDate: "2027-06-08",
+          plannedDate: "2027-06-07",
+          canEditFlights: true,
+        },
+      ]),
+    ]);
+
+    const actions = nextActionsRowFor(wrapper, "Honduras Clinic");
+    expect(actions.text()).toContain(
+      "Your arrival flight lands 06/08/2027, but you are planned to arrive 06/07/2027."
+    );
+    expect(button(actions, "Edit Flights")).toBeUndefined();
 
     wrapper.unmount();
   });

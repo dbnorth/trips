@@ -9,7 +9,7 @@ This guide is for people going on a trip. The first part walks through the steps
 3. **Submit.** When your profile and application are complete, submitting makes your application **Pre-Approved**. That holds your place on the team.
 4. **Upload your documents.** Add the documents your trip role and the trip need (for example a nursing license or a passport) to your profile. They're due 90 days before the trip starts.
 5. **Get approved.** Trip staff review your documents and approve your application.
-6. **Pay and prepare.** Make your deposit, raise or donate the rest, and enter your flights if you're booking them yourself.
+6. **Pay and prepare.** Make your deposit, raise or donate the rest. Staff enter your flights.
 
 Home's **My Trips** list always shows your next step for each trip.
 
@@ -129,8 +129,7 @@ Online donations are paid through Stripe, by credit card or bank account (ACH). 
 
 ## Your flights
 
-- If the organization books your flight, staff enter it. You'll see it under **Flights** on **My Trip**.
-- If you book your own, use **Add Flights** or **Edit Flights** on **My Trip** (or **Enter Flights** in your next steps) to enter each arrival and return segment. See [Flight segments](#flight-segments).
+- Staff enter your flights. You'll see them under **Flights** on **My Trip**.
 - Your planned arrival and departure dates are the trip dates, moved by any trip options with days before or after the trip. If your flights don't match, your next steps tell you.
 
 ## Emails you'll get
@@ -195,9 +194,9 @@ Under each upcoming trip, a colored row shows what to do next. Next steps stop s
 | "Waiting on approval." (orange) | Pre-Approved, and documents are complete | — |
 | "Make your deposit: $*raised* raised of $*deposit*." | Pre-Approved or Approved, and the trip has a deposit you haven't reached | **Donate** |
 | "Make a donation: $*amount* still owed." | Pre-Approved or Approved, deposit reached, and a balance remains | **Donate** |
-| "Enter your flight info." | Approved, you book your own flight, and none is entered | **Enter Flights** |
-| "Your arrival flight lands *date*, but you are planned to arrive *date*." | Approved, and your arrival flight is on a different day | **Edit Flights** (if you book your own) |
-| "Your return flight leaves *date*, but you are planned to depart *date*." | Approved, and your return flight is on a different day | **Edit Flights** (if you book your own) |
+| "Enter your flight info." | Approved, you book your own flight, and none is entered | — |
+| "Your arrival flight lands *date*, but you are planned to arrive *date*." | Approved, and your arrival flight is on a different day | — |
+| "Your return flight leaves *date*, but you are planned to depart *date*." | Approved, and your return flight is on a different day | — |
 | "You are all ready for the trip." (green) | Approved, and nothing else is needed | — |
 
 On **My Trip**, the deposit and donation steps are hidden; use **Make Donation** in **Trip financial info** there instead.
@@ -282,7 +281,7 @@ Choose one (required):
 
 | Choice | Meaning |
 |--------|---------|
-| **Arrange for and purchase my own air travel** | You book and pay for your own flights, then enter them on **My Trip**. The flight cost isn't part of your trip cost. |
+| **Arrange for and purchase my own air travel** | You book and pay for your own flights. Staff enter the flights, and you see them on **My Trip**. The flight cost isn't part of your trip cost. |
 | **"*Organization* arrange for and purchase my air travel"** | The organization books your flights. Its cost is added to your trip cost. Fill in the fields below. |
 
 When the organization books your flights, these are required:
@@ -409,7 +408,7 @@ Shown for Incomplete, Pre-Approved, and Approved applications.
 
 ### Flights
 
-"Not yet available" until segments are entered. **Add Flights** / **Edit Flights** shows only if you book your own flights.
+"Not yet available" until staff enter your flights. You see the flights here, and there is no button to add or edit them.
 
 | Column | Shows |
 |--------|-------|
@@ -571,7 +570,7 @@ Opened from **View donations** on My Trip. Read-only.
 
 ## Flight segments
 
-Opened from **Add Flights**, **Edit Flights**, or **Enter Flights** when you book your own flights. Staff use the same dialog.
+Staff open this dialog from **Flight segments** on the Flights page. You see the saved flights under **Flights** on **My Trip**.
 
 The top shows **Booked by**, your **Planned arrival** and **Planned departure** dates, and your **Flight notes**.
 
