@@ -205,6 +205,7 @@ The **Name** column stays on the left and **Actions** on the right while the oth
 | Column | Shows |
 |--------|-------|
 | **Name** | Photo and full name. Click it to see the person's profile. |
+| **Trip Status** | **Trip Ready** in white text on a green oval when the person is Approved, has at least one arrival flight and one return flight, and has a room on the saved rooming list. Otherwise **Not Ready** in black text on a yellow oval. An info icon next to **Not Ready** lists what is missing, from: "Not approved.", "No arrival flight.", "No return flight.", "No room assigned." |
 | **Role** | The worker role, with "Trip Leader" for leaders. |
 | **Status** | Incomplete, Pre-Approved, Approved, Declined, or Cancelled. |
 | **Arrives** | Planned arrival date. An info icon explains trip options or add-ons that move it. A warning icon means the arrival flight lands on a different day. |
