@@ -12,7 +12,7 @@ import { syncTestDatabase, resetTestDatabase, createOrgAdminUser, findRole } fro
 
 const HEADER = fs.readFileSync(path.resolve("tests/fixtures/trip-master-sample.csv"), "utf8").split("\n").slice(0, 3);
 
-/** A Trip Master RN row with a name tag and no flight fee. */
+/** A Trip Master RN row with a name tag and a $0 Flight Fee, which selects Purchase my own flight. */
 const rnRow = (firstName, travelNotes) => {
   const cells = Array(37).fill("");
   Object.assign(cells, {
@@ -102,7 +102,11 @@ describe("Feature 88 — Travel Notes Option Matching", () => {
       const res = await importRows([["Ana", "SP - Fri Barceló - Antigua"]]);
 
       expect(res.status).toBe(200);
-      expect(await selectedOptions("Ana")).toEqual(["Arrive Friday - Barceló", "Antigua Trip - stay Friday night"]);
+      expect(await selectedOptions("Ana")).toEqual([
+        "Purchase my own flight",
+        "Arrive Friday - Barceló",
+        "Antigua Trip - stay Friday night",
+      ]);
       expect(await participantCost("Ana")).toBe(1225);
     });
 
@@ -114,8 +118,9 @@ describe("Feature 88 — Travel Notes Option Matching", () => {
         ["Hal", "SP - Saturday - Antigua"],
       ]);
 
-      expect(await selectedOptions("Ben")).toEqual(["Arrive Saturday"]);
+      expect(await selectedOptions("Ben")).toEqual(["Purchase my own flight", "Arrive Saturday"]);
       expect(await selectedOptions("Hal")).toEqual([
+        "Purchase my own flight",
         "Arrive Saturday",
         "Antigua Trip - stay Friday night, depart Saturday",
       ]);
@@ -124,7 +129,7 @@ describe("Feature 88 — Travel Notes Option Matching", () => {
     it("Ties still select nothing", async () => {
       const res = await importRows([["Cy", "Fri or Sat"]]);
 
-      expect(await selectedOptions("Cy")).toEqual([]);
+      expect(await selectedOptions("Cy")).toEqual(["Purchase my own flight"]);
       expect(res.body.notes).toContainEqual({
         row: 4,
         name: "Cy Tester",
@@ -137,7 +142,7 @@ describe("Feature 88 — Travel Notes Option Matching", () => {
     it("No in front of a word picks the other of two options", async () => {
       await importRows([["Dee", "SP - Sat In - NO Antigua - Room w/Soma Chakraborty"]]);
 
-      expect(await selectedOptions("Dee")).toEqual(["Arrive Saturday", "Depart Friday"]);
+      expect(await selectedOptions("Dee")).toEqual(["Purchase my own flight", "Arrive Saturday", "Depart Friday"]);
       expect(await participantCost("Dee")).toBe(1100);
     });
 
@@ -149,8 +154,8 @@ describe("Feature 88 — Travel Notes Option Matching", () => {
         ["Fay", "SP - Saturday - No volcano"],
       ]);
 
-      expect(await selectedOptions("Eli")).toEqual(["Antigua Trip - stay Friday night"]);
-      expect(await selectedOptions("Fay")).toEqual(["Arrive Saturday"]);
+      expect(await selectedOptions("Eli")).toEqual(["Purchase my own flight", "Antigua Trip - stay Friday night"]);
+      expect(await selectedOptions("Fay")).toEqual(["Purchase my own flight", "Arrive Saturday"]);
     });
 
     it("Re-importing adds options only in empty sets", async () => {
@@ -170,7 +175,11 @@ describe("Feature 88 — Travel Notes Option Matching", () => {
 
       await importRows([["Ana", "SP - Fri Barceló - Antigua"]]);
 
-      expect(await selectedOptions("Ana")).toEqual(["Arrive Friday - Barceló", "Depart Friday"]);
+      expect(await selectedOptions("Ana")).toEqual([
+        "Purchase my own flight",
+        "Arrive Friday - Barceló",
+        "Depart Friday",
+      ]);
       expect(await participantCost("Ana")).toBe(1175);
     });
   });
