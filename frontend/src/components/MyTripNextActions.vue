@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { APPLICATION_ACTION_CODES, nextActionText, nextActionsTone } from "../utils/myTripNextActions.js";
+import { showParticipantFlightLinks } from "../utils/participantFlightLinks.js";
 import { TRIP_INFO_ROLE_NOT_SECURED } from "../utils/applicationRoleHold.js";
 
 const props = defineProps({
@@ -41,7 +42,7 @@ const tone = computed(() => nextActionsTone(props.actions));
           Donate
         </v-btn>
         <v-btn
-          v-if="action.code === 'enter-flights'"
+          v-if="showParticipantFlightLinks && action.code === 'enter-flights'"
           size="small"
           color="primary"
           @click="$emit('flights')"
@@ -49,7 +50,7 @@ const tone = computed(() => nextActionsTone(props.actions));
           Enter Flights
         </v-btn>
         <v-btn
-          v-if="action.code.endsWith('-flight-mismatch') && action.canEditFlights"
+          v-if="showParticipantFlightLinks && action.code.endsWith('-flight-mismatch') && action.canEditFlights"
           size="small"
           color="primary"
           @click="$emit('flights')"
