@@ -242,11 +242,13 @@ describe("Feature 81 — Row Action Icons with Tooltips", () => {
       expect(action(lyle, "Cancel").classes()).toContain("text-error");
       expect(action(kris, "Cancel").exists()).toBe(false);
       expect(iconOf(action(kris, "Uncancel"))).toBe("mdi-restore");
+      expect(iconOf(action(lyle, "Flight segments"))).toBe("mdi-airplane");
       expect(namesOf(lyle)).toEqual([
         "View App",
         "Review documents",
         "Cancel",
         "Edit",
+        "Flight segments",
         "View donations",
         "Documents PDF",
         "Donate page",
