@@ -16,6 +16,8 @@ describe("Feature 49 — Organization Email Test Mode", () => {
       });
 
       const text = wrapper.text();
+      expect(text).toContain("Account number");
+      expect(text.indexOf("Account number")).toBeGreaterThan(text.indexOf("Name"));
       expect(text).toContain("Test mode");
       expect(text.indexOf("Test mode")).toBeGreaterThan(text.indexOf("Email"));
       expect(wrapper.find('input[type="checkbox"]').exists()).toBe(true);

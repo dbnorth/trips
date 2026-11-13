@@ -69,6 +69,7 @@ onUnmounted(() => {
       :items="organizations"
       :headers="[
         { title: 'Name', key: 'name' },
+        { title: 'Account number', key: 'accountNumber' },
         { title: 'Email', key: 'email' },
         { title: 'City', key: 'city' },
         { title: 'Color', key: 'colorFamily' },

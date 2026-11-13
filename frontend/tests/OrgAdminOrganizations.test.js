@@ -182,5 +182,18 @@ describe("Feature 93 — Org Admins Edit Their Organization", () => {
       expect(wrapper.text()).toContain("office@hopemissions.org");
       wrapper.unmount();
     });
+
+    it("Organizations shows the account number", async () => {
+      Utils.setStore("user", omar);
+      OrganizationServices.getAll.mockResolvedValue({
+        data: [{ ...HOPE, accountNumber: "4500" }, { ...GRACE, accountNumber: null }],
+      });
+      const { wrapper } = await mountList();
+      await flushPromises();
+
+      expect(wrapper.text()).toContain("Account number");
+      expect(wrapper.text()).toContain("4500");
+      wrapper.unmount();
+    });
   });
 });

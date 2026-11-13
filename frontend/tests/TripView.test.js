@@ -991,3 +991,34 @@ describe("Feature 127 — Participant Counts", () => {
     });
   });
 });
+
+describe("Feature 132 — Trip account number", () => {
+  it("Trip details shows a saved account number", async () => {
+    TripPeopleRoleServices.getAll.mockResolvedValue({ data: [] });
+    DonationServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({ data: [] });
+    TripServices.get.mockResolvedValue({
+      data: { id: 42, name: "Guatemala Clinic", orgId: 10, status: "active", accountNumber: "7712", leaderNames: [] },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: { stubs: { TripWorkerRolesCard: Stub } },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Account number:");
+    expect(wrapper.text()).toContain("7712");
+    wrapper.unmount();
+  });
+});

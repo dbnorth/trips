@@ -63,6 +63,7 @@ Messages: "Trip created.", "Trip copied.", "Trip updated."
 | Field | Choices | Notes |
 |-------|---------|-------|
 | **Name** | — | Required. Also used in the trip's public web address. |
+| **Account number** | — | Optional. Any text up to 50 characters. Leave it blank for no account number. A trip's number is separate from the organization's. |
 | **Status** | `active`, `completed`, `inactive` | Starts as `active`. **active**: open for applying and donating, and listed on the public pages. **completed**: the trip has happened. **inactive**: hidden from applicants and donors (for example, while you're still setting it up, or if it's called off). |
 | **Organization** | Your organizations | Required. Read-only if you administer just one. |
 | **Location** | — | Where the trip goes, for example a clinic or region. |
@@ -113,7 +114,7 @@ Each option in the table can be edited in place or removed. Changes save with th
 | **Name** | The new trip's name. Required. |
 | **Trip to copy** | The trip to copy from. |
 
-It copies the details, passport requirement, deposit, leaders, primary leader, roles, travel options, and image. It doesn't copy participants, donations, or the trip arrival PDF.
+It copies the details, account number, passport requirement, deposit, leaders, primary leader, roles, travel options, and image. It doesn't copy participants, donations, or the trip arrival PDF.
 
 ## Import Trip Master CSV
 
@@ -123,7 +124,7 @@ It copies the details, passport requirement, deposit, leaders, primary leader, r
 - Each position must match one of the trip's roles by name. If any don't, nothing is imported and the dialog says "Add these worker roles to the trip, then import again." with the list.
 - People are matched by email and name, or created without a login. Matched people only get blank fields filled.
 - "Team Leader" rows become Approved Trip Leaders. Other rows become participants: Pre-Approved when **App Received** is "X", otherwise Incomplete. Rows under "CANCELLATIONS" are cancelled; the waiting list is skipped.
-- Travel notes, name tag answers, and departure and arrival cities can fill trip options and flight details. A **Flight Fee** above $0 means the organization books the flight; a blank fee, $0, or a fee that isn't a number means the participant books it. Either is filled in only when the application doesn't already say who books the flight. The fee itself isn't saved as a flight cost.
+- Travel notes, name tag answers, and departure and arrival cities can fill trip options and flight details. A **Flight Fee** that is a number other than 0 selects **HTI purchase my flight (plus flight cost)**. A blank **Flight Fee**, $0, or a fee that isn't a number selects **Purchase my own flight**. The fee amount isn't saved; the option's own price is added with the other selected options. If the other of those two options is already selected, the import switches to the one **Flight Fee** calls for. Any other choice already made in that set is left as it is. The same **Flight Fee** sets who books the flight, and switches a saved choice that doesn't match: above $0, the organization books it; otherwise the participant does. The fee itself isn't saved as a flight cost. **Trip Fee** isn't imported.
 - The result says "Imported *N* rows: *A* people added, *U* updated, *S* skipped." with a note for each row it couldn't read.
 
 To invite imported people to create a login, send a template that uses the create account link token.
@@ -135,6 +136,7 @@ To invite imported people to create a login, send a template that uses the creat
 | Column | Shows |
 |--------|-------|
 | **Name** | The organization. |
+| **Account number** | Its account number, when one is saved. |
 | **Email** | Its email address. |
 | **City** | Its city. |
 | **Color** | Its color family. |
@@ -145,6 +147,7 @@ To invite imported people to create a login, send a template that uses the creat
 | Field | Choices | Notes |
 |-------|---------|-------|
 | **Name** | — | Required. Also used in the public trips page address. |
+| **Account number** | — | Optional. Any text up to 50 characters. Leave it blank for no account number. |
 | **Subdomain** | — | The organization's own web address. People who create an account there join the organization automatically. Only a System Admin can set it. |
 | **Email** | — | The organization's email. Used as the sender for many emails, and where Test mode sends everything. |
 | **Test mode** | Tick box | Sends every email for this organization to the organization email instead of the real recipients. Subjects start with "[Test]" and bodies say who it was meant for. Needs an organization email. Online donations use the Stripe test key while it's on. |

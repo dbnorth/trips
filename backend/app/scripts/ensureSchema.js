@@ -311,6 +311,20 @@ const ensureDonorOrganizationName = async () => {
   );
 };
 
+/** Feature 132: optional account number on an organization and on a trip. */
+const ensureAccountNumber = async (table) => {
+  const [rows] = await db.sequelize.query(
+    `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = ?
+       AND COLUMN_NAME = 'accountNumber'`,
+    { replacements: [table] }
+  );
+  if (rows.length) return;
+  await db.sequelize.query(`ALTER TABLE \`${table}\` ADD COLUMN accountNumber VARCHAR(50) NULL`);
+  logger.info(`${table}.accountNumber column added.`);
+};
+
 /** Feature 130: Family name for an individual whose name contains &. */
 const ensureDonorFamilyName = async () => {
   const [rows] = await db.sequelize.query(
@@ -1964,6 +1978,8 @@ export const ensureSchema = async () => {
   await ensureOrganizationMedicalAgreementFileName();
   await ensureOrganizationTestMode();
   await ensureOrganizationStripeKeys();
+  await ensureAccountNumber("organizations");
+  await ensureAccountNumber("trips");
   await ensureTripDonationStripeFields();
   await ensureTripDonationEmail();
   await ensureDonorEmail();

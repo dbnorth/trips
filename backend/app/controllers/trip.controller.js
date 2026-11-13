@@ -10,6 +10,7 @@ import {
   tripListFilter,
 } from "../authorization/accessControl.js";
 import { optimisticUpdate } from "../utils/optimisticUpdate.js";
+import { applyAccountNumber } from "../utils/accountNumber.js";
 import {
   getTripLeaderPeopleIds,
   getTripLeaderNamesByTripIds,
@@ -99,6 +100,7 @@ const tripFields = [
   "orgId",
   "status",
   "name",
+  "accountNumber",
   "location",
   "city",
   "country",
@@ -498,7 +500,10 @@ exports.create = async (req, res) => {
     const { leaderPeopleIds, primaryLeaderPeopleId } = req.body;
     const primaryError = primaryLeaderError(primaryLeaderPeopleId, leaderPeopleIds);
     if (primaryError) return res.status(400).send({ message: primaryError });
-    const data = await Trip.create(pickTripPayload(normalizeDeposit({ ...req.body })));
+    const body = normalizeDeposit({ ...req.body });
+    const accountError = applyAccountNumber(body);
+    if (accountError) return res.status(400).send({ message: accountError });
+    const data = await Trip.create(pickTripPayload(body));
     if (Object.prototype.hasOwnProperty.call(req.body, "leaderPeopleIds")) {
       await syncTripLeaders(data.id, orgId, leaderPeopleIds, { primaryLeaderPeopleId });
     }
@@ -556,6 +561,7 @@ exports.copy = async (req, res) => {
           instagramId: source.instagramId,
           participantCost: source.participantCost,
           deposit: source.deposit,
+          accountNumber: source.accountNumber,
           requirePassport: !!source.requirePassport,
           version: 0,
         },
@@ -619,6 +625,8 @@ exports.update = async (req, res) => {
       return res.status(403).send({ message: "Forbidden." });
     }
     const body = normalizeDeposit({ ...req.body });
+    const accountError = applyAccountNumber(body);
+    if (accountError) return res.status(400).send({ message: accountError });
     if (!canManageOrgTrip) {
       delete body.orgId;
     }

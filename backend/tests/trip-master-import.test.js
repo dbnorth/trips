@@ -95,6 +95,8 @@ describe("Feature 80 — Import Trip Master CSV", () => {
       ["friday", "Arrive Friday - Barceló Bar", 2, 75],
       ["saturday", "Arrive Saturday", 2, 0],
       ["flights", "HTI Purchase Flights", 3, 40],
+      ["ownFlight", "Purchase my own flight", 4, 0],
+      ["htiFlight", "HTI purchase my flight (plus flight cost)", 4, 40],
     ]) {
       options[key] = await db.tripTravelOption.create({ tripId: trip.id, description, setNumber, priceAdjustment });
     }
@@ -503,13 +505,20 @@ describe("Feature 80 — Import Trip Master CSV", () => {
       await importFile(omar.authHeader);
 
       const lyle = await assignmentOf(await personNamed("Lyle", "Lowry"));
-      expect(await selectedOptions(lyle)).toEqual(["Arrive Friday - Barceló Bar", "HTI Purchase Flights"]);
+      expect(await selectedOptions(lyle)).toEqual([
+        "Arrive Friday - Barceló Bar",
+        "HTI purchase my flight (plus flight cost)",
+      ]);
       expect(Number(lyle.participantCost)).toBe(1065);
       expect(lyle.flightPurchaseOption).toBe("organization");
       expect(await db.tripFlight.count()).toBe(0);
 
       const lopez = await assignmentOf(ana);
-      expect(await selectedOptions(lopez)).toEqual(["Need HTI Name Tag", "Arrive Saturday"]);
+      expect(await selectedOptions(lopez)).toEqual([
+        "Need HTI Name Tag",
+        "Arrive Saturday",
+        "Purchase my own flight",
+      ]);
       expect(Number(lopez.participantCost)).toBe(950);
       expect(lopez.flightPurchaseOption).toBe("self");
 
@@ -520,7 +529,7 @@ describe("Feature 80 — Import Trip Master CSV", () => {
         const assignment = await assignmentOf(await personNamed(first, last));
         expect([first, await selectedOptions(assignment), Number(assignment.participantCost)]).toEqual([
           first,
-          ["Need HTI Name Tag"],
+          ["Need HTI Name Tag", "Purchase my own flight"],
           950,
         ]);
       }
@@ -543,7 +552,11 @@ describe("Feature 80 — Import Trip Master CSV", () => {
       await importFile(omar.authHeader);
 
       await applied.reload();
-      expect(await selectedOptions(applied)).toEqual(["Need HTI Name Tag", "Arrive Friday - Barceló Bar"]);
+      expect(await selectedOptions(applied)).toEqual([
+        "Need HTI Name Tag",
+        "Arrive Friday - Barceló Bar",
+        "Purchase my own flight",
+      ]);
       expect(Number(applied.participantCost)).toBe(1025);
     });
   });
@@ -568,7 +581,10 @@ describe("Feature 80 — Import Trip Master CSV", () => {
         expect([first, await hasNameTagOption(first, last)]).toEqual([first, true]);
       }
       const lyle = await assignmentOf(await personNamed("Lyle", "Lowry"));
-      expect(await selectedOptions(lyle)).toEqual(["Arrive Friday - Barceló Bar", "HTI Purchase Flights"]);
+      expect(await selectedOptions(lyle)).toEqual([
+        "Arrive Friday - Barceló Bar",
+        "HTI purchase my flight (plus flight cost)",
+      ]);
       expect(Number(lyle.participantCost)).toBe(1065);
     });
 
@@ -647,7 +663,66 @@ describe("Feature 80 — Import Trip Master CSV", () => {
       expect(kris.flightPurchaseOption).toBe("self");
     });
 
-    it("An existing choice is kept", async () => {
+    it("An unreadable flight fee is noted and booked by the participant", async () => {
+      const response = await importFile(omar.authHeader, SAMPLE.toString().replace("$40.00", "tba"));
+
+      expect(response.status).toBe(200);
+      expect(response.body.notes).toContainEqual(
+        expect.objectContaining({ name: "Lyle Lowry", message: 'flight fee "tba" wasn\'t read.' })
+      );
+      expect((await assignmentOf(await personNamed("Lyle", "Lowry"))).flightPurchaseOption).toBe("self");
+    });
+  });
+
+  describe("Feature 133 — Flight Fee selects the flight trip option", () => {
+    it("A non-zero Flight Fee selects HTI purchase my flight", async () => {
+      await importFile(omar.authHeader, SAMPLE.toString().replace("$1,175.00", "$0.00"));
+
+      const lyle = await assignmentOf(await personNamed("Lyle", "Lowry"));
+      expect(await selectedOptions(lyle)).toContain("HTI purchase my flight (plus flight cost)");
+      expect(await selectedOptions(lyle)).not.toContain("HTI Purchase Flights");
+      expect(Number(lyle.participantCost)).toBe(1065);
+      expect(lyle.flightPurchaseOption).toBe("organization");
+      expect(await db.tripFlight.count({ where: { tripPeopleRoleId: lyle.id } })).toBe(0);
+    });
+
+    it("Any other Flight Fee selects Purchase my own flight", async () => {
+      await importFile(omar.authHeader, SAMPLE.toString().replace("$40.00", "$0.00"));
+
+      const lyle = await assignmentOf(await personNamed("Lyle", "Lowry"));
+      const lopez = await assignmentOf(ana);
+      const kris = await assignmentOf(await personNamed("Kris", "Smith"));
+      expect(await selectedOptions(lyle)).toContain("Purchase my own flight");
+      expect(await selectedOptions(lyle)).not.toContain("HTI purchase my flight (plus flight cost)");
+      expect(lyle.flightPurchaseOption).toBe("self");
+      expect(await selectedOptions(lopez)).toContain("Purchase my own flight");
+      expect(lopez.flightPurchaseOption).toBe("self");
+      expect(await selectedOptions(kris)).toContain("Purchase my own flight");
+    });
+
+    it("A flight option already chosen is kept", async () => {
+      const lylePerson = await db.person.create({ firstName: "Lyle", lastName: "Lowry", email: "lyle@example.org" });
+      const applied = await db.tripPeopleRole.create({
+        tripId: trip.id,
+        peopleId: lylePerson.id,
+        roleId: (await findRole("Trip Participant")).id,
+        status: "approved",
+        participantCost: 950,
+      });
+      await db.tripPeopleRoleOption.create({
+        tripPeopleRoleId: applied.id,
+        tripTravelOptionId: options.htiFlight.id,
+        selected: true,
+      });
+
+      await importFile(omar.authHeader);
+
+      const selected = await selectedOptions(applied);
+      expect(selected).toContain("HTI purchase my flight (plus flight cost)");
+      expect(selected).not.toContain("Purchase my own flight");
+    });
+
+    it("Flight Fee replaces a saved booking choice", async () => {
       await db.tripPeopleRole.create({
         tripId: trip.id,
         peopleId: ana.id,
@@ -666,18 +741,45 @@ describe("Feature 80 — Import Trip Master CSV", () => {
 
       await importFile(omar.authHeader);
 
-      expect((await assignmentOf(ana)).flightPurchaseOption).toBe("organization");
-      expect((await assignmentOf(lylePerson)).flightPurchaseOption).toBe("self");
+      expect((await assignmentOf(lylePerson)).flightPurchaseOption).toBe("organization");
+      expect((await assignmentOf(ana)).flightPurchaseOption).toBe("self");
     });
 
-    it("An unreadable flight fee is noted and booked by the participant", async () => {
+    it("A non-zero Flight Fee replaces Purchase my own flight", async () => {
+      const lylePerson = await db.person.create({ firstName: "Lyle", lastName: "Lowry", email: "lyle@example.org" });
+      const applied = await db.tripPeopleRole.create({
+        tripId: trip.id,
+        peopleId: lylePerson.id,
+        roleId: (await findRole("Trip Participant")).id,
+        status: "approved",
+        participantCost: 950,
+      });
+      await db.tripPeopleRoleOption.create({
+        tripPeopleRoleId: applied.id,
+        tripTravelOptionId: options.ownFlight.id,
+        selected: true,
+      });
+
+      await importFile(omar.authHeader);
+
+      const selected = await selectedOptions(applied);
+      expect(selected).toContain("HTI purchase my flight (plus flight cost)");
+      expect(selected).not.toContain("Purchase my own flight");
+      expect(Number(applied.participantCost)).toBe(950);
+      await applied.reload();
+      expect(Number(applied.participantCost)).toBe(1065);
+    });
+
+    it("An unreadable Flight Fee is noted and selects Purchase my own flight", async () => {
       const response = await importFile(omar.authHeader, SAMPLE.toString().replace("$40.00", "tba"));
 
       expect(response.status).toBe(200);
       expect(response.body.notes).toContainEqual(
         expect.objectContaining({ name: "Lyle Lowry", message: 'flight fee "tba" wasn\'t read.' })
       );
-      expect((await assignmentOf(await personNamed("Lyle", "Lowry"))).flightPurchaseOption).toBe("self");
+      const lyle = await assignmentOf(await personNamed("Lyle", "Lowry"));
+      expect(await selectedOptions(lyle)).toContain("Purchase my own flight");
+      expect(await selectedOptions(lyle)).not.toContain("HTI purchase my flight (plus flight cost)");
     });
   });
 });
