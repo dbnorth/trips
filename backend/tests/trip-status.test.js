@@ -336,4 +336,127 @@ describe("Feature 28 — View Trip Status", () => {
       expect(optionFor(hankId)).toBeNull();
     });
   });
+
+  describe("Feature 135 — Trip Ready Status", () => {
+  const readyTrip = async () => {
+    const admin = await createOrgAdminUser({ email: "ready-admin@example.com" });
+    const trip = await db.trip.create({
+      orgId: admin.org.id,
+      name: "Ready Trip",
+      status: "active",
+      startDate: "2027-06-01",
+      endDate: "2027-06-08",
+    });
+    const roleId = (await findRole("Trip Participant")).id;
+    const airport = await db.airport.create({
+      code: "RDY",
+      airportName: "Ready Field",
+      city: "Ready",
+      country: "US",
+    });
+    const airline = await db.airline.create({ code: "RD", name: "Ready Air" });
+    const roomingList = await db.tripRoomingList.create({ tripId: trip.id, hotelName: "Inn" });
+    const room = await db.tripRoom.create({
+      tripRoomingListId: roomingList.id,
+      roomNumber: "1",
+      roomType: "Double",
+      numberOfNights: 7,
+    });
+
+    const addPerson = async (firstName, { status = "approved", segments = [], room: assignRoom = false } = {}) => {
+      const person = await db.person.create({
+        firstName,
+        lastName: "Lee",
+        email: `${firstName.toLowerCase()}@example.org`,
+      });
+      const assignment = await db.tripPeopleRole.create({
+        tripId: trip.id,
+        peopleId: person.id,
+        roleId,
+        status,
+      });
+      if (segments.length) {
+        const flight = await db.tripFlight.create({ tripPeopleRoleId: assignment.id });
+        for (const [segmentType, segmentNumber] of segments) {
+          await db.tripFlightSegment.create({
+            tripFlightId: flight.id,
+            segmentType,
+            segmentNumber,
+            airlineId: airline.id,
+            flightNumber: "100",
+            departureAirportId: airport.id,
+            departureDate: "2027-06-01",
+            departureTime: "08:00",
+            arrivalAirportId: airport.id,
+            arrivalDate: "2027-06-01",
+            arrivalTime: "12:00",
+          });
+        }
+      }
+      if (assignRoom) {
+        await db.tripRoomAssignment.create({ tripRoomId: room.id, tripPeopleRoleId: assignment.id });
+      }
+      return person.id;
+    };
+
+    return { admin, trip, addPerson };
+  };
+
+  const missingFor = (body, personId) =>
+    body.participants.find((row) => Number(row.peopleId) === Number(personId));
+
+  it("A missing return flight is Not Ready", async () => {
+    const { admin, trip, addPerson } = await readyTrip();
+    const anaId = await addPerson("Ana", {
+      segments: [["arrival", 1], ["return", 1]],
+      room: true,
+    });
+    const benId = await addPerson("Ben", { segments: [["arrival", 1]], room: true });
+
+    const response = await request(app).get(`/trips/trips/${trip.id}/status`).set(admin.authHeader);
+
+    expect(response.status).toBe(200);
+    expect(missingFor(response.body, anaId)).toMatchObject({ tripReady: true, tripReadyMissing: [] });
+    expect(missingFor(response.body, benId)).toMatchObject({
+      tripReady: false,
+      tripReadyMissing: ["No return flight."],
+    });
+  });
+
+  it("A missing room is Not Ready", async () => {
+    const { admin, trip, addPerson } = await readyTrip();
+    const cyId = await addPerson("Cy", { segments: [["arrival", 1], ["return", 1]] });
+
+    const response = await request(app).get(`/trips/trips/${trip.id}/status`).set(admin.authHeader);
+
+    expect(missingFor(response.body, cyId).tripReadyMissing).toEqual(["No room assigned."]);
+  });
+
+  it("A participant who is not approved is Not Ready", async () => {
+    const { admin, trip, addPerson } = await readyTrip();
+    const deeId = await addPerson("Dee", {
+      status: "pre_approved",
+      segments: [["arrival", 1], ["return", 1]],
+      room: true,
+    });
+
+    const response = await request(app).get(`/trips/trips/${trip.id}/status`).set(admin.authHeader);
+
+    expect(missingFor(response.body, deeId).tripReadyMissing).toEqual(["Not approved."]);
+  });
+
+  it("Several unmet criteria are listed together", async () => {
+    const { admin, trip, addPerson } = await readyTrip();
+    const eliId = await addPerson("Eli", { status: "incomplete" });
+
+    const response = await request(app).get(`/trips/trips/${trip.id}/status`).set(admin.authHeader);
+
+    expect(missingFor(response.body, eliId).tripReadyMissing).toEqual([
+      "Not approved.",
+      "No arrival flight.",
+      "No return flight.",
+      "No room assigned.",
+    ]);
+  });
+  });
 });

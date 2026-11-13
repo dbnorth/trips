@@ -125,6 +125,8 @@ const participantItems = computed(() =>
         .filter(Boolean)
         .join(", "),
       bookedBy: flightBookedByLabel(row.flightPurchaseOption, trip.value?.organization?.name),
+      tripReady: status?.tripReady === true,
+      tripReadyMissing: status?.tripReadyMissing || [],
       missingItems: status?.missingItems || [],
       amountOwed: status?.amountOwed ?? null,
       documentsReviewed: !!status?.documentsReviewed,
@@ -140,6 +142,7 @@ const participantItems = computed(() =>
 
 const participantHeaders = computed(() => [
   { title: "Name", key: "name", fixed: "start" },
+  { title: "Trip Status", key: "tripStatus", sortable: false },
   { title: "Role", key: "roleLabel" },
   { title: "Status", key: "status" },
   { title: "Arrives", key: "arrivalDate" },
@@ -604,6 +607,34 @@ onMounted(refresh);
           <span class="profile-link-text">{{ item.name }}</span>
         </button>
       </template>
+      <template #item.tripStatus="{ item }">
+        <span class="d-inline-flex align-center ga-1">
+          <span
+            class="trip-status-oval"
+            :class="item.tripReady ? 'trip-status-ready' : 'trip-status-not-ready'"
+            data-testid="trip-status"
+          >
+            {{ item.tripReady ? "Trip Ready" : "Not Ready" }}
+          </span>
+          <v-tooltip v-if="!item.tripReady" location="top" max-width="280">
+            <template #activator="{ props: activator }">
+              <v-icon
+                v-bind="activator"
+                icon="mdi-information-outline"
+                size="small"
+                role="img"
+                tabindex="0"
+                :aria-hidden="false"
+                :aria-label="`Not ready: ${item.tripReadyMissing.join('; ')}`"
+                data-testid="trip-ready-info"
+              />
+            </template>
+            <ul class="ps-4 mb-0" data-testid="trip-ready-missing">
+              <li v-for="line in item.tripReadyMissing" :key="line">{{ line }}</li>
+            </ul>
+          </v-tooltip>
+        </span>
+      </template>
       <template #item.roleLabel="{ item }">{{ item.roleLabel || "—" }}</template>
       <template #item.status="{ item }">{{ tripParticipantStatusLabel(item.status) }}</template>
       <template #item.arrivalDate="{ item }">
@@ -768,6 +799,25 @@ onMounted(refresh);
 <style scoped>
 .participant-thumb {
   background: rgba(0, 0, 0, 0.06);
+}
+
+.trip-status-oval {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.trip-status-ready {
+  background-color: #2e7d32;
+  color: #ffffff;
+}
+
+.trip-status-not-ready {
+  background-color: #fbc02d;
+  color: #000000;
 }
 
 .profile-link {
