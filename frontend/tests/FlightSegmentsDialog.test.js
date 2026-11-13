@@ -178,3 +178,76 @@ describe("Feature 79 — Planned Arrival and Departure on Flights", () => {
     expect(warnings()).toEqual([]);
   });
 });
+
+describe("Feature 136 — Trip View Flight Itinerary", () => {
+  const EMAIL = `Your itinerary
+American Airlines AA 100
+Departs Dallas (DFW) on June 1, 2027 at 8:30 AM
+Arrives Guatemala City (GUA) at 12:00 PM
+Thank you for flying with us.
+AA 200 leaves GUA on June 8, 2027 at 2:00 PM and arrives DFW at 6:30 PM.`;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    AirportServices.getAll.mockResolvedValue({
+      data: [
+        { code: "DFW", city: "Dallas", airportName: "Dallas", country: "US" },
+        { code: "GUA", city: "Guatemala City", airportName: "La Aurora", country: "GT" },
+      ],
+    });
+    AirlineServices.getAll.mockResolvedValue({ data: [{ code: "AA", name: "American Airlines" }] });
+    TripServices.getFlightSegments.mockResolvedValue({
+      data: {
+        tripPeopleRoleId: 201,
+        flightPurchaseOption: "self",
+        organizationName: "Hope Missions",
+        departureDate: "2027-06-08",
+        arrivalDate: "2027-06-01",
+        confirmationNumber: "ABC123",
+        segments: [],
+      },
+    });
+  });
+
+  it("An airline email is shown and loaded", async () => {
+    const wrapper = await openDialog("Ava Reed");
+    await wrapper.find('[data-testid="load-from-text"]').trigger("click");
+    await wrapper.find('[data-testid="itinerary-text"] textarea').setValue(EMAIL);
+    await flushPromises();
+
+    const parsed = wrapper.find('[data-testid="parsed-itinerary"] textarea').element.value;
+    expect(parsed).toContain("AA 100: DFW 06/01/2027 8:30 AM to GUA 06/01/2027 12:00 PM");
+    expect(parsed).toContain("AA 200: GUA 06/08/2027 2:00 PM to DFW 06/08/2027 6:30 PM");
+
+    await wrapper.find('[data-testid="load-itinerary"]').trigger("click");
+    expect(wrapper.find('[data-testid="itinerary-text"]').exists()).toBe(false);
+    expect(wrapper.vm.segments).toEqual([
+      expect.objectContaining({
+        segmentType: "arrival",
+        segmentNumber: 1,
+        airlineCode: "AA",
+        flightNumber: "100",
+        departureAirportCode: "DFW",
+        arrivalAirportCode: "GUA",
+        departureDate: "2027-06-01",
+        departureTime: "08:30",
+        arrivalTime: "12:00",
+        cabinClass: "",
+        seatNumber: "",
+      }),
+      expect.objectContaining({
+        segmentType: "return",
+        segmentNumber: 1,
+        airlineCode: "AA",
+        flightNumber: "200",
+        departureAirportCode: "GUA",
+        arrivalAirportCode: "DFW",
+        departureDate: "2027-06-08",
+        departureTime: "14:00",
+        arrivalTime: "18:30",
+      }),
+    ]);
+    expect(wrapper.vm.confirmationNumber).toBe("ABC123");
+    expect(TripServices.updateFlightSegments).not.toHaveBeenCalled();
+  });
+});
