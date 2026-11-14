@@ -196,6 +196,8 @@ describe("Feature 61 — Trip Page My Travel Details", () => {
         },
       });
       const wrapper = await mountView();
+      await wrapper.get('[data-testid="my-trip-costs"] .v-expansion-panel-title').trigger("click");
+      await flushPromises();
 
       const financial = wrapper.find('[data-testid="my-trip-financial"]').text();
       expect(financial).toContain("Trip option: Extra beach day$150.00");

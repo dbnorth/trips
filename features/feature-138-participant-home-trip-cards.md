@@ -153,7 +153,7 @@ No other endpoint changes.
 **My Trips card**
 
 - Left bar when next steps exist: yellow `#fbc02d` when the person must act, orange `#fb8c00` while waiting on staff, green `#43a047` when ready. No bar when there are no next steps.
-- Name links to **My Trip**. **Open My Trip** does the same.
+- Name is a large blue heading and links to **My Trip**. **Open My Trip** does the same.
 - Status chip unchanged.
 - Next-step messages and buttons unchanged, except **Cancel App** is on the button row with **Open My Trip**.
 - **Uncancel**, **Update App** or **View App**, and **Cancel App** sit on that same row. There is no **More** button.

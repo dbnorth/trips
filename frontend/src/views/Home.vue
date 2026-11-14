@@ -728,7 +728,7 @@ onUnmounted(() => {
                   <div>
                     <router-link
                       :to="{ name: 'myTrip', params: { tripId: item.id } }"
-                      class="font-weight-bold text-h6"
+                      class="home-trip-card__name font-weight-bold"
                       data-testid="my-trip-name-link"
                     >
                       {{ item.name }}
@@ -1081,6 +1081,12 @@ onUnmounted(() => {
 
 .home-trip-card--ready {
   border-left: 4px solid #43a047;
+}
+
+.home-trip-card__name {
+  font-size: calc(2.25rem * 0.75);
+  line-height: 1.25;
+  color: rgb(var(--v-theme-primary));
 }
 
 .home-apply-card__image {
