@@ -1147,3 +1147,60 @@ describe("Feature 136 — Trip View Flight Itinerary", () => {
     wrapper.unmount();
   });
 });
+
+describe("Feature 137 — Trip View Flights and Room List", () => {
+  const mountTripPage = async () => {
+    TripServices.get.mockResolvedValue({
+      data: { id: 42, name: "Guatemala Clinic", orgId: 10, status: "active", leaderNames: [] },
+    });
+    TripPeopleRoleServices.getAll.mockResolvedValue({ data: [] });
+    DonationServices.getAll.mockResolvedValue({ data: [] });
+    TripTravelOptionServices.getAll.mockResolvedValue({ data: [] });
+    TripServices.getStatus.mockResolvedValue({ data: { participants: [] } });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: TripView, props: true },
+        { path: "/trips/:tripId/flights", name: "tripFlights", component: Stub, props: true },
+        { path: "/trips/:tripId/rooming", name: "tripRooming", component: Stub, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripView", params: { tripId: "42" } });
+    await router.isReady();
+    const { wrapper } = await mountWithPlugins(TripView, {
+      props: { tripId: "42" },
+      router,
+      global: { stubs: { TripWorkerRolesCard: Stub } },
+    });
+    await flushPromises();
+    return { wrapper, router };
+  };
+
+  const headerButton = (wrapper, label) =>
+    wrapper.findAll("button").find((button) => button.text().trim() === label);
+
+  it("Flights opens from the trip page", async () => {
+    const { wrapper, router } = await mountTripPage();
+    const email = headerButton(wrapper, "Email team");
+    const flights = wrapper.get('[data-testid="trip-flights"]');
+    expect(email.element.compareDocumentPosition(flights.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await flights.trigger("click");
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe("tripFlights"));
+    expect(router.currentRoute.value.params.tripId).toBe("42");
+    wrapper.unmount();
+  });
+
+  it("Room list opens from the trip page", async () => {
+    const { wrapper, router } = await mountTripPage();
+    const flights = wrapper.get('[data-testid="trip-flights"]');
+    const roomList = wrapper.get('[data-testid="trip-room-list"]');
+    expect(flights.element.compareDocumentPosition(roomList.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await roomList.trigger("click");
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe("tripRooming"));
+    expect(router.currentRoute.value.params.tripId).toBe("42");
+    wrapper.unmount();
+  });
+});

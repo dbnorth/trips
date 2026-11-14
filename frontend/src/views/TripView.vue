@@ -242,6 +242,14 @@ const openDonations = (row) => {
   showDonations.value = true;
 };
 
+const openFlightsPage = () => {
+  router.push({ name: "tripFlights", params: { tripId: tripId.value }, state: { from: "trip" } });
+};
+
+const openRoomingPage = () => {
+  router.push({ name: "tripRooming", params: { tripId: tripId.value }, state: { from: "trip" } });
+};
+
 const openFlights = (row) => {
   flightsParticipant.value = row;
   showFlights.value = true;
@@ -422,6 +430,12 @@ onMounted(refresh);
       <div class="d-flex align-center ga-2">
         <v-btn v-if="trip" variant="tonal" @click="showEditTrip = true">Edit trip</v-btn>
         <v-btn v-if="trip" variant="tonal" @click="showTeamEmail = true">Email team</v-btn>
+        <v-btn v-if="trip" variant="tonal" data-testid="trip-flights" @click="openFlightsPage">
+          Flights
+        </v-btn>
+        <v-btn v-if="trip" variant="tonal" data-testid="trip-room-list" @click="openRoomingPage">
+          Room list
+        </v-btn>
       </div>
     </div>
 

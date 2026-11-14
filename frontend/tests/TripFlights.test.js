@@ -600,3 +600,34 @@ describe("Feature 85 — Agent Role", () => {
     wrapper.unmount();
   });
 });
+
+describe("Feature 137 — Trip View Flights and Room List", () => {
+  it("Back to trip returns to the trip page", async () => {
+    Utils.setStore("user", orgAdminUser);
+    TripServices.getFlights.mockResolvedValue({
+      data: { trip: { id: 42, name: "Guatemala Clinic" }, participants: [] },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: Stub, props: true },
+        { path: "/trips/:tripId/flights", name: "tripFlights", component: TripFlightsView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripFlights", params: { tripId: "42" }, state: { from: "trip" } });
+    await router.isReady();
+    const { wrapper } = await mountWithPlugins(TripFlightsView, {
+      props: { tripId: "42" },
+      router,
+    });
+    await flushPromises();
+
+    const back = wrapper.findAll("button").find((button) => button.text().trim() === "Back to trip");
+    expect(back).toBeTruthy();
+    await back.trigger("click");
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe("tripView"));
+    expect(router.currentRoute.value.params.tripId).toBe("42");
+    wrapper.unmount();
+  });
+});

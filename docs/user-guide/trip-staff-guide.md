@@ -127,6 +127,8 @@ Opened from **View** on a trip's row. The heading is the trip name.
 | **Back to trips** | Returns to the Trips list. |
 | **Edit trip** | Opens **Edit trip** (see the [Organization admin guide](./org-admin-guide.md#add-trip--edit-trip)). |
 | **Email team** | Opens [Email team](#email-team). |
+| **Flights** | Opens this trip's [Flights](#flights-page) page ("*Trip* — Flights"). |
+| **Room list** | Opens this trip's [Room list](#room-list-page) page ("*Trip* — Rooming"). |
 
 ### Trip details
 
@@ -356,7 +358,7 @@ The **Sending email** status dialog shows **Attempted**, **Sent**, **Skipped**, 
 
 ## Room list page
 
-Titled "*Trip* — Rooming". **Back to trips**, **Room list PDF**, and **Save** are at the top.
+Titled "*Trip* — Rooming". **Back to trip** (when opened from the trip page) or **Back to trips** (when opened from the Trips list) is at the top, with **Room list PDF** and **Save**.
 
 | Field | Notes |
 |-------|-------|
@@ -379,7 +381,7 @@ The table lists everyone who is Incomplete, Pre-Approved, or Approved:
 
 ## Flights page
 
-Titled "*Trip* — Flights". **Back to trips**, **Flights PDF**, and **Email flight itinerary** are at the top. The table lists everyone who is Incomplete, Pre-Approved, or Approved:
+Titled "*Trip* — Flights". **Back to trip** (when opened from the trip page) or **Back to trips** (when opened from the Trips list) is at the top, with **Flights PDF** and **Email flight itinerary**. The table lists everyone who is Incomplete, Pre-Approved, or Approved:
 
 | Column | Shows / enter |
 |--------|---------------|

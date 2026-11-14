@@ -12,6 +12,7 @@ import { flightAirportWarnings } from "../utils/flightAirportWarnings.js";
 import RowAction from "../components/RowAction.vue";
 import { formatDate } from "../utils/dateFormat.js";
 import Utils from "../config/utils.js";
+import { tripPageBack } from "../utils/tripPageBack.js";
 
 const props = defineProps({
   tripId: { type: [String, Number], default: null },
@@ -21,6 +22,15 @@ const route = useRoute();
 const router = useRouter();
 const resolvedTripId = computed(() => props.tripId ?? route.params.tripId);
 const isAgentUser = Utils.isAgentUser(Utils.getStore("user"));
+const pageBack = computed(() =>
+  tripPageBack(
+    router,
+    resolvedTripId.value,
+    isAgentUser
+      ? { label: "Back to home", to: { name: "home" } }
+      : { label: "Back to trips", to: { name: "trips" } }
+  )
+);
 
 const trip = ref(null);
 const participants = ref([]);
@@ -193,8 +203,7 @@ onMounted(load);
   <v-container>
     <div class="d-flex align-center justify-space-between mb-4 flex-wrap ga-2">
       <div class="d-flex align-center ga-2">
-        <v-btn v-if="isAgentUser" variant="text" @click="router.push({ name: 'home' })">Back to home</v-btn>
-        <v-btn v-else variant="text" @click="router.push({ name: 'trips' })">Back to trips</v-btn>
+        <v-btn variant="text" @click="pageBack.go()">{{ pageBack.label }}</v-btn>
         <h1 class="text-h5">{{ pageTitle }}</h1>
       </div>
       <div class="d-flex align-center ga-2">
