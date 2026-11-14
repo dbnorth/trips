@@ -27,7 +27,7 @@ import { normalizeApplicationPregnancy } from "../utils/pregnancyFields.js";
 import { findReservationForPerson, occupiesRole, tripRoleAvailability, withCapacityFields } from "../utils/tripRoleCapacity.js";
 import { sendApplicationEventEmails } from "../utils/eventEmails.js";
 import { loadDonationRecipients } from "../utils/donorPerson.js";
-import { loadMyTripDocuments, loadMyTripNextActions } from "../utils/myTripNextActions.js";
+import { loadHomeCard, loadMyTripDocuments, loadMyTripNextActions } from "../utils/myTripNextActions.js";
 import { loadMyTripTravelDetails } from "../utils/myTripTravelDetails.js";
 import { participantTotals, participantCostBreakdown, amountOwed } from "../utils/participantTotals.js";
 import { loadTripWithArrivalPdf } from "../utils/tripArrivalPdf.js";
@@ -352,6 +352,12 @@ exports.listMyTrips = async (req, res) => {
           required: true,
           include: [orgInclude],
         },
+        {
+          model: TripWorkerRole,
+          as: "tripWorkerRole",
+          attributes: ["id"],
+          include: [{ model: WorkerRole, as: "workerRole", attributes: ["name"] }],
+        },
       ],
       order: [
         [{ model: Trip, as: "trip" }, "startDate", "ASC"],
@@ -368,7 +374,9 @@ exports.listMyTrips = async (req, res) => {
         alreadyApplied: true,
         applicationStatus: link.status || null,
         tripPeopleRoleId: link.id,
+        workerRoleName: link.tripWorkerRole?.workerRole?.name || null,
         nextActions: await loadMyTripNextActions(link, trip, cache),
+        homeCard: await loadHomeCard(link, trip, cache),
       });
     }
     res.send(trips);

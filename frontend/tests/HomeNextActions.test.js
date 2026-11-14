@@ -91,17 +91,18 @@ const mountHome = async (trips) => {
   return wrapper;
 };
 
-const tripRow = (wrapper, name) =>
-  wrapper.findAll("tr").find((tr) => tr.find("td").exists() && tr.find("td").text() === name);
+const tripCard = (wrapper, name) =>
+  wrapper.findAll('[data-testid="my-trip-card"]').find((card) => card.text().includes(name));
+
+const applyCard = (wrapper, name) =>
+  wrapper.findAll('[data-testid="available-trip-card"]').find((card) => card.text().includes(name));
 
 const nextActionsRowFor = (wrapper, name) => {
-  const rows = wrapper.findAll("tr");
-  const index = rows.findIndex((tr) => tr.find("td").exists() && tr.find("td").text() === name);
-  const next = rows[index + 1];
-  return next?.attributes("data-testid") === "next-actions" ? next : undefined;
+  const actions = tripCard(wrapper, name)?.find('[data-testid="my-trip-next-actions"]');
+  return actions?.exists() ? actions : undefined;
 };
 
-const toneOf = (row) => row.find('[data-testid="my-trip-next-actions"]').classes();
+const toneOf = (row) => row.classes();
 
 const button = (el, text) =>
   el.findAll("button").find((b) => (b.text().trim() || b.attributes("aria-label")) === text);
@@ -162,10 +163,11 @@ describe("Feature 60 — My Trips Next Actions", () => {
     expect(actions.text()).toContain("Complete missing information on your application so you can submit your application.");
     expect(actions.text()).not.toContain("You do not have a role secured on this trip.");
 
-    const row = tripRow(wrapper, "Guatemala Clinic");
-    expect(button(row, "View")).toBeTruthy();
-    expect(button(row, "Update App")).toBeUndefined();
-    expect(button(row, "Cancel App")).toBeUndefined();
+    const card = tripCard(wrapper, "Guatemala Clinic");
+    expect(button(card, "Open My Trip")).toBeTruthy();
+    expect(button(card, "Update App")).toBeTruthy();
+    expect(button(actions, "Cancel App")).toBeUndefined();
+    expect(button(card, "Cancel App")).toBeTruthy();
 
     await button(actions, "Update App").trigger("click");
     await flushPromises();
@@ -173,7 +175,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
     expect(apply.props("modelValue")).toBe(true);
     expect(apply.props("tripId")).toBe(1);
 
-    await button(actions, "Cancel App").trigger("click");
+    await button(card, "Cancel App").trigger("click");
     await flushPromises();
     const confirm = wrapper
       .findAllComponents(ConfirmDialog)
@@ -191,11 +193,12 @@ describe("Feature 60 — My Trips Next Actions", () => {
     const actions = nextActionsRowFor(wrapper, "Guatemala Clinic");
     expect(toneOf(actions)).toContain("my-trip-next-actions--needed");
     expect(actions.text()).toContain("Submit your application.");
-    expect(button(actions, "Cancel App")).toBeTruthy();
+    expect(button(actions, "Cancel App")).toBeUndefined();
 
-    const row = tripRow(wrapper, "Guatemala Clinic");
-    expect(button(row, "Update App")).toBeUndefined();
-    expect(button(row, "Cancel App")).toBeUndefined();
+    const card = tripCard(wrapper, "Guatemala Clinic");
+    expect(button(card, "Update App")).toBeUndefined();
+    expect(button(card, "More")).toBeUndefined();
+    expect(button(card, "Cancel App")).toBeTruthy();
 
     await button(actions, "Submit App").trigger("click");
     await flushPromises();
@@ -340,7 +343,7 @@ describe("Feature 60 — My Trips Next Actions", () => {
    * Feature 104 — Pre-Approved Status and Document Review
    * Spec: features/feature-104-pre-approved-document-review.md
    */
-  it("Home trip rows use icons with tooltips", async () => {
+  it("Home trip cards keep Open My Trip and the other actions on one row", async () => {
     TripServices.getBrowseTrips.mockResolvedValue({
       data: [
         {
@@ -363,36 +366,21 @@ describe("Feature 60 — My Trips Next Actions", () => {
       myTrip(3, "Haiti Clinic", "cancelled", []),
     ]);
 
-    const icons = (name) =>
-      tripRow(wrapper, name)
-        .findAll("td:last-child .v-btn")
-        .map((b) => ({
-          label: b.attributes("aria-label"),
-          text: b.text().trim(),
-          icon: b.find(".v-icon").classes().find((c) => c.startsWith("mdi-") && c !== "mdi"),
-        }));
-    expect(icons("Guatemala Clinic")).toEqual([
-      { label: "View", text: "", icon: "mdi-eye" },
-      { label: "Update App", text: "", icon: "mdi-file-edit-outline" },
-      { label: "Cancel App", text: "", icon: "mdi-cancel" },
-    ]);
-    expect(icons("Honduras Clinic").map((b) => [b.label, b.icon])).toEqual([
-      ["View", "mdi-eye"],
-      ["Manage App", "mdi-file-cog-outline"],
-      ["Cancel App", "mdi-cancel"],
-    ]);
-    expect(icons("Haiti Clinic").map((b) => [b.label, b.icon])).toEqual([
-      ["View", "mdi-eye"],
-      ["Manage App", "mdi-file-cog-outline"],
-      ["Uncancel", "mdi-restore"],
-    ]);
-    expect(icons("Peru Clinic").map((b) => [b.label, b.icon])).toEqual([
-      ["View", "mdi-eye"],
-      ["Apply", "mdi-file-send-outline"],
-    ]);
-    expect(button(tripRow(wrapper, "Guatemala Clinic"), "Cancel App").classes()).toContain("text-error");
+    const labels = (name) => tripCard(wrapper, name).findAll("button").map((item) => item.text().trim());
+    expect(labels("Guatemala Clinic")).toEqual(
+      expect.arrayContaining(["Open My Trip", "Update App", "Cancel App"])
+    );
+    expect(labels("Guatemala Clinic")).not.toContain("More");
+    expect(button(tripCard(wrapper, "Guatemala Clinic"), "Cancel App").classes()).toContain("text-error");
+    expect(labels("Honduras Clinic")).toEqual(
+      expect.arrayContaining(["Open My Trip", "View App", "Cancel App"])
+    );
+    const haiti = tripCard(wrapper, "Haiti Clinic");
+    expect(button(haiti, "Uncancel")).toBeTruthy();
+    expect(button(haiti, "View App")).toBeTruthy();
+    expect(button(applyCard(wrapper, "Peru Clinic"), "Apply")).toBeTruthy();
 
-    await button(tripRow(wrapper, "Guatemala Clinic"), "Update App").trigger("click");
+    await button(tripCard(wrapper, "Guatemala Clinic"), "Update App").trigger("click");
     await flushPromises();
     expect(wrapper.findComponent({ name: "ApplyTripDialog" }).props("tripId")).toBe(1);
 

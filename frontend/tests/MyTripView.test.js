@@ -249,16 +249,16 @@ describe("Feature 119 — My Trip Page", () => {
       });
       await flushPromises();
 
-      const rowView = (name) =>
-        home
-          .findAll("tr")
-          .find((tr) => tr.find("td").exists() && tr.find("td").text() === name)
-          .find('[aria-label="View"]');
-      await rowView("Guatemala Clinic").trigger("click");
+      const openMyTrip = home
+        .findAll('[data-testid="my-trip-card"]')
+        .find((card) => card.text().includes("Guatemala Clinic"))
+        .findAll("button")
+        .find((item) => item.text().trim() === "Open My Trip");
+      await openMyTrip.trigger("click");
       await flushPromises();
       expect(router.currentRoute.value.fullPath).toBe("/my-trips/7");
       await router.push("/home");
-      await rowView("Peru Outreach").trigger("click");
+      await home.get('[data-testid="available-trip-name-link"]').trigger("click");
       await flushPromises();
       expect(router.currentRoute.value.fullPath).toBe("/browse-trips/8");
       home.unmount();
