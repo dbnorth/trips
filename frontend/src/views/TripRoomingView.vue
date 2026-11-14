@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from "vue";
 import { formatDate } from "../utils/dateFormat.js";
 import { useRoute, useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
+import { tripPageBack } from "../utils/tripPageBack.js";
 import ExportServices from "../services/exportServices.js";
 
 const ROOM_TYPES = ["King", "Double", "Triple"];
@@ -15,6 +16,9 @@ const route = useRoute();
 const router = useRouter();
 
 const resolvedTripId = computed(() => props.tripId ?? route.params.tripId);
+const pageBack = computed(() =>
+  tripPageBack(router, resolvedTripId.value, { label: "Back to trips", to: { name: "trips" } })
+);
 
 const trip = ref(null);
 const hotelName = ref("");
@@ -136,7 +140,7 @@ onMounted(load);
   <v-container>
     <div class="d-flex align-center justify-space-between mb-4 flex-wrap ga-2">
       <div class="d-flex align-center ga-2">
-        <v-btn variant="text" @click="router.push({ name: 'trips' })">Back to trips</v-btn>
+        <v-btn variant="text" @click="pageBack.go()">{{ pageBack.label }}</v-btn>
         <h1 class="text-h5">{{ pageTitle }}</h1>
       </div>
       <div class="d-flex ga-2">
