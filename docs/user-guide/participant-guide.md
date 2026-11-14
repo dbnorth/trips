@@ -11,7 +11,7 @@ This guide is for people going on a trip. The first part walks through the steps
 5. **Get approved.** Trip staff review your documents and approve your application.
 6. **Pay and prepare.** Make your deposit, raise or donate the rest. Staff enter your flights.
 
-Home's **My Trips** list always shows your next step for each trip.
+Home's **My Trips** cards always show your next step for each trip.
 
 ## Your profile
 
@@ -142,23 +142,27 @@ The organization can email you when your application is started, submitted, or a
 
 ## Home (Dashboard)
 
-Home greets you with "Welcome, *first name*!". If your profile is missing anything, a warning says "Please update your profile to continue." with an **Update profile** button.
+Home greets you with "Welcome, *first name*!". If your profile is missing anything, a warning says "Please update your profile to continue." It lists the missing items under **Missing:** and has an **Update profile** button.
 
-The **Trips** card shows one organization at a time. If you belong to several, choose one in its **Organization** list.
+If you belong to several organizations, choose one in the **Organization** list. Home then shows that organization's trips.
 
 ### My Trips
 
-Your applications in this organization. Declined applications aren't listed.
+Your applications in this organization, one card each. Declined applications aren't listed. Upcoming trips come first, soonest first. Past trips follow when you include them.
 
 - **Show all my trips** — unticked shows only trips starting today or later. Tick it to include past trips.
 
-| Column | Shows |
-|--------|-------|
-| **Name** | The trip name. Click it to open **My Trip**. |
-| **Location** | Where the trip goes. |
-| **Start** / **End** | The trip dates. |
+Each card shows:
+
+| Item | Shows |
+|------|-------|
+| **Name** | The trip name. Click it, or **Open My Trip**, to open **My Trip**. |
+| Location | Where the trip goes. |
+| **Role** | Your trip role, the same name as **Role** on **My Trip**. "—" when you have no role yet. |
+| Dates | The start and end, then "N days away", "1 day away", "Starts today", "In progress", or "Ended". |
 | **Status** | Your application status (see below). |
-| **Actions** | The row actions below. |
+| Next step | The message and button for what to do next. |
+| Progress | On a Pre-Approved or Approved trip, when the next step does not already say it: how much you have raised of the total, how many documents are uploaded, and, when you are Approved, "Departs *airport* *date* *time*." for your first flight out. |
 
 **Status values:**
 
@@ -166,31 +170,29 @@ Your applications in this organization. Declined applications aren't listed.
 |--------|-------|---------|
 | **Incomplete** | Orange | Saved, but something on your profile or application is still missing. |
 | **Pre-Approved** | Blue | Profile and application are complete. You hold a place while staff review your documents. |
-| **Approved** | Green | You're on the team. |
+| **Approved** | Dark green, white text | You're on the team. |
 | **Declined** | Red | Staff didn't accept the application. |
 | **Cancelled** | Red | You or staff cancelled it. The role spot is freed. |
 
-**Row actions:**
+**Card actions:**
 
 | Action | When it shows | What it does |
 |--------|---------------|--------------|
-| **View** (eye) | Always | Opens **My Trip**. |
-| **Update App** | Incomplete or Pre-Approved | Opens your application to edit. |
-| **Manage App** | Approved or Cancelled | Opens your application (read-only when Approved except **Why go** and **Save Why go**, with **Cancel**; with **Uncancel** when Cancelled). |
-| **Cancel App** (red) | Incomplete, Pre-Approved, or Approved | Asks "Cancel this application? Your role slot will be freed." Choose **Cancel App** to confirm or **No** to back out. |
+| **Open My Trip** | Always | Opens **My Trip**. |
 | **Uncancel** | Cancelled | Asks "Uncancel this application? It will return to incomplete or pre-approved based on completeness." |
-
-**Update App**/**Manage App** and **Cancel App** are hidden when the same buttons already show in the trip's next steps row.
+| **Update App** | Incomplete or Pre-Approved, and that button is not already on the next step | Opens your application to edit. |
+| **View App** | Approved or Cancelled | Opens your application (read-only when Approved except **Why go** and **Save Why go**, with **Cancel**; with **Uncancel** when Cancelled). |
+| **Cancel App** | Incomplete, Pre-Approved, or Approved | Asks "Cancel this application? Your role slot will be freed." Choose **Cancel App** to confirm or **No** to back out. |
 
 ### Next steps
 
-Under each upcoming trip, a colored row shows what to do next. Next steps stop showing once the trip has started.
+On each upcoming trip card, a colored bar shows what to do next: yellow when you need to act, orange while you're waiting on staff, and green when you're all set. Next steps stop showing once the trip has started. **Cancel App** is on the button row with **Open My Trip**, not beside the message.
 
 | Message | When | Buttons |
 |---------|------|---------|
-| "Complete missing information on your application / profile / application and profile so you can submit your application." | Incomplete, and something is missing | **Update App**, **Cancel App** |
-| "Submit your application." | Incomplete, and everything is filled in | **Submit App**, **Cancel App** |
-| "Documents are missing and must be uploaded 90 days before departure (*date*). Missing: …" | Pre-Approved, and a trip document is missing or not good for the trip | **Update Documents** (opens your profile), **Update App**, **Cancel App** |
+| "Complete missing information on your application / profile / application and profile so you can submit your application." | Incomplete, and something is missing | **Update App** |
+| "Submit your application." | Incomplete, and everything is filled in | **Submit App** |
+| "Documents are missing and must be uploaded 90 days before departure (*date*). Missing: …" | Pre-Approved, and a trip document is missing or not good for the trip | **Update Documents** (opens your profile), **Update App** |
 | "Waiting on approval." (orange) | Pre-Approved, and documents are complete | — |
 | "Make your deposit: $*raised* raised of $*deposit*." | Pre-Approved or Approved, and the trip has a deposit you haven't reached | **Donate** |
 | "Make a donation: $*amount* still owed." | Pre-Approved or Approved, deposit reached, and a balance remains | **Donate** |
@@ -203,18 +205,19 @@ On **My Trip**, the deposit and donation steps are hidden; use **Make Donation**
 
 ### Trips you can apply for
 
-Active trips in this organization that start today or later and that you haven't applied to.
+Active trips in this organization that start today or later and that you haven't applied to. Each trip is a card. Trips you can apply for come first, soonest first. Trips with no open role follow.
 
-| Column | Shows |
-|--------|-------|
+| Item | Shows |
+|------|-------|
+| Picture | The trip picture, when the trip has one. |
 | **Name** | The trip name. Click it to open the trip page. |
-| **Location**, **Start**, **End** | Where and when. |
-| **Status** | Role availability, for example "6 positions available (2 reserved, 4 open)", or "No roles available". |
-| **Actions** | **View** (eye) opens the trip page. **Apply** opens the application when there are open spots. **Apply for Reserved** shows when a spot is reserved for you. |
+| Location and dates | Where and when. |
+| Availability | For example "6 positions available (2 reserved, 4 open)", or "No roles available". |
+| **Apply** | Opens the application when there are open spots. **Apply for Reserved** shows when a spot is reserved for you. |
 
 ## Trip page (before you apply)
 
-Opened from **View** in **Trips you can apply for**. Once you've applied, opening it takes you to **My Trip** instead.
+Opened from the trip name in **Trips you can apply for**. Once you've applied, opening it takes you to **My Trip** instead.
 
 - **Back to dashboard** returns Home.
 - The organization's logo and name, then the trip card: name, city and country, dates, description, and picture.
@@ -355,7 +358,7 @@ The questions scroll. The box above, and the warning or notice, stay with the bu
 
 ## My Trip
 
-Opened from **View** on a trip in **My Trips**.
+Opened from **Open My Trip**, or the trip name, on a trip in **My Trips**.
 
 At the top, a message shows where you stand:
 

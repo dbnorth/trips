@@ -240,6 +240,60 @@ const amountRaisedFor = async (tripId, personId) =>
   ) /
   100;
 
+/** First Arrival segment's departure, or null when the person has none. */
+const firstDeparture = async (tripPeopleRoleId) => {
+  if (!tripPeopleRoleId) return null;
+  const flight = await db.tripFlight.findOne({
+    where: { tripPeopleRoleId },
+    attributes: ["id"],
+  });
+  if (!flight) return null;
+  const segment = await db.tripFlightSegment.findOne({
+    where: { tripFlightId: flight.id, segmentType: "arrival" },
+    include: [{ model: db.airport, as: "departureAirport", attributes: ["code"] }],
+    order: [["segmentNumber", "ASC"]],
+  });
+  if (!segment) return null;
+  const time = segment.departureTime ? String(segment.departureTime).slice(0, 5) : null;
+  return {
+    airportCode: segment.departureAirport?.code || null,
+    date: segment.departureDate ? String(segment.departureDate).slice(0, 10) : null,
+    time: time || null,
+  };
+};
+
+/**
+ * Read-only summary for a participant Home card (Feature 138).
+ * Reuses `cache.personDocuments` from next-action loading.
+ */
+export const loadHomeCard = async (assignment, trip, cache = {}) => {
+  const amountRaised = await amountRaisedFor(trip.id, assignment.peopleId);
+  const { totalTripCost } = await participantTotals(trip, assignment);
+  let documentsUploaded = null;
+  let documentsRequired = null;
+  if (assignment.peopleId) {
+    if (!cache.personDocuments) {
+      cache.personDocuments = await loadPersonDocumentsForCompleteness(assignment.peopleId);
+    }
+    const documents = await requiredTripDocuments({
+      assignment,
+      trip,
+      personDocuments: cache.personDocuments,
+    });
+    if (documents.length) {
+      documentsRequired = documents.length;
+      documentsUploaded = documents.filter((document) => document.uploaded).length;
+    }
+  }
+  return {
+    amountRaised,
+    totalTripCost,
+    documentsUploaded,
+    documentsRequired,
+    departure: await firstDeparture(assignment.id),
+  };
+};
+
 const flightSegmentCount = async (tripPeopleRoleId) => {
   const flight = await db.tripFlight.findOne({
     where: { tripPeopleRoleId },
