@@ -161,6 +161,13 @@ const mountPage = async (component, path) => {
 
 const button = (el, text) => el.findAll("button").find((b) => b.text().trim() === text);
 const section = (wrapper, id) => wrapper.find(`[data-testid="${id}"]`);
+const openTripCosts = async (wrapper) => {
+  const title = wrapper.get('[data-testid="my-trip-costs"] .v-expansion-panel-title');
+  if (title.attributes("aria-expanded") !== "true") {
+    await title.trigger("click");
+    await flushPromises();
+  }
+};
 
 describe("Feature 119 — My Trip Page", () => {
   beforeEach(() => {
@@ -223,7 +230,7 @@ describe("Feature 119 — My Trip Page", () => {
       const myLink = section(home, "my-trip-name-link");
       expect(myLink.text()).toBe("Guatemala Clinic");
       expect(myLink.attributes("href")).toBe("/my-trips/7");
-      expect(myLink.classes()).toContain("font-weight-bold");
+      expect(myLink.classes()).toEqual(expect.arrayContaining(["font-weight-bold", "home-trip-card__name"]));
       const availableLink = section(home, "available-trip-name-link");
       expect(availableLink.text()).toBe("Peru Outreach");
       expect(availableLink.attributes("href")).toBe("/browse-trips/8");
@@ -265,18 +272,18 @@ describe("Feature 119 — My Trip Page", () => {
 
       signedUp();
       const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
-      const tripInfo = section(wrapper, "my-trip-trip-info").text();
-      expect(tripInfo).toContain("Antigua");
-      expect(section(wrapper, "my-trip-trip-dates").text()).toBe("01/10/2027 – 01/20/2027");
-      expect(tripInfo).toContain("active");
-      expect(tripInfo).toContain("Lena Leader");
+      const summary = section(wrapper, "my-trip-summary").text();
+      expect(summary).toContain("Antigua, Guatemala");
+      expect(section(wrapper, "my-trip-date-line").text()).toContain("01/10/2027 – 01/20/2027");
+      expect(summary).not.toContain("active");
+      expect(summary).toContain("Lena Leader");
+      expect(wrapper.text()).not.toContain("Free clinic week");
+      expect(section(wrapper, "my-trip-trip-info").exists()).toBe(false);
       expect(section(wrapper, "my-trip-trip-name").text()).toBe("Guatemala Clinic");
       expect(section(wrapper, "my-trip-trip-name").classes()).toEqual(
-        expect.arrayContaining(["text-h4", "font-weight-bold"])
+        expect.arrayContaining(["my-trip__name", "font-weight-bold"])
       );
-      expect(tripInfo).toContain("Free clinic week");
-      expect(tripInfo).toContain("Antigua, Guatemala");
-      expect(wrapper.findComponent({ name: "DonorTripHeading" }).props("showTripCard")).toBe(false);
+      expect(wrapper.findComponent({ name: "DonorTripHeading" }).exists()).toBe(false);
       expect(wrapper.text()).not.toContain("Team roles needed");
       expect(wrapper.text()).not.toContain("Participant cost");
       wrapper.unmount();
@@ -288,6 +295,7 @@ describe("Feature 119 — My Trip Page", () => {
 
       expect(router.currentRoute.value.fullPath).toBe("/browse-trips/7");
       expect(button(wrapper, "Apply for this trip")).toBeTruthy();
+      expect(wrapper.findComponent({ name: "DonorTripHeading" }).exists()).toBe(false);
       expect(wrapper.text()).toContain("Team roles needed");
       expect(wrapper.text()).toContain("Nurse");
       expect(section(wrapper, "no-trip-leaders").text()).toBe("No Trip Leader assigned");
@@ -329,6 +337,7 @@ describe("Feature 119 — My Trip Page", () => {
     it("Trip financial info lists every cost, total, donations, and balance", async () => {
       signedUp();
       const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
+      await openTripCosts(wrapper);
 
       const rows = wrapper
         .findAll('[data-testid="my-trip-financial"] > div > .d-flex')
@@ -356,7 +365,7 @@ describe("Feature 119 — My Trip Page", () => {
       signedUp({ onlineDonations: true });
       const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
 
-      const line = section(wrapper, "my-trip-donations-line");
+      const line = section(wrapper, "my-trip-actions");
       expect(button(line, "View donations")).toBeTruthy();
       expect(button(line, "Make Donation")).toBeTruthy();
       expect(button(wrapper, "Donate")).toBeUndefined();
@@ -386,7 +395,7 @@ describe("Feature 119 — My Trip Page", () => {
 
       signedUp({ status: "pre_approved" });
       const preApproved = await mountPage(MyTripView, "/my-trips/7");
-      const preApprovedLine = section(preApproved.wrapper, "my-trip-donations-line");
+      const preApprovedLine = section(preApproved.wrapper, "my-trip-actions");
       expect(button(preApprovedLine, "View donations")).toBeTruthy();
       expect(button(preApprovedLine, "Make Donation")).toBeTruthy();
       expect(preApproved.wrapper.text()).toContain("My fundraising page");
@@ -394,7 +403,7 @@ describe("Feature 119 — My Trip Page", () => {
 
       signedUp({ status: "incomplete" });
       const pending = await mountPage(MyTripView, "/my-trips/7");
-      const pendingLine = section(pending.wrapper, "my-trip-donations-line");
+      const pendingLine = section(pending.wrapper, "my-trip-actions");
       expect(button(pendingLine, "View donations")).toBeTruthy();
       expect(button(pendingLine, "Make Donation")).toBeUndefined();
       expect(pending.wrapper.text()).not.toContain("My fundraising page");
@@ -405,11 +414,10 @@ describe("Feature 119 — My Trip Page", () => {
       const fundingText = async (info, tripFields) => {
         signedUp(info, tripFields);
         const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
-        const bar = wrapper.find('[data-testid="my-trip-financial"] [data-testid="my-trip-funding-message"]');
+        const bar = section(wrapper, "my-trip-funding-message");
         const text = bar.exists() ? bar.text() : null;
         if (bar.exists()) {
-          const heading = wrapper.find('[data-testid="my-trip-financial"] h3');
-          expect(heading.element.nextElementSibling).toBe(bar.element);
+          expect(section(wrapper, "my-trip-money-line").element.nextElementSibling).toBe(bar.element);
         }
         if (bar.exists()) expect(bar.classes()).toEqual(expect.arrayContaining(["bg-amber-lighten-4", "text-black", "font-weight-bold"]));
         wrapper.unmount();
@@ -444,6 +452,8 @@ describe("Feature 119 — My Trip Page", () => {
         amountOwed: null,
       });
       const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
+      expect(section(wrapper, "my-trip-money-line").text()).toBe("Donations $1,000.00. Balance not yet available.");
+      await openTripCosts(wrapper);
 
       const financial = section(wrapper, "my-trip-financial");
       expect(financial.text()).toContain("Trip costNot yet available");
@@ -459,9 +469,12 @@ describe("Feature 119 — My Trip Page", () => {
       signedUp();
       const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
 
-      expect(section(wrapper, "my-trip-room").text()).toContain("Not yet available");
+      const summary = section(wrapper, "my-trip-summary");
+      expect(summary.find('[data-testid="my-trip-room"]').exists()).toBe(true);
+      expect(summary.find('[data-testid="my-trip-flights"]').exists()).toBe(true);
+      expect(section(wrapper, "my-trip-room").text()).toContain("Your room will appear here after staff assign it.");
       const flights = section(wrapper, "my-trip-flights");
-      expect(flights.text()).toContain("Not yet available");
+      expect(flights.text()).toContain("Your flights will appear here after staff enter them.");
       expect(flights.findAll("button")).toHaveLength(0);
       wrapper.unmount();
     });
@@ -482,10 +495,10 @@ describe("Feature 119 — My Trip Page", () => {
       const room = section(wrapper, "my-trip-room").text();
       expect(room).toContain("Hotel Antigua");
       expect(room).toContain("Rita Gomez");
-      expect(room).not.toContain("Not yet available");
+      expect(room).toContain("Hotel Antigua · Double · Rita Gomez · 01/10/2027 – 01/15/2027");
       const flights = section(wrapper, "my-trip-flights").text();
-      expect(flights).toContain("American Airlines");
-      expect(flights).not.toContain("Not yet available");
+      expect(flights).toContain("American Airlines 100 · DFW 01/10/2027 8:30 AM → GUA 01/10/2027 12:00 PM");
+      expect(flights).not.toContain("Your flights will appear here after staff enter them.");
       wrapper.unmount();
     });
 
@@ -529,7 +542,7 @@ describe("Feature 119 — My Trip Page", () => {
       signedUp({ flightPurchaseOption: "self" });
       const empty = await mountPage(MyTripView, "/my-trips/7");
       const noSegments = section(empty.wrapper, "my-trip-flights");
-      expect(noSegments.text()).toContain("Not yet available");
+      expect(noSegments.text()).toContain("Your flights will appear here after staff enter them.");
       expect(button(noSegments, "Add Flights")).toBeUndefined();
       expect(empty.wrapper.findComponent({ name: "FlightSegmentsDialog" }).props("modelValue")).toBe(false);
       empty.wrapper.unmount();
@@ -558,18 +571,18 @@ describe("Feature 126 — Trip Arrival Document Download", () => {
     Utils.setStore("user", { personId: 5, firstName: "Pat", lastName: "Lee", orgRoles: [], tripRoles: [] });
   });
 
-  const downloadButton = (wrapper) => button(section(wrapper, "my-trip-trip-info"), "Download Trip Arrival Document");
+  const downloadButton = (wrapper) => button(section(wrapper, "my-trip-summary"), "Download Trip Arrival Document");
 
   describe("US-126.1 — Download the trip arrival document", () => {
     it("Approved participant sees the download button above Trip Leaders", async () => {
       signedUp({ hasArrivalPdf: true });
       const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
 
-      const tripInfo = section(wrapper, "my-trip-trip-info");
+      const summary = section(wrapper, "my-trip-summary");
       expect(downloadButton(wrapper)).toBeTruthy();
-      const html = tripInfo.html();
+      const html = summary.html();
       expect(html.indexOf("Download Trip Arrival Document")).toBeLessThan(html.indexOf("Trip Leaders"));
-      expect(html.indexOf("Download Trip Arrival Document")).toBeGreaterThan(html.indexOf("my-trip-trip-dates"));
+      expect(html.indexOf("my-trip-date-line")).toBeLessThan(html.indexOf("Trip Leaders"));
       expect(wrapper.text()).not.toContain("Trip arrival info");
       wrapper.unmount();
     });
@@ -611,5 +624,103 @@ describe("Feature 126 — Trip Arrival Document Download", () => {
       );
       wrapper.unmount();
     });
+  });
+});
+
+/**
+ * Feature 139 — My Trip Page Layout
+ * Spec: features/feature-139-my-trip-page-layout.md
+ */
+describe("Feature 139 — My Trip Page Layout", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+    Utils.setStore("user", {
+      personId: 5,
+      firstName: "Pat",
+      lastName: "Lee",
+      orgRoles: [],
+      tripRoles: [{ roleName: "Trip Participant", tripId: 7, orgId: ORG_ID, orgName: "Hope Missions" }],
+    });
+  });
+
+  it("My trip comes before the brochure", async () => {
+    signedUp();
+    const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
+    const text = wrapper.text();
+    expect(text).not.toContain("Free clinic week");
+    expect(section(wrapper, "my-trip-trip-info").exists()).toBe(false);
+    expect(text.match(/Guatemala Clinic/g)).toHaveLength(1);
+    expect(section(wrapper, "my-trip-place").text()).toBe("Antigua, Guatemala");
+    const summary = section(wrapper, "my-trip-summary").text();
+    expect(summary.indexOf("Role: Nurse")).toBeLessThan(summary.indexOf("Lena Leader"));
+    const chip = section(wrapper, "my-trip-status");
+    expect(chip.text()).toBe("Approved");
+    expect(chip.attributes("style")).toContain("background-color: rgb(46, 125, 50)");
+    expect(chip.attributes("style")).toContain("color: rgb(255, 255, 255)");
+    wrapper.unmount();
+  });
+
+  it("The next step stays on the summary", async () => {
+    signedUp({ status: "incomplete", nextActions: [{ code: "submit-application" }] });
+    const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
+    const summary = section(wrapper, "my-trip-summary");
+    expect(summary.text()).toContain("Submit your application.");
+    expect(button(summary, "Submit App")).toBeTruthy();
+    expect(button(summary, "Cancel App")).toBeTruthy();
+    wrapper.unmount();
+  });
+
+  it("My Trip has no Back to home", async () => {
+    signedUp();
+    const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
+    expect(wrapper.findAll("button").some((item) => item.text().trim() === "Back to home")).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("The balance is on the summary and the costs start closed", async () => {
+    signedUp({ donationTotal: 400, amountOwed: 800, costBreakdown: { ...BREAKDOWN, totalTripCost: 1200 } });
+    const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
+    const fundingTitle = wrapper.findAll("h3").find((item) => item.text() === "Trip Funding");
+    const leadersTitle = wrapper.findAll("h3").find((item) => item.text() === "Trip Leaders");
+    expect(fundingTitle.classes()).toEqual(leadersTitle.classes());
+    const summaryText = section(wrapper, "my-trip-summary").text();
+    expect(summaryText.indexOf("Trip Funding")).toBeLessThan(summaryText.indexOf("My fundraising page"));
+    expect(summaryText.indexOf("My fundraising page")).toBeLessThan(summaryText.indexOf("$400.00 raised of $1,200.00. Balance $800.00."));
+    expect(section(wrapper, "my-trip-money-line").text()).toBe("$400.00 raised of $1,200.00. Balance $800.00.");
+    expect(section(wrapper, "my-trip-funding-message").text()).toBe(
+      "You need more donations to cover your balance of $800.00."
+    );
+    const actions = section(wrapper, "my-trip-actions");
+    expect(button(actions, "Make Donation")).toBeTruthy();
+    expect(button(actions, "View donations")).toBeTruthy();
+    const title = wrapper.get('[data-testid="my-trip-costs"] .v-expansion-panel-title');
+    expect(title.attributes("aria-expanded")).toBe("false");
+    const costs = wrapper.get('[data-testid="my-trip-costs"] .v-expansion-panel-text');
+    expect(costs.isVisible()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("Opening Trip costs shows the breakdown", async () => {
+    signedUp();
+    const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
+    await openTripCosts(wrapper);
+    const financial = section(wrapper, "my-trip-financial").text();
+    expect(financial).toContain("Trip cost");
+    expect(financial).toContain("Total trip cost");
+    expect(financial).toContain("Donations");
+    expect(financial).toContain("Balance");
+    wrapper.unmount();
+  });
+
+  it("Copy link stays on the row", async () => {
+    const writeText = vi.fn().mockResolvedValue();
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    signedUp();
+    const { wrapper } = await mountPage(MyTripView, "/my-trips/7");
+    await button(section(wrapper, "my-trip-actions"), "Copy link").trigger("click");
+    await flushPromises();
+    expect(wrapper.text()).toContain("Link copied.");
+    wrapper.unmount();
   });
 });

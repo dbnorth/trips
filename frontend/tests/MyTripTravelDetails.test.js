@@ -99,6 +99,8 @@ describe("Feature 74 — Trip Add-on Expenses", () => {
         },
       });
       await flushPromises();
+      await wrapper.get('[data-testid="my-trip-costs"] .v-expansion-panel-title').trigger("click");
+      await flushPromises();
 
       const financial = wrapper.find('[data-testid="my-trip-financial"]').text();
       expect(financial).toContain("Add-on: Travel insurance$75.00");
@@ -246,5 +248,125 @@ describe("Feature 78 — Days Before and After the Trip", () => {
 
       wrapper.unmount();
     });
+  });
+});
+
+/**
+ * Feature 139 — My Trip Page Layout
+ * Spec: features/feature-139-my-trip-page-layout.md
+ */
+describe("Feature 139 — My Trip room and flights", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+    Utils.setStore("user", { personId: 5, firstName: "Ana", lastName: "Lopez", orgRoles: [], tripRoles: [] });
+  });
+
+  const mountTrip = async (myTripInfo) => {
+    TripServices.getBrowseTrip.mockResolvedValue({
+      data: {
+        trip: {
+          id: 7,
+          orgId: 3,
+          name: "Guatemala Clinic",
+          status: "active",
+          startDate: "2026-06-10",
+          endDate: "2026-06-17",
+        },
+        rolesNeeded: [],
+        alreadyApplied: true,
+        applicationStatus: "approved",
+        tripLeaders: [],
+        myTripInfo: {
+          status: "approved",
+          workerRoleName: "Nurse",
+          donationTotal: 0,
+          nextActions: [],
+          room: null,
+          flightSegments: [],
+          costBreakdown: { totalTripCost: 1000 },
+          amountOwed: 1000,
+          ...myTripInfo,
+        },
+      },
+    });
+    const { wrapper } = await mountWithPlugins(MyTripView, {
+      props: { tripId: "7" },
+      global: {
+        stubs: {
+          VDialog: { props: ["modelValue"], template: '<div v-if="modelValue"><slot /></div>' },
+          DonorTripHeading: true,
+          ApplyTripDialog: true,
+          FlightSegmentsDialog: true,
+          ParticipantDonationsDialog: true,
+          ParticipantDonateDialog: true,
+        },
+      },
+    });
+    await flushPromises();
+    return wrapper;
+  };
+
+  it("The room is one line", async () => {
+    const wrapper = await mountTrip({
+      room: {
+        hotelName: "Hope Hotel",
+        roomType: "King",
+        roommates: ["Ada North"],
+        checkInDate: "2026-04-22",
+        checkOutDate: "2026-04-26",
+      },
+    });
+    expect(wrapper.get('[data-testid="my-trip-room"]').text()).toContain(
+      "Hope Hotel · King · Ada North · 04/22/2026 – 04/26/2026"
+    );
+    wrapper.unmount();
+  });
+
+  it("Each flight is one line", async () => {
+    const wrapper = await mountTrip({
+      flightSegments: [
+        {
+          segmentType: "arrival",
+          segmentNumber: 1,
+          airlineName: "American Airlines",
+          flightNumber: "100",
+          departureAirportCode: "OKC",
+          departureDate: "2026-04-22",
+          departureTime: "18:03",
+          arrivalAirportCode: "RIC",
+          arrivalDate: "2026-04-22",
+          arrivalTime: "21:00",
+        },
+        {
+          segmentType: "return",
+          segmentNumber: 1,
+          airlineName: "American Airlines",
+          flightNumber: "200",
+          departureAirportCode: "RIC",
+          departureDate: "2026-04-26",
+          departureTime: "19:00",
+          arrivalAirportCode: "OKC",
+          arrivalDate: "2026-04-26",
+          arrivalTime: "21:30",
+        },
+      ],
+    });
+    const flights = wrapper.get('[data-testid="my-trip-flights"]').text();
+    expect(flights).toContain("American Airlines 100 · OKC 04/22/2026 6:03 PM → RIC 04/22/2026 9:00 PM");
+    expect(flights.indexOf("Arrival")).toBeLessThan(flights.indexOf("Return"));
+    expect(wrapper.findAll("button").some((item) => item.text().trim() === "Edit Flights")).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("Empty room and flights say who fills them in", async () => {
+    const wrapper = await mountTrip({});
+    expect(wrapper.get('[data-testid="my-trip-room"]').text()).toContain(
+      "Your room will appear here after staff assign it."
+    );
+    expect(wrapper.get('[data-testid="my-trip-flights"]').text()).toContain(
+      "Your flights will appear here after staff enter them."
+    );
+    wrapper.unmount();
   });
 });

@@ -108,7 +108,7 @@ When a donation starts counting, the app can send donation emails, such as donat
 
 ## Trip arrival PDF
 
-In **Trip arrival info** on the trip page, upload a PDF (up to 10 MB) with arrival information. You can replace or remove it. Approved team members can download it with **Download Trip Arrival Document** in **Trip Info** on **My Trip**, and email templates can attach it.
+In **Trip arrival info** on the trip page, upload a PDF (up to 10 MB) with arrival information. You can replace or remove it. Approved team members can download it with **Download Trip Arrival Document** on **My Trip**, above **Trip Leaders**, and email templates can attach it.
 
 Only trip staff can see teammates' personal and medical details.
 
