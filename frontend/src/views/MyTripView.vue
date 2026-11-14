@@ -5,17 +5,17 @@ import TripServices from "../services/tripServices.js";
 import PersonServices from "../services/personServices.js";
 import AuthServices from "../services/authServices.js";
 import Utils from "../config/utils.js";
-import DonorTripHeading from "../components/DonorTripHeading.vue";
 import ApplyTripDialog from "../components/ApplyTripDialog.vue";
 import EditPersonDialog from "../components/EditPersonDialog.vue";
 import ParticipantDonationsDialog from "../components/ParticipantDonationsDialog.vue";
 import MakeDonationDialog from "../components/MakeDonationDialog.vue";
 import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import MyTripFinancialInfo from "../components/MyTripFinancialInfo.vue";
 import MyTripNextActions from "../components/MyTripNextActions.vue";
 import MyTripTravelDetails from "../components/MyTripTravelDetails.vue";
-import { formatDateRange } from "../utils/dateFormat.js";
 import { countryName } from "../utils/locationData.js";
+import { tripDateLine } from "../utils/homeTripCards.js";
 import { hasApplicationAction } from "../utils/myTripNextActions.js";
 import { donorParticipantPath } from "../utils/donateUrls.js";
 import { storeAuthenticatedUser } from "../utils/authSession.js";
@@ -114,15 +114,24 @@ const donationsParticipant = computed(() => {
 
 const canViewDonations = computed(() => !!myTripInfo.value && !!donationsParticipant.value);
 
-const tripDates = computed(
-  () => formatDateRange(trip.value?.startDate, trip.value?.endDate) || "—"
+const showMoney = computed(() =>
+  ["incomplete", "pre_approved", "approved"].includes(myTripInfo.value?.status)
 );
 
-const tripPlace = computed(() =>
-  [trip.value?.city, countryName(trip.value?.country)].filter(Boolean).join(", ")
+const canMakeDonation = computed(() =>
+  ["pre_approved", "approved"].includes(myTripInfo.value?.status)
 );
 
-const tripImageUrl = computed(() => TripServices.getImageUrl(trip.value?.image));
+const tripPlace = computed(() => {
+  const city = trip.value?.city?.trim();
+  const country = countryName(trip.value?.country);
+  if (city || country) return [city, country].filter(Boolean).join(", ");
+  return trip.value?.location?.trim() || "—";
+});
+
+const dateLine = computed(() => tripDateLine(trip.value));
+
+const approvedStatusChip = (status) => tripParticipantStatusColor(status) === "success";
 
 const load = async () => {
   loading.value = true;
@@ -259,12 +268,6 @@ onUnmounted(() => {
 
 <template>
   <v-container>
-    <div class="mb-4">
-      <v-btn variant="text" class="px-0" @click="router.push({ name: 'home' })">
-        Back to dashboard
-      </v-btn>
-    </div>
-
     <v-progress-linear v-if="loading" indeterminate class="mb-4" />
     <v-alert
       v-if="statusMessage"
@@ -278,41 +281,28 @@ onUnmounted(() => {
     </v-alert>
     <v-alert v-if="message" :type="messageType" density="compact" class="mb-4">{{ message }}</v-alert>
 
-    <DonorTripHeading :trip="trip" :show-org-website="false" :show-trip-card="false" />
-
-    <v-card v-if="trip" class="pa-4 mb-4" variant="outlined" data-testid="my-trip-trip-info">
-      <h2 class="text-h6 mb-3">Trip Info</h2>
-
-      <v-row align="start" class="mb-2">
-        <v-col cols="12" md>
-          <div class="text-h4 font-weight-bold mb-1" data-testid="my-trip-trip-name">{{ trip.name }}</div>
-          <div v-if="tripPlace" class="text-subtitle-1 text-medium-emphasis mb-2">{{ tripPlace }}</div>
-          <div v-if="trip.description" class="text-body-1">{{ trip.description }}</div>
-        </v-col>
-        <v-col v-if="tripImageUrl" cols="12" md="auto">
-          <img :src="tripImageUrl" :alt="trip.name" class="my-trip__image rounded" />
-        </v-col>
-      </v-row>
-
-      <v-row dense class="mb-4">
-        <v-col cols="12" sm="6" md="4">
-          <div class="text-caption text-medium-emphasis">Location</div>
-          <div>{{ trip.location || "—" }}</div>
-        </v-col>
-        <v-col cols="12" sm="6" md="4">
-          <div class="text-caption text-medium-emphasis">Dates</div>
-          <div data-testid="my-trip-trip-dates">{{ tripDates }}</div>
-        </v-col>
-        <v-col cols="12" sm="6" md="4">
-          <div class="text-caption text-medium-emphasis">Status</div>
-          <div>{{ trip.status }}</div>
-        </v-col>
-      </v-row>
-
-      <div v-if="myTripInfo?.hasArrivalPdf" class="mb-4" data-testid="my-trip-arrival-download">
+    <v-card v-if="myTripInfo" class="pa-4 mb-4" variant="outlined" data-testid="my-trip-summary">
+      <div class="d-flex align-start justify-space-between flex-wrap ga-2">
+        <div>
+          <div class="my-trip__name font-weight-bold mb-1" data-testid="my-trip-trip-name">{{ trip?.name }}</div>
+          <div data-testid="my-trip-place">{{ tripPlace }}</div>
+          <div data-testid="my-trip-role">Role: {{ myTripInfo.workerRoleName || "—" }}</div>
+          <div v-if="dateLine" data-testid="my-trip-date-line">{{ dateLine }}</div>
+        </div>
+        <v-chip
+          size="small"
+          :variant="approvedStatusChip(myTripInfo.status) ? 'flat' : 'tonal'"
+          :color="approvedStatusChip(myTripInfo.status) ? undefined : tripParticipantStatusColor(myTripInfo.status)"
+          :style="approvedStatusChip(myTripInfo.status) ? { backgroundColor: '#2e7d32', color: '#fff' } : undefined"
+          data-testid="my-trip-status"
+        >
+          {{ tripParticipantStatusLabel(myTripInfo.status) }}
+        </v-chip>
+      </div>
+      <div v-if="myTripInfo?.hasArrivalPdf" class="mt-3" data-testid="my-trip-arrival-download">
         <v-btn
           color="primary"
-          variant="tonal"
+          variant="flat"
           prepend-icon="mdi-download"
           :loading="downloadingArrivalPdf"
           @click="downloadArrivalPdf"
@@ -321,64 +311,25 @@ onUnmounted(() => {
         </v-btn>
         <v-alert v-if="arrivalPdfError" type="error" density="compact" class="mt-2">{{ arrivalPdfError }}</v-alert>
       </div>
-
-      <h3 class="text-subtitle-1 font-weight-bold mb-3">Trip Leaders</h3>
+      <h3 class="text-subtitle-1 font-weight-bold mt-4 mb-3">Trip Leaders</h3>
       <div v-if="!tripLeaders.length" data-testid="no-trip-leaders">No Trip Leader assigned</div>
       <div v-else class="d-flex flex-column ga-4">
-        <div
-          v-for="leader in tripLeaders"
-          :key="leader.id"
-          class="d-flex align-center ga-3"
-        >
+        <div v-for="leader in tripLeaders" :key="leader.id" class="d-flex align-center ga-3">
           <v-avatar size="56" rounded="lg" color="primary">
-            <v-img
-              v-if="leaderPictureUrl(leader)"
-              :src="leaderPictureUrl(leader)"
-              :alt="leader.name"
-              cover
-            />
+            <v-img v-if="leaderPictureUrl(leader)" :src="leaderPictureUrl(leader)" :alt="leader.name" cover />
             <span v-else class="text-body-2 font-weight-medium">{{ leaderInitials(leader) }}</span>
           </v-avatar>
           <div>
             <div class="font-weight-medium">{{ leader.name }}</div>
-            <a
-              v-if="leader.email"
-              :href="`mailto:${leader.email}`"
-              class="text-body-2"
-            >
-              {{ leader.email }}
-            </a>
+            <a v-if="leader.email" :href="`mailto:${leader.email}`" class="text-body-2">{{ leader.email }}</a>
             <div v-else class="text-body-2 text-medium-emphasis">No email on file</div>
           </div>
         </div>
       </div>
-    </v-card>
-
-    <v-card v-if="myTripInfo" class="pa-4 mb-4" variant="outlined">
-      <div class="d-flex align-center justify-space-between flex-wrap ga-2 mb-3">
-        <div class="d-flex align-baseline flex-wrap ga-2">
-          <h2 class="text-h6 mb-0">My Trip Info</h2>
-          <template v-if="fundraisingPath">
-            <a :href="fundraisingPath" target="_blank" rel="noopener" class="text-body-1 ml-4">
-              My fundraising page
-            </a>
-            <v-btn size="small" variant="text" @click="copyFundraisingLink">Copy link</v-btn>
-          </template>
-        </div>
-        <div class="d-flex flex-wrap ga-2">
-          <v-btn
-            v-if="showHeaderUpdateApp"
-            color="primary"
-            variant="tonal"
-            @click="openUpdateApplication"
-          >
-            Update App
-          </v-btn>
-        </div>
-      </div>
+      <MyTripTravelDetails v-if="myTripInfo" :info="myTripInfo" part="dates" />
       <MyTripNextActions
         v-if="shownNextActions.length"
-        class="mb-3"
+        class="mt-3"
         :actions="shownNextActions"
         :role-not-secured="roleNotSecured"
         @update="openUpdateApplication"
@@ -386,30 +337,30 @@ onUnmounted(() => {
         @flights="showFlightsDialog = true"
         @documents="showProfileDialog = true"
       />
-      <v-row dense>
-        <v-col cols="12" sm="6" md="3">
-          <div class="text-caption text-medium-emphasis">Status</div>
-          <v-chip
-            size="small"
-            variant="tonal"
-            class="mt-1"
-            :color="tripParticipantStatusColor(myTripInfo.status)"
-          >
-            {{ tripParticipantStatusLabel(myTripInfo.status) }}
-          </v-chip>
-        </v-col>
-        <v-col cols="12" sm="6" md="3">
-          <div class="text-caption text-medium-emphasis">Role</div>
-          <div>{{ myTripInfo.workerRoleName || "—" }}</div>
-        </v-col>
-      </v-row>
+      <h3 v-if="showMoney" class="text-subtitle-1 font-weight-bold mt-4 mb-3">Trip Funding</h3>
+      <a v-if="fundraisingPath" :href="fundraisingPath" target="_blank" rel="noopener" class="d-inline-block">
+        My fundraising page
+      </a>
+      <div class="d-flex align-center flex-wrap ga-2 mt-3" data-testid="my-trip-actions">
+        <v-btn v-if="showHeaderUpdateApp" size="small" color="primary" variant="flat" @click="openUpdateApplication">
+          Update App
+        </v-btn>
+        <v-btn v-if="showMoney && canMakeDonation" size="small" color="primary" variant="flat" @click="showDonateDialog = true">
+          Make Donation
+        </v-btn>
+        <v-btn v-if="showMoney && canViewDonations" size="small" color="primary" variant="flat" @click="openDonations">
+          View donations
+        </v-btn>
+        <v-btn v-if="fundraisingPath" size="small" color="primary" variant="flat" @click="copyFundraisingLink">
+          Copy link
+        </v-btn>
+      </div>
+      <MyTripFinancialInfo v-if="showMoney" :info="myTripInfo" :deposit="trip?.deposit ?? null" />
       <MyTripTravelDetails
+        v-if="myTripInfo"
         :info="myTripInfo"
-        :trip="trip"
-        :can-view-donations="canViewDonations"
+        part="logistics"
         @edit-flights="showFlightsDialog = true"
-        @view-donations="openDonations"
-        @make-donation="showDonateDialog = true"
       />
     </v-card>
 
@@ -461,11 +412,9 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.my-trip__image {
-  display: block;
-  height: 7.5rem;
-  width: auto;
-  max-width: 100%;
-  object-fit: cover;
+.my-trip__name {
+  font-size: calc(2.8125rem * 0.82);
+  line-height: 1.15;
 }
 </style>
+

@@ -86,7 +86,7 @@ const mountHome = async (browseTrips) => {
 };
 
 const tripRow = (wrapper, name) =>
-  wrapper.findAll("tr").find((tr) => tr.find("td").exists() && tr.find("td").text() === name);
+  wrapper.findAll('[data-testid="available-trip-card"]').find((card) => card.text().includes(name));
 
 const buttonTexts = (row) => row.findAll("button").map((b) => b.text().trim() || b.attributes("aria-label"));
 
@@ -117,25 +117,25 @@ describe("Feature 95 — US-95.1 Visitors see how many positions are open before
     expect(open.find('[data-testid="role-availability"]').text()).toBe(
       "6 positions available (2 reserved, 4 open)"
     );
-    expect(buttonTexts(open)).toEqual(["View", "Apply"]);
+    expect(buttonTexts(open)).toEqual(["Apply"]);
 
     const reservedOnly = tripRow(wrapper, "Honduras Clinic");
     expect(reservedOnly.find('[data-testid="role-availability"]').text()).toBe(
       "2 positions available (2 reserved)"
     );
-    expect(buttonTexts(reservedOnly)).toEqual(["View"]);
+    expect(buttonTexts(reservedOnly)).toEqual([]);
 
     const full = tripRow(wrapper, "Peru Clinic");
     expect(full.find('[data-testid="role-availability"]').text()).toBe("No roles available");
-    expect(buttonTexts(full)).toEqual(["View"]);
+    expect(buttonTexts(full)).toEqual([]);
 
     const reservedForBen = tripRow(wrapper, "Haiti Clinic");
     expect(reservedForBen.find('[data-testid="role-availability"]').text()).toBe(
       "2 positions available (2 reserved)"
     );
-    expect(buttonTexts(reservedForBen)).toEqual(["View", "Apply for Reserved"]);
+    expect(buttonTexts(reservedForBen)).toEqual(["Apply for Reserved"]);
 
-    await open.find('button[aria-label="Apply"]').trigger("click");
+    await open.findAll("button").find((item) => item.text().trim() === "Apply").trigger("click");
     await flushPromises();
     const apply = wrapper.findComponent({ name: "ApplyTripDialog" });
     expect(apply.props("modelValue")).toBe(true);

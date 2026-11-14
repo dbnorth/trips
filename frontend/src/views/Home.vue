@@ -15,16 +15,15 @@ import ConfirmDialog from "../components/ConfirmDialog.vue";
 import ParticipantDonateDialog from "../components/ParticipantDonateDialog.vue";
 import FlightSegmentsDialog from "../components/FlightSegmentsDialog.vue";
 import MyTripNextActions from "../components/MyTripNextActions.vue";
-import { hasApplicationAction } from "../utils/myTripNextActions.js";
+import { hasApplicationAction, nextActionsTone } from "../utils/myTripNextActions.js";
 import { roleAvailabilityText, myApplyButtonLabel } from "../utils/roleAvailability.js";
-import {
-  isProfileComplete,
-} from "../utils/personProfile.js";
+import { getMissingProfileFields, isProfileComplete } from "../utils/personProfile.js";
+import { homeCardLines, sortAvailableTrips, sortMyTrips, tripDateLine } from "../utils/homeTripCards.js";
 import { tripParticipantStatusLabel, tripParticipantStatusColor } from "../utils/tripParticipantStatus.js";
 import { orgPublicRoute } from "../utils/donateUrls.js";
 import { useRouter } from "vue-router";
 import RowAction from "../components/RowAction.vue";
-import { formatDate as formatDateText } from "../utils/dateFormat.js";
+import { formatDate as formatDateText, formatDateRange } from "../utils/dateFormat.js";
 
 const router = useRouter();
 const user = ref(null);
@@ -73,12 +72,14 @@ const isFutureOrCurrentStart = (trip) => {
 
 const displayMyTrips = computed(() => {
   const list = myTrips.value || [];
-  if (showAllMyTrips.value) return list;
-  return list.filter(isFutureOrCurrentStart);
+  const visible = showAllMyTrips.value ? list : list.filter(isFutureOrCurrentStart);
+  return sortMyTrips(visible);
 });
 
 const availableTrips = computed(() =>
-  (browseTrips.value || []).filter((trip) => !trip.alreadyApplied && isFutureOrCurrentStart(trip))
+  sortAvailableTrips(
+    (browseTrips.value || []).filter((trip) => !trip.alreadyApplied && isFutureOrCurrentStart(trip))
+  )
 );
 
 const effectiveOrgId = computed(() => Utils.effectiveOrgId(user.value));
@@ -178,6 +179,8 @@ const showProfileSection = computed(() => Utils.showParticipantOrPendingProfile(
 // Any non-admin signed-in user can browse/apply to active trips.
 const showTripBrowseSection = computed(() => Utils.canBrowseAndApplyToTrips(user.value));
 
+const missingProfileFields = computed(() => getMissingProfileFields(person.value));
+
 const profileComplete = computed(() => isProfileComplete(person.value));
 
 const browseOrgItems = computed(() =>
@@ -259,9 +262,7 @@ const onBrowseOrgChange = () => {
   loadBrowseTrips();
 };
 
-const viewBrowseTrip = (trip) => {
-  router.push({ name: "tripBrowse", params: { tripId: trip.id } });
-};
+const tripImageUrl = (trip) => TripServices.getImageUrl?.(trip?.image) || null;
 
 const viewMyTrip = (trip) => {
   router.push({ name: "myTrip", params: { tripId: trip.id } });
@@ -280,17 +281,18 @@ const canUpdateApplication = (trip) =>
 
 const applicationActionLabel = (trip) =>
   trip?.applicationStatus === "cancelled" || trip?.applicationStatus === "approved"
-    ? "Manage App"
+    ? "View App"
     : "Update App";
 
-const applicationActionIcon = (trip) =>
-  applicationActionLabel(trip) === "Manage App" ? "mdi-file-cog-outline" : "mdi-file-edit-outline";
+const nextStepHasUpdateApp = (trip) => hasApplicationAction(trip?.nextActions);
+
+const cardTone = (trip) => (trip?.nextActions?.length ? nextActionsTone(trip.nextActions) : "");
+
+const approvedStatusChip = (status) => tripParticipantStatusColor(status) === "success";
 
 const openUpdateApplication = (trip) => {
   openApplyDialog(trip);
 };
-
-const hasCompleteApplicationAction = (trip) => hasApplicationAction(trip?.nextActions);
 
 const showDonateDialog = ref(false);
 const donateTripId = ref(null);
@@ -619,7 +621,13 @@ onUnmounted(() => {
           class="mb-6"
         >
           <div class="d-flex align-center justify-space-between flex-wrap ga-3">
-            <span>Please update your profile to continue.</span>
+            <div>
+              <div>Please update your profile to continue.</div>
+              <div class="mt-2">Missing:</div>
+              <ul class="pl-6" data-testid="missing-profile-fields">
+                <li v-for="item in missingProfileFields" :key="item">{{ item }}</li>
+              </ul>
+            </div>
             <v-btn color="primary" size="small" @click="showProfileDialog = true">
               Update profile
             </v-btn>
@@ -659,15 +667,8 @@ onUnmounted(() => {
         </div>
 
         <v-card v-if="showTripBrowseSection" class="mb-6 pa-4">
-          <h2 class="text-h6 mb-3">Trips</h2>
-          <h3
-            v-if="browseOrgItems.length === 1"
-            class="text-subtitle-1 font-weight-bold mb-4"
-          >
-            {{ browseOrgItems[0].title }}
-          </h3>
           <v-select
-            v-else-if="browseOrgItems.length > 1"
+            v-if="browseOrgItems.length > 1"
             v-model="browseOrgId"
             :items="browseOrgItems"
             label="Organization"
@@ -714,91 +715,84 @@ onUnmounted(() => {
                   : "You have no upcoming trips. Check “Show all my trips” to include past trips."
               }}
             </v-alert>
-            <v-table v-else density="compact" class="trip-table mb-6">
-              <colgroup>
-                <col class="trip-table__name" />
-                <col class="trip-table__location" />
-                <col class="trip-table__date" />
-                <col class="trip-table__date" />
-                <col class="trip-table__status" />
-                <col class="trip-table__actions" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Location</th>
-                  <th>Start</th>
-                  <th>End</th>
-                  <th>Status</th>
-                  <th class="text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template v-for="item in displayMyTrips" :key="`my-${item.id}`">
-                <tr>
-                  <td>
+            <div v-else class="d-flex flex-column ga-3 mb-6">
+              <v-card
+                v-for="item in displayMyTrips"
+                :key="`my-${item.id}`"
+                variant="outlined"
+                class="home-trip-card pa-4"
+                :class="cardTone(item) ? `home-trip-card--${cardTone(item)}` : ''"
+                data-testid="my-trip-card"
+              >
+                <div class="d-flex align-start justify-space-between flex-wrap ga-2">
+                  <div>
                     <router-link
                       :to="{ name: 'myTrip', params: { tripId: item.id } }"
-                      class="font-weight-bold"
+                      class="home-trip-card__name font-weight-bold"
                       data-testid="my-trip-name-link"
                     >
                       {{ item.name }}
                     </router-link>
-                  </td>
-                  <td>{{ item.location || "—" }}</td>
-                  <td>{{ formatDate(item.startDate) }}</td>
-                  <td>{{ formatDate(item.endDate) }}</td>
-                  <td>
-                    <v-chip
-                      size="small"
-                      variant="tonal"
-                      :color="tripParticipantStatusColor(item.applicationStatus)"
-                    >
-                      {{ tripParticipantStatusLabel(item.applicationStatus) }}
-                    </v-chip>
-                  </td>
-                  <td class="text-right">
-                    <div class="d-flex justify-end ga-1 flex-nowrap">
-                      <RowAction icon="mdi-eye" label="View" @click="viewMyTrip(item)" />
-                      <RowAction
-                        v-if="canUpdateApplication(item) && !hasCompleteApplicationAction(item)"
-                        :icon="applicationActionIcon(item)"
-                        :label="applicationActionLabel(item)"
-                        color="primary"
-                        @click="openUpdateApplication(item)"
-                      />
-                      <RowAction
-                        v-if="canCancelApplication(item) && !hasCompleteApplicationAction(item)"
-                        icon="mdi-cancel"
-                        label="Cancel App"
-                        color="error"
-                        @click="requestCancelApplication(item)"
-                      />
-                      <RowAction
-                        v-if="canUncancelApplication(item)"
-                        icon="mdi-restore"
-                        label="Uncancel"
-                        color="primary"
-                        @click="requestUncancelApplication(item)"
-                      />
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="item.nextActions?.length" data-testid="next-actions">
-                  <td colspan="6" class="pa-0">
-                    <MyTripNextActions
-                      :actions="item.nextActions"
-                      @update="openUpdateApplication(item)"
-                      @cancel="requestCancelApplication(item)"
-                      @donate="openDonate(item)"
-                      @flights="openEnterFlights(item)"
-                      @documents="showProfileDialog = true"
-                    />
-                  </td>
-                </tr>
-                </template>
-              </tbody>
-            </v-table>
+                    <div>{{ item.location || "—" }}</div>
+                    <div data-testid="my-trip-role">Role: {{ item.workerRoleName || "—" }}</div>
+                    <div v-if="tripDateLine(item)">{{ tripDateLine(item) }}</div>
+                  </div>
+                  <v-chip
+                    size="small"
+                    :variant="approvedStatusChip(item.applicationStatus) ? 'flat' : 'tonal'"
+                    :color="approvedStatusChip(item.applicationStatus) ? undefined : tripParticipantStatusColor(item.applicationStatus)"
+                    :style="approvedStatusChip(item.applicationStatus) ? { backgroundColor: '#2e7d32', color: '#fff' } : undefined"
+                    data-testid="my-trip-status"
+                  >
+                    {{ tripParticipantStatusLabel(item.applicationStatus) }}
+                  </v-chip>
+                </div>
+                <MyTripNextActions
+                  v-if="item.nextActions?.length"
+                  class="mt-3"
+                  :actions="item.nextActions"
+                  hide-cancel
+                  @update="openUpdateApplication(item)"
+                  @cancel="requestCancelApplication(item)"
+                  @donate="openDonate(item)"
+                  @flights="openEnterFlights(item)"
+                  @documents="showProfileDialog = true"
+                />
+                <div v-if="homeCardLines(item).length" class="mt-2" data-testid="home-card-lines">
+                  <div v-for="line in homeCardLines(item)" :key="line">{{ line }}</div>
+                </div>
+                <div class="d-flex align-center flex-wrap ga-2 mt-3">
+                  <v-btn size="small" color="primary" variant="tonal" @click="viewMyTrip(item)">Open My Trip</v-btn>
+                  <v-btn
+                    v-if="canUncancelApplication(item)"
+                    size="small"
+                    color="primary"
+                    variant="tonal"
+                    @click="requestUncancelApplication(item)"
+                  >
+                    Uncancel
+                  </v-btn>
+                  <v-btn
+                    v-if="canUpdateApplication(item) && !nextStepHasUpdateApp(item)"
+                    size="small"
+                    color="primary"
+                    variant="tonal"
+                    @click="openUpdateApplication(item)"
+                  >
+                    {{ applicationActionLabel(item) }}
+                  </v-btn>
+                  <v-btn
+                    v-if="canCancelApplication(item)"
+                    size="small"
+                    color="error"
+                    variant="tonal"
+                    @click="requestCancelApplication(item)"
+                  >
+                    Cancel App
+                  </v-btn>
+                </div>
+              </v-card>
+            </div>
 
             <h3 class="text-subtitle-1 font-weight-bold mb-2">Trips you can apply for</h3>
             <v-alert
@@ -809,28 +803,23 @@ onUnmounted(() => {
             >
               No upcoming trips available to apply for in this organization.
             </v-alert>
-            <v-table v-else density="compact" class="trip-table">
-              <colgroup>
-                <col class="trip-table__name" />
-                <col class="trip-table__location" />
-                <col class="trip-table__date" />
-                <col class="trip-table__date" />
-                <col class="trip-table__status" />
-                <col class="trip-table__actions" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Location</th>
-                  <th>Start</th>
-                  <th>End</th>
-                  <th>Status</th>
-                  <th class="text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in availableTrips" :key="`avail-${item.id}`">
-                  <td>
+            <div v-else class="d-flex flex-column ga-3">
+              <v-card
+                v-for="item in availableTrips"
+                :key="`avail-${item.id}`"
+                :variant="myApplyButtonLabel(item.roleAvailability, item.myReservedTripWorkerRoleId) ? 'elevated' : 'outlined'"
+                class="pa-4"
+                data-testid="available-trip-card"
+              >
+                <div class="d-flex flex-wrap ga-3">
+                  <img
+                    v-if="tripImageUrl(item)"
+                    :src="tripImageUrl(item)"
+                    :alt="item.name"
+                    class="home-apply-card__image rounded"
+                    data-testid="available-trip-image"
+                  />
+                  <div>
                     <router-link
                       :to="{ name: 'tripBrowse', params: { tripId: item.id } }"
                       class="font-weight-bold"
@@ -838,26 +827,22 @@ onUnmounted(() => {
                     >
                       {{ item.name }}
                     </router-link>
-                  </td>
-                  <td>{{ item.location || "—" }}</td>
-                  <td>{{ formatDate(item.startDate) }}</td>
-                  <td>{{ formatDate(item.endDate) }}</td>
-                  <td data-testid="role-availability">{{ roleAvailabilityText(item.roleAvailability) }}</td>
-                  <td class="text-right">
-                    <div class="d-flex justify-end ga-1 flex-nowrap">
-                      <RowAction icon="mdi-eye" label="View" @click="viewBrowseTrip(item)" />
-                      <RowAction
-                        v-if="myApplyButtonLabel(item.roleAvailability, item.myReservedTripWorkerRoleId)"
-                        icon="mdi-file-send-outline"
-                        :label="myApplyButtonLabel(item.roleAvailability, item.myReservedTripWorkerRoleId)"
-                        color="primary"
-                        @click="openApplyDialog(item)"
-                      />
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </v-table>
+                    <div>{{ item.location || "—" }}</div>
+                    <div v-if="formatDateRange(item.startDate, item.endDate)">{{ formatDateRange(item.startDate, item.endDate) }}</div>
+                    <div data-testid="role-availability">{{ roleAvailabilityText(item.roleAvailability) }}</div>
+                    <v-btn
+                      v-if="myApplyButtonLabel(item.roleAvailability, item.myReservedTripWorkerRoleId)"
+                      class="mt-2"
+                      size="small"
+                      color="primary"
+                      @click="openApplyDialog(item)"
+                    >
+                      {{ myApplyButtonLabel(item.roleAvailability, item.myReservedTripWorkerRoleId) }}
+                    </v-btn>
+                  </div>
+                </div>
+              </v-card>
+            </div>
           </template>
         </v-card>
 
@@ -1086,28 +1071,27 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.trip-table :deep(table) {
-  table-layout: fixed;
-  width: 100%;
+.home-trip-card--needed {
+  border-left: 4px solid #fbc02d;
 }
 
-.trip-table__name {
-  width: 24%;
+.home-trip-card--waiting {
+  border-left: 4px solid #fb8c00;
 }
 
-.trip-table__location {
-  width: 20%;
+.home-trip-card--ready {
+  border-left: 4px solid #43a047;
 }
 
-.trip-table__date {
-  width: 12%;
+.home-trip-card__name {
+  font-size: calc(2.25rem * 0.75);
+  line-height: 1.25;
+  color: rgb(var(--v-theme-primary));
 }
 
-.trip-table__status {
-  width: 14%;
-}
-
-.trip-table__actions {
-  width: 18%;
+.home-apply-card__image {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
 }
 </style>

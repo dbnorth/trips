@@ -7,6 +7,7 @@ import { TRIP_INFO_ROLE_NOT_SECURED } from "../utils/applicationRoleHold.js";
 const props = defineProps({
   actions: { type: Array, default: () => [] },
   roleNotSecured: { type: Boolean, default: false },
+  hideCancel: { type: Boolean, default: false },
 });
 
 defineEmits(["update", "cancel", "donate", "flights", "documents"]);
@@ -29,7 +30,7 @@ const tone = computed(() => nextActionsTone(props.actions));
           <v-btn size="small" color="primary" @click="$emit('update')">
             {{ action.code === "submit-application" ? "Submit App" : "Update App" }}
           </v-btn>
-          <v-btn size="small" color="error" variant="tonal" @click="$emit('cancel')">
+          <v-btn v-if="!hideCancel" size="small" color="error" variant="tonal" @click="$emit('cancel')">
             Cancel App
           </v-btn>
         </template>

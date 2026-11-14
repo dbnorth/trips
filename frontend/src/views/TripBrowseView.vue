@@ -4,7 +4,6 @@ import { useRouter } from "vue-router";
 import TripServices from "../services/tripServices.js";
 import PersonServices from "../services/personServices.js";
 import AuthServices from "../services/authServices.js";
-import DonorTripHeading from "../components/DonorTripHeading.vue";
 import ApplyTripDialog from "../components/ApplyTripDialog.vue";
 import { formatMoneyDisplay } from "../utils/moneyUtils.js";
 import { noSpotMessage } from "../utils/roleAvailability.js";
@@ -121,8 +120,6 @@ onUnmounted(() => {
 
     <v-progress-linear v-if="loading" indeterminate class="mb-4" />
     <v-alert v-if="message" :type="messageType" density="compact" class="mb-4">{{ message }}</v-alert>
-
-    <DonorTripHeading :trip="trip" :show-org-website="false" />
 
     <v-card v-if="showApplyInvite" class="pa-4 pa-sm-6 mb-4" color="primary" variant="tonal">
       <h2 class="text-h6 font-weight-bold mb-1">

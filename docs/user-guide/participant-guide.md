@@ -11,7 +11,7 @@ This guide is for people going on a trip. The first part walks through the steps
 5. **Get approved.** Trip staff review your documents and approve your application.
 6. **Pay and prepare.** Make your deposit, raise or donate the rest. Staff enter your flights.
 
-Home's **My Trips** list always shows your next step for each trip.
+Home's **My Trips** cards always show your next step for each trip.
 
 ## Your profile
 
@@ -142,23 +142,27 @@ The organization can email you when your application is started, submitted, or a
 
 ## Home (Dashboard)
 
-Home greets you with "Welcome, *first name*!". If your profile is missing anything, a warning says "Please update your profile to continue." with an **Update profile** button.
+Home greets you with "Welcome, *first name*!". If your profile is missing anything, a warning says "Please update your profile to continue." It lists the missing items under **Missing:** and has an **Update profile** button.
 
-The **Trips** card shows one organization at a time. If you belong to several, choose one in its **Organization** list.
+If you belong to several organizations, choose one in the **Organization** list. Home then shows that organization's trips.
 
 ### My Trips
 
-Your applications in this organization. Declined applications aren't listed.
+Your applications in this organization, one card each. Declined applications aren't listed. Upcoming trips come first, soonest first. Past trips follow when you include them.
 
 - **Show all my trips** — unticked shows only trips starting today or later. Tick it to include past trips.
 
-| Column | Shows |
-|--------|-------|
-| **Name** | The trip name. Click it to open **My Trip**. |
-| **Location** | Where the trip goes. |
-| **Start** / **End** | The trip dates. |
+Each card shows:
+
+| Item | Shows |
+|------|-------|
+| **Name** | The trip name. Click it, or **Open My Trip**, to open **My Trip**. |
+| Location | Where the trip goes. |
+| **Role** | Your trip role, the same name as **Role** on **My Trip**. "—" when you have no role yet. |
+| Dates | The start and end, then "N days away", "1 day away", "Starts today", "In progress", or "Ended". |
 | **Status** | Your application status (see below). |
-| **Actions** | The row actions below. |
+| Next step | The message and button for what to do next. |
+| Progress | On a Pre-Approved or Approved trip, when the next step does not already say it: how much you have raised of the total, how many documents are uploaded, and, when you are Approved, "Departs *airport* *date* *time*." for your first flight out. |
 
 **Status values:**
 
@@ -166,31 +170,29 @@ Your applications in this organization. Declined applications aren't listed.
 |--------|-------|---------|
 | **Incomplete** | Orange | Saved, but something on your profile or application is still missing. |
 | **Pre-Approved** | Blue | Profile and application are complete. You hold a place while staff review your documents. |
-| **Approved** | Green | You're on the team. |
+| **Approved** | Dark green, white text | You're on the team. |
 | **Declined** | Red | Staff didn't accept the application. |
 | **Cancelled** | Red | You or staff cancelled it. The role spot is freed. |
 
-**Row actions:**
+**Card actions:**
 
 | Action | When it shows | What it does |
 |--------|---------------|--------------|
-| **View** (eye) | Always | Opens **My Trip**. |
-| **Update App** | Incomplete or Pre-Approved | Opens your application to edit. |
-| **Manage App** | Approved or Cancelled | Opens your application (read-only when Approved except **Why go** and **Save Why go**, with **Cancel**; with **Uncancel** when Cancelled). |
-| **Cancel App** (red) | Incomplete, Pre-Approved, or Approved | Asks "Cancel this application? Your role slot will be freed." Choose **Cancel App** to confirm or **No** to back out. |
+| **Open My Trip** | Always | Opens **My Trip**. |
 | **Uncancel** | Cancelled | Asks "Uncancel this application? It will return to incomplete or pre-approved based on completeness." |
-
-**Update App**/**Manage App** and **Cancel App** are hidden when the same buttons already show in the trip's next steps row.
+| **Update App** | Incomplete or Pre-Approved, and that button is not already on the next step | Opens your application to edit. |
+| **View App** | Approved or Cancelled | Opens your application (read-only when Approved except **Why go** and **Save Why go**, with **Cancel**; with **Uncancel** when Cancelled). |
+| **Cancel App** | Incomplete, Pre-Approved, or Approved | Asks "Cancel this application? Your role slot will be freed." Choose **Cancel App** to confirm or **No** to back out. |
 
 ### Next steps
 
-Under each upcoming trip, a colored row shows what to do next. Next steps stop showing once the trip has started.
+On each upcoming trip card, a colored bar shows what to do next: yellow when you need to act, orange while you're waiting on staff, and green when you're all set. Next steps stop showing once the trip has started. **Cancel App** is on the button row with **Open My Trip**, not beside the message.
 
 | Message | When | Buttons |
 |---------|------|---------|
-| "Complete missing information on your application / profile / application and profile so you can submit your application." | Incomplete, and something is missing | **Update App**, **Cancel App** |
-| "Submit your application." | Incomplete, and everything is filled in | **Submit App**, **Cancel App** |
-| "Documents are missing and must be uploaded 90 days before departure (*date*). Missing: …" | Pre-Approved, and a trip document is missing or not good for the trip | **Update Documents** (opens your profile), **Update App**, **Cancel App** |
+| "Complete missing information on your application / profile / application and profile so you can submit your application." | Incomplete, and something is missing | **Update App** |
+| "Submit your application." | Incomplete, and everything is filled in | **Submit App** |
+| "Documents are missing and must be uploaded 90 days before departure (*date*). Missing: …" | Pre-Approved, and a trip document is missing or not good for the trip | **Update Documents** (opens your profile), **Update App** |
 | "Waiting on approval." (orange) | Pre-Approved, and documents are complete | — |
 | "Make your deposit: $*raised* raised of $*deposit*." | Pre-Approved or Approved, and the trip has a deposit you haven't reached | **Donate** |
 | "Make a donation: $*amount* still owed." | Pre-Approved or Approved, deposit reached, and a balance remains | **Donate** |
@@ -199,25 +201,26 @@ Under each upcoming trip, a colored row shows what to do next. Next steps stop s
 | "Your return flight leaves *date*, but you are planned to depart *date*." | Approved, and your return flight is on a different day | — |
 | "You are all ready for the trip." (green) | Approved, and nothing else is needed | — |
 
-On **My Trip**, the deposit and donation steps are hidden; use **Make Donation** in **Trip financial info** there instead.
+On **My Trip**, the deposit and donation steps are hidden; use **Make Donation** on that page instead.
 
 ### Trips you can apply for
 
-Active trips in this organization that start today or later and that you haven't applied to.
+Active trips in this organization that start today or later and that you haven't applied to. Each trip is a card. Trips you can apply for come first, soonest first. Trips with no open role follow.
 
-| Column | Shows |
-|--------|-------|
+| Item | Shows |
+|------|-------|
+| Picture | The trip picture, when the trip has one. |
 | **Name** | The trip name. Click it to open the trip page. |
-| **Location**, **Start**, **End** | Where and when. |
-| **Status** | Role availability, for example "6 positions available (2 reserved, 4 open)", or "No roles available". |
-| **Actions** | **View** (eye) opens the trip page. **Apply** opens the application when there are open spots. **Apply for Reserved** shows when a spot is reserved for you. |
+| Location and dates | Where and when. |
+| Availability | For example "6 positions available (2 reserved, 4 open)", or "No roles available". |
+| **Apply** | Opens the application when there are open spots. **Apply for Reserved** shows when a spot is reserved for you. |
 
 ## Trip page (before you apply)
 
-Opened from **View** in **Trips you can apply for**. Once you've applied, opening it takes you to **My Trip** instead.
+Opened from the trip name in **Trips you can apply for**. Once you've applied, opening it takes you to **My Trip** instead.
 
 - **Back to dashboard** returns Home.
-- The organization's logo and name, then the trip card: name, city and country, dates, description, and picture.
+- The trip card: name, city and country, dates, description, and picture.
 - "Thanks for your interest in applying for *trip name*!" with **Apply for this trip**, which opens the application. You can save an incomplete application and finish it later.
 - **Trip Info**: **Location**, **Participant cost** (the trip's base cost), **Status** (`active` for trips open to applicants), and **Trip Leaders** (photo, name, and email; "No Trip Leader assigned" if none).
 - **Team roles needed**: a table of the trip's roles.
@@ -355,9 +358,9 @@ The questions scroll. The box above, and the warning or notice, stay with the bu
 
 ## My Trip
 
-Opened from **View** on a trip in **My Trips**.
+Opened from **Open My Trip**, or the trip name, on a trip in **My Trips**.
 
-At the top, a message shows where you stand:
+A message shows where you stand:
 
 | Status | Message |
 |--------|---------|
@@ -368,54 +371,47 @@ At the top, a message shows where you stand:
 | Declined | "Your application was not approved for this trip." |
 | Cancelled | "Your application has been cancelled." |
 
-### Trip Info
-
-The trip name, city and country, description, picture, **Location**, **Dates**, **Status** (the trip's status, such as `active`), and **Trip Leaders** with their email addresses.
+A summary of your trip shows the trip name, the place (city and country, or the location), **Role**, and the dates with how soon the trip is ("160 days away", "1 day away", "Starts today", "In progress", or "Ended"). Your application status is in the upper right, with the same colors as on Home: **Approved** is dark green with white text, **Pre-Approved** is blue, **Incomplete** is orange, and **Declined** and **Cancelled** are red. **Trip Leaders** follow. The trip name is shown once. The trip's own status is not shown.
 
 | Item | Shows |
 |------|-------|
-| **Download Trip Arrival Document** | Saves the trip's arrival information PDF to your device as "Trip Arrival - *trip name*.pdf". Shown above **Trip Leaders** once you're Approved and staff have added it. If it fails you see "Unable to download the Trip Arrival Document." |
-
-### My Trip Info
-
-| Item | Shows |
-|------|-------|
-| **My fundraising page** and **Copy link** | Your public donation page, and a button that copies its address to share. Shown when you're Pre-Approved or Approved and the trip is active. |
+| **My fundraising page** | Your public donation page. Shown when you're Pre-Approved or Approved and the trip is active. |
 | **Update App** | Opens your application. Shown when you're Incomplete or Pre-Approved and no next step already offers it. |
-| Next steps | The same messages as on Home, without the deposit and donation steps. When the message is "Complete missing information on your application and profile so you can submit your application.", the next line is "You do not have a role secured on this trip. Complete the application and profile required fields and submit the application." |
-| **Status** | Your application status. |
-| **Role** | Your trip role. |
+| **Make Donation** | Pays your own trip with Stripe. Shown when you're Pre-Approved or Approved. |
+| **View donations** | Lists donations toward your cost. Shown for Incomplete, Pre-Approved, and Approved. |
+| **Copy link** | Copies your fundraising page address. Says "Link copied." or "Unable to copy link." |
+| Next steps | The same messages as on Home, without the deposit and donation steps. When the message is "Complete missing information on your application and profile so you can submit your application.", the next line is "You do not have a role secured on this trip. Complete the application and profile required fields and submit the application." **Cancel App** stays beside that step. |
+| **Trip Funding** | Heading above **My fundraising page**, the same size as **Trip Leaders**. Shown for Incomplete, Pre-Approved, and Approved. |
+| Money | "$1,200.00 raised of $1,200.00. Balance $0.00." When the total is not known yet: "Donations $0.00. Balance not yet available." |
+| Funding alert | "You need to make your trip deposit of $*X*." or "You need more donations to cover your balance of $*X*." Under the money line, for Pre-Approved and Approved only. |
+| **Trip Leaders** | Photo, name, and email, under the trip name and dates. "No Trip Leader assigned" when there is none. |
+| **Download Trip Arrival Document** | Saves the trip's arrival information PDF to your device as "Trip Arrival - *trip name*.pdf". Shown above **Trip Leaders** once you're Approved and staff have added it. If it fails you see "Unable to download the Trip Arrival Document." |
 | **Arrive** / **Depart** | Your planned travel dates. An info icon explains when trip options or add-ons move them (for example "Trip option: Early arrival — 1 day before"). |
-### Trip financial info
 
-Shown for Incomplete, Pre-Approved, and Approved applications.
+**Update App**, **Make Donation**, **View donations**, and **Copy link** are on one row. A Declined or Cancelled application shows the summary only.
+
+### Trip costs
+
+Shown for Incomplete, Pre-Approved, and Approved applications. It starts closed. Open **Trip costs** to see the lines.
 
 | Line | Meaning |
 |------|---------|
-| Funding alert | "You need to make your trip deposit of $*X*." or "You need more donations to cover your balance of $*X*." (Pre-Approved and Approved only) |
 | **Trip cost** | Your participant cost. "Not yet available" until it's known. |
 | **Trip option: *description*** | The price change of each option you chose. |
 | **Cost adjustment** | Any other change staff made to your participant cost. |
 | **Add-on: *description*** | Each extra cost staff added, such as a visa fee. |
 | **Flight** | Your flight cost, when the organization books it. |
 | **Total trip cost** | The sum of the lines above. |
-| **Donations** | Donations toward your cost that have gone through (bank payments still Processing and Failed payments aren't included). **View donations** lists them; **Make Donation** (Pre-Approved or Approved) pays your own with Stripe. |
+| **Donations** | Donations toward your cost that have gone through (bank payments still Processing and Failed payments aren't included). |
 | **Balance** | Total trip cost minus donations, never below $0. |
 
 ### Room
 
-"Not yet available" until staff assign rooms. Then **Hotel**, **Room type** (King, Double, or Triple), **Roommates**, **Check-in**, and **Check-out**.
+On the trip summary, for Incomplete, Pre-Approved, and Approved applications. Until staff assign a room it says "Your room will appear here after staff assign it." After that it is one line: hotel, room type (King, Double, or Triple), roommates, and check-in to check-out.
 
 ### Flights
 
-"Not yet available" until staff enter your flights. You see the flights here, and there is no button to add or edit them.
-
-| Column | Shows |
-|--------|-------|
-| **Flight** | Arrival (to the trip) or Return (home). |
-| **Airline**, **Flight number** | The flight. |
-| **From**, **Departure** | Departure airport code, date, and time. |
-| **To**, **Arrival** | Arrival airport code, date, and time. |
+On the trip summary, for Incomplete, Pre-Approved, and Approved applications. Until staff enter your flights it says "Your flights will appear here after staff enter them." After that, **Arrival** lists each flight to the trip and **Return** lists each flight home, one line per flight: airline, flight number, departure airport, date, and time, then the arrival airport, date, and time. There is no button to add or edit them.
 
 ## Edit profile
 
@@ -537,7 +533,7 @@ The **View** dialog shows PDFs and pictures in the browser, with **Download** an
 
 ## Make Donation
 
-Opened from **Make Donation** in **Trip financial info** on My Trip. Pays a donation from you toward your own balance.
+Opened from **Make Donation** on **My Trip**. Pays a donation from you toward your own balance.
 
 | Field | Choices | Notes |
 |-------|---------|-------|

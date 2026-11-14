@@ -169,3 +169,39 @@ describe("Feature 29 — Rooming List", () => {
     expect(wrapper.vm.participants[0].roomType).toBe("Double");
   });
 });
+
+describe("Feature 137 — Trip View Flights and Room List", () => {
+  it("Back to trip returns to the trip page", async () => {
+    Utils.setStore("user", orgAdminUser);
+    TripServices.getRooming.mockResolvedValue({
+      data: {
+        trip: { id: 42, name: "Guatemala Clinic", startDate: "2026-07-01", endDate: "2026-07-14" },
+        roomingList: null,
+        rooms: [],
+        participants: [],
+      },
+    });
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: "/trips/:tripId", name: "tripView", component: Stub, props: true },
+        { path: "/trips/:tripId/rooming", name: "tripRooming", component: TripRoomingView, props: true },
+        { path: "/trips", name: "trips", component: Stub },
+      ],
+    });
+    await router.push({ name: "tripRooming", params: { tripId: "42" }, state: { from: "trip" } });
+    await router.isReady();
+    const { wrapper } = await mountWithPlugins(TripRoomingView, {
+      props: { tripId: "42" },
+      router,
+    });
+    await flushPromises();
+
+    const back = wrapper.findAll("button").find((button) => button.text().trim() === "Back to trip");
+    expect(back).toBeTruthy();
+    await back.trigger("click");
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe("tripView"));
+    expect(router.currentRoute.value.params.tripId).toBe("42");
+    wrapper.unmount();
+  });
+});
